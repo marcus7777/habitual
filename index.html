@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Habitual - GitHub-Style Habit Tracker</title>
+  <title>Habitual - GitHub-Style Habit Progression Engine</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -37,9 +37,14 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
           New Habit
         </button>
-        <button id="btn-demo-data" class="btn btn-ghost" title="Load sample habits & history">
+        <label class="btn btn-secondary btn-file-label" title="Import CSV file like hellohabit_habit_activity.csv">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+          Import CSV
+          <input type="file" id="input-header-csv" accept=".csv" class="hidden-file-input">
+        </label>
+        <button id="btn-demo-data" class="btn btn-ghost" title="Load hellohabit CSV data">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></svg>
-          Demo Data
+          Import hellohabit.csv
         </button>
         <button id="btn-data-modal" class="btn btn-ghost" title="Import / Export Data">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
@@ -47,6 +52,12 @@
         </button>
       </div>
     </header>
+
+    <!-- Alert / Toast Banner -->
+    <div id="toast-banner" class="toast-banner hidden">
+      <span id="toast-message">Data imported successfully!</span>
+      <button id="toast-close" class="btn-close-toast">&times;</button>
+    </div>
 
     <!-- Main Content Area -->
     <main class="main-content">
@@ -63,7 +74,10 @@
           <div class="habit-title-group">
             <div id="active-habit-color-indicator" class="color-badge green"></div>
             <div>
-              <h2 id="active-habit-title">All Habits Overview</h2>
+              <div class="habit-title-header">
+                <h2 id="active-habit-title">All Habits Overview</h2>
+                <span id="active-habit-type-badge" class="type-badge positive hidden">Build Habit</span>
+              </div>
               <p id="active-habit-desc" class="muted-text">Combined contribution heatmap for all tracked habits</p>
             </div>
           </div>
@@ -99,7 +113,7 @@
 
           <div class="stat-card">
             <div class="stat-header">
-              <span class="stat-label">Year Completions</span>
+              <span id="stat-completions-label" class="stat-label">Year Successes</span>
               <span class="stat-icon">⚡</span>
             </div>
             <div id="stat-total-completions" class="stat-value">0</div>
@@ -115,13 +129,27 @@
             <div id="stat-consistency-sub" class="stat-subtext">Days active this year</div>
           </div>
         </div>
+
+        <!-- Yearly Milestone Progress Bar -->
+        <div class="progression-banner-card">
+          <div class="progression-header">
+            <div>
+              <span class="progression-title">Yearly Journey & Progression</span>
+              <span id="progression-subtitle" class="progression-sub">See how far you've come across the entire year</span>
+            </div>
+            <div id="progression-percent" class="progression-percent-badge">0% Completed</div>
+          </div>
+          <div class="progression-bar-track">
+            <div id="progression-bar-fill" class="progression-bar-fill" style="width: 0%;"></div>
+          </div>
+        </div>
       </section>
 
-      <!-- Heatmap Main Container -->
+      <!-- Heatmap Main Container (7 tall x 52 wide Grid) -->
       <section class="heatmap-card">
         <div class="heatmap-card-header">
           <div class="heatmap-title-row">
-            <h3 id="heatmap-heading">Contribution Year Map</h3>
+            <h3 id="heatmap-heading">Contribution Year Map (7x52 Grid)</h3>
             <span id="heatmap-summary-count" class="badge-count">0 completions in 2026</span>
           </div>
           <div class="heatmap-controls">
@@ -131,7 +159,7 @@
           </div>
         </div>
 
-        <!-- The GitHub-Style Heatmap Component -->
+        <!-- The GitHub-Style Heatmap Component (7 rows x 52 columns) -->
         <div class="heatmap-wrapper">
           <div id="heatmap-grid-container" class="heatmap-grid-container">
             <!-- Dynamic Grid rendered by JS -->
@@ -140,10 +168,10 @@
 
         <div class="heatmap-footer">
           <div class="heatmap-hint">
-            <span>Click any day square to view or log completions</span>
+            <span>Click any square to view details, log progress or record notes</span>
           </div>
           <div class="heatmap-legend">
-            <span>Less</span>
+            <span id="legend-label-less">Less</span>
             <div class="legend-cells" id="legend-cells">
               <span class="legend-cell level-0"></span>
               <span class="legend-cell level-1"></span>
@@ -151,7 +179,7 @@
               <span class="legend-cell level-3"></span>
               <span class="legend-cell level-4"></span>
             </div>
-            <span>More</span>
+            <span id="legend-label-more">More</span>
           </div>
         </div>
       </section>
@@ -182,7 +210,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; GitHub-style habit progression engine &bull; Local Storage Powered</p>
+      <p>Habitual &bull; GitHub-style 7x52 habit progression engine &bull; Local Storage & CSV Import Supported</p>
     </footer>
   </div>
 
@@ -198,18 +226,43 @@
       </div>
       <form id="form-habit" class="modal-body">
         <input type="hidden" id="habit-id">
+
         <div class="form-group">
           <label for="habit-name">Habit Name <span class="required">*</span></label>
-          <input type="text" id="habit-name" class="text-input" placeholder="e.g. Daily Coding, Read 30 mins, Exercise" required>
+          <input type="text" id="habit-name" class="text-input" placeholder="e.g. Daily Coding, Gym, Days since Caffeine" required>
         </div>
+
+        <!-- Habit Type Selector: Positive (Build) vs Negative (Quit) -->
+        <div class="form-group">
+          <label>Habit Goal Type</label>
+          <div class="habit-type-selector">
+            <label class="type-card">
+              <input type="radio" name="habit-type" value="positive" checked>
+              <span class="type-card-content">
+                <span class="type-card-title">🟢 Build Habit (Positive Goal)</span>
+                <span class="type-card-desc">Mark success when you complete the activity (e.g. Gym, Read, Swim)</span>
+              </span>
+            </label>
+            <label class="type-card">
+              <input type="radio" name="habit-type" value="negative">
+              <span class="type-card-content">
+                <span class="type-card-title">🔴 Quit Habit (Negative Goal)</span>
+                <span class="type-card-desc">Mark success each day you avoid the bad habit (e.g. Quit Caffeine, No Junk Food)</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
         <div class="form-group">
           <label for="habit-description">Description / Goal</label>
-          <input type="text" id="habit-description" class="text-input" placeholder="e.g. Build projects for 1 hour every day">
+          <input type="text" id="habit-description" class="text-input" placeholder="e.g. Stay consistent and build a 100-day streak">
         </div>
+
         <div class="form-group">
           <label for="habit-category">Category</label>
           <input type="text" id="habit-category" class="text-input" placeholder="e.g. Health, Career, Learning, Mindfulness" value="General">
         </div>
+
         <div class="form-group">
           <label>Heatmap Color Theme</label>
           <div class="color-picker-grid">
@@ -237,13 +290,31 @@
               <input type="radio" name="habit-color" value="cyan">
               <span class="color-swatch theme-cyan" title="Cyan Spark"></span>
             </label>
+            <label class="color-option">
+              <input type="radio" name="habit-color" value="emerald">
+              <span class="color-swatch theme-emerald" title="Deep Emerald"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="habit-color" value="amber">
+              <span class="color-swatch theme-amber" title="Amber Gold"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="habit-color" value="indigo">
+              <span class="color-swatch theme-indigo" title="Deep Indigo"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="habit-color" value="rose">
+              <span class="color-swatch theme-rose" title="Rose Pink"></span>
+            </label>
           </div>
         </div>
+
         <div class="form-group">
           <label for="habit-daily-target">Daily Target Count</label>
           <input type="number" id="habit-daily-target" class="text-input" min="1" max="100" value="1">
           <small class="muted-text">How many times per day counts as 100% completed.</small>
         </div>
+
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" id="btn-cancel-habit">Cancel</button>
           <button type="submit" class="btn btn-primary">Save Habit</button>
@@ -256,7 +327,7 @@
   <div id="modal-log" class="modal-backdrop hidden">
     <div class="modal-dialog modal-dialog-sm">
       <div class="modal-header">
-        <h3 id="modal-log-title">Log Habit Activity</h3>
+        <h3 id="modal-log-title">Log Activity</h3>
         <button id="modal-log-close" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -269,18 +340,19 @@
           </select>
         </div>
 
-        <div class="form-group">
-          <label>Completion Count</label>
+        <div class="form-group" id="modal-log-count-container">
+          <label id="modal-log-count-label">Completion Count</label>
           <div class="counter-input-group">
             <button type="button" id="btn-counter-minus" class="btn btn-secondary counter-btn">&minus;</button>
             <input type="number" id="modal-log-count" class="text-input counter-val" min="0" max="99" value="1" aria-label="Completion Count">
             <button type="button" id="btn-counter-plus" class="btn btn-secondary counter-btn">&plus;</button>
           </div>
+          <small id="modal-log-count-hint" class="muted-text"></small>
         </div>
 
         <div class="form-group">
-          <label for="modal-log-note">Day Note / Journal (Optional)</label>
-          <textarea id="modal-log-note" class="textarea-input" rows="3" placeholder="Add a short note for this day (e.g. Read chapter 4, ran 5k)..."></textarea>
+          <label for="modal-log-note">Day Note / Milestone Entry (Optional)</label>
+          <textarea id="modal-log-note" class="textarea-input" rows="3" placeholder="Add a short note for this day..."></textarea>
         </div>
       </div>
       <div class="modal-footer">
@@ -290,19 +362,37 @@
     </div>
   </div>
 
-  <!-- MODAL: Data Management (Import / Export / Reset) -->
+  <!-- MODAL: Data Management (Import / Export / CSV) -->
   <div id="modal-data" class="modal-backdrop hidden">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>Data Management</h3>
+        <h3>Data Import & Management</h3>
         <button id="modal-data-close" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="muted-text">All your habit data is stored securely inside your browser's Local Storage.</p>
+        <p class="muted-text">Import CSV activity logs, backup your data, or restore JSON backups.</p>
+
+        <!-- CSV Import Card -->
+        <div class="data-option-card highlight-card">
+          <div class="data-option-info">
+            <h4>Import hellohabit_habit_activity.csv</h4>
+            <p class="muted-text">Load habit activity CSV directly from your local project or computer.</p>
+          </div>
+          <div class="data-card-actions">
+            <button id="btn-load-hellohabit-csv" class="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Load hellohabit.csv
+            </button>
+            <label class="btn btn-secondary btn-file-label">
+              Upload CSV
+              <input type="file" id="input-modal-csv" accept=".csv" class="hidden-file-input">
+            </label>
+          </div>
+        </div>
 
         <div class="data-option-card">
           <div class="data-option-info">
-            <h4>Export Data Backup</h4>
+            <h4>Export JSON Backup</h4>
             <p class="muted-text">Download all your habits and logs as a JSON file.</p>
           </div>
           <button id="btn-export-json" class="btn btn-secondary">
@@ -313,7 +403,7 @@
 
         <div class="data-option-card">
           <div class="data-option-info">
-            <h4>Import Data</h4>
+            <h4>Import JSON Backup</h4>
             <p class="muted-text">Restore habits and logs from a JSON backup file.</p>
           </div>
           <label class="btn btn-secondary btn-file-label">
