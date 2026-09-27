@@ -1,6 +1,6 @@
 /**
  * Habitual - GitHub-Style Habit Progression Engine
- * Vanilla JavaScript & LocalStorage Implementation
+ * Vanilla JavaScript & LocalStorage Implementation with CSV Import support
  */
 
 (function () {
@@ -16,14 +16,19 @@
     selectedYear: CURRENT_YEAR
   };
 
+  const COLOR_PALETTE = ['green', 'blue', 'purple', 'orange', 'crimson', 'cyan', 'emerald', 'amber', 'indigo', 'rose'];
+
   // --- INITIALIZATION ---
   document.addEventListener('DOMContentLoaded', () => {
     loadState();
-    if (state.habits.length === 0) {
-      seedDemoData(false); // Default seed if completely empty
-    }
     initUI();
-    renderAll();
+
+    // If state is empty, auto-load sample CSV data
+    if (state.habits.length === 0) {
+      loadHelloHabitCSV(false);
+    } else {
+      renderAll();
+    }
   });
 
   // --- STORAGE HELPERS ---
@@ -59,8 +64,48 @@
   }
 
   function parseDateKey(dateStr) {
+    if (!dateStr) return new Date();
     const parts = dateStr.split('-');
     return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  }
+
+  function parseFlexibleDate(str) {
+    if (!str) return null;
+    str = str.trim();
+
+    // Handle DD/MM/YYYY or D/M/YYYY
+    if (str.includes('/')) {
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        let p1 = parseInt(parts[0], 10);
+        let p2 = parseInt(parts[1], 10);
+        let p3 = parseInt(parts[2], 10);
+
+        // Standard DD/MM/YYYY
+        let day = p1;
+        let month = p2;
+        let year = p3;
+
+        // If year is 2-digit e.g. 26
+        if (year < 100) year += 2000;
+
+        if (day > 0 && day <= 31 && month > 0 && month <= 12 && year > 1900) {
+          const mStr = String(month).padStart(2, '0');
+          const dStr = String(day).padStart(2, '0');
+          return `${year}-${mStr}-${dStr}`;
+        }
+      }
+    }
+
+    // Handle YYYY-MM-DD
+    if (str.includes('-')) {
+      const parts = str.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return str;
+      }
+    }
+
+    return null;
   }
 
   function getTodayKey() {
@@ -77,6 +122,174 @@
     });
   }
 
+  // --- TOAST NOTIFICATIONS ---
+  function showToast(message) {
+    const banner = document.getElementById('toast-banner');
+    const msgEl = document.getElementById('toast-message');
+    if (banner && msgEl) {
+      msgEl.textContent = message;
+      banner.classList.remove('hidden');
+      setTimeout(() => {
+        banner.classList.add('hidden');
+      }, 5000);
+    }
+  }
+
+  // --- CSV PARSER & IMPORT ENGINE ---
+  function parseCSVAndImport(csvText, sourceName = 'CSV') {
+    if (!csvText) return;
+
+    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length < 2) {
+      alert('CSV file appears empty or missing rows.');
+      return;
+    }
+
+    // Parse CSV line helper (handles quoted fields)
+    function parseCSVLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"' || char === "'") {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    const header = parseCSVLine(lines[0]);
+    if (header.length < 2) {
+      alert('Invalid CSV header structure.');
+      return;
+    }
+
+    // Map column index to habit metadata
+    const colHabitMap = [];
+    let unnamedCount = 1;
+
+    for (let c = 1; c < header.length; c++) {
+      let rawName = header[c].trim();
+      if (!rawName) {
+        rawName = `Activity Column ${unnamedCount++}`;
+      }
+
+      // Check if habit already exists or create new
+      let existing = state.habits.find(h => h.name.toLowerCase() === rawName.toLowerCase());
+
+      if (!existing) {
+        // Auto-detect negative/quit habit from name keywords
+        const lowerName = rawName.toLowerCase();
+        const isNegative = lowerName.includes('days since') ||
+                           lowerName.includes('quit') ||
+                           lowerName.includes('stop') ||
+                           lowerName.startsWith('no ') ||
+                           lowerName.includes('avoid');
+
+        const themeColor = COLOR_PALETTE[state.habits.length % COLOR_PALETTE.length];
+
+        existing = {
+          id: 'habit_' + Date.now() + '_' + c,
+          name: rawName,
+          description: isNegative ? 'Quit / Break Habit goal' : 'Build habit progression',
+          category: isNegative ? 'Wellness' : 'General',
+          type: isNegative ? 'negative' : 'positive',
+          colorTheme: themeColor,
+          dailyTarget: 1,
+          createdAt: getTodayKey(),
+          logs: {}
+        };
+        state.habits.push(existing);
+      }
+
+      colHabitMap[c] = existing;
+    }
+
+    let logsImportedCount = 0;
+    const yearsFound = new Set();
+
+    // Parse data rows
+    for (let i = 1; i < lines.length; i++) {
+      const row = parseCSVLine(lines[i]);
+      if (row.length === 0) continue;
+
+      const rawDate = row[0];
+      const isoDate = parseFlexibleDate(rawDate);
+      if (!isoDate) continue;
+
+      const year = parseInt(isoDate.split('-')[0], 10);
+      if (year) yearsFound.add(year);
+
+      for (let c = 1; c < row.length; c++) {
+        const val = row[c] ? row[c].trim() : '';
+        const habit = colHabitMap[c];
+
+        if (!habit) continue;
+        if (!habit.logs) habit.logs = {};
+
+        if (val !== '') {
+          let count = 0;
+          let note = '';
+
+          if (!isNaN(val) && val !== '') {
+            count = parseInt(val, 10);
+          } else if (val.toLowerCase() === 'reset') {
+            count = 1;
+            note = 'Reset';
+          } else {
+            count = 1;
+            note = val;
+          }
+
+          if (count > 0 || note !== '') {
+            habit.logs[isoDate] = { count, note };
+            logsImportedCount++;
+          }
+        }
+      }
+    }
+
+    if (yearsFound.size > 0) {
+      const sortedYears = Array.from(yearsFound).sort((a, b) => b - a);
+      state.selectedYear = sortedYears[0];
+    }
+
+    saveState();
+    renderAll();
+
+    showToast(`Imported ${colHabitMap.length - 1} habits and ${logsImportedCount} check-in logs from ${sourceName}!`);
+  }
+
+  // --- AUTOMATIC DEMO / LOCAL CSV LOADER ---
+  function loadHelloHabitCSV(showConfirm = true) {
+    if (showConfirm && state.habits.length > 0) {
+      if (!confirm('Import hellohabit_habit_activity.csv into your tracker? Existing data will be preserved and merged.')) {
+        return;
+      }
+    }
+
+    fetch('hellohabit_habit_activity.csv')
+      .then(res => {
+        if (!res.ok) throw new Error('File not found');
+        return res.text();
+      })
+      .then(text => {
+        parseCSVAndImport(text, 'hellohabit_habit_activity.csv');
+      })
+      .catch(err => {
+        console.warn('Could not fetch hellohabit_habit_activity.csv directly, generating default demo data:', err);
+        seedDemoData(true);
+      });
+  }
+
   // --- DEMO DATA SEEDER ---
   function seedDemoData(force = true) {
     if (!force && state.habits.length > 0) return;
@@ -84,27 +297,18 @@
     const today = new Date();
     const currentYear = today.getFullYear();
 
-    // Helper to generate realistic contribution activity over the past ~280 days
     function generateLogs(frequencyRatio, maxCount = 2) {
       const logs = {};
       const startDate = new Date(currentYear, 0, 1);
       const endDate = new Date();
 
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        // Higher probability on weekdays or realistic random distribution
         if (Math.random() < frequencyRatio) {
           const dateKey = formatDateKey(d);
           const count = Math.floor(Math.random() * maxCount) + 1;
-          const notes = [
-            'Made solid progress today!',
-            '30 min focused session',
-            'Completed daily target',
-            'High energy day',
-            'Quick check-in'
-          ];
           logs[dateKey] = {
             count: count,
-            note: Math.random() < 0.25 ? notes[Math.floor(Math.random() * notes.length)] : ''
+            note: Math.random() < 0.2 ? '30 min focused session' : ''
           };
         }
       }
@@ -113,50 +317,58 @@
 
     state.habits = [
       {
-        id: 'habit_' + Date.now() + '_1',
-        name: 'Daily Code & Build',
-        description: 'Ship code or learn new tech for 1 hour every day',
-        category: 'Development',
-        colorTheme: 'green',
-        dailyTarget: 1,
-        createdAt: `${currentYear}-01-01`,
-        logs: generateLogs(0.72, 3)
-      },
-      {
-        id: 'habit_' + Date.now() + '_2',
-        name: 'Exercise & Workout',
-        description: '30 mins cardio, gym, or mobility routine',
+        id: 'habit_demo_1',
+        name: 'Gym & Workout 🏋️',
+        description: '30 mins cardio, gym, or strength routine',
         category: 'Health',
-        colorTheme: 'orange',
-        dailyTarget: 1,
-        createdAt: `${currentYear}-01-01`,
-        logs: generateLogs(0.55, 2)
-      },
-      {
-        id: 'habit_' + Date.now() + '_3',
-        name: 'Read Technical / Books',
-        description: 'Read 20 pages of a book or documentation',
-        category: 'Learning',
-        colorTheme: 'purple',
+        type: 'positive',
+        colorTheme: 'green',
         dailyTarget: 1,
         createdAt: `${currentYear}-01-01`,
         logs: generateLogs(0.65, 2)
       },
       {
-        id: 'habit_' + Date.now() + '_4',
-        name: 'Hydration (2L Water)',
-        description: 'Drink at least 2 liters of water daily',
-        category: 'Wellness',
-        colorTheme: 'cyan',
-        dailyTarget: 2,
+        id: 'habit_demo_2',
+        name: 'Create Art & Design 🎨',
+        description: 'Draw, design or practice creative work',
+        category: 'Creativity',
+        type: 'positive',
+        colorTheme: 'purple',
+        dailyTarget: 1,
         createdAt: `${currentYear}-01-01`,
-        logs: generateLogs(0.82, 2)
+        logs: generateLogs(0.5, 2)
+      },
+      {
+        id: 'habit_demo_3',
+        name: 'Swim (swims) 🏊',
+        description: 'Swimming laps or water exercise',
+        category: 'Health',
+        type: 'positive',
+        colorTheme: 'cyan',
+        dailyTarget: 1,
+        createdAt: `${currentYear}-01-01`,
+        logs: generateLogs(0.4, 2)
+      },
+      {
+        id: 'habit_demo_4',
+        name: 'Days since Caffeine ☕',
+        description: 'Track clean days without caffeine relapse',
+        category: 'Wellness',
+        type: 'negative',
+        colorTheme: 'amber',
+        dailyTarget: 1,
+        createdAt: `${currentYear}-01-01`,
+        logs: {
+          [`${currentYear}-02-15`]: { count: 1, note: 'Had 1 espresso' },
+          [`${currentYear}-05-10`]: { count: 1, note: 'Coffee relapse' }
+        }
       }
     ];
 
     state.selectedHabitId = 'all';
     state.selectedYear = currentYear;
     saveState();
+    renderAll();
   }
 
   // --- DOM ELEMENTS & EVENT LISTENERS ---
@@ -168,21 +380,29 @@
     elements.activeHabitTitle = document.getElementById('active-habit-title');
     elements.activeHabitDesc = document.getElementById('active-habit-desc');
     elements.activeHabitColorIndicator = document.getElementById('active-habit-color-indicator');
+    elements.activeHabitTypeBadge = document.getElementById('active-habit-type-badge');
     elements.activeHabitActions = document.getElementById('active-habit-actions');
 
     elements.statCurrentStreak = document.getElementById('stat-current-streak');
     elements.statStreakSub = document.getElementById('stat-streak-sub');
     elements.statLongestStreak = document.getElementById('stat-longest-streak');
     elements.statTotalCompletions = document.getElementById('stat-total-completions');
+    elements.statCompletionsLabel = document.getElementById('stat-completions-label');
     elements.statYearSub = document.getElementById('stat-year-sub');
     elements.statConsistency = document.getElementById('stat-consistency');
     elements.statConsistencySub = document.getElementById('stat-consistency-sub');
+
+    elements.progressionPercent = document.getElementById('progression-percent');
+    elements.progressionSubtitle = document.getElementById('progression-subtitle');
+    elements.progressionBarFill = document.getElementById('progression-bar-fill');
 
     elements.heatmapHeading = document.getElementById('heatmap-heading');
     elements.heatmapSummaryCount = document.getElementById('heatmap-summary-count');
     elements.yearSelector = document.getElementById('year-selector');
     elements.heatmapGridContainer = document.getElementById('heatmap-grid-container');
     elements.legendCells = document.getElementById('legend-cells');
+    elements.legendLabelLess = document.getElementById('legend-label-less');
+    elements.legendLabelMore = document.getElementById('legend-label-more');
 
     elements.todayDateDisplay = document.getElementById('today-date-display');
     elements.todayHabitsList = document.getElementById('today-habits-list');
@@ -203,7 +423,7 @@
 
     elements.modalData = document.getElementById('modal-data');
 
-    // Attach Event Handlers
+    // Attach Header Actions
     document.getElementById('btn-add-habit').addEventListener('click', () => openHabitModal());
     document.getElementById('btn-edit-habit').addEventListener('click', () => {
       if (state.selectedHabitId !== 'all') {
@@ -214,22 +434,46 @@
     document.getElementById('btn-delete-habit').addEventListener('click', () => deleteSelectedHabit());
 
     document.getElementById('btn-quick-log').addEventListener('click', () => openLogModal(getTodayKey()));
-    document.getElementById('btn-demo-data').addEventListener('click', () => {
-      if (confirm('Load sample habits and contribution history?')) {
-        seedDemoData(true);
-        renderAll();
-      }
-    });
+    document.getElementById('btn-demo-data').addEventListener('click', () => loadHelloHabitCSV(true));
 
     document.getElementById('btn-data-modal').addEventListener('click', () => {
       elements.modalData.classList.remove('hidden');
     });
 
-    // Close Modals
+    document.getElementById('btn-load-hellohabit-csv').addEventListener('click', () => {
+      elements.modalData.classList.add('hidden');
+      loadHelloHabitCSV(true);
+    });
+
+    // Close Modals & Toasts
     document.getElementById('modal-habit-close').addEventListener('click', () => elements.modalHabit.classList.add('hidden'));
     document.getElementById('btn-cancel-habit').addEventListener('click', () => elements.modalHabit.classList.add('hidden'));
     document.getElementById('modal-log-close').addEventListener('click', () => elements.modalLog.classList.add('hidden'));
     document.getElementById('modal-data-close').addEventListener('click', () => elements.modalData.classList.add('hidden'));
+
+    const toastCloseBtn = document.getElementById('toast-close');
+    if (toastCloseBtn) {
+      toastCloseBtn.addEventListener('click', () => {
+        document.getElementById('toast-banner').classList.add('hidden');
+      });
+    }
+
+    // CSV File Upload Listeners
+    const handleCSVUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        parseCSVAndImport(event.target.result, file.name);
+        e.target.value = '';
+        elements.modalData.classList.add('hidden');
+      };
+      reader.readAsText(file);
+    };
+
+    document.getElementById('input-header-csv').addEventListener('change', handleCSVUpload);
+    document.getElementById('input-modal-csv').addEventListener('change', handleCSVUpload);
 
     // Habit Form Submit
     elements.formHabit.addEventListener('submit', handleHabitFormSubmit);
@@ -255,7 +499,7 @@
       renderAll();
     });
 
-    // Export & Import Data
+    // Export & Import Data JSON
     document.getElementById('btn-export-json').addEventListener('click', exportDataJSON);
     document.getElementById('input-import-json').addEventListener('change', importDataJSON);
     document.getElementById('btn-reset-data').addEventListener('click', () => {
@@ -284,10 +528,30 @@
     renderRecentNotes();
   }
 
+  function getAvailableYears() {
+    const yearsSet = new Set();
+    yearsSet.add(CURRENT_YEAR);
+
+    state.habits.forEach(h => {
+      if (h.logs) {
+        Object.keys(h.logs).forEach(dateStr => {
+          const y = parseInt(dateStr.split('-')[0], 10);
+          if (y && !isNaN(y)) yearsSet.add(y);
+        });
+      }
+    });
+
+    return Array.from(yearsSet).sort((a, b) => b - a);
+  }
+
   function renderYearSelector() {
-    const years = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+    const years = getAvailableYears();
+    if (!years.includes(state.selectedYear)) {
+      state.selectedYear = years[0];
+    }
+
     elements.yearSelector.innerHTML = years
-      .map(y => `<option value="${y}" ${y === state.selectedYear ? 'selected' : ''}>${y}</option>`)
+      .map(y => `<option value="${y}" ${y === state.selectedYear ? 'selected' : ''}>Year ${y}</option>`)
       .join('');
   }
 
@@ -302,17 +566,18 @@
     state.habits.forEach(habit => {
       const isActive = habit.id === state.selectedHabitId;
       const themeVar = `var(--theme-${habit.colorTheme || 'green'}-4)`;
+      const icon = habit.type === 'negative' ? '🛑 ' : '';
+
       html += `
         <div class="habit-pill ${isActive ? 'active' : ''}" data-id="${habit.id}">
           <span class="pill-dot" style="background-color: ${themeVar};"></span>
-          ${escapeHTML(habit.name)}
+          ${icon}${escapeHTML(habit.name)}
         </div>
       `;
     });
 
     elements.habitPills.innerHTML = html;
 
-    // Attach click events
     elements.habitPills.querySelectorAll('.habit-pill').forEach(pill => {
       pill.addEventListener('click', () => {
         state.selectedHabitId = pill.dataset.id;
@@ -325,8 +590,9 @@
   function renderHabitDetails() {
     if (state.selectedHabitId === 'all') {
       elements.activeHabitTitle.textContent = 'All Habits Overview';
-      elements.activeHabitDesc.textContent = 'Combined contribution heat map for all tracked habits';
+      elements.activeHabitDesc.textContent = 'Combined contribution heatmap for all tracked habits';
       elements.activeHabitColorIndicator.className = 'color-badge green';
+      elements.activeHabitTypeBadge.classList.add('hidden');
       elements.activeHabitActions.classList.add('hidden');
     } else {
       const habit = state.habits.find(h => h.id === state.selectedHabitId);
@@ -334,12 +600,22 @@
         elements.activeHabitTitle.textContent = habit.name;
         elements.activeHabitDesc.textContent = habit.description || `Category: ${habit.category || 'General'}`;
         elements.activeHabitColorIndicator.className = `color-badge ${habit.colorTheme || 'green'}`;
+
+        elements.activeHabitTypeBadge.classList.remove('hidden');
+        if (habit.type === 'negative') {
+          elements.activeHabitTypeBadge.textContent = 'Quit Habit';
+          elements.activeHabitTypeBadge.className = 'type-badge negative';
+        } else {
+          elements.activeHabitTypeBadge.textContent = 'Build Habit';
+          elements.activeHabitTypeBadge.className = 'type-badge positive';
+        }
+
         elements.activeHabitActions.classList.remove('hidden');
       }
     }
   }
 
-  // --- STATS ENGINE ---
+  // --- STATS & STREAK CALCULATIONS ---
   function renderStats() {
     const habitOrAll = state.selectedHabitId === 'all'
       ? 'all'
@@ -354,14 +630,69 @@
     elements.statLongestStreak.textContent = `${streakData.longest} days`;
 
     elements.statTotalCompletions.textContent = yearStats.totalCount;
-    elements.statYearSub.textContent = `${yearStats.activeDays} active days in ${state.selectedYear}`;
+
+    if (habitOrAll !== 'all' && habitOrAll.type === 'negative') {
+      elements.statCompletionsLabel.textContent = 'Clean Days';
+      elements.statYearSub.textContent = `${yearStats.activeDays} clean days in ${state.selectedYear}`;
+    } else {
+      elements.statCompletionsLabel.textContent = 'Year Successes';
+      elements.statYearSub.textContent = `${yearStats.activeDays} active days in ${state.selectedYear}`;
+    }
 
     elements.statConsistency.textContent = `${yearStats.consistencyRate}%`;
     elements.statConsistencySub.textContent = `${yearStats.activeDays}/${yearStats.daysInYearSoFar} days active`;
+
+    // Progression Banner updates
+    elements.progressionPercent.textContent = `${yearStats.consistencyRate}% Completed`;
+    elements.progressionBarFill.style.width = `${yearStats.consistencyRate}%`;
+    elements.progressionSubtitle.textContent = `Achieved ${yearStats.activeDays} successful days out of ${yearStats.daysInYearSoFar} days in ${state.selectedYear}`;
   }
 
   function calculateStreaks(target) {
-    // Generate map of dates -> combined active boolean
+    const today = new Date();
+
+    if (target !== 'all' && target.type === 'negative') {
+      // Negative habit streak: consecutive clean days up to today
+      let currentStreak = 0;
+      let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      while (true) {
+        let key = formatDateKey(checkDate);
+        let log = target.logs ? target.logs[key] : null;
+
+        if (!log || log.count === 0) {
+          currentStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      // Longest clean streak in history
+      let longestStreak = 0;
+      let tempStreak = 0;
+
+      // Scan days from Jan 1 of earliest year up to today
+      const startYear = Math.min(...getAvailableYears());
+      let scan = new Date(startYear, 0, 1);
+
+      while (scan <= today) {
+        let key = formatDateKey(scan);
+        let log = target.logs ? target.logs[key] : null;
+
+        if (!log || log.count === 0) {
+          tempStreak++;
+          if (tempStreak > longestStreak) longestStreak = tempStreak;
+        } else {
+          tempStreak = 0;
+        }
+        scan.setDate(scan.getDate() + 1);
+      }
+
+      return { current: currentStreak, longest: longestStreak };
+    }
+
+    // Positive / All habits streak calculation
     const activeDateMap = {};
 
     if (target === 'all') {
@@ -382,12 +713,9 @@
       });
     }
 
-    // Current Streak calculation
     let currentStreak = 0;
-    const today = new Date();
     let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-    // Check today first. If today isn't logged yet, try yesterday to see if streak is preserved
     let todayKey = formatDateKey(checkDate);
     if (!activeDateMap[todayKey]) {
       checkDate.setDate(checkDate.getDate() - 1);
@@ -403,7 +731,6 @@
       }
     }
 
-    // Longest Streak calculation
     let longestStreak = 0;
     let tempStreak = 0;
     const allDates = Object.keys(activeDateMap).sort();
@@ -435,31 +762,48 @@
   function calculateYearStats(target, year) {
     let totalCount = 0;
     let activeDaysSet = new Set();
-
-    const processLog = (dateStr, logObj) => {
-      if (dateStr.startsWith(`${year}-`) && logObj && logObj.count > 0) {
-        totalCount += logObj.count;
-        activeDaysSet.add(dateStr);
-      }
-    };
-
-    if (target === 'all') {
-      state.habits.forEach(h => {
-        if (h.logs) {
-          Object.entries(h.logs).forEach(([dateStr, log]) => processLog(dateStr, log));
-        }
-      });
-    } else if (target && target.logs) {
-      Object.entries(target.logs).forEach(([dateStr, log]) => processLog(dateStr, log));
-    }
-
-    // Calculate days passed in selected year
     const now = new Date();
-    let daysInYearSoFar = 365;
+    const todayStr = getTodayKey();
 
+    let daysInYearSoFar = 365;
     if (year === now.getFullYear()) {
       const startOfYear = new Date(year, 0, 1);
       daysInYearSoFar = Math.max(1, Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24)) + 1);
+    }
+
+    if (target !== 'all' && target.type === 'negative') {
+      // Clean days in year for negative habit
+      const startOfYear = new Date(year, 0, 1);
+      const endYearDate = (year === now.getFullYear()) ? now : new Date(year, 11, 31);
+
+      let cur = new Date(startOfYear);
+      while (cur <= endYearDate) {
+        let key = formatDateKey(cur);
+        let log = target.logs ? target.logs[key] : null;
+
+        if (!log || log.count === 0) {
+          totalCount++;
+          activeDaysSet.add(key);
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else {
+      const processLog = (dateStr, logObj) => {
+        if (dateStr.startsWith(`${year}-`) && logObj && logObj.count > 0) {
+          totalCount += logObj.count;
+          activeDaysSet.add(dateStr);
+        }
+      };
+
+      if (target === 'all') {
+        state.habits.forEach(h => {
+          if (h.logs) {
+            Object.entries(h.logs).forEach(([dateStr, log]) => processLog(dateStr, log));
+          }
+        });
+      } else if (target && target.logs) {
+        Object.entries(target.logs).forEach(([dateStr, log]) => processLog(dateStr, log));
+      }
     }
 
     const activeDays = activeDaysSet.size;
@@ -476,31 +820,36 @@
       : state.habits.find(h => h.id === state.selectedHabitId);
 
     const theme = habit ? (habit.colorTheme || 'green') : 'green';
+    const isNegative = habit && habit.type === 'negative';
 
-    // Update heatmap header summary
     const stats = calculateYearStats(
       state.selectedHabitId === 'all' ? 'all' : habit,
       year
     );
 
-    elements.heatmapHeading.textContent = `${year} Contribution Year Map`;
-    elements.heatmapSummaryCount.textContent = `${stats.totalCount} completions in ${year}`;
+    elements.heatmapHeading.textContent = `${year} Habit Year Map (7x52 Grid)`;
 
-    // Update legend theme class
+    if (isNegative) {
+      elements.heatmapSummaryCount.textContent = `${stats.totalCount} clean days in ${year}`;
+      elements.legendLabelLess.textContent = 'Relapse';
+      elements.legendLabelMore.textContent = 'Clean Day';
+    } else {
+      elements.heatmapSummaryCount.textContent = `${stats.totalCount} completions in ${year}`;
+      elements.legendLabelLess.textContent = 'Less';
+      elements.legendLabelMore.textContent = 'More';
+    }
+
     elements.legendCells.className = `legend-cells theme-${theme}`;
 
-    // Build Heatmap Matrix (Jan 1 to Dec 31)
+    // Build Heatmap Matrix (Jan 1 to Dec 31 for selected year)
     const startDate = new Date(year, 0, 1);
-    // Align start to preceding Sunday
     const gridStart = new Date(startDate);
     gridStart.setDate(gridStart.getDate() - gridStart.getDay());
 
     const endDate = new Date(year, 11, 31);
-    // Align end to trailing Saturday
     const gridEnd = new Date(endDate);
     gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
 
-    // Collect dates into week columns
     const weekColumns = [];
     let currentWeek = [];
     let cur = new Date(gridStart);
@@ -514,7 +863,7 @@
       cur.setDate(cur.getDate() + 1);
     }
 
-    // Identify month label column offsets
+    // Month label positioning
     const monthLabels = [];
     let lastMonth = -1;
 
@@ -533,16 +882,13 @@
       });
     });
 
-    // Build HTML for Months Row
     let monthsHTML = '<div class="heatmap-months-row">';
     monthLabels.forEach(m => {
-      // 12px cell + 3px gap = 15px per column offset
       const leftOffset = m.colIndex * 15;
       monthsHTML += `<span class="month-label" style="left: ${leftOffset}px;">${m.name}</span>`;
     });
     monthsHTML += '</div>';
 
-    // Build HTML for Days & Weeks Grid
     let gridHTML = '<div class="heatmap-body">';
     gridHTML += `
       <div class="heatmap-days-col">
@@ -571,14 +917,16 @@
           return;
         }
 
-        const { count, level } = getCompletionDataForDate(dateStr, state.selectedHabitId);
+        const cellData = getCellDataForDate(dateStr, state.selectedHabitId, todayStr);
         const isToday = dateStr === todayStr;
 
         gridHTML += `
-          <div class="day-square level-${level} ${isToday ? 'today' : ''}"
+          <div class="day-square level-${cellData.level} ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''}"
                data-date="${dateStr}"
-               data-count="${count}"
-               data-level="${level}">
+               data-count="${cellData.count}"
+               data-level="${cellData.level}"
+               data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
+               data-note="${escapeHTML(cellData.note)}">
           </div>
         `;
       });
@@ -588,35 +936,63 @@
     gridHTML += '</div></div>';
 
     elements.heatmapGridContainer.innerHTML = monthsHTML + gridHTML;
-
-    // Attach Interactivity (Click & Hover Tooltips)
     attachHeatmapEvents();
   }
 
-  function getCompletionDataForDate(dateStr, habitId) {
-    let totalCount = 0;
-
+  function getCellDataForDate(dateStr, habitId, todayStr) {
     if (habitId === 'all') {
+      let totalCompletions = 0;
+      let hasRelapse = false;
+
       state.habits.forEach(h => {
-        if (h.logs && h.logs[dateStr]) {
-          totalCount += h.logs[dateStr].count || 0;
+        if (h.type === 'negative') {
+          if (h.logs && h.logs[dateStr] && h.logs[dateStr].count > 0) {
+            hasRelapse = true;
+          } else if (dateStr <= todayStr) {
+            totalCompletions += 1;
+          }
+        } else if (h.logs && h.logs[dateStr]) {
+          totalCompletions += h.logs[dateStr].count || 0;
         }
       });
-    } else {
-      const habit = state.habits.find(h => h.id === habitId);
-      if (habit && habit.logs && habit.logs[dateStr]) {
-        totalCount = habit.logs[dateStr].count || 0;
-      }
+
+      let level = 0;
+      if (totalCompletions === 0) level = 0;
+      else if (totalCompletions <= 2) level = 1;
+      else if (totalCompletions <= 4) level = 2;
+      else if (totalCompletions <= 6) level = 3;
+      else level = 4;
+
+      return { count: totalCompletions, level, isRelapse: false, note: '' };
     }
 
+    const habit = state.habits.find(h => h.id === habitId);
+    if (!habit) return { count: 0, level: 0, isRelapse: false, note: '' };
+
+    const log = (habit.logs && habit.logs[dateStr]) ? habit.logs[dateStr] : null;
+
+    if (habit.type === 'negative') {
+      if (log && log.count > 0) {
+        return { count: log.count, level: 0, isRelapse: true, note: log.note || 'Relapse logged' };
+      }
+      if (dateStr <= todayStr) {
+        return { count: 1, level: 3, isRelapse: false, note: 'Clean day' };
+      }
+      return { count: 0, level: 0, isRelapse: false, note: '' };
+    }
+
+    // Positive Habit
+    const count = log ? log.count : 0;
+    const note = log ? log.note : '';
     let level = 0;
-    if (totalCount === 0) level = 0;
-    else if (totalCount === 1) level = 1;
-    else if (totalCount === 2) level = 2;
-    else if (totalCount === 3) level = 3;
+
+    if (count === 0) level = 0;
+    else if (count === 1) level = 1;
+    else if (count === 2) level = 2;
+    else if (count === 3) level = 3;
     else level = 4;
 
-    return { count: totalCount, level };
+    return { count, level, isRelapse: false, note };
   }
 
   function attachHeatmapEvents() {
@@ -626,10 +1002,25 @@
       sq.addEventListener('mouseenter', (e) => {
         const dateStr = sq.dataset.date;
         const count = parseInt(sq.dataset.count, 10) || 0;
+        const isRelapse = sq.dataset.relapse === 'true';
+        const note = sq.dataset.note;
         const formattedDate = formatPrettyDate(dateStr);
-        const label = count === 1 ? '1 completion' : `${count} completions`;
 
-        elements.customTooltip.innerHTML = `<strong>${label}</strong> on ${formattedDate}`;
+        let text = '';
+        if (isRelapse) {
+          text = `⚠️ <strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
+        } else if (state.selectedHabitId !== 'all') {
+          const habit = state.habits.find(h => h.id === state.selectedHabitId);
+          if (habit && habit.type === 'negative') {
+            text = count > 0 ? `✨ <strong>Clean Day Success</strong> on ${formattedDate}` : `No data for ${formattedDate}`;
+          } else {
+            text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
+          }
+        } else {
+          text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
+        }
+
+        elements.customTooltip.innerHTML = text;
         elements.customTooltip.classList.remove('hidden');
 
         const rect = sq.getBoundingClientRect();
@@ -655,7 +1046,7 @@
     if (state.habits.length === 0) {
       elements.todayHabitsList.innerHTML = `
         <div class="empty-placeholder">
-          No habits created yet. Click "New Habit" above to start tracking!
+          No habits created yet. Click "New Habit" or "Import CSV" to start tracking!
         </div>
       `;
       return;
@@ -664,32 +1055,53 @@
     let html = '';
     state.habits.forEach(habit => {
       const todayLog = (habit.logs && habit.logs[todayKey]) ? habit.logs[todayKey] : { count: 0, note: '' };
-      const isDone = todayLog.count >= (habit.dailyTarget || 1);
       const themeVar = `var(--theme-${habit.colorTheme || 'green'}-4)`;
 
-      html += `
-        <div class="today-habit-item">
-          <div class="today-habit-info">
-            <span class="pill-dot" style="background-color: ${themeVar};"></span>
-            <div>
-              <div class="today-habit-name">${escapeHTML(habit.name)}</div>
-              <div class="today-habit-sub">
-                Target: ${habit.dailyTarget || 1}/day &bull; Current today: <strong>${todayLog.count}</strong>
+      if (habit.type === 'negative') {
+        const isClean = todayLog.count === 0;
+        html += `
+          <div class="today-habit-item">
+            <div class="today-habit-info">
+              <span class="pill-dot" style="background-color: ${themeVar};"></span>
+              <div>
+                <div class="today-habit-name">🛑 ${escapeHTML(habit.name)}</div>
+                <div class="today-habit-sub">
+                  Status today: <strong>${isClean ? '✨ Clean Day' : '⚠️ Relapse logged (' + todayLog.count + ')'}</strong>
+                </div>
               </div>
             </div>
+            <div class="today-habit-actions">
+              <button class="check-btn ${isClean ? 'clean-btn' : 'relapse-btn'}" data-habit-id="${habit.id}">
+                ${isClean ? '+ Log Relapse' : '✓ Reset to Clean'}
+              </button>
+            </div>
           </div>
-          <div class="today-habit-actions">
-            <button class="check-btn ${isDone ? 'completed' : ''}" data-habit-id="${habit.id}">
-              ${isDone ? '✓ Completed' : '+ Log Today'}
-            </button>
+        `;
+      } else {
+        const isDone = todayLog.count >= (habit.dailyTarget || 1);
+        html += `
+          <div class="today-habit-item">
+            <div class="today-habit-info">
+              <span class="pill-dot" style="background-color: ${themeVar};"></span>
+              <div>
+                <div class="today-habit-name">${escapeHTML(habit.name)}</div>
+                <div class="today-habit-sub">
+                  Target: ${habit.dailyTarget || 1}/day &bull; Current today: <strong>${todayLog.count}</strong>
+                </div>
+              </div>
+            </div>
+            <div class="today-habit-actions">
+              <button class="check-btn ${isDone ? 'completed' : ''}" data-habit-id="${habit.id}">
+                ${isDone ? '✓ Completed' : '+ Log Today'}
+              </button>
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      }
     });
 
     elements.todayHabitsList.innerHTML = html;
 
-    // Attach quick log button events
     elements.todayHabitsList.querySelectorAll('.check-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const habitId = btn.dataset.habitId;
@@ -708,12 +1120,18 @@
     const currentCount = habit.logs[todayKey] ? habit.logs[todayKey].count : 0;
     const currentNote = habit.logs[todayKey] ? habit.logs[todayKey].note : '';
 
-    if (currentCount >= (habit.dailyTarget || 1)) {
-      // Toggle off
-      habit.logs[todayKey] = { count: 0, note: currentNote };
+    if (habit.type === 'negative') {
+      if (currentCount === 0) {
+        habit.logs[todayKey] = { count: 1, note: currentNote || 'Relapse logged' };
+      } else {
+        habit.logs[todayKey] = { count: 0, note: '' };
+      }
     } else {
-      // Toggle on
-      habit.logs[todayKey] = { count: (habit.dailyTarget || 1), note: currentNote };
+      if (currentCount >= (habit.dailyTarget || 1)) {
+        habit.logs[todayKey] = { count: 0, note: currentNote };
+      } else {
+        habit.logs[todayKey] = { count: (habit.dailyTarget || 1), note: currentNote };
+      }
     }
 
     saveState();
@@ -731,14 +1149,14 @@
             recentNotes.push({
               habitName: habit.name,
               dateStr: dateStr,
-              note: log.note
+              note: log.note,
+              type: habit.type
             });
           }
         });
       }
     });
 
-    // Sort by date descending
     recentNotes.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
 
     if (recentNotes.length === 0) {
@@ -752,10 +1170,11 @@
 
     let html = '';
     recentNotes.slice(0, 10).forEach(item => {
+      const badge = item.type === 'negative' ? '🛑 ' : '';
       html += `
         <div class="note-item">
           <div class="note-header">
-            <span class="note-habit-tag">${escapeHTML(item.habitName)}</span>
+            <span class="note-habit-tag">${badge}${escapeHTML(item.habitName)}</span>
             <span>${formatPrettyDate(item.dateStr)}</span>
           </div>
           <div class="note-text">${escapeHTML(item.note)}</div>
@@ -771,14 +1190,17 @@
     elements.formHabit.reset();
 
     if (habitToEdit) {
-      elements.modalHabitTitle.textContent = 'Edit Habit';
+      elements.modalHabitTitle.textContent = 'Edit Habit Goal';
       document.getElementById('habit-id').value = habitToEdit.id;
       document.getElementById('habit-name').value = habitToEdit.name;
       document.getElementById('habit-description').value = habitToEdit.description || '';
       document.getElementById('habit-category').value = habitToEdit.category || 'General';
       document.getElementById('habit-daily-target').value = habitToEdit.dailyTarget || 1;
 
-      const colorRadio = elements.formHabit.querySelector(`input[name="habit-color"][value="${habitToEdit.colorTheme}"]`);
+      const typeRadio = elements.formHabit.querySelector(`input[name="habit-type"][value="${habitToEdit.type || 'positive'}"]`);
+      if (typeRadio) typeRadio.checked = true;
+
+      const colorRadio = elements.formHabit.querySelector(`input[name="habit-color"][value="${habitToEdit.colorTheme || 'green'}"]`);
       if (colorRadio) colorRadio.checked = true;
     } else {
       elements.modalHabitTitle.textContent = 'Create New Habit';
@@ -793,6 +1215,7 @@
 
     const id = document.getElementById('habit-id').value;
     const name = document.getElementById('habit-name').value.trim();
+    const type = elements.formHabit.querySelector('input[name="habit-type"]:checked').value;
     const description = document.getElementById('habit-description').value.trim();
     const category = document.getElementById('habit-category').value.trim();
     const dailyTarget = parseInt(document.getElementById('habit-daily-target').value, 10) || 1;
@@ -801,20 +1224,20 @@
     if (!name) return;
 
     if (id) {
-      // Edit existing
       const habit = state.habits.find(h => h.id === id);
       if (habit) {
         habit.name = name;
+        habit.type = type;
         habit.description = description;
         habit.category = category;
         habit.dailyTarget = dailyTarget;
         habit.colorTheme = colorTheme;
       }
     } else {
-      // Create new
       const newHabit = {
         id: 'habit_' + Date.now(),
         name,
+        type,
         description,
         category,
         colorTheme,
@@ -851,19 +1274,15 @@
     activeLogDateKey = dateStr;
     elements.modalLogDateStr.textContent = formatPrettyDate(dateStr);
 
-    // Populate habits dropdown
     elements.modalLogHabitSelect.innerHTML = state.habits
-      .map(h => `<option value="${h.id}">${escapeHTML(h.name)}</option>`)
+      .map(h => `<option value="${h.id}">${h.type === 'negative' ? '🛑 ' : ''}${escapeHTML(h.name)}</option>`)
       .join('');
 
-    // Pre-select current active habit if specific, else first habit
     if (state.selectedHabitId !== 'all') {
       elements.modalLogHabitSelect.value = state.selectedHabitId;
     }
 
     loadLogModalValues();
-
-    // Change value when habit selection inside modal changes
     elements.modalLogHabitSelect.onchange = () => loadLogModalValues();
 
     elements.modalLog.classList.remove('hidden');
@@ -873,11 +1292,22 @@
     const habitId = elements.modalLogHabitSelect.value;
     const habit = state.habits.find(h => h.id === habitId);
 
+    const countLabel = document.getElementById('modal-log-count-label');
+    const countHint = document.getElementById('modal-log-count-hint');
+
+    if (habit && habit.type === 'negative') {
+      countLabel.textContent = 'Relapse / Slip Count';
+      countHint.textContent = '0 = Clean Day Success. 1+ = Relapse/Slip occurred.';
+    } else {
+      countLabel.textContent = 'Completion Count';
+      countHint.textContent = 'Number of times target was completed on this day.';
+    }
+
     if (habit && habit.logs && habit.logs[activeLogDateKey]) {
       elements.modalLogCount.value = habit.logs[activeLogDateKey].count || 0;
       elements.modalLogNote.value = habit.logs[activeLogDateKey].note || '';
     } else {
-      elements.modalLogCount.value = 1;
+      elements.modalLogCount.value = (habit && habit.type === 'negative') ? 0 : 1;
       elements.modalLogNote.value = '';
     }
   }
@@ -887,7 +1317,6 @@
     const habit = state.habits.find(h => h.id === habitId);
 
     if (!habit) return;
-
     if (!habit.logs) habit.logs = {};
 
     const count = parseInt(elements.modalLogCount.value, 10) || 0;
@@ -935,7 +1364,7 @@
           state = imported;
           saveState();
           renderAll();
-          alert('Data imported successfully!');
+          showToast('JSON Backup restored successfully!');
           elements.modalData.classList.add('hidden');
         } else {
           alert('Invalid backup file format.');
