@@ -199,6 +199,19 @@
               <input type="radio" name="habit-color" value="rose">
               <span class="color-swatch theme-rose" title="Rose Pink"></span>
             </label>
+            <label class="color-option">
+              <input type="radio" name="habit-color" value="custom" id="radio-color-custom">
+              <span class="color-swatch theme-custom-swatch" id="custom-swatch-preview" title="Custom HEX Color">🎨</span>
+            </label>
+          </div>
+
+          <!-- Custom HEX Color Controls -->
+          <div class="custom-color-input-container" id="custom-color-container">
+            <div class="custom-color-picker-row">
+              <input type="color" id="habit-custom-color-picker" value="#39d353" class="color-picker-input" title="Choose color visually" aria-label="Custom Color Picker">
+              <input type="text" id="habit-custom-color-hex" class="text-input hex-input" placeholder="#39d353" value="#39d353" maxlength="7" spellcheck="false" aria-label="Custom HEX Code">
+              <span class="hex-label-hint">Custom HEX Code</span>
+            </div>
           </div>
         </div>
 
