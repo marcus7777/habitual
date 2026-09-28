@@ -1,6 +1,6 @@
 /**
  * Habitual - Minimalist Habit Progress Visualizer
- * Vanilla JavaScript & LocalStorage Implementation with 100% Fluid Grid, Striped Heatmap & Drag/Drop Reordering
+ * Vanilla JavaScript & LocalStorage Implementation with 100% Fluid Grid, Striped Heatmap & Touch Quick-Log
  */
 
 (function () {
@@ -15,6 +15,8 @@
     selectedHabitId: 'all',
     selectedYear: CURRENT_YEAR
   };
+
+  let activeCalendarHabit = null;
 
   const COLOR_PALETTE = ['green', 'blue', 'purple', 'orange', 'crimson', 'cyan', 'emerald', 'amber', 'indigo', 'rose'];
 
@@ -176,6 +178,12 @@
 
   function getTodayKey() {
     return formatDateKey(new Date());
+  }
+
+  function getDaysAgoKey(daysAgo) {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return formatDateKey(d);
   }
 
   function formatPrettyDate(dateStr) {
@@ -436,6 +444,7 @@
   const elements = {};
 
   function initUI() {
+    elements.quickLogButtons = document.getElementById('quick-log-buttons');
     elements.habitPills = document.getElementById('habit-pills');
     elements.activeHabitTitle = document.getElementById('active-habit-title');
     elements.activeHabitTypeBadge = document.getElementById('active-habit-type-badge');
@@ -453,6 +462,10 @@
     elements.customColorHex = document.getElementById('habit-custom-color-hex');
     elements.radioColorCustom = document.getElementById('radio-color-custom');
     elements.customSwatchPreview = document.getElementById('custom-swatch-preview');
+
+    elements.modalCalendarPicker = document.getElementById('modal-calendar-picker');
+    elements.modalCalendarBadge = document.getElementById('modal-calendar-habit-badge');
+    elements.calendarInputDate = document.getElementById('calendar-input-date');
 
     elements.modalLog = document.getElementById('modal-log');
     elements.modalLogDateStr = document.getElementById('modal-log-date-str');
@@ -480,7 +493,28 @@
       }
     });
 
-    // Action Handlers
+    // Calendar Pop-up Actions
+    document.getElementById('modal-calendar-close').addEventListener('click', () => elements.modalCalendarPicker.classList.add('hidden'));
+    document.getElementById('btn-calendar-cancel').addEventListener('click', () => elements.modalCalendarPicker.classList.add('hidden'));
+
+    document.querySelectorAll('.quick-date-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const daysAgo = parseInt(btn.dataset.daysAgo, 10) || 0;
+        const targetDateKey = getDaysAgoKey(daysAgo);
+        elements.modalCalendarPicker.classList.add('hidden');
+        openLogModal(targetDateKey, activeCalendarHabit ? activeCalendarHabit.id : null);
+      });
+    });
+
+    document.getElementById('btn-calendar-submit').addEventListener('click', () => {
+      const customDateVal = elements.calendarInputDate.value;
+      if (customDateVal) {
+        elements.modalCalendarPicker.classList.add('hidden');
+        openLogModal(customDateVal, activeCalendarHabit ? activeCalendarHabit.id : null);
+      }
+    });
+
+    // Header Actions
     document.getElementById('btn-add-habit').addEventListener('click', () => openHabitModal());
     document.getElementById('btn-edit-habit').addEventListener('click', () => {
       if (state.selectedHabitId !== 'all') {
@@ -568,10 +602,121 @@
 
   // --- RENDER ENGINE ---
   function renderAll() {
+    renderQuickLogButtons();
     renderYearSelector();
     renderHabitPills();
     renderControlsBar();
     renderHeatmapsGallery();
+  }
+
+  // --- QUICK LOG BUTTONS RENDERER (TOUCH + LONG PRESS) ---
+  function renderQuickLogButtons() {
+    elements.quickLogButtons.innerHTML = '';
+
+    if (state.habits.length === 0) {
+      elements.quickLogButtons.innerHTML = '<span class="muted-text">No habits created yet.</span>';
+      return;
+    }
+
+    const todayStr = getTodayKey();
+
+    state.habits.forEach(habit => {
+      const hexColor = getHabitHexColor(habit);
+      const todayLog = (habit.logs && habit.logs[todayStr]) ? habit.logs[todayStr] : null;
+
+      let isCompleted = false;
+      let labelText = '';
+
+      if (habit.type === 'negative') {
+        const isClean = !todayLog || todayLog.count === 0;
+        isCompleted = isClean;
+        labelText = isClean ? `✨ ${habit.name}` : `⚠️ Slip ${habit.name}`;
+      } else {
+        isCompleted = todayLog && todayLog.count >= (habit.dailyTarget || 1);
+        labelText = isCompleted ? `✓ ${habit.name}` : `+ ${habit.name}`;
+      }
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `quick-log-btn ${isCompleted ? 'completed' : ''}`;
+      btn.style.setProperty('--quick-btn-color', hexColor);
+      btn.innerHTML = escapeHTML(labelText);
+
+      attachQuickButtonHandlers(btn, habit);
+      elements.quickLogButtons.appendChild(btn);
+    });
+  }
+
+  function attachQuickButtonHandlers(btn, habit) {
+    let timer = null;
+    let isLongPress = false;
+    const LONG_PRESS_MS = 450;
+
+    const startPress = () => {
+      isLongPress = false;
+      btn.classList.add('holding');
+      timer = setTimeout(() => {
+        isLongPress = true;
+        btn.classList.remove('holding');
+        openCalendarModalForHabit(habit);
+      }, LONG_PRESS_MS);
+    };
+
+    const cancelPress = () => {
+      if (timer) clearTimeout(timer);
+      btn.classList.remove('holding');
+    };
+
+    btn.addEventListener('pointerdown', startPress);
+    btn.addEventListener('pointerup', (e) => {
+      cancelPress();
+      if (!isLongPress) {
+        toggleTodayHabit(habit.id);
+      }
+    });
+    btn.addEventListener('pointerleave', cancelPress);
+    btn.addEventListener('pointercancel', cancelPress);
+
+    btn.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      cancelPress();
+      openCalendarModalForHabit(habit);
+    });
+  }
+
+  function openCalendarModalForHabit(habit) {
+    activeCalendarHabit = habit;
+    elements.modalCalendarBadge.textContent = `${habit.type === 'negative' ? '🛑 ' : ''}${habit.name}`;
+    elements.calendarInputDate.value = getTodayKey();
+    elements.modalCalendarPicker.classList.remove('hidden');
+  }
+
+  function toggleTodayHabit(habitId) {
+    const habit = state.habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    const todayKey = getTodayKey();
+    if (!habit.logs) habit.logs = {};
+
+    const currentCount = habit.logs[todayKey] ? habit.logs[todayKey].count : 0;
+    const currentNote = habit.logs[todayKey] ? habit.logs[todayKey].note : '';
+
+    if (habit.type === 'negative') {
+      if (currentCount === 0) {
+        habit.logs[todayKey] = { count: 1, note: currentNote || 'Relapse logged' };
+      } else {
+        habit.logs[todayKey] = { count: 0, note: '' };
+      }
+    } else {
+      if (currentCount >= (habit.dailyTarget || 1)) {
+        habit.logs[todayKey] = { count: 0, note: currentNote };
+      } else {
+        habit.logs[todayKey] = { count: (habit.dailyTarget || 1), note: currentNote };
+      }
+    }
+
+    saveState();
+    renderAll();
   }
 
   function getAvailableYears() {
@@ -727,7 +872,6 @@
       ? 'background-color: #39d353;'
       : `background-color: ${getHabitHexColor(habit)};`;
 
-    // Header HTML with Drag Handle for individual habit cards
     const dragHandleHTML = !isAll ? `
       <div class="drag-handle" title="Drag to reorder habit">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
@@ -824,7 +968,6 @@
         const cellData = getCellData(dateStr, habit, todayStr);
         const isToday = dateStr === todayStr;
 
-        // Custom Striped Gradient for Combined Heatmap
         let squareStyle = '';
         let habitsDoneAttr = '';
 
