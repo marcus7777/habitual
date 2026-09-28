@@ -1,6 +1,6 @@
 /**
  * Habitual - Minimalist Habit Progress Visualizer
- * Vanilla JavaScript & LocalStorage Implementation with 100% Fluid Grid, Striped Heatmap & Touch Quick-Log
+ * Vanilla JavaScript & LocalStorage Implementation with Pure Heatmap Mode & Interactive Day Focus
  */
 
 (function () {
@@ -17,6 +17,7 @@
   };
 
   let activeCalendarHabit = null;
+  let focusedDayState = { habitId: null, dateStr: null };
 
   const COLOR_PALETTE = ['green', 'blue', 'purple', 'orange', 'crimson', 'cyan', 'emerald', 'amber', 'indigo', 'rose'];
 
@@ -439,11 +440,6 @@
   const elements = {};
 
   function initUI() {
-    elements.quickLogButtons = document.getElementById('quick-log-buttons');
-    elements.habitPills = document.getElementById('habit-pills');
-    elements.activeHabitTitle = document.getElementById('active-habit-title');
-    elements.activeHabitTypeBadge = document.getElementById('active-habit-type-badge');
-    elements.activeHabitActions = document.getElementById('active-habit-actions');
     elements.yearSelector = document.getElementById('year-selector');
     elements.heatmapsGallery = document.getElementById('heatmaps-gallery');
     elements.customTooltip = document.getElementById('custom-tooltip');
@@ -521,7 +517,7 @@
       });
 
       document.addEventListener('click', (e) => {
-        if (!elements.headerMenuContent.classList.contains('hidden') && !e.target.closest('.header-menu-dropdown')) {
+        if (elements.headerMenuContent && !elements.headerMenuContent.classList.contains('hidden') && !e.target.closest('.header-menu-dropdown')) {
           elements.headerMenuContent.classList.add('hidden');
           elements.btnHeaderMenu.setAttribute('aria-expanded', 'false');
         }
@@ -552,15 +548,6 @@
         elements.modalData.classList.remove('hidden');
       });
     }
-
-    // Active Habit Controls
-    document.getElementById('btn-edit-habit').addEventListener('click', () => {
-      if (state.selectedHabitId !== 'all') {
-        const habit = state.habits.find(h => h.id === state.selectedHabitId);
-        if (habit) openHabitModal(habit);
-      }
-    });
-    document.getElementById('btn-delete-habit').addEventListener('click', () => deleteSelectedHabit());
 
     // Close Modals
     document.getElementById('modal-habit-close').addEventListener('click', () => elements.modalHabit.classList.add('hidden'));
@@ -624,120 +611,43 @@
         elements.modalData.classList.add('hidden');
       }
     });
+
+    // Dismiss Focused Card Details when clicking outside
+    document.addEventListener('click', (e) => {
+      if (focusedDayState.dateStr && !e.target.closest('.heatmap-card') && !e.target.closest('.modal-backdrop')) {
+        focusedDayState = { habitId: null, dateStr: null };
+        renderAll();
+      }
+    });
   }
 
   // --- RENDER ENGINE ---
   function renderAll() {
-    renderQuickLogButtons();
     renderYearSelector();
-    renderHabitPills();
-    renderControlsBar();
     renderHeatmapsGallery();
   }
 
-  // --- QUICK LOG BUTTONS RENDERER (TOUCH + LONG PRESS) ---
-  function renderQuickLogButtons() {
-    elements.quickLogButtons.innerHTML = '';
-
-    if (state.habits.length === 0) {
-      elements.quickLogButtons.innerHTML = '<span class="muted-text">No habits created yet.</span>';
-      return;
-    }
-
-    const todayStr = getTodayKey();
-
-    state.habits.forEach(habit => {
-      const hexColor = getHabitHexColor(habit);
-      const todayLog = (habit.logs && habit.logs[todayStr]) ? habit.logs[todayStr] : null;
-
-      let isCompleted = false;
-      let labelText = '';
-
-      if (habit.type === 'negative') {
-        const isClean = !todayLog || todayLog.count === 0;
-        isCompleted = isClean;
-        labelText = isClean ? `✨ ${habit.name}` : `⚠️ Slip ${habit.name}`;
-      } else {
-        isCompleted = todayLog && todayLog.count >= (habit.dailyTarget || 1);
-        labelText = isCompleted ? `✓ ${habit.name}` : `+ ${habit.name}`;
-      }
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `quick-log-btn ${isCompleted ? 'completed' : ''}`;
-      btn.style.setProperty('--quick-btn-color', hexColor);
-      btn.innerHTML = escapeHTML(labelText);
-
-      attachQuickButtonHandlers(btn, habit);
-      elements.quickLogButtons.appendChild(btn);
-    });
-  }
-
-  function attachQuickButtonHandlers(btn, habit) {
-    let timer = null;
-    let isLongPress = false;
-    const LONG_PRESS_MS = 450;
-
-    const startPress = () => {
-      isLongPress = false;
-      btn.classList.add('holding');
-      timer = setTimeout(() => {
-        isLongPress = true;
-        btn.classList.remove('holding');
-        openCalendarModalForHabit(habit);
-      }, LONG_PRESS_MS);
-    };
-
-    const cancelPress = () => {
-      if (timer) clearTimeout(timer);
-      btn.classList.remove('holding');
-    };
-
-    btn.addEventListener('pointerdown', startPress);
-    btn.addEventListener('pointerup', (e) => {
-      cancelPress();
-      if (!isLongPress) {
-        toggleTodayHabit(habit.id);
-      }
-    });
-    btn.addEventListener('pointerleave', cancelPress);
-    btn.addEventListener('pointercancel', cancelPress);
-
-    btn.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      cancelPress();
-      openCalendarModalForHabit(habit);
-    });
-  }
-
-  function openCalendarModalForHabit(habit) {
-    activeCalendarHabit = habit;
-    elements.modalCalendarBadge.textContent = `${habit.type === 'negative' ? '🛑 ' : ''}${habit.name}`;
-    elements.calendarInputDate.value = getTodayKey();
-    elements.modalCalendarPicker.classList.remove('hidden');
-  }
-
-  function toggleTodayHabit(habitId) {
+  function toggleHabitForDate(habitId, dateKey) {
     const habit = state.habits.find(h => h.id === habitId);
     if (!habit) return;
 
-    const todayKey = getTodayKey();
     if (!habit.logs) habit.logs = {};
 
-    const currentCount = habit.logs[todayKey] ? habit.logs[todayKey].count : 0;
-    const currentNote = habit.logs[todayKey] ? habit.logs[todayKey].note : '';
+    const currentLog = habit.logs[dateKey];
+    const currentCount = currentLog ? currentLog.count : 0;
+    const currentNote = currentLog ? currentLog.note : '';
 
     if (habit.type === 'negative') {
       if (currentCount === 0) {
-        habit.logs[todayKey] = { count: 1, note: currentNote || 'Relapse logged' };
+        habit.logs[dateKey] = { count: 1, note: currentNote || 'Relapse logged' };
       } else {
-        habit.logs[todayKey] = { count: 0, note: '' };
+        habit.logs[dateKey] = { count: 0, note: '' };
       }
     } else {
       if (currentCount >= (habit.dailyTarget || 1)) {
-        habit.logs[todayKey] = { count: 0, note: currentNote };
+        habit.logs[dateKey] = { count: 0, note: currentNote };
       } else {
-        habit.logs[todayKey] = { count: (habit.dailyTarget || 1), note: currentNote };
+        habit.logs[dateKey] = { count: (habit.dailyTarget || 1), note: currentNote };
       }
     }
 
@@ -772,92 +682,27 @@
       .join('');
   }
 
-  function renderHabitPills() {
-    let html = `
-      <div class="habit-pill ${state.selectedHabitId === 'all' ? 'active' : ''}" data-id="all">
-        <span class="pill-dot" style="background-color: var(--accent-green);"></span>
-        All Habits Overview
-      </div>
-    `;
-
-    state.habits.forEach(habit => {
-      const isActive = habit.id === state.selectedHabitId;
-      const themeColor = getHabitHexColor(habit);
-      const icon = habit.type === 'negative' ? '🛑 ' : '';
-
-      html += `
-        <div class="habit-pill ${isActive ? 'active' : ''}" data-id="${habit.id}">
-          <span class="pill-dot" style="background-color: ${themeColor};"></span>
-          ${icon}${escapeHTML(habit.name)}
-        </div>
-      `;
-    });
-
-    elements.habitPills.innerHTML = html;
-
-    elements.habitPills.querySelectorAll('.habit-pill').forEach(pill => {
-      pill.addEventListener('click', () => {
-        state.selectedHabitId = pill.dataset.id;
-        saveState();
-        renderAll();
-      });
-    });
-  }
-
-  function renderControlsBar() {
-    if (state.selectedHabitId === 'all') {
-      elements.activeHabitTitle.textContent = 'All Habits Overview';
-      elements.activeHabitTypeBadge.classList.add('hidden');
-      elements.activeHabitActions.classList.add('hidden');
-    } else {
-      const habit = state.habits.find(h => h.id === state.selectedHabitId);
-      if (habit) {
-        elements.activeHabitTitle.textContent = habit.name;
-        elements.activeHabitTypeBadge.classList.remove('hidden');
-
-        if (habit.type === 'negative') {
-          elements.activeHabitTypeBadge.textContent = 'Quit Habit';
-          elements.activeHabitTypeBadge.className = 'type-badge negative';
-        } else {
-          elements.activeHabitTypeBadge.textContent = 'Build Habit';
-          elements.activeHabitTypeBadge.className = 'type-badge positive';
-        }
-
-        elements.activeHabitActions.classList.remove('hidden');
-      }
-    }
-  }
-
-  // --- HEATMAP GALLERY RENDERER & STRIPED MULTI-COLOR GENERATOR ---
+  // --- HEATMAP GALLERY RENDERER & CONTEXTUAL DAY FOCUS ---
   function renderHeatmapsGallery() {
     elements.heatmapsGallery.innerHTML = '';
 
     if (state.habits.length === 0) {
       elements.heatmapsGallery.innerHTML = `
         <div class="empty-placeholder">
-          No habits created yet. Click "+ New Habit" or "Import CSV" to start!
+          No habits created yet. Click "+ New Habit" or "Import CSV" in the Menu to start!
         </div>
       `;
       return;
     }
 
-    if (state.selectedHabitId === 'all') {
-      // 1. Combined Overview Heatmap
-      const combinedCard = buildHeatmapCard(null, state.selectedYear);
-      elements.heatmapsGallery.appendChild(combinedCard);
+    // Always render Combined Heatmap first, then individual habits
+    const combinedCard = buildHeatmapCard(null, state.selectedYear);
+    elements.heatmapsGallery.appendChild(combinedCard);
 
-      // 2. Individual Heatmaps for all habits
-      state.habits.forEach(habit => {
-        const habitCard = buildHeatmapCard(habit, state.selectedYear);
-        elements.heatmapsGallery.appendChild(habitCard);
-      });
-    } else {
-      const habit = state.habits.find(h => h.id === state.selectedHabitId);
-      if (habit) {
-        const card = buildHeatmapCard(habit, state.selectedYear);
-        elements.heatmapsGallery.appendChild(card);
-      }
-    }
+    state.habits.forEach(habit => {
+      const habitCard = buildHeatmapCard(habit, state.selectedYear);
+      elements.heatmapsGallery.appendChild(habitCard);
+    });
 
     attachHeatmapSquareEvents();
     attachCardDragAndDropHandlers();
@@ -866,15 +711,19 @@
   function buildHeatmapCard(habitOrNull, year) {
     const isAll = habitOrNull === null;
     const habit = habitOrNull;
+    const cardHabitId = isAll ? 'all' : habit.id;
+
     const isCustomHex = habit && habit.colorTheme && habit.colorTheme.startsWith('#');
     const theme = isAll ? 'green' : (isCustomHex ? 'custom' : (habit.colorTheme || 'green'));
     const isNegative = habit && habit.type === 'negative';
+
+    const isCardFocused = focusedDayState.habitId === cardHabitId && focusedDayState.dateStr;
 
     const streakData = calculateStreakForTarget(isAll ? 'all' : habit);
     const stats = calculateYearStatsForTarget(isAll ? 'all' : habit, year);
 
     const card = document.createElement('div');
-    card.className = `heatmap-card theme-${theme} ${isAll ? '' : 'draggable-card'}`;
+    card.className = `heatmap-card theme-${theme} ${isAll ? '' : 'draggable-card'} ${isCardFocused ? 'focused' : ''}`;
 
     if (!isAll) {
       card.setAttribute('draggable', 'true');
@@ -917,6 +766,79 @@
         </div>
       </div>
     `;
+
+    // Contextual Quick-Add Toolbar for Tapped Day
+    let focusedToolbarHTML = '';
+    if (isCardFocused && focusedDayState.dateStr) {
+      const focusDateKey = focusedDayState.dateStr;
+      const prettyDate = formatPrettyDate(focusDateKey);
+
+      let actionButtonsHTML = '';
+
+      if (isAll) {
+        // Combined Heatmap -> render Quick-Add buttons for ALL habits on tapped date!
+        state.habits.forEach(h => {
+          const hex = getHabitHexColor(h);
+          const log = h.logs ? h.logs[focusDateKey] : null;
+
+          let isDone = false;
+          let labelText = '';
+
+          if (h.type === 'negative') {
+            const isClean = !log || log.count === 0;
+            isDone = isClean;
+            labelText = isClean ? `✨ ${h.name}` : `⚠️ Slip ${h.name}`;
+          } else {
+            isDone = log && log.count >= (h.dailyTarget || 1);
+            labelText = isDone ? `✓ ${h.name}` : `+ ${h.name}`;
+          }
+
+          actionButtonsHTML += `
+            <button type="button" class="btn btn-secondary quick-log-btn ${isDone ? 'completed' : ''}"
+                    style="--quick-btn-color: ${hex};"
+                    data-action-habit-id="${h.id}"
+                    data-action-date-key="${focusDateKey}">
+              ${escapeHTML(labelText)}
+            </button>
+          `;
+        });
+      } else if (habit) {
+        // Particular Habit -> render Quick-Add button for THAT habit on tapped date!
+        const hex = getHabitHexColor(habit);
+        const log = habit.logs ? habit.logs[focusDateKey] : null;
+
+        let isDone = false;
+        let labelText = '';
+
+        if (habit.type === 'negative') {
+          const isClean = !log || log.count === 0;
+          isDone = isClean;
+          labelText = isClean ? `✨ ${habit.name}` : `⚠️ Slip ${habit.name}`;
+        } else {
+          isDone = log && log.count >= (habit.dailyTarget || 1);
+          labelText = isDone ? `✓ ${habit.name}` : `+ ${habit.name}`;
+        }
+
+        actionButtonsHTML += `
+          <button type="button" class="btn btn-secondary quick-log-btn ${isDone ? 'completed' : ''}"
+                  style="--quick-btn-color: ${hex};"
+                  data-action-habit-id="${habit.id}"
+                  data-action-date-key="${focusDateKey}">
+            ${escapeHTML(labelText)}
+          </button>
+        `;
+      }
+
+      focusedToolbarHTML = `
+        <div class="focused-day-toolbar">
+          <div class="focused-date-title">📅 ${prettyDate}</div>
+          <div class="focused-toolbar-actions">
+            ${actionButtonsHTML}
+            <button type="button" class="btn btn-ghost btn-close-toolbar" id="btn-close-focused-toolbar" title="Collapse details">&times; Close</button>
+          </div>
+        </div>
+      `;
+    }
 
     // 100% Fluid 7x52 Grid Matrix
     const startDate = new Date(year, 0, 1);
@@ -1022,7 +944,7 @@
           <div class="day-square level-${cellData.level} ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''}"
                style="${squareStyle}"
                data-date="${dateStr}"
-               data-habit-id="${habit ? habit.id : 'all'}"
+               data-habit-id="${cardHabitId}"
                data-count="${cellData.count}"
                data-level="${cellData.level}"
                data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
@@ -1056,7 +978,7 @@
       </div>
     `;
 
-    card.innerHTML = headerHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${monthsHTML}${gridHTML}</div></div>` + footerHTML;
+    card.innerHTML = headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${monthsHTML}${gridHTML}</div></div>` + footerHTML;
     return card;
   }
 
@@ -1267,11 +1189,43 @@
         elements.customTooltip.classList.add('hidden');
       });
 
-      sq.addEventListener('click', () => {
+      sq.addEventListener('click', (e) => {
+        e.stopPropagation();
         elements.customTooltip.classList.add('hidden');
-        openLogModal(sq.dataset.date, sq.dataset.habitId);
+
+        const dateStr = sq.dataset.date;
+        const habitId = sq.dataset.habitId;
+
+        if (focusedDayState.habitId === habitId && focusedDayState.dateStr === dateStr) {
+          focusedDayState = { habitId: null, dateStr: null };
+        } else {
+          focusedDayState = { habitId: habitId, dateStr: dateStr };
+        }
+
+        renderAll();
       });
     });
+
+    // Quick-Add Action Buttons in Focused Day Toolbar
+    const actionButtons = elements.heatmapsGallery.querySelectorAll('[data-action-habit-id]');
+    actionButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const hId = btn.dataset.actionHabitId;
+        const dateKey = btn.dataset.actionDateKey;
+
+        toggleHabitForDate(hId, dateKey);
+      });
+    });
+
+    const closeToolbarBtn = elements.heatmapsGallery.querySelector('#btn-close-focused-toolbar');
+    if (closeToolbarBtn) {
+      closeToolbarBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        focusedDayState = { habitId: null, dateStr: null };
+        renderAll();
+      });
+    }
   }
 
   // --- HTML5 DRAG & DROP REORDERING HANDLER ---
