@@ -89,12 +89,7 @@
     loadState();
     initUI();
     registerServiceWorker();
-
-    if (state.habits.length === 0) {
-      loadHelloHabitCSV(false);
-    } else {
-      renderAll();
-    }
+    renderAll();
   });
 
   // --- PWA SERVICE WORKER ---
@@ -514,8 +509,51 @@
       }
     });
 
-    // Header Actions
-    document.getElementById('btn-add-habit').addEventListener('click', () => openHabitModal());
+    // Header Dropdown Menu Toggle
+    elements.btnHeaderMenu = document.getElementById('btn-header-menu');
+    elements.headerMenuContent = document.getElementById('header-menu-content');
+
+    if (elements.btnHeaderMenu && elements.headerMenuContent) {
+      elements.btnHeaderMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = elements.headerMenuContent.classList.toggle('hidden');
+        elements.btnHeaderMenu.setAttribute('aria-expanded', !isHidden);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!elements.headerMenuContent.classList.contains('hidden') && !e.target.closest('.header-menu-dropdown')) {
+          elements.headerMenuContent.classList.add('hidden');
+          elements.btnHeaderMenu.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // Header Menu Action Handlers
+    const menuAddHabit = document.getElementById('menu-btn-add-habit');
+    if (menuAddHabit) {
+      menuAddHabit.addEventListener('click', () => {
+        if (elements.headerMenuContent) elements.headerMenuContent.classList.add('hidden');
+        openHabitModal();
+      });
+    }
+
+    const menuQuickLog = document.getElementById('menu-btn-quick-log');
+    if (menuQuickLog) {
+      menuQuickLog.addEventListener('click', () => {
+        if (elements.headerMenuContent) elements.headerMenuContent.classList.add('hidden');
+        openLogModal(getTodayKey());
+      });
+    }
+
+    const menuDataModal = document.getElementById('menu-btn-data-modal');
+    if (menuDataModal) {
+      menuDataModal.addEventListener('click', () => {
+        if (elements.headerMenuContent) elements.headerMenuContent.classList.add('hidden');
+        elements.modalData.classList.remove('hidden');
+      });
+    }
+
+    // Active Habit Controls
     document.getElementById('btn-edit-habit').addEventListener('click', () => {
       if (state.selectedHabitId !== 'all') {
         const habit = state.habits.find(h => h.id === state.selectedHabitId);
@@ -523,18 +561,6 @@
       }
     });
     document.getElementById('btn-delete-habit').addEventListener('click', () => deleteSelectedHabit());
-
-    document.getElementById('btn-quick-log').addEventListener('click', () => openLogModal(getTodayKey()));
-    document.getElementById('btn-demo-data').addEventListener('click', () => loadHelloHabitCSV(true));
-
-    document.getElementById('btn-data-modal').addEventListener('click', () => {
-      elements.modalData.classList.remove('hidden');
-    });
-
-    document.getElementById('btn-load-hellohabit-csv').addEventListener('click', () => {
-      elements.modalData.classList.add('hidden');
-      loadHelloHabitCSV(true);
-    });
 
     // Close Modals
     document.getElementById('modal-habit-close').addEventListener('click', () => elements.modalHabit.classList.add('hidden'));

@@ -37,26 +37,36 @@
         </div>
       </div>
 
+      <!-- Header Actions Dropdown Menu -->
       <div class="header-actions">
-        <button id="btn-quick-log" class="btn btn-secondary">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Quick Check-in
-        </button>
-        <button id="btn-add-habit" class="btn btn-primary">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          New Habit
-        </button>
-        <label class="btn btn-secondary btn-file-label" title="Import CSV file">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
-          Import CSV
-          <input type="file" id="input-header-csv" accept=".csv" class="hidden-file-input">
-        </label>
-        <button id="btn-demo-data" class="btn btn-ghost" title="Load hellohabit CSV data">
-          Import hellohabit.csv
-        </button>
-        <button id="btn-data-modal" class="btn btn-ghost" title="Data Settings">
-          Data
-        </button>
+        <div class="header-menu-dropdown">
+          <button id="btn-header-menu" class="btn btn-secondary dropdown-toggle" aria-expanded="false" title="Menu Options">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+            <span>Menu</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+
+          <div id="header-menu-content" class="dropdown-menu-content hidden">
+            <button id="menu-btn-add-habit" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              New Habit
+            </button>
+            <button id="menu-btn-quick-log" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Quick Check-in
+            </button>
+            <label class="dropdown-item btn-file-label" title="Import CSV file">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+              Import CSV
+              <input type="file" id="input-header-csv" accept=".csv" class="hidden-file-input">
+            </label>
+            <div class="dropdown-divider"></div>
+            <button id="menu-btn-data-modal" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              Data Management
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -120,6 +130,40 @@
 
   <!-- Custom Tooltip Element -->
   <div id="custom-tooltip" class="custom-tooltip hidden"></div>
+
+  <!-- MODAL: Calendar Date Selector Pop-up (Triggered by Long-Press) -->
+  <div id="modal-calendar-picker" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-dialog-sm">
+      <div class="modal-header">
+        <h3 id="modal-calendar-title">Select Date to Log</h3>
+        <button id="modal-calendar-close" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="calendar-modal-info">
+          <span id="modal-calendar-habit-badge" class="badge-count">Habit Name</span>
+          <p class="muted-text">Pick a past date or tap a quick option below:</p>
+        </div>
+
+        <!-- Quick Date Pills -->
+        <div class="quick-date-pills">
+          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="0">Today</button>
+          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="1">Yesterday</button>
+          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="2">2 Days Ago</button>
+          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="3">3 Days Ago</button>
+        </div>
+
+        <!-- Calendar Picker Input -->
+        <div class="form-group">
+          <label for="calendar-input-date">Custom Calendar Date</label>
+          <input type="date" id="calendar-input-date" class="text-input date-picker-input">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-calendar-cancel" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="btn-calendar-submit" class="btn btn-primary">Open Log Entry</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: Add / Edit Habit -->
   <div id="modal-habit" class="modal-backdrop hidden">
@@ -238,40 +282,6 @@
     </div>
   </div>
 
-  <!-- MODAL: Calendar Date Selector Pop-up (Triggered by Long-Press) -->
-  <div id="modal-calendar-picker" class="modal-backdrop hidden">
-    <div class="modal-dialog modal-dialog-sm">
-      <div class="modal-header">
-        <h3 id="modal-calendar-title">Select Date to Log</h3>
-        <button id="modal-calendar-close" class="btn-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="calendar-modal-info">
-          <span id="modal-calendar-habit-badge" class="badge-count">Habit Name</span>
-          <p class="muted-text">Pick a past date or tap a quick option below:</p>
-        </div>
-
-        <!-- Quick Date Pills -->
-        <div class="quick-date-pills">
-          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="0">Today</button>
-          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="1">Yesterday</button>
-          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="2">2 Days Ago</button>
-          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="3">3 Days Ago</button>
-        </div>
-
-        <!-- Calendar Picker Input -->
-        <div class="form-group">
-          <label for="calendar-input-date">Custom Calendar Date</label>
-          <input type="date" id="calendar-input-date" class="text-input date-picker-input">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="btn-calendar-cancel" class="btn btn-ghost">Cancel</button>
-        <button type="button" id="btn-calendar-submit" class="btn btn-primary">Open Log Entry</button>
-      </div>
-    </div>
-  </div>
-
   <!-- MODAL: Log Date / Cell Click -->
   <div id="modal-log" class="modal-backdrop hidden">
     <div class="modal-dialog modal-dialog-sm">
@@ -321,24 +331,19 @@
       <div class="modal-body">
         <div class="data-option-card highlight-card">
           <div class="data-option-info">
-            <h4>Import hellohabit_habit_activity.csv</h4>
-            <p class="muted-text">Load CSV activity logs directly into Habitual.</p>
+            <h4>Import CSV Activity File</h4>
+            <p class="muted-text">Upload your own CSV habit activity log file.</p>
           </div>
-          <div class="data-card-actions">
-            <button id="btn-load-hellohabit-csv" class="btn btn-primary">
-              Load hellohabit.csv
-            </button>
-            <label class="btn btn-secondary btn-file-label">
-              Upload CSV
-              <input type="file" id="input-modal-csv" accept=".csv" class="hidden-file-input">
-            </label>
-          </div>
+          <label class="btn btn-primary btn-file-label">
+            Upload CSV File
+            <input type="file" id="input-modal-csv" accept=".csv" class="hidden-file-input">
+          </label>
         </div>
 
         <div class="data-option-card">
           <div class="data-option-info">
             <h4>Export JSON Backup</h4>
-            <p class="muted-text">Download all habits and logs as a JSON file.</p>
+            <p class="muted-text">Download all habits and logs as a JSON backup file.</p>
           </div>
           <button id="btn-export-json" class="btn btn-secondary">
             Export JSON
