@@ -53,13 +53,20 @@
             </button>
             <button id="menu-btn-quick-log" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-              Quick Check-in
+              Quick Check-in Today
             </button>
             <label class="dropdown-item btn-file-label" title="Import CSV file">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
               Import CSV
               <input type="file" id="input-header-csv" accept=".csv" class="hidden-file-input">
             </label>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item-group">
+              <span class="dropdown-label">Select Year:</span>
+              <select id="year-selector" class="select-input" aria-label="Select Year">
+                <!-- Populated by JS -->
+              </select>
+            </div>
             <div class="dropdown-divider"></div>
             <button id="menu-btn-data-modal" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
@@ -76,49 +83,10 @@
       <button id="toast-close" class="btn-close-toast">&times;</button>
     </div>
 
-    <!-- Main Visual Content Area -->
+    <!-- Main Visual Content Area (Pure Heatmaps Gallery) -->
     <main class="main-content">
-      <!-- Quick Check-in Buttons Row (Touch Friendly) -->
-      <section class="quick-checkin-section">
-        <div class="quick-checkin-header">
-          <span class="quick-checkin-title">⚡ Quick Check-in <small class="muted-text">(Tap to log today &bull; Hold / right-click for calendar date)</small></span>
-        </div>
-        <div id="quick-log-buttons" class="quick-buttons-grid">
-          <!-- Populated by JS -->
-        </div>
-      </section>
-
-      <!-- Habit Filter Pills Bar -->
-      <section class="habit-bar-container">
-        <div id="habit-pills" class="habit-pills-scroll">
-          <!-- Populated by JS -->
-        </div>
-      </section>
-
-      <!-- Global Controls Row -->
-      <section class="controls-bar">
-        <div class="controls-left">
-          <h2 id="active-habit-title">All Habits Overview</h2>
-          <span id="active-habit-type-badge" class="type-badge positive hidden">Build Habit</span>
-        </div>
-        <div class="controls-right">
-          <div id="active-habit-actions" class="habit-card-actions hidden">
-            <button id="btn-edit-habit" class="btn btn-icon-ghost" title="Edit Habit">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-            <button id="btn-delete-habit" class="btn btn-icon-ghost text-danger" title="Delete Habit">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            </button>
-          </div>
-          <select id="year-selector" class="select-input" aria-label="Select Year">
-            <!-- Populated by JS -->
-          </select>
-        </div>
-      </section>
-
-      <!-- Dynamic Heatmaps Gallery (100% width) -->
       <section id="heatmaps-gallery" class="heatmaps-gallery">
-        <!-- Rendered by JS -->
+        <!-- Rendered dynamically by JS -->
       </section>
     </main>
 
@@ -272,6 +240,37 @@
         <div class="form-group">
           <label for="habit-daily-target">Daily Target Count</label>
           <input type="number" id="habit-daily-target" class="text-input" min="1" max="100" value="1">
+        </div>
+
+        <!-- Starting Point / History Backfill -->
+        <div class="form-group highlight-form-box" id="backfill-section">
+          <label class="checkbox-label">
+            <input type="checkbox" id="habit-enable-backfill">
+            <span><strong>Add Past History / Starting Point</strong></span>
+          </label>
+          <small class="muted-text">Fill out past heatmap activity so you don't start from a blank canvas.</small>
+
+          <div id="backfill-options-container" class="backfill-options-grid hidden">
+            <div class="form-group">
+              <label for="habit-history-duration">How long have you been doing this?</label>
+              <select id="habit-history-duration" class="select-input">
+                <option value="1_month" selected>Past 1 Month (30 days)</option>
+                <option value="3_months">Past 3 Months (90 days)</option>
+                <option value="6_months">Past 6 Months (180 days)</option>
+                <option value="year">Past 1 Year (365 days)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="habit-history-frequency">How regularly / frequently?</label>
+              <select id="habit-history-frequency" class="select-input">
+                <option value="daily">Every single day (100% daily)</option>
+                <option value="frequent" selected>Most days (~80% / 5-6 days a week)</option>
+                <option value="moderate">Regularly (~50% / 3-4 days a week)</option>
+                <option value="occasional">Occasionally (~25% / 1-2 days a week)</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
