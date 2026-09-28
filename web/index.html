@@ -68,6 +68,16 @@
 
     <!-- Main Visual Content Area -->
     <main class="main-content">
+      <!-- Quick Check-in Buttons Row (Touch Friendly) -->
+      <section class="quick-checkin-section">
+        <div class="quick-checkin-header">
+          <span class="quick-checkin-title">⚡ Quick Check-in <small class="muted-text">(Tap to log today &bull; Hold / right-click for calendar date)</small></span>
+        </div>
+        <div id="quick-log-buttons" class="quick-buttons-grid">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
       <!-- Habit Filter Pills Bar -->
       <section class="habit-bar-container">
         <div id="habit-pills" class="habit-pills-scroll">
@@ -225,6 +235,40 @@
           <button type="submit" class="btn btn-primary">Save Habit</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Calendar Date Selector Pop-up (Triggered by Long-Press) -->
+  <div id="modal-calendar-picker" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-dialog-sm">
+      <div class="modal-header">
+        <h3 id="modal-calendar-title">Select Date to Log</h3>
+        <button id="modal-calendar-close" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="calendar-modal-info">
+          <span id="modal-calendar-habit-badge" class="badge-count">Habit Name</span>
+          <p class="muted-text">Pick a past date or tap a quick option below:</p>
+        </div>
+
+        <!-- Quick Date Pills -->
+        <div class="quick-date-pills">
+          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="0">Today</button>
+          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="1">Yesterday</button>
+          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="2">2 Days Ago</button>
+          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="3">3 Days Ago</button>
+        </div>
+
+        <!-- Calendar Picker Input -->
+        <div class="form-group">
+          <label for="calendar-input-date">Custom Calendar Date</label>
+          <input type="date" id="calendar-input-date" class="text-input date-picker-input">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-calendar-cancel" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="btn-calendar-submit" class="btn btn-primary">Open Log Entry</button>
+      </div>
     </div>
   </div>
 
