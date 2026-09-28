@@ -178,6 +178,11 @@ body.dark-theme {
   box-shadow: 0 2px 8px rgba(46, 160, 67, 0.3);
 }
 
+.logo-emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
 .brand-text h1 {
   font-size: 1.3rem;
   font-weight: 700;

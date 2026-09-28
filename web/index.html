@@ -4,6 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habitual - Minimalist Habit Progress Visualizer</title>
+
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="theme-color" content="#0d1117">
+  <meta name="description" content="Minimalist 100% fluid GitHub-style habit progression visualizer">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Habitual">
+
+  <!-- Icons & Web Manifest -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Fonts & Styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -14,13 +28,8 @@
     <!-- Navigation Header -->
     <header class="app-header">
       <div class="header-brand">
-        <div class="logo-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-            <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-          </svg>
+        <div class="logo-icon" title="Habitual Visualizer">
+          <span class="logo-emoji">📊</span>
         </div>
         <div class="brand-text">
           <h1>Habitual</h1>
@@ -95,7 +104,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; Minimalist 100% width habit progression visualizer</p>
+      <p>Habitual &bull; Minimalist 100% width habit progression visualizer &bull; Offline PWA Enabled</p>
     </footer>
   </div>
 
