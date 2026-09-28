@@ -1,6 +1,6 @@
 /**
  * Habitual - Minimalist Habit Progress Visualizer
- * Vanilla JavaScript & LocalStorage Implementation with Pure Heatmap Mode, Interactive Day Focus & Starting History Backfill
+ * Vanilla JavaScript & LocalStorage Implementation with Pure Heatmap Mode & Interactive Day Focus
  */
 
 (function () {
@@ -38,47 +38,6 @@
     if (!habit || !habit.colorTheme) return PRESET_THEME_HEX.green;
     if (habit.colorTheme.startsWith('#')) return habit.colorTheme;
     return PRESET_THEME_HEX[habit.colorTheme] || PRESET_THEME_HEX.green;
-  }
-
-  // --- STARTING POINT HISTORY BACKFILL GENERATOR ---
-  function generateBackfillLogs(type, dailyTarget, durationOption, frequencyOption) {
-    const logs = {};
-    const today = new Date();
-
-    let days = 30;
-    if (durationOption === '3_months') days = 90;
-    else if (durationOption === '6_months') days = 180;
-    else if (durationOption === 'year') days = 365;
-
-    let prob = 0.8;
-    if (frequencyOption === 'daily') prob = 1.0;
-    else if (frequencyOption === 'frequent') prob = 0.8;
-    else if (frequencyOption === 'moderate') prob = 0.5;
-    else if (frequencyOption === 'occasional') prob = 0.25;
-
-    const startDate = new Date();
-    startDate.setDate(today.getDate() - days);
-
-    let cur = new Date(startDate);
-    while (cur <= today) {
-      const dateKey = formatDateKey(cur);
-
-      if (type === 'negative') {
-        if (Math.random() >= prob) {
-          logs[dateKey] = { count: 1, note: 'Relapse' };
-        }
-      } else {
-        if (Math.random() < prob) {
-          const targetVal = Math.max(1, dailyTarget || 1);
-          const count = Math.min(targetVal, Math.floor(Math.random() * targetVal) + 1);
-          logs[dateKey] = { count: count, note: '' };
-        }
-      }
-
-      cur.setDate(cur.getDate() + 1);
-    }
-
-    return logs;
   }
 
   // --- COLOR HELPER FUNCTIONS FOR CUSTOM HEX THEMES ---
@@ -495,12 +454,6 @@
     elements.radioColorCustom = document.getElementById('radio-color-custom');
     elements.customSwatchPreview = document.getElementById('custom-swatch-preview');
 
-    elements.backfillSection = document.getElementById('backfill-section');
-    elements.habitEnableBackfill = document.getElementById('habit-enable-backfill');
-    elements.backfillOptionsContainer = document.getElementById('backfill-options-container');
-    elements.habitHistoryDuration = document.getElementById('habit-history-duration');
-    elements.habitHistoryFrequency = document.getElementById('habit-history-frequency');
-
     elements.modalCalendarPicker = document.getElementById('modal-calendar-picker');
     elements.modalCalendarBadge = document.getElementById('modal-calendar-habit-badge');
     elements.calendarInputDate = document.getElementById('calendar-input-date');
@@ -530,17 +483,6 @@
         elements.customSwatchPreview.style.backgroundColor = hex;
       }
     });
-
-    // History Backfill Toggle
-    if (elements.habitEnableBackfill && elements.backfillOptionsContainer) {
-      elements.habitEnableBackfill.addEventListener('change', (e) => {
-        if (e.target.checked) {
-          elements.backfillOptionsContainer.classList.remove('hidden');
-        } else {
-          elements.backfillOptionsContainer.classList.add('hidden');
-        }
-      });
-    }
 
     // Calendar Pop-up Actions
     document.getElementById('modal-calendar-close').addEventListener('click', () => elements.modalCalendarPicker.classList.add('hidden'));
@@ -753,6 +695,7 @@
       return;
     }
 
+    // Always render Combined Heatmap first, then individual habits
     const combinedCard = buildHeatmapCard(null, state.selectedYear);
     elements.heatmapsGallery.appendChild(combinedCard);
 
@@ -833,6 +776,7 @@
       let actionButtonsHTML = '';
 
       if (isAll) {
+        // Combined Heatmap -> render Quick-Add buttons for ALL habits on tapped date!
         state.habits.forEach(h => {
           const hex = getHabitHexColor(h);
           const log = h.logs ? h.logs[focusDateKey] : null;
@@ -859,6 +803,7 @@
           `;
         });
       } else if (habit) {
+        // Particular Habit -> render Quick-Add button for THAT habit on tapped date!
         const hex = getHabitHexColor(habit);
         const log = habit.logs ? habit.logs[focusDateKey] : null;
 
@@ -1038,7 +983,7 @@
   }
 
   function getCellData(dateStr, habit, todayStr) {
-    if (!habit) {
+    if (!habit) { // Combined Heatmap ('all')
       const activeHabits = [];
 
       state.habits.forEach(h => {
@@ -1261,6 +1206,7 @@
       });
     });
 
+    // Quick-Add Action Buttons in Focused Day Toolbar
     const actionButtons = elements.heatmapsGallery.querySelectorAll('[data-action-habit-id]');
     actionButtons.forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -1338,11 +1284,7 @@
   function openHabitModal(habitToEdit = null) {
     elements.formHabit.reset();
 
-    if (elements.habitEnableBackfill) elements.habitEnableBackfill.checked = false;
-    if (elements.backfillOptionsContainer) elements.backfillOptionsContainer.classList.add('hidden');
-
     if (habitToEdit) {
-      if (elements.backfillSection) elements.backfillSection.classList.add('hidden');
       elements.modalHabitTitle.textContent = 'Edit Habit Goal';
       document.getElementById('habit-id').value = habitToEdit.id;
       document.getElementById('habit-name').value = habitToEdit.name;
@@ -1366,7 +1308,6 @@
         elements.customSwatchPreview.style.backgroundColor = 'transparent';
       }
     } else {
-      if (elements.backfillSection) elements.backfillSection.classList.remove('hidden');
       elements.modalHabitTitle.textContent = 'Create New Habit';
       document.getElementById('habit-id').value = '';
       elements.customSwatchPreview.style.backgroundColor = 'transparent';
@@ -1407,13 +1348,6 @@
         habit.colorTheme = colorTheme;
       }
     } else {
-      let initialLogs = {};
-      if (elements.habitEnableBackfill && elements.habitEnableBackfill.checked) {
-        const duration = elements.habitHistoryDuration.value;
-        const frequency = elements.habitHistoryFrequency.value;
-        initialLogs = generateBackfillLogs(type, dailyTarget, duration, frequency);
-      }
-
       const newHabit = {
         id: 'habit_' + Date.now(),
         name,
@@ -1423,15 +1357,10 @@
         colorTheme,
         dailyTarget,
         createdAt: getTodayKey(),
-        logs: initialLogs
+        logs: {}
       };
       state.habits.push(newHabit);
       state.selectedHabitId = newHabit.id;
-
-      const logCount = Object.keys(initialLogs).length;
-      if (logCount > 0) {
-        showToast(`Created "${name}" with ${logCount} days of history backfilled!`);
-      }
     }
 
     saveState();
