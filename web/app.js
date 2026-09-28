@@ -1,6 +1,6 @@
 /**
  * Habitual - Minimalist Habit Progress Visualizer
- * Vanilla JavaScript & LocalStorage Implementation with 100% Fluid Grid
+ * Vanilla JavaScript & LocalStorage Implementation with 100% Fluid Grid, Striped Heatmap & Drag/Drop Reordering
  */
 
 (function () {
@@ -17,6 +17,70 @@
   };
 
   const COLOR_PALETTE = ['green', 'blue', 'purple', 'orange', 'crimson', 'cyan', 'emerald', 'amber', 'indigo', 'rose'];
+
+  const PRESET_THEME_HEX = {
+    green: '#39d353',
+    blue: '#388bfd',
+    purple: '#a855f7',
+    orange: '#f97316',
+    crimson: '#fb7185',
+    cyan: '#22d3ee',
+    emerald: '#34d399',
+    amber: '#f59e0b',
+    indigo: '#818cf8',
+    rose: '#f43f5e'
+  };
+
+  function getHabitHexColor(habit) {
+    if (!habit || !habit.colorTheme) return PRESET_THEME_HEX.green;
+    if (habit.colorTheme.startsWith('#')) return habit.colorTheme;
+    return PRESET_THEME_HEX[habit.colorTheme] || PRESET_THEME_HEX.green;
+  }
+
+  // --- COLOR HELPER FUNCTIONS FOR CUSTOM HEX THEMES ---
+  function parseHexColor(hexStr) {
+    if (!hexStr) return null;
+    hexStr = hexStr.trim().replace(/^#/, '');
+    if (hexStr.length === 3) {
+      hexStr = hexStr.split('').map(c => c + c).join('');
+    }
+    if (hexStr.length !== 6) return null;
+    const num = parseInt(hexStr, 16);
+    if (isNaN(num)) return null;
+
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255
+    };
+  }
+
+  function blendColors(rgb1, rgb2, factor) {
+    const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * factor);
+    const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * factor);
+    const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * factor);
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  }
+
+  function getCustomThemeLevels(hexStr) {
+    const baseRgb = { r: 0x16, g: 0x1b, b: 0x22 }; // #161b22
+    const targetRgb = parseHexColor(hexStr) || { r: 0x39, g: 0xd3, b: 0x53 };
+    const targetHex = `#${((1 << 24) + (targetRgb.r << 16) + (targetRgb.g << 8) + targetRgb.b).toString(16).slice(1)}`;
+
+    return {
+      level0: '#161b22',
+      level1: blendColors(baseRgb, targetRgb, 0.25),
+      level2: blendColors(baseRgb, targetRgb, 0.50),
+      level3: blendColors(baseRgb, targetRgb, 0.75),
+      level4: targetHex
+    };
+  }
+
+  function normalizeHex(hexStr) {
+    const parsed = parseHexColor(hexStr);
+    if (!parsed) return '#39d353';
+    return `#${((1 << 24) + (parsed.r << 16) + (parsed.g << 8) + parsed.b).toString(16).slice(1)}`;
+  }
 
   // --- INITIALIZATION ---
   document.addEventListener('DOMContentLoaded', () => {
@@ -133,7 +197,7 @@
       banner.classList.remove('hidden');
       setTimeout(() => {
         banner.classList.add('hidden');
-      }, 5000);
+      }, 4000);
     }
   }
 
@@ -330,7 +394,7 @@
         description: 'Draw, design or practice creative work',
         category: 'Creativity',
         type: 'positive',
-        colorTheme: 'purple',
+        colorTheme: '#a855f7',
         dailyTarget: 1,
         createdAt: `${currentYear}-01-01`,
         logs: generateLogs(0.5, 2)
@@ -385,6 +449,11 @@
     elements.formHabit = document.getElementById('form-habit');
     elements.modalHabitTitle = document.getElementById('modal-habit-title');
 
+    elements.customColorPicker = document.getElementById('habit-custom-color-picker');
+    elements.customColorHex = document.getElementById('habit-custom-color-hex');
+    elements.radioColorCustom = document.getElementById('radio-color-custom');
+    elements.customSwatchPreview = document.getElementById('custom-swatch-preview');
+
     elements.modalLog = document.getElementById('modal-log');
     elements.modalLogDateStr = document.getElementById('modal-log-date-str');
     elements.modalLogHabitSelect = document.getElementById('modal-log-habit-select');
@@ -392,6 +461,24 @@
     elements.modalLogNote = document.getElementById('modal-log-note');
 
     elements.modalData = document.getElementById('modal-data');
+
+    // Custom Color Sync
+    elements.customColorPicker.addEventListener('input', (e) => {
+      const color = e.target.value;
+      elements.customColorHex.value = color;
+      elements.radioColorCustom.checked = true;
+      elements.customSwatchPreview.style.backgroundColor = color;
+    });
+
+    elements.customColorHex.addEventListener('input', (e) => {
+      let val = e.target.value.trim();
+      elements.radioColorCustom.checked = true;
+      if (parseHexColor(val)) {
+        const hex = normalizeHex(val);
+        elements.customColorPicker.value = hex;
+        elements.customSwatchPreview.style.backgroundColor = hex;
+      }
+    });
 
     // Action Handlers
     document.getElementById('btn-add-habit').addEventListener('click', () => openHabitModal());
@@ -524,12 +611,12 @@
 
     state.habits.forEach(habit => {
       const isActive = habit.id === state.selectedHabitId;
-      const themeVar = `var(--theme-${habit.colorTheme || 'green'}-4)`;
+      const themeColor = getHabitHexColor(habit);
       const icon = habit.type === 'negative' ? '🛑 ' : '';
 
       html += `
         <div class="habit-pill ${isActive ? 'active' : ''}" data-id="${habit.id}">
-          <span class="pill-dot" style="background-color: ${themeVar};"></span>
+          <span class="pill-dot" style="background-color: ${themeColor};"></span>
           ${icon}${escapeHTML(habit.name)}
         </div>
       `;
@@ -570,7 +657,7 @@
     }
   }
 
-  // --- HEATMAP GALLERY RENDERER (100% FLUID GRID) ---
+  // --- HEATMAP GALLERY RENDERER & STRIPED MULTI-COLOR GENERATOR ---
   function renderHeatmapsGallery() {
     elements.heatmapsGallery.innerHTML = '';
 
@@ -602,32 +689,61 @@
     }
 
     attachHeatmapSquareEvents();
+    attachCardDragAndDropHandlers();
   }
 
   function buildHeatmapCard(habitOrNull, year) {
     const isAll = habitOrNull === null;
     const habit = habitOrNull;
-    const theme = isAll ? 'green' : (habit.colorTheme || 'green');
+    const isCustomHex = habit && habit.colorTheme && habit.colorTheme.startsWith('#');
+    const theme = isAll ? 'green' : (isCustomHex ? 'custom' : (habit.colorTheme || 'green'));
     const isNegative = habit && habit.type === 'negative';
 
     const streakData = calculateStreakForTarget(isAll ? 'all' : habit);
     const stats = calculateYearStatsForTarget(isAll ? 'all' : habit, year);
 
     const card = document.createElement('div');
-    card.className = `heatmap-card theme-${theme}`;
+    card.className = `heatmap-card theme-${theme} ${isAll ? '' : 'draggable-card'}`;
+
+    if (!isAll) {
+      card.setAttribute('draggable', 'true');
+      card.setAttribute('data-habit-id', habit.id);
+    }
+
+    if (isCustomHex) {
+      const levels = getCustomThemeLevels(habit.colorTheme);
+      card.style.setProperty('--custom-level-0', levels.level0);
+      card.style.setProperty('--custom-level-1', levels.level1);
+      card.style.setProperty('--custom-level-2', levels.level2);
+      card.style.setProperty('--custom-level-3', levels.level3);
+      card.style.setProperty('--custom-level-4', levels.level4);
+    }
 
     const title = isAll ? 'Combined Contribution Map' : habit.name;
     const streakLabel = streakData.current > 0 ? `🔥 ${streakData.current}d streak` : '';
     const countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} completions in ${year}`;
 
-    // Header HTML
+    const colorBadgeStyle = isAll
+      ? 'background-color: #39d353;'
+      : `background-color: ${getHabitHexColor(habit)};`;
+
+    // Header HTML with Drag Handle for individual habit cards
+    const dragHandleHTML = !isAll ? `
+      <div class="drag-handle" title="Drag to reorder habit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+      </div>
+    ` : '';
+
     let headerHTML = `
       <div class="heatmap-card-header">
         <div class="heatmap-title-row">
-          <span class="color-badge ${theme}"></span>
+          <span class="color-badge" style="${colorBadgeStyle}"></span>
           <h3>${escapeHTML(title)}</h3>
           ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
           <span class="badge-count">${countLabel}</span>
+        </div>
+        <div class="card-header-actions">
+          ${dragHandleHTML}
         </div>
       </div>
     `;
@@ -654,7 +770,6 @@
       cur.setDate(cur.getDate() + 1);
     }
 
-    // Month Labels with Exact Grid Column Position (53 columns)
     const monthLabels = [];
     let lastMonth = -1;
 
@@ -709,14 +824,41 @@
         const cellData = getCellData(dateStr, habit, todayStr);
         const isToday = dateStr === todayStr;
 
+        // Custom Striped Gradient for Combined Heatmap
+        let squareStyle = '';
+        let habitsDoneAttr = '';
+
+        if (isAll) {
+          const numActive = cellData.activeHabits ? cellData.activeHabits.length : 0;
+
+          if (numActive === 1) {
+            squareStyle = `background-color: ${cellData.activeHabits[0].color};`;
+          } else if (numActive > 1) {
+            const colors = cellData.activeHabits.map(h => h.color);
+            const num = colors.length;
+            const stops = colors.map((col, idx) => {
+              const p1 = ((idx / num) * 100).toFixed(1);
+              const p2 = (((idx + 1) / num) * 100).toFixed(1);
+              return `${col} ${p1}% ${p2}%`;
+            }).join(', ');
+            squareStyle = `background: linear-gradient(135deg, ${stops});`;
+          }
+
+          if (cellData.activeHabits && cellData.activeHabits.length > 0) {
+            habitsDoneAttr = `data-habits-done="${escapeHTML(cellData.activeHabits.map(h => h.name).join(', '))}"`;
+          }
+        }
+
         gridHTML += `
           <div class="day-square level-${cellData.level} ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''}"
+               style="${squareStyle}"
                data-date="${dateStr}"
                data-habit-id="${habit ? habit.id : 'all'}"
                data-count="${cellData.count}"
                data-level="${cellData.level}"
                data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
-               data-note="${escapeHTML(cellData.note)}">
+               data-note="${escapeHTML(cellData.note)}"
+               ${habitsDoneAttr}>
           </div>
         `;
       });
@@ -725,7 +867,6 @@
 
     gridHTML += '</div></div>';
 
-    // Footer Legend
     const legendLess = isNegative ? 'Relapse' : 'Less';
     const legendMore = isNegative ? 'Clean Day' : 'More';
 
@@ -751,28 +892,42 @@
   }
 
   function getCellData(dateStr, habit, todayStr) {
-    if (!habit) { // Combined 'all'
-      let totalCompletions = 0;
+    if (!habit) { // Combined Heatmap ('all')
+      const activeHabits = [];
+
       state.habits.forEach(h => {
+        let isDone = false;
         if (h.type === 'negative') {
-          if (h.logs && h.logs[dateStr] && h.logs[dateStr].count > 0) {
-            // Relapse
-          } else if (dateStr <= todayStr) {
-            totalCompletions += 1;
+          if (!h.logs || !h.logs[dateStr] || h.logs[dateStr].count === 0) {
+            if (dateStr <= todayStr) isDone = true;
           }
-        } else if (h.logs && h.logs[dateStr]) {
-          totalCompletions += h.logs[dateStr].count || 0;
+        } else if (h.logs && h.logs[dateStr] && h.logs[dateStr].count > 0) {
+          isDone = true;
+        }
+
+        if (isDone) {
+          activeHabits.push({
+            id: h.id,
+            name: h.name,
+            color: getHabitHexColor(h)
+          });
         }
       });
 
       let level = 0;
-      if (totalCompletions === 0) level = 0;
-      else if (totalCompletions <= 2) level = 1;
-      else if (totalCompletions <= 4) level = 2;
-      else if (totalCompletions <= 6) level = 3;
+      if (activeHabits.length === 0) level = 0;
+      else if (activeHabits.length <= 2) level = 1;
+      else if (activeHabits.length <= 4) level = 2;
+      else if (activeHabits.length <= 6) level = 3;
       else level = 4;
 
-      return { count: totalCompletions, level, isRelapse: false, note: '' };
+      return {
+        count: activeHabits.length,
+        level: level,
+        activeHabits,
+        isRelapse: false,
+        note: ''
+      };
     }
 
     const log = (habit.logs && habit.logs[dateStr]) ? habit.logs[dateStr] : null;
@@ -910,20 +1065,25 @@
         const count = parseInt(sq.dataset.count, 10) || 0;
         const isRelapse = sq.dataset.relapse === 'true';
         const note = sq.dataset.note;
+        const habitsDone = sq.dataset.habitsDone;
         const formattedDate = formatPrettyDate(dateStr);
 
         let text = '';
         if (isRelapse) {
           text = `⚠️ <strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
-        } else if (habitId !== 'all') {
+        } else if (habitId === 'all') {
+          if (habitsDone) {
+            text = `✨ <strong>Completed (${count}):</strong> ${habitsDone} on ${formattedDate}`;
+          } else {
+            text = `No check-ins on ${formattedDate}`;
+          }
+        } else {
           const habit = state.habits.find(h => h.id === habitId);
           if (habit && habit.type === 'negative') {
             text = count > 0 ? `✨ <strong>Clean Day Success</strong> on ${formattedDate}` : `No data for ${formattedDate}`;
           } else {
             text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
           }
-        } else {
-          text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
         }
 
         elements.customTooltip.innerHTML = text;
@@ -945,6 +1105,58 @@
     });
   }
 
+  // --- HTML5 DRAG & DROP REORDERING HANDLER ---
+  function attachCardDragAndDropHandlers() {
+    let draggedHabitId = null;
+
+    const cards = elements.heatmapsGallery.querySelectorAll('.heatmap-card.draggable-card');
+
+    cards.forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        draggedHabitId = card.dataset.habitId;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedHabitId);
+      });
+
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        cards.forEach(c => c.classList.remove('drag-over'));
+      });
+
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (card.dataset.habitId !== draggedHabitId) {
+          card.classList.add('drag-over');
+        }
+      });
+
+      card.addEventListener('dragleave', () => {
+        card.classList.remove('drag-over');
+      });
+
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        const targetHabitId = card.dataset.habitId;
+
+        if (draggedHabitId && targetHabitId && draggedHabitId !== targetHabitId) {
+          const fromIndex = state.habits.findIndex(h => h.id === draggedHabitId);
+          const toIndex = state.habits.findIndex(h => h.id === targetHabitId);
+
+          if (fromIndex !== -1 && toIndex !== -1) {
+            const [movedHabit] = state.habits.splice(fromIndex, 1);
+            state.habits.splice(toIndex, 0, movedHabit);
+            saveState();
+            renderAll();
+            showToast(`Reordered "${movedHabit.name}"`);
+          }
+        }
+      });
+    });
+  }
+
   // --- MODAL HANDLERS ---
   function openHabitModal(habitToEdit = null) {
     elements.formHabit.reset();
@@ -960,11 +1172,22 @@
       const typeRadio = elements.formHabit.querySelector(`input[name="habit-type"][value="${habitToEdit.type || 'positive'}"]`);
       if (typeRadio) typeRadio.checked = true;
 
-      const colorRadio = elements.formHabit.querySelector(`input[name="habit-color"][value="${habitToEdit.colorTheme || 'green'}"]`);
-      if (colorRadio) colorRadio.checked = true;
+      const isCustomHex = habitToEdit.colorTheme && habitToEdit.colorTheme.startsWith('#');
+      if (isCustomHex) {
+        elements.radioColorCustom.checked = true;
+        const normalized = normalizeHex(habitToEdit.colorTheme);
+        elements.customColorHex.value = normalized;
+        elements.customColorPicker.value = normalized;
+        elements.customSwatchPreview.style.backgroundColor = normalized;
+      } else {
+        const colorRadio = elements.formHabit.querySelector(`input[name="habit-color"][value="${habitToEdit.colorTheme || 'green'}"]`);
+        if (colorRadio) colorRadio.checked = true;
+        elements.customSwatchPreview.style.backgroundColor = 'transparent';
+      }
     } else {
       elements.modalHabitTitle.textContent = 'Create New Habit';
       document.getElementById('habit-id').value = '';
+      elements.customSwatchPreview.style.backgroundColor = 'transparent';
     }
 
     elements.modalHabit.classList.remove('hidden');
@@ -979,7 +1202,15 @@
     const description = document.getElementById('habit-description').value.trim();
     const category = document.getElementById('habit-category').value.trim();
     const dailyTarget = parseInt(document.getElementById('habit-daily-target').value, 10) || 1;
-    const colorTheme = elements.formHabit.querySelector('input[name="habit-color"]:checked').value;
+    const selectedColorRadio = elements.formHabit.querySelector('input[name="habit-color"]:checked').value;
+
+    let colorTheme = 'green';
+    if (selectedColorRadio === 'custom') {
+      const hexVal = elements.customColorHex.value;
+      colorTheme = normalizeHex(hexVal);
+    } else {
+      colorTheme = selectedColorRadio;
+    }
 
     if (!name) return;
 
