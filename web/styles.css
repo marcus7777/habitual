@@ -1493,3 +1493,69 @@ body.dark-theme {
   margin-top: 10px;
 }
 
+/* Card Context Menu Dropdown */
+.card-context-menu-dropdown {
+  position: relative;
+}
+
+.btn-card-menu-toggle {
+  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-card-menu-toggle:hover {
+  background-color: var(--bg-pill-active);
+  color: var(--text-main);
+  border-color: var(--border-color);
+}
+
+.card-menu-content {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background-color: var(--bg-modal);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  z-index: 100;
+  animation: dropdownFadeIn 0.12s ease-out;
+}
+
+.card-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-main);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  transition: background-color 0.12s ease;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+
+.card-menu-item:hover {
+  background-color: var(--bg-pill-active);
+  color: var(--accent-blue);
+}
+
+
