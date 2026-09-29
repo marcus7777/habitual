@@ -1557,8 +1557,5 @@ body.dark-theme {
   background-color: var(--bg-pill-active);
   color: var(--accent-blue);
 }
-.featured-code-wrap.format-qr {
-  padding:5%;
-  background:#fff;
-}
+
 
