@@ -942,7 +942,7 @@
     if (isGroup) titleText = targetOrNull.title;
     else if (habit) titleText = habit.name;
 
-    const streakLabel = streakData.current > 0 ? `🔥 ${streakData.current}d streak` : '';
+    const streakLabel = streakData.current > 0 ? `` : '';
     const countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} in ${year}`;
 
     const colorBadgeStyle = isAll
