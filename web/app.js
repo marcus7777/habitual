@@ -40,6 +40,46 @@
     return PRESET_THEME_HEX[habit.colorTheme] || PRESET_THEME_HEX.green;
   }
 
+  // --- ROUTING & SUB-HABIT NAVIGATION HELPERS ---
+  function parseHash() {
+    const hash = window.location.hash.trim();
+    if (hash.startsWith('#/habit/')) {
+      const habitId = hash.replace('#/habit/', '').trim();
+      if (habitId) return { view: 'habit', habitId };
+    }
+    return { view: 'home', habitId: null };
+  }
+
+  function navigateTo(hash) {
+    if (window.location.hash !== hash) {
+      window.location.hash = hash;
+    } else {
+      renderAll();
+    }
+  }
+
+  function getAncestryChain(habitId) {
+    const chain = [];
+    let cur = state.habits.find(h => h.id === habitId);
+    const visited = new Set();
+
+    while (cur && !visited.has(cur.id)) {
+      visited.add(cur.id);
+      chain.unshift(cur);
+      cur = cur.parentId ? state.habits.find(h => h.id === cur.parentId) : null;
+    }
+    return chain;
+  }
+
+  function getAllDescendantIds(habitId) {
+    const ids = [habitId];
+    const children = state.habits.filter(h => h.parentId === habitId);
+    children.forEach(c => {
+      ids.push(...getAllDescendantIds(c.id));
+    });
+    return ids;
+  }
+
   // --- COLOR HELPER FUNCTIONS FOR CUSTOM HEX THEMES ---
   function parseHexColor(hexStr) {
     if (!hexStr) return null;
@@ -90,6 +130,7 @@
     loadState();
     initUI();
     registerServiceWorker();
+    window.addEventListener('hashchange', renderAll);
     renderAll();
   });
 
@@ -270,6 +311,7 @@
           type: isNegative ? 'negative' : 'positive',
           colorTheme: themeColor,
           dailyTarget: 1,
+          parentId: null,
           createdAt: getTodayKey(),
           logs: {}
         };
@@ -355,7 +397,7 @@
       });
   }
 
-  // --- DEMO DATA SEEDER ---
+  // --- DEMO DATA SEEDER WITH SUB-HABITS ---
   function seedDemoData(force = true) {
     if (!force && state.habits.length > 0) return;
 
@@ -384,13 +426,38 @@
       {
         id: 'habit_demo_1',
         name: 'Gym & Workout 🏋️',
-        description: '30 mins cardio, gym, or strength routine',
+        description: 'Cardio, strength, or workout routine',
         category: 'Health',
         type: 'positive',
         colorTheme: 'green',
         dailyTarget: 1,
+        parentId: null,
         createdAt: `${currentYear}-01-01`,
         logs: generateLogs(0.65, 2)
+      },
+      {
+        id: 'habit_demo_sub_1',
+        name: 'Leg Day 🦵',
+        description: 'Squats, lunges & leg exercises',
+        category: 'Health',
+        type: 'positive',
+        colorTheme: 'emerald',
+        dailyTarget: 1,
+        parentId: 'habit_demo_1',
+        createdAt: `${currentYear}-01-01`,
+        logs: generateLogs(0.4, 2)
+      },
+      {
+        id: 'habit_demo_sub_2',
+        name: 'Upper Body & Arms 💪',
+        description: 'Bench press, pull-ups & upper body',
+        category: 'Health',
+        type: 'positive',
+        colorTheme: 'cyan',
+        dailyTarget: 1,
+        parentId: 'habit_demo_1',
+        createdAt: `${currentYear}-01-01`,
+        logs: generateLogs(0.45, 2)
       },
       {
         id: 'habit_demo_2',
@@ -400,28 +467,19 @@
         type: 'positive',
         colorTheme: '#a855f7',
         dailyTarget: 1,
+        parentId: null,
         createdAt: `${currentYear}-01-01`,
         logs: generateLogs(0.5, 2)
       },
       {
         id: 'habit_demo_3',
-        name: 'Swim (swims) 🏊',
-        description: 'Swimming laps or water exercise',
-        category: 'Health',
-        type: 'positive',
-        colorTheme: 'cyan',
-        dailyTarget: 1,
-        createdAt: `${currentYear}-01-01`,
-        logs: generateLogs(0.4, 2)
-      },
-      {
-        id: 'habit_demo_4',
         name: 'Days since Caffeine ☕',
         description: 'Track clean days without caffeine relapse',
         category: 'Wellness',
         type: 'negative',
         colorTheme: 'amber',
         dailyTarget: 1,
+        parentId: null,
         createdAt: `${currentYear}-01-01`,
         logs: {
           [`${currentYear}-02-15`]: { count: 1, note: 'Had 1 espresso' },
@@ -448,6 +506,7 @@
     elements.modalHabit = document.getElementById('modal-habit');
     elements.formHabit = document.getElementById('form-habit');
     elements.modalHabitTitle = document.getElementById('modal-habit-title');
+    elements.habitParent = document.getElementById('habit-parent');
 
     elements.customColorPicker = document.getElementById('habit-custom-color-picker');
     elements.customColorHex = document.getElementById('habit-custom-color-hex');
@@ -607,7 +666,7 @@
         state.habits = [];
         state.selectedHabitId = 'all';
         saveState();
-        renderAll();
+        navigateTo('#/');
         elements.modalData.classList.add('hidden');
       }
     });
@@ -625,6 +684,72 @@
   function renderAll() {
     renderYearSelector();
     renderHeatmapsGallery();
+  }
+
+  function renderViewNavigation(route) {
+    const viewNav = document.getElementById('view-navigation');
+    if (!viewNav) return;
+
+    if (route.view === 'habit' && route.habitId) {
+      const chain = getAncestryChain(route.habitId);
+      if (chain.length === 0) {
+        viewNav.classList.add('hidden');
+        return;
+      }
+
+      const targetHabit = chain[chain.length - 1];
+
+      let breadcrumbHTML = `<a href="#/" class="breadcrumb-item">🏠 All Habits</a>`;
+      chain.forEach((h, idx) => {
+        const isLast = idx === chain.length - 1;
+        breadcrumbHTML += ` <span class="breadcrumb-sep">/</span> `;
+        if (isLast) {
+          breadcrumbHTML += `<span class="breadcrumb-current">${escapeHTML(h.name)}</span>`;
+        } else {
+          breadcrumbHTML += `<a href="#/habit/${h.id}" class="breadcrumb-item">${escapeHTML(h.name)}</a>`;
+        }
+      });
+
+      viewNav.innerHTML = `
+        <div class="nav-left">
+          <button type="button" class="btn btn-secondary btn-back-nav" id="btn-nav-back" title="Go back">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Back
+          </button>
+          <div class="breadcrumb-trail">${breadcrumbHTML}</div>
+        </div>
+        <div class="nav-right">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-nav-add-sub">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Add Sub-habit
+          </button>
+        </div>
+      `;
+
+      viewNav.classList.remove('hidden');
+
+      document.getElementById('btn-nav-back').addEventListener('click', () => {
+        handleBackNavigation(targetHabit);
+      });
+
+      document.getElementById('btn-nav-add-sub').addEventListener('click', () => {
+        openHabitModal(null, targetHabit.id);
+      });
+    } else {
+      viewNav.classList.add('hidden');
+    }
+  }
+
+  function handleBackNavigation(currentHabit) {
+    if (currentHabit && currentHabit.parentId) {
+      navigateTo(`#/habit/${currentHabit.parentId}`);
+    } else {
+      if (window.history.length > 1 && document.referrer.includes(window.location.host)) {
+        window.history.back();
+      } else {
+        navigateTo('#/');
+      }
+    }
   }
 
   function toggleHabitForDate(habitId, dateKey) {
@@ -682,9 +807,12 @@
       .join('');
   }
 
-  // --- HEATMAP GALLERY RENDERER & CONTEXTUAL DAY FOCUS ---
+  // --- HEATMAP GALLERY RENDERER ---
   function renderHeatmapsGallery() {
     elements.heatmapsGallery.innerHTML = '';
+    const route = parseHash();
+
+    renderViewNavigation(route);
 
     if (state.habits.length === 0) {
       elements.heatmapsGallery.innerHTML = `
@@ -695,37 +823,110 @@
       return;
     }
 
-    // Always render Combined Heatmap first, then individual habits
-    const combinedCard = buildHeatmapCard(null, state.selectedYear);
-    elements.heatmapsGallery.appendChild(combinedCard);
+    if (route.view === 'home') {
+      const topLevelHabits = state.habits.filter(h => !h.parentId);
 
-    state.habits.forEach(habit => {
-      const habitCard = buildHeatmapCard(habit, state.selectedYear);
+      // Render Combined Heatmap Card
+      const combinedCard = buildHeatmapCard(null, state.selectedYear);
+      elements.heatmapsGallery.appendChild(combinedCard);
+
+      topLevelHabits.forEach(habit => {
+        const habitCard = buildHeatmapCard(habit, state.selectedYear);
+        elements.heatmapsGallery.appendChild(habitCard);
+      });
+    } else if (route.view === 'habit') {
+      const targetHabit = state.habits.find(h => h.id === route.habitId);
+
+      if (!targetHabit) {
+        elements.heatmapsGallery.innerHTML = `
+          <div class="empty-placeholder">
+            <p>Habit not found or may have been deleted.</p>
+            <br>
+            <a href="#/" class="btn btn-primary">Return to All Habits</a>
+          </div>
+        `;
+        return;
+      }
+
+      // Render target habit card first
+      const habitCard = buildHeatmapCard(targetHabit, state.selectedYear);
       elements.heatmapsGallery.appendChild(habitCard);
-    });
+
+      const subhabits = state.habits.filter(h => h.parentId === targetHabit.id);
+      const allDescendantIds = getAllDescendantIds(targetHabit.id);
+
+      if (subhabits.length > 0) {
+        // Combined Sub-habits Heatmap Card
+        const groupTarget = {
+          isGroup: true,
+          title: `${targetHabit.name} & Sub-habits Combined Map`,
+          habitIds: allDescendantIds,
+          colorTheme: targetHabit.colorTheme
+        };
+        const groupCard = buildHeatmapCard(groupTarget, state.selectedYear);
+        elements.heatmapsGallery.appendChild(groupCard);
+
+        // Section header for sub-habits
+        const sectionHeader = document.createElement('div');
+        sectionHeader.className = 'subhabits-section-header';
+        sectionHeader.innerHTML = `
+          <h4>📁 Sub-habits (${subhabits.length})</h4>
+          <button type="button" class="btn btn-secondary btn-sm btn-add-sub-section">
+            + New Sub-habit
+          </button>
+        `;
+        elements.heatmapsGallery.appendChild(sectionHeader);
+
+        sectionHeader.querySelector('.btn-add-sub-section').addEventListener('click', () => {
+          openHabitModal(null, targetHabit.id);
+        });
+
+        subhabits.forEach(sub => {
+          const subCard = buildHeatmapCard(sub, state.selectedYear);
+          elements.heatmapsGallery.appendChild(subCard);
+        });
+      } else {
+        const callout = document.createElement('div');
+        callout.className = 'subhabit-callout';
+        callout.innerHTML = `
+          <span>No sub-habits under <strong>${escapeHTML(targetHabit.name)}</strong> yet. You can add routines like "Leg Day" or "Arm Day" inside this habit!</span>
+          <button type="button" class="btn btn-secondary btn-sm btn-add-sub-callout">+ Add Sub-habit</button>
+        `;
+        elements.heatmapsGallery.appendChild(callout);
+
+        callout.querySelector('.btn-add-sub-callout').addEventListener('click', () => {
+          openHabitModal(null, targetHabit.id);
+        });
+      }
+    }
 
     attachHeatmapSquareEvents();
     attachCardDragAndDropHandlers();
   }
 
-  function buildHeatmapCard(habitOrNull, year) {
-    const isAll = habitOrNull === null;
-    const habit = habitOrNull;
-    const cardHabitId = isAll ? 'all' : habit.id;
+  function buildHeatmapCard(targetOrNull, year) {
+    const todayStr = getTodayKey();
+    const isAll = targetOrNull === null;
+    const isGroup = targetOrNull && targetOrNull.isGroup;
+    const habit = (!isAll && !isGroup) ? targetOrNull : null;
+
+    let cardHabitId = 'all';
+    if (isGroup) cardHabitId = 'group_' + targetOrNull.habitIds.join('_');
+    else if (habit) cardHabitId = habit.id;
 
     const isCustomHex = habit && habit.colorTheme && habit.colorTheme.startsWith('#');
-    const theme = isAll ? 'green' : (isCustomHex ? 'custom' : (habit.colorTheme || 'green'));
+    const theme = isAll ? 'green' : (isGroup ? (targetOrNull.colorTheme || 'green') : (isCustomHex ? 'custom' : (habit.colorTheme || 'green')));
     const isNegative = habit && habit.type === 'negative';
 
     const isCardFocused = focusedDayState.habitId === cardHabitId && focusedDayState.dateStr;
 
-    const streakData = calculateStreakForTarget(isAll ? 'all' : habit);
-    const stats = calculateYearStatsForTarget(isAll ? 'all' : habit, year);
+    const streakData = calculateStreakForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit));
+    const stats = calculateYearStatsForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit), year);
 
     const card = document.createElement('div');
-    card.className = `heatmap-card theme-${theme} ${isAll ? '' : 'draggable-card'} ${isCardFocused ? 'focused' : ''}`;
+    card.className = `heatmap-card theme-${theme} ${(!isAll && !isGroup) ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''}`;
 
-    if (!isAll) {
+    if (!isAll && !isGroup && habit) {
       card.setAttribute('draggable', 'true');
       card.setAttribute('data-habit-id', habit.id);
     }
@@ -739,31 +940,63 @@
       card.style.setProperty('--custom-level-4', levels.level4);
     }
 
-    const title = isAll ? 'Combined Contribution Map' : habit.name;
+    let titleText = 'Combined Contribution Map';
+    if (isGroup) titleText = targetOrNull.title;
+    else if (habit) titleText = habit.name;
+
     const streakLabel = streakData.current > 0 ? `🔥 ${streakData.current}d streak` : '';
     const countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} completions in ${year}`;
 
     const colorBadgeStyle = isAll
       ? 'background-color: #39d353;'
-      : `background-color: ${getHabitHexColor(habit)};`;
+      : `background-color: ${getHabitHexColor(habit || targetOrNull)};`;
 
-    const dragHandleHTML = !isAll ? `
-      <div class="drag-handle" title="Drag to reorder habit">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
-      </div>
-    ` : '';
+    // Title element
+    let titleHTML = `<h3>${escapeHTML(titleText)}</h3>`;
+    if (habit) {
+      titleHTML = `<h3><a href="#/habit/${habit.id}" class="card-title-link" title="Open ${escapeHTML(habit.name)}">${escapeHTML(habit.name)}</a></h3>`;
+    }
+
+    // Subhabits badge
+    let subhabitsBadgeHTML = '';
+    if (habit) {
+      const directSubs = state.habits.filter(h => h.parentId === habit.id);
+      if (directSubs.length > 0) {
+        subhabitsBadgeHTML = `<a href="#/habit/${habit.id}" class="badge-subhabits" title="View ${directSubs.length} sub-habits">📁 ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}</a>`;
+      }
+    }
+
+    // Action buttons in header
+    let actionsHTML = '';
+    if (habit) {
+      actionsHTML = `
+        <div class="card-header-actions">
+          <button type="button" class="btn btn-ghost btn-xs btn-card-add-sub" data-habit-id="${habit.id}" title="Add Sub-habit">+ Sub</button>
+          <button type="button" class="btn btn-ghost btn-xs btn-card-edit" data-habit-id="${habit.id}" title="Edit Habit">Edit</button>
+          <button type="button" class="btn btn-ghost btn-xs btn-card-delete text-danger" data-habit-id="${habit.id}" title="Delete Habit">Delete</button>
+          <a href="#/habit/${habit.id}" class="btn btn-secondary btn-xs btn-card-open" title="Open Habit URL">Open →</a>
+        </div>
+      `;
+    } else if (!isAll && !isGroup) {
+      actionsHTML = `
+        <div class="card-header-actions">
+          <div class="drag-handle" title="Drag to reorder habit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+          </div>
+        </div>
+      `;
+    }
 
     let headerHTML = `
       <div class="heatmap-card-header">
         <div class="heatmap-title-row">
           <span class="color-badge" style="${colorBadgeStyle}"></span>
-          <h3>${escapeHTML(title)}</h3>
+          ${titleHTML}
+          ${subhabitsBadgeHTML}
           ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
           <span class="badge-count">${countLabel}</span>
         </div>
-        <div class="card-header-actions">
-          ${dragHandleHTML}
-        </div>
+        ${actionsHTML}
       </div>
     `;
 
@@ -775,63 +1008,44 @@
 
       let actionButtonsHTML = '';
 
-      if (isAll) {
-        // Combined Heatmap -> render Quick-Add buttons for ALL habits on tapped date!
-        state.habits.forEach(h => {
-          const hex = getHabitHexColor(h);
-          const log = h.logs ? h.logs[focusDateKey] : null;
+      const habitsToInclude = isAll ? state.habits : (isGroup ? state.habits.filter(h => targetOrNull.habitIds.includes(h.id)) : (habit ? [habit] : []));
 
-          let isDone = false;
-          let labelText = '';
-
-          if (h.type === 'negative') {
-            const isClean = !log || log.count === 0;
-            isDone = isClean;
-            labelText = isClean ? `✨ ${h.name}` : `⚠️ Slip ${h.name}`;
-          } else {
-            isDone = log && log.count >= (h.dailyTarget || 1);
-            labelText = isDone ? `✓ ${h.name}` : `+ ${h.name}`;
-          }
-
-          actionButtonsHTML += `
-            <button type="button" class="btn btn-secondary quick-log-btn ${isDone ? 'completed' : ''}"
-                    style="--quick-btn-color: ${hex};"
-                    data-action-habit-id="${h.id}"
-                    data-action-date-key="${focusDateKey}">
-              ${escapeHTML(labelText)}
-            </button>
-          `;
-        });
-      } else if (habit) {
-        // Particular Habit -> render Quick-Add button for THAT habit on tapped date!
-        const hex = getHabitHexColor(habit);
-        const log = habit.logs ? habit.logs[focusDateKey] : null;
+      habitsToInclude.forEach(h => {
+        const hex = getHabitHexColor(h);
+        const log = h.logs ? h.logs[focusDateKey] : null;
 
         let isDone = false;
         let labelText = '';
 
-        if (habit.type === 'negative') {
+        if (h.type === 'negative') {
           const isClean = !log || log.count === 0;
           isDone = isClean;
-          labelText = isClean ? `✨ ${habit.name}` : `⚠️ Slip ${habit.name}`;
+          labelText = isClean ? `✨ ${h.name}` : `⚠️ Slip ${h.name}`;
         } else {
-          isDone = log && log.count >= (habit.dailyTarget || 1);
-          labelText = isDone ? `✓ ${habit.name}` : `+ ${habit.name}`;
+          isDone = log && log.count >= (h.dailyTarget || 1);
+          labelText = isDone ? `✓ ${h.name}` : `+ ${h.name}`;
         }
 
         actionButtonsHTML += `
           <button type="button" class="btn btn-secondary quick-log-btn ${isDone ? 'completed' : ''}"
                   style="--quick-btn-color: ${hex};"
-                  data-action-habit-id="${habit.id}"
+                  data-action-habit-id="${h.id}"
                   data-action-date-key="${focusDateKey}">
             ${escapeHTML(labelText)}
           </button>
         `;
-      }
+      });
 
       focusedToolbarHTML = `
         <div class="focused-day-toolbar">
-          <div class="focused-date-title">📅 ${prettyDate}</div>
+          <div class="focused-date-picker-wrap">
+            <label for="focused-date-input-${cardHabitId}" class="focused-date-label">📅 Date:</label>
+            <input type="date"
+                   id="focused-date-input-${cardHabitId}"
+                   class="focused-date-input"
+                   value="${focusDateKey}"
+                   max="${todayStr}">
+          </div>
           <div class="focused-toolbar-actions">
             ${actionButtonsHTML}
             <button type="button" class="btn btn-ghost btn-close-toolbar" id="btn-close-focused-toolbar" title="Collapse details">&times; Close</button>
@@ -862,45 +1076,7 @@
       cur.setDate(cur.getDate() + 1);
     }
 
-    const monthLabels = [];
-    let lastMonth = -1;
-
-    weekColumns.forEach((week, colIndex) => {
-      week.forEach(d => {
-        if (d.getFullYear() === year) {
-          const m = d.getMonth();
-          if (m !== lastMonth && d.getDate() <= 7) {
-            monthLabels.push({
-              name: d.toLocaleDateString('en-US', { month: 'short' }),
-              colIndex: colIndex
-            });
-            lastMonth = m;
-          }
-        }
-      });
-    });
-
-    let monthsHTML = '<div class="heatmap-months-row"><span></span>';
-    monthLabels.forEach(m => {
-      monthsHTML += `<span class="month-label" style="grid-column: ${m.colIndex + 2};">${m.name}</span>`;
-    });
-    monthsHTML += '</div>';
-
-    let gridHTML = '<div class="heatmap-body">';
-    gridHTML += `
-      <div class="heatmap-days-col">
-        <span class="day-label">Sun</span>
-        <span class="day-label">Mon</span>
-        <span class="day-label">Tue</span>
-        <span class="day-label">Wed</span>
-        <span class="day-label">Thu</span>
-        <span class="day-label">Fri</span>
-        <span class="day-label">Sat</span>
-      </div>
-    `;
-
-    gridHTML += `<div class="heatmap-weeks-grid theme-${theme}">`;
-    const todayStr = getTodayKey();
+    let gridHTML = `<div class="heatmap-weeks-grid theme-${theme}">`;
 
     weekColumns.forEach(week => {
       gridHTML += '<div class="heatmap-week-column">';
@@ -913,13 +1089,13 @@
           return;
         }
 
-        const cellData = getCellData(dateStr, habit, todayStr);
+        const cellData = getCellData(dateStr, isAll ? 'all' : (isGroup ? targetOrNull : habit), todayStr);
         const isToday = dateStr === todayStr;
 
         let squareStyle = '';
         let habitsDoneAttr = '';
 
-        if (isAll) {
+        if (isAll || isGroup) {
           const numActive = cellData.activeHabits ? cellData.activeHabits.length : 0;
 
           if (numActive === 1) {
@@ -956,14 +1132,14 @@
       gridHTML += '</div>';
     });
 
-    gridHTML += '</div></div>';
+    gridHTML += '</div>';
 
     const legendLess = isNegative ? 'Relapse' : 'Less';
     const legendMore = isNegative ? 'Clean Day' : 'More';
 
     let footerHTML = `
       <div class="heatmap-footer">
-        <span>Click any square to record progress or notes</span>
+        <span>Click heatmap to log progress or pick date</span>
         <div class="heatmap-legend">
           <span>${legendLess}</span>
           <div class="legend-cells theme-${theme}">
@@ -978,15 +1154,26 @@
       </div>
     `;
 
-    card.innerHTML = headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${monthsHTML}${gridHTML}</div></div>` + footerHTML;
+    card.innerHTML = headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>` + footerHTML;
     return card;
   }
 
-  function getCellData(dateStr, habit, todayStr) {
-    if (!habit) { // Combined Heatmap ('all')
+  function getCellData(dateStr, target, todayStr) {
+    let habitList = [];
+    if (target === 'all') {
+      habitList = state.habits;
+    } else if (Array.isArray(target)) {
+      habitList = target;
+    } else if (target && target.habitIds) {
+      habitList = state.habits.filter(h => target.habitIds.includes(h.id));
+    } else if (target) {
+      habitList = [target];
+    }
+
+    if (target === 'all' || Array.isArray(target) || (target && target.habitIds)) {
       const activeHabits = [];
 
-      state.habits.forEach(h => {
+      habitList.forEach(h => {
         let isDone = false;
         if (h.type === 'negative') {
           if (!h.logs || !h.logs[dateStr] || h.logs[dateStr].count === 0) {
@@ -1021,6 +1208,7 @@
       };
     }
 
+    const habit = target;
     const log = (habit.logs && habit.logs[dateStr]) ? habit.logs[dateStr] : null;
 
     if (habit.type === 'negative') {
@@ -1049,7 +1237,7 @@
   function calculateStreakForTarget(target) {
     const today = new Date();
 
-    if (target !== 'all' && target && target.type === 'negative') {
+    if (target !== 'all' && target && !target.habitIds && target.type === 'negative') {
       let currentStreak = 0;
       let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -1068,23 +1256,24 @@
     }
 
     const activeDateMap = {};
+    let habitList = [];
     if (target === 'all') {
-      state.habits.forEach(h => {
-        if (h.logs) {
-          Object.keys(h.logs).forEach(dateStr => {
-            if (h.logs[dateStr] && h.logs[dateStr].count > 0) {
-              activeDateMap[dateStr] = true;
-            }
-          });
-        }
-      });
-    } else if (target && target.logs) {
-      Object.keys(target.logs).forEach(dateStr => {
-        if (target.logs[dateStr] && target.logs[dateStr].count > 0) {
-          activeDateMap[dateStr] = true;
-        }
-      });
+      habitList = state.habits;
+    } else if (target && target.habitIds) {
+      habitList = state.habits.filter(h => target.habitIds.includes(h.id));
+    } else if (target) {
+      habitList = [target];
     }
+
+    habitList.forEach(h => {
+      if (h.logs) {
+        Object.keys(h.logs).forEach(dateStr => {
+          if (h.logs[dateStr] && h.logs[dateStr].count > 0) {
+            activeDateMap[dateStr] = true;
+          }
+        });
+      }
+    });
 
     let currentStreak = 0;
     let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -1111,7 +1300,7 @@
     let totalCount = 0;
     const now = new Date();
 
-    if (target !== 'all' && target && target.type === 'negative') {
+    if (target !== 'all' && target && !target.habitIds && target.type === 'negative') {
       const startOfYear = new Date(year, 0, 1);
       const endYearDate = (year === now.getFullYear()) ? now : new Date(year, 11, 31);
 
@@ -1126,29 +1315,51 @@
         cur.setDate(cur.getDate() + 1);
       }
     } else {
-      const processLog = (dateStr, logObj) => {
-        if (dateStr.startsWith(`${year}-`) && logObj && logObj.count > 0) {
-          totalCount += logObj.count;
-        }
-      };
-
+      let habitList = [];
       if (target === 'all') {
-        state.habits.forEach(h => {
-          if (h.logs) {
-            Object.entries(h.logs).forEach(([dateStr, log]) => processLog(dateStr, log));
-          }
-        });
-      } else if (target && target.logs) {
-        Object.entries(target.logs).forEach(([dateStr, log]) => processLog(dateStr, log));
+        habitList = state.habits;
+      } else if (target && target.habitIds) {
+        habitList = state.habits.filter(h => target.habitIds.includes(h.id));
+      } else if (target) {
+        habitList = [target];
       }
+
+      habitList.forEach(h => {
+        if (h.logs) {
+          Object.entries(h.logs).forEach(([dateStr, log]) => {
+            if (dateStr.startsWith(`${year}-`) && log && log.count > 0) {
+              totalCount += log.count;
+            }
+          });
+        }
+      });
     }
 
     return { totalCount };
   }
 
   function attachHeatmapSquareEvents() {
-    const squares = elements.heatmapsGallery.querySelectorAll('.day-square[data-date]');
+    // Click anywhere on a heatmap card to pop up details with today's date
+    const cards = elements.heatmapsGallery.querySelectorAll('.heatmap-card');
+    cards.forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions')) {
+          return;
+        }
+        e.stopPropagation();
+        elements.customTooltip.classList.add('hidden');
 
+        const cardHabitId = card.getAttribute('data-habit-id') || 'all';
+        if (focusedDayState.habitId === cardHabitId && focusedDayState.dateStr) {
+          return;
+        }
+        focusedDayState = { habitId: cardHabitId, dateStr: getTodayKey() };
+        renderAll();
+      });
+    });
+
+    // Square tooltips on hover
+    const squares = elements.heatmapsGallery.querySelectorAll('.day-square[data-date]');
     squares.forEach(sq => {
       sq.addEventListener('mouseenter', (e) => {
         const dateStr = sq.dataset.date;
@@ -1162,7 +1373,7 @@
         let text = '';
         if (isRelapse) {
           text = `⚠️ <strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
-        } else if (habitId === 'all') {
+        } else if (habitId.startsWith('all') || habitId.startsWith('group_')) {
           if (habitsDone) {
             text = `✨ <strong>Completed (${count}):</strong> ${habitsDone} on ${formattedDate}`;
           } else {
@@ -1188,23 +1399,27 @@
       sq.addEventListener('mouseleave', () => {
         elements.customTooltip.classList.add('hidden');
       });
-
-      sq.addEventListener('click', (e) => {
-        e.stopPropagation();
-        elements.customTooltip.classList.add('hidden');
-
-        const dateStr = sq.dataset.date;
-        const habitId = sq.dataset.habitId;
-
-        if (focusedDayState.habitId === habitId && focusedDayState.dateStr === dateStr) {
-          focusedDayState = { habitId: null, dateStr: null };
-        } else {
-          focusedDayState = { habitId: habitId, dateStr: dateStr };
-        }
-
-        renderAll();
-      });
     });
+
+    // Date Picker Input Listener in Focused Day Toolbar
+    const dateInput = elements.heatmapsGallery.querySelector('.focused-date-input');
+    if (dateInput) {
+      dateInput.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const newDate = e.target.value;
+        if (newDate) {
+          const newYear = parseInt(newDate.split('-')[0], 10);
+          if (newYear && newYear !== state.selectedYear && getAvailableYears().includes(newYear)) {
+            state.selectedYear = newYear;
+          }
+          focusedDayState.dateStr = newDate;
+          renderAll();
+        }
+      });
+      dateInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    }
 
     // Quick-Add Action Buttons in Focused Day Toolbar
     const actionButtons = elements.heatmapsGallery.querySelectorAll('[data-action-habit-id]');
@@ -1226,6 +1441,38 @@
         renderAll();
       });
     }
+
+    // Header action buttons (+ Sub, Edit, Delete)
+    elements.heatmapsGallery.querySelectorAll('.btn-card-add-sub').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const habitId = btn.dataset.habitId;
+        openHabitModal(null, habitId);
+      });
+    });
+
+    elements.heatmapsGallery.querySelectorAll('.btn-card-edit').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const habitId = btn.dataset.habitId;
+        const habit = state.habits.find(h => h.id === habitId);
+        if (habit) openHabitModal(habit);
+      });
+    });
+
+    elements.heatmapsGallery.querySelectorAll('.btn-card-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const habitId = btn.dataset.habitId;
+        deleteHabit(habitId);
+      });
+    });
+
+    elements.heatmapsGallery.querySelectorAll('.card-title-link, .badge-subhabits, .btn-card-open').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    });
   }
 
   // --- HTML5 DRAG & DROP REORDERING HANDLER ---
@@ -1281,8 +1528,14 @@
   }
 
   // --- MODAL HANDLERS ---
-  function openHabitModal(habitToEdit = null) {
+  function openHabitModal(habitToEdit = null, defaultParentId = null) {
     elements.formHabit.reset();
+
+    const selectedParentId = habitToEdit ? (habitToEdit.parentId || '') : (defaultParentId || '');
+    const parentSelect = document.getElementById('habit-parent');
+    if (parentSelect) {
+      parentSelect.innerHTML = buildParentSelectOptions(habitToEdit ? habitToEdit.id : null, selectedParentId);
+    }
 
     if (habitToEdit) {
       elements.modalHabitTitle.textContent = 'Edit Habit Goal';
@@ -1308,12 +1561,35 @@
         elements.customSwatchPreview.style.backgroundColor = 'transparent';
       }
     } else {
-      elements.modalHabitTitle.textContent = 'Create New Habit';
+      elements.modalHabitTitle.textContent = defaultParentId ? 'Create New Sub-Habit' : 'Create New Habit';
       document.getElementById('habit-id').value = '';
       elements.customSwatchPreview.style.backgroundColor = 'transparent';
     }
 
     elements.modalHabit.classList.remove('hidden');
+  }
+
+  function buildParentSelectOptions(excludeId = null, currentParentId = null) {
+    let html = `<option value="">None (Top-Level Habit)</option>`;
+
+    const invalidIds = new Set();
+    if (excludeId) {
+      getAllDescendantIds(excludeId).forEach(id => invalidIds.add(id));
+    }
+
+    function appendHabitOptions(parentId = null, depth = 0) {
+      const children = state.habits.filter(h => (h.parentId || null) === parentId);
+      children.forEach(h => {
+        if (invalidIds.has(h.id)) return;
+        const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
+        const isSelected = h.id === currentParentId;
+        html += `<option value="${h.id}" ${isSelected ? 'selected' : ''}>${indent}${escapeHTML(h.name)}</option>`;
+        appendHabitOptions(h.id, depth + 1);
+      });
+    }
+
+    appendHabitOptions(null, 0);
+    return html;
   }
 
   function handleHabitFormSubmit(e) {
@@ -1326,6 +1602,8 @@
     const category = document.getElementById('habit-category').value.trim();
     const dailyTarget = parseInt(document.getElementById('habit-daily-target').value, 10) || 1;
     const selectedColorRadio = elements.formHabit.querySelector('input[name="habit-color"]:checked').value;
+    const parentIdVal = document.getElementById('habit-parent').value.trim();
+    const parentId = parentIdVal ? parentIdVal : null;
 
     let colorTheme = 'green';
     if (selectedColorRadio === 'custom') {
@@ -1346,6 +1624,7 @@
         habit.category = category;
         habit.dailyTarget = dailyTarget;
         habit.colorTheme = colorTheme;
+        habit.parentId = parentId;
       }
     } else {
       const newHabit = {
@@ -1356,6 +1635,7 @@
         category,
         colorTheme,
         dailyTarget,
+        parentId,
         createdAt: getTodayKey(),
         logs: {}
       };
@@ -1368,17 +1648,41 @@
     renderAll();
   }
 
-  function deleteSelectedHabit() {
-    if (state.selectedHabitId === 'all') return;
-    const habit = state.habits.find(h => h.id === state.selectedHabitId);
+  function deleteHabit(habitId) {
+    const habit = state.habits.find(h => h.id === habitId);
     if (!habit) return;
 
-    if (confirm(`Are you sure you want to delete "${habit.name}"? All tracking history for this habit will be removed.`)) {
-      state.habits = state.habits.filter(h => h.id !== state.selectedHabitId);
-      state.selectedHabitId = 'all';
-      saveState();
-      renderAll();
+    const subhabits = state.habits.filter(h => h.parentId === habitId);
+    let msg = `Are you sure you want to delete "${habit.name}"?`;
+    if (subhabits.length > 0) {
+      msg += ` Its ${subhabits.length} sub-habit(s) will become top-level habits.`;
     }
+
+    if (confirm(msg)) {
+      state.habits = state.habits.filter(h => h.id !== habitId);
+      subhabits.forEach(sub => {
+        sub.parentId = habit.parentId || null;
+      });
+
+      saveState();
+
+      const route = parseHash();
+      if (route.view === 'habit' && route.habitId === habitId) {
+        if (habit.parentId) {
+          navigateTo(`#/habit/${habit.parentId}`);
+        } else {
+          navigateTo('#/');
+        }
+      } else {
+        renderAll();
+      }
+      showToast(`Deleted "${habit.name}"`);
+    }
+  }
+
+  function deleteSelectedHabit() {
+    if (state.selectedHabitId === 'all') return;
+    deleteHabit(state.selectedHabitId);
   }
 
   // LOG MODAL HANDLERS
@@ -1388,12 +1692,22 @@
     activeLogDateKey = dateStr;
     elements.modalLogDateStr.textContent = formatPrettyDate(dateStr);
 
-    elements.modalLogHabitSelect.innerHTML = state.habits
-      .map(h => `<option value="${h.id}">${h.type === 'negative' ? '🛑 ' : ''}${escapeHTML(h.name)}</option>`)
-      .join('');
+    let habitSelectHTML = '';
+    function appendLogOptions(parentId = null, depth = 0) {
+      const children = state.habits.filter(h => (h.parentId || null) === parentId);
+      children.forEach(h => {
+        const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
+        const icon = h.type === 'negative' ? '🛑 ' : '';
+        habitSelectHTML += `<option value="${h.id}">${indent}${icon}${escapeHTML(h.name)}</option>`;
+        appendLogOptions(h.id, depth + 1);
+      });
+    }
+    appendLogOptions(null, 0);
+
+    elements.modalLogHabitSelect.innerHTML = habitSelectHTML || '<option value="">No habits</option>';
 
     let targetId = (preferredHabitId && preferredHabitId !== 'all') ? preferredHabitId : state.selectedHabitId;
-    if (targetId !== 'all') {
+    if (targetId !== 'all' && state.habits.some(h => h.id === targetId)) {
       elements.modalLogHabitSelect.value = targetId;
     }
 
