@@ -712,10 +712,6 @@
 
       viewNav.innerHTML = `
         <div class="nav-left">
-          <button type="button" class="btn btn-secondary btn-back-nav" id="btn-nav-back" title="Go back">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-            Back
-          </button>
           <div class="breadcrumb-trail">${breadcrumbHTML}</div>
         </div>
         <div class="nav-right">
@@ -728,13 +724,12 @@
 
       viewNav.classList.remove('hidden');
 
-      document.getElementById('btn-nav-back').addEventListener('click', () => {
-        handleBackNavigation(targetHabit);
-      });
-
-      document.getElementById('btn-nav-add-sub').addEventListener('click', () => {
-        openHabitModal(null, targetHabit.id);
-      });
+      const navAddSub = document.getElementById('btn-nav-add-sub');
+      if (navAddSub) {
+        navAddSub.addEventListener('click', () => {
+          openHabitModal(null, targetHabit.id);
+        });
+      }
     } else {
       viewNav.classList.add('hidden');
     }
@@ -889,7 +884,7 @@
         const callout = document.createElement('div');
         callout.className = 'subhabit-callout';
         callout.innerHTML = `
-          <span>No sub-habits under <strong>${escapeHTML(targetHabit.name)}</strong> yet. You can add routines like "Leg Day" or "Arm Day" inside this habit!</span>
+          <span>No sub-habits under <strong>${escapeHTML(targetHabit.name)}</strong> yet.</span>
           <button type="button" class="btn btn-secondary btn-sm btn-add-sub-callout">+ Add Sub-habit</button>
         `;
         elements.heatmapsGallery.appendChild(callout);
@@ -940,7 +935,10 @@
       card.style.setProperty('--custom-level-4', levels.level4);
     }
 
-    let titleText = 'Combined Contribution Map';
+    const route = parseHash();
+    const isCurrentOpenPage = route.view === 'habit' && route.habitId === (habit ? habit.id : null);
+
+    let titleText = 'All';
     if (isGroup) titleText = targetOrNull.title;
     else if (habit) titleText = habit.name;
 
@@ -951,10 +949,14 @@
       ? 'background-color: #39d353;'
       : `background-color: ${getHabitHexColor(habit || targetOrNull)};`;
 
-    // Title element
+    // Title element: if page is ALREADY open, no link is needed!
     let titleHTML = `<h3>${escapeHTML(titleText)}</h3>`;
     if (habit) {
-      titleHTML = `<h3><a href="#/habit/${habit.id}" class="card-title-link" title="Open ${escapeHTML(habit.name)}">${escapeHTML(habit.name)}</a></h3>`;
+      if (isCurrentOpenPage) {
+        titleHTML = `<h3>${escapeHTML(habit.name)}</h3>`;
+      } else {
+        titleHTML = `<h3><a href="#/habit/${habit.id}" class="card-title-link" title="Open ${escapeHTML(habit.name)}">${escapeHTML(habit.name)}</a></h3>`;
+      }
     }
 
     // Subhabits badge
@@ -962,26 +964,42 @@
     if (habit) {
       const directSubs = state.habits.filter(h => h.parentId === habit.id);
       if (directSubs.length > 0) {
-        subhabitsBadgeHTML = `<a href="#/habit/${habit.id}" class="badge-subhabits" title="View ${directSubs.length} sub-habits">📁 ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}</a>`;
+        if (isCurrentOpenPage) {
+          subhabitsBadgeHTML = `<span class="badge-subhabits">📁 ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}</span>`;
+        } else {
+          subhabitsBadgeHTML = `<a href="#/habit/${habit.id}" class="badge-subhabits" title="View ${directSubs.length} sub-habits">📁 ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}</a>`;
+        }
       }
     }
 
-    // Action buttons in header
+    // Context Menu for Habit Actions
     let actionsHTML = '';
     if (habit) {
+      const openMenuItem = !isCurrentOpenPage ? `<a href="#/habit/${habit.id}" class="card-menu-item">Open Habit Page</a>` : '';
+
       actionsHTML = `
         <div class="card-header-actions">
-          <button type="button" class="btn btn-ghost btn-xs btn-card-add-sub" data-habit-id="${habit.id}" title="Add Sub-habit">+ Sub</button>
-          <button type="button" class="btn btn-ghost btn-xs btn-card-edit" data-habit-id="${habit.id}" title="Edit Habit">Edit</button>
-          <button type="button" class="btn btn-ghost btn-xs btn-card-delete text-danger" data-habit-id="${habit.id}" title="Delete Habit">Delete</button>
-          <a href="#/habit/${habit.id}" class="btn btn-secondary btn-xs btn-card-open" title="Open Habit URL">Open →</a>
+          <div class="drag-handle" title="Drag to reorder habit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+          </div>
+          <div class="card-context-menu-dropdown">
+            <button type="button" class="btn-card-menu-toggle" title="Options" aria-label="Habit Options">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+            </button>
+            <div class="card-menu-content hidden">
+              ${openMenuItem}
+              <button type="button" class="card-menu-item btn-card-add-sub" data-habit-id="${habit.id}">+ Add Sub-habit</button>
+              <button type="button" class="card-menu-item btn-card-edit" data-habit-id="${habit.id}">Edit Habit</button>
+              <button type="button" class="card-menu-item btn-card-delete text-danger" data-habit-id="${habit.id}">Delete Habit</button>
+            </div>
+          </div>
         </div>
       `;
     } else if (!isAll && !isGroup) {
       actionsHTML = `
         <div class="card-header-actions">
           <div class="drag-handle" title="Drag to reorder habit">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
           </div>
         </div>
       `;
@@ -1134,23 +1152,8 @@
 
     gridHTML += '</div>';
 
-    const legendLess = isNegative ? 'Relapse' : 'Less';
-    const legendMore = isNegative ? 'Clean Day' : 'More';
-
     let footerHTML = `
       <div class="heatmap-footer">
-        <span>Click heatmap to log progress or pick date</span>
-        <div class="heatmap-legend">
-          <span>${legendLess}</span>
-          <div class="legend-cells theme-${theme}">
-            <span class="legend-cell level-0"></span>
-            <span class="legend-cell level-1"></span>
-            <span class="legend-cell level-2"></span>
-            <span class="legend-cell level-3"></span>
-            <span class="legend-cell level-4"></span>
-          </div>
-          <span>${legendMore}</span>
-        </div>
       </div>
     `;
 
@@ -1442,11 +1445,38 @@
       });
     }
 
-    // Header action buttons (+ Sub, Edit, Delete)
+    // Card Context Menu Dropdown Toggle
+    elements.heatmapsGallery.querySelectorAll('.btn-card-menu-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dropdown = btn.closest('.card-context-menu-dropdown');
+        if (!dropdown) return;
+        const menu = dropdown.querySelector('.card-menu-content');
+        if (!menu) return;
+
+        // Close all other open card context menus
+        elements.heatmapsGallery.querySelectorAll('.card-menu-content').forEach(m => {
+          if (m !== menu) m.classList.add('hidden');
+        });
+
+        menu.classList.toggle('hidden');
+      });
+    });
+
+    // Dismiss context menus on click anywhere
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.card-context-menu-dropdown') && elements.heatmapsGallery) {
+        elements.heatmapsGallery.querySelectorAll('.card-menu-content').forEach(m => m.classList.add('hidden'));
+      }
+    });
+
+    // Header action buttons inside Context Menu (+ Sub, Edit, Delete)
     elements.heatmapsGallery.querySelectorAll('.btn-card-add-sub').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const habitId = btn.dataset.habitId;
+        const menu = btn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
         openHabitModal(null, habitId);
       });
     });
@@ -1455,6 +1485,8 @@
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const habitId = btn.dataset.habitId;
+        const menu = btn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
         const habit = state.habits.find(h => h.id === habitId);
         if (habit) openHabitModal(habit);
       });
@@ -1464,11 +1496,13 @@
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const habitId = btn.dataset.habitId;
+        const menu = btn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
         deleteHabit(habitId);
       });
     });
 
-    elements.heatmapsGallery.querySelectorAll('.card-title-link, .badge-subhabits, .btn-card-open').forEach(el => {
+    elements.heatmapsGallery.querySelectorAll('.card-title-link, .badge-subhabits').forEach(el => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
       });
