@@ -764,10 +764,11 @@
         habit.logs[dateKey] = { count: 0, note: '' };
       }
     } else {
-      if (currentCount >= (habit.dailyTarget || 1)) {
+      const target = habit.dailyTarget || 1;
+      if (currentCount >= target) {
         habit.logs[dateKey] = { count: 0, note: currentNote };
       } else {
-        habit.logs[dateKey] = { count: (habit.dailyTarget || 1), note: currentNote };
+        habit.logs[dateKey] = { count: currentCount + 1, note: currentNote };
       }
     }
 
