@@ -1552,10 +1552,3 @@ body.dark-theme {
   font-family: var(--font-sans);
   white-space: nowrap;
 }
-
-.card-menu-item:hover {
-  background-color: var(--bg-pill-active);
-  color: var(--accent-blue);
-}
-
-
