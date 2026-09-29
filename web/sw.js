@@ -11,8 +11,7 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   './favicon.svg',
   './icon-192.png',
-  './icon-512.png',
-  './hellohabit_habit_activity.csv'
+  './icon-512.png'
 ];
 
 // Install Event - Pre-cache Static Assets
