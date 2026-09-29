@@ -943,7 +943,7 @@
     else if (habit) titleText = habit.name;
 
     const streakLabel = streakData.current > 0 ? `🔥 ${streakData.current}d streak` : '';
-    const countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} completions in ${year}`;
+    const countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} in ${year}`;
 
     const colorBadgeStyle = isAll
       ? 'background-color: #39d353;'
