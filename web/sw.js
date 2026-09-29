@@ -2,7 +2,7 @@
  * Habitual Service Worker - Offline Caching and PWA Engine
  */
 
-const CACHE_NAME = 'habitual-pwa-v2';
+const CACHE_NAME = 'habitual-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
