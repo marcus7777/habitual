@@ -13,11 +13,13 @@
   let state = {
     habits: [],
     selectedHabitId: 'all',
-    selectedYear: CURRENT_YEAR
+    selectedYear: CURRENT_YEAR,
+    showQuickLogOnStartup: false
   };
 
   let activeCalendarHabit = null;
   let focusedDayState = { habitId: null, dateStr: null };
+  let pendingQuickLogAfterHabit = false;
 
   const COLOR_PALETTE = ['green', 'blue', 'purple', 'orange', 'crimson', 'cyan', 'emerald', 'amber', 'indigo', 'rose'];
 
@@ -132,6 +134,9 @@
     registerServiceWorker();
     window.addEventListener('hashchange', renderAll);
     renderAll();
+    if (state.showQuickLogOnStartup) {
+      openLogModal(getTodayKey());
+    }
   });
 
   // --- PWA SERVICE WORKER ---
@@ -154,6 +159,7 @@
         state.habits = parsed.habits || [];
         state.selectedHabitId = parsed.selectedHabitId || 'all';
         state.selectedYear = parsed.selectedYear || CURRENT_YEAR;
+        state.showQuickLogOnStartup = parsed.showQuickLogOnStartup || false;
       }
     } catch (e) {
       console.error('Failed to load state from LocalStorage:', e);
@@ -522,6 +528,14 @@
     elements.modalLogHabitSelect = document.getElementById('modal-log-habit-select');
     elements.modalLogCount = document.getElementById('modal-log-count');
     elements.modalLogNote = document.getElementById('modal-log-note');
+    elements.modalLogShowOnStartup = document.getElementById('modal-log-show-on-startup');
+
+    if (elements.modalLogShowOnStartup) {
+      elements.modalLogShowOnStartup.addEventListener('change', (e) => {
+        state.showQuickLogOnStartup = e.target.checked;
+        saveState();
+      });
+    }
 
     elements.modalData = document.getElementById('modal-data');
 
@@ -609,8 +623,14 @@
     }
 
     // Close Modals
-    document.getElementById('modal-habit-close').addEventListener('click', () => elements.modalHabit.classList.add('hidden'));
-    document.getElementById('btn-cancel-habit').addEventListener('click', () => elements.modalHabit.classList.add('hidden'));
+    document.getElementById('modal-habit-close').addEventListener('click', () => {
+      pendingQuickLogAfterHabit = false;
+      elements.modalHabit.classList.add('hidden');
+    });
+    document.getElementById('btn-cancel-habit').addEventListener('click', () => {
+      pendingQuickLogAfterHabit = false;
+      elements.modalHabit.classList.add('hidden');
+    });
     document.getElementById('modal-log-close').addEventListener('click', () => elements.modalLog.classList.add('hidden'));
     document.getElementById('modal-data-close').addEventListener('click', () => elements.modalData.classList.add('hidden'));
 
@@ -758,18 +778,9 @@
     const currentNote = currentLog ? currentLog.note : '';
 
     if (habit.type === 'negative') {
-      if (currentCount === 0) {
-        habit.logs[dateKey] = { count: 1, note: currentNote || 'Relapse logged' };
-      } else {
-        habit.logs[dateKey] = { count: 0, note: '' };
-      }
+      habit.logs[dateKey] = { count: currentCount + 1, note: currentNote || 'Relapse logged' };
     } else {
-      const target = habit.dailyTarget || 1;
-      if (currentCount >= target) {
-        habit.logs[dateKey] = { count: 0, note: currentNote };
-      } else {
-        habit.logs[dateKey] = { count: currentCount + 1, note: currentNote };
-      }
+      habit.logs[dateKey] = { count: currentCount + 1, note: currentNote };
     }
 
     saveState();
@@ -1039,17 +1050,20 @@
         if (h.type === 'negative') {
           const isClean = !log || log.count === 0;
           isDone = isClean;
-          labelText = isClean ? `✨ ${h.name}` : `⚠️ Slip ${h.name}`;
+          labelText = isClean ? `✨ ${h.name}` : `⚠️ Slip ${h.name} (${log.count})`;
         } else {
-          isDone = log && log.count >= (h.dailyTarget || 1);
-          labelText = isDone ? `✓ ${h.name}` : `+ ${h.name}`;
+          const count = log ? log.count : 0;
+          const target = h.dailyTarget || 1;
+          isDone = count >= target;
+          labelText = isDone ? `✓ +1 ${h.name} (${count})` : `+1 ${h.name}`;
         }
 
         actionButtonsHTML += `
           <button type="button" class="btn btn-secondary quick-log-btn ${isDone ? 'completed' : ''}"
                   style="--quick-btn-color: ${hex};"
                   data-action-habit-id="${h.id}"
-                  data-action-date-key="${focusDateKey}">
+                  data-action-date-key="${focusDateKey}"
+                  title="Click to add +1">
             ${escapeHTML(labelText)}
           </button>
         `;
@@ -1681,6 +1695,12 @@
     saveState();
     elements.modalHabit.classList.add('hidden');
     renderAll();
+
+    if (pendingQuickLogAfterHabit) {
+      pendingQuickLogAfterHabit = false;
+      const createdHabitId = id || (state.habits.length > 0 ? state.habits[state.habits.length - 1].id : null);
+      openLogModal(activeLogDateKey || getTodayKey(), createdHabitId);
+    }
   }
 
   function deleteHabit(habitId) {
@@ -1725,6 +1745,13 @@
 
   function openLogModal(dateStr, preferredHabitId = null) {
     activeLogDateKey = dateStr;
+
+    if (state.habits.length === 0) {
+      pendingQuickLogAfterHabit = true;
+      openHabitModal();
+      return;
+    }
+
     elements.modalLogDateStr.textContent = formatPrettyDate(dateStr);
 
     let habitSelectHTML = '';
@@ -1748,6 +1775,10 @@
 
     loadLogModalValues();
     elements.modalLogHabitSelect.onchange = () => loadLogModalValues();
+
+    if (elements.modalLogShowOnStartup) {
+      elements.modalLogShowOnStartup.checked = !!state.showQuickLogOnStartup;
+    }
 
     elements.modalLog.classList.remove('hidden');
   }
