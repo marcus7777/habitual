@@ -1661,7 +1661,7 @@
       }
 
       const newHabit = {
-        id: name.trim().replace(/[^A-Za-z]/g, "~") + (parentId ? '_p_' + parentId : ''),
+        id: name.trim().replace(/[^A-Za-z0-9]/g, "~") + (parentId ? '_p_' + parentId : ''),
         name,
         type,
         description,
