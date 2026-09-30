@@ -406,11 +406,21 @@
     elements.calendarInputDate = document.getElementById('calendar-input-date');
 
     elements.modalLog = document.getElementById('modal-log');
-    elements.modalLogDateStr = document.getElementById('modal-log-date-str');
+    elements.modalLogDateInput = document.getElementById('modal-log-date-input');
     elements.modalLogHabitSelect = document.getElementById('modal-log-habit-select');
     elements.modalLogCount = document.getElementById('modal-log-count');
     elements.modalLogNote = document.getElementById('modal-log-note');
     elements.modalLogShowOnStartup = document.getElementById('modal-log-show-on-startup');
+
+    if (elements.modalLogDateInput) {
+      elements.modalLogDateInput.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val) {
+          activeLogDateKey = val;
+          loadLogModalValues();
+        }
+      });
+    }
 
     if (elements.modalLogShowOnStartup) {
       elements.modalLogShowOnStartup.addEventListener('change', (e) => {
@@ -1736,7 +1746,9 @@
       return;
     }
 
-    elements.modalLogDateStr.textContent = formatPrettyDate(dateStr);
+    if (elements.modalLogDateInput) {
+      elements.modalLogDateInput.value = dateStr;
+    }
 
     let habitSelectHTML = '';
     function appendLogOptions(parentId = null, depth = 0) {
