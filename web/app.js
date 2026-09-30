@@ -381,124 +381,6 @@
     showToast(`Imported ${colHabitMap.length - 1} habits and ${logsImportedCount} check-in logs from ${sourceName}!`);
   }
 
-  // --- AUTOMATIC DEMO / LOCAL CSV LOADER ---
-  function loadHelloHabitCSV(showConfirm = true) {
-    if (showConfirm && state.habits.length > 0) {
-      if (!confirm('Import hellohabit_habit_activity.csv into your tracker? Existing data will be preserved and merged.')) {
-        return;
-      }
-    }
-
-    fetch('hellohabit_habit_activity.csv')
-      .then(res => {
-        if (!res.ok) throw new Error('File not found');
-        return res.text();
-      })
-      .then(text => {
-        parseCSVAndImport(text, 'hellohabit_habit_activity.csv');
-      })
-      .catch(err => {
-        console.warn('Could not fetch hellohabit_habit_activity.csv directly, generating default demo data:', err);
-        seedDemoData(true);
-      });
-  }
-
-  // --- DEMO DATA SEEDER WITH SUB-HABITS ---
-  function seedDemoData(force = true) {
-    if (!force && state.habits.length > 0) return;
-
-    const today = new Date();
-    const currentYear = today.getFullYear();
-
-    function generateLogs(frequencyRatio, maxCount = 2) {
-      const logs = {};
-      const startDate = new Date(currentYear, 0, 1);
-      const endDate = new Date();
-
-      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        if (Math.random() < frequencyRatio) {
-          const dateKey = formatDateKey(d);
-          const count = Math.floor(Math.random() * maxCount) + 1;
-          logs[dateKey] = {
-            count: count,
-            note: Math.random() < 0.2 ? '30 min session' : ''
-          };
-        }
-      }
-      return logs;
-    }
-
-    state.habits = [
-      {
-        id: 'habit_demo_1',
-        name: 'Gym & Workout 🏋️',
-        description: 'Cardio, strength, or workout routine',
-        category: 'Health',
-        type: 'positive',
-        colorTheme: 'green',
-        dailyTarget: 1,
-        parentId: null,
-        createdAt: `${currentYear}-01-01`,
-        logs: generateLogs(0.65, 2)
-      },
-      {
-        id: 'habit_demo_sub_1',
-        name: 'Leg Day 🦵',
-        description: 'Squats, lunges & leg exercises',
-        category: 'Health',
-        type: 'positive',
-        colorTheme: 'emerald',
-        dailyTarget: 1,
-        parentId: 'habit_demo_1',
-        createdAt: `${currentYear}-01-01`,
-        logs: generateLogs(0.4, 2)
-      },
-      {
-        id: 'habit_demo_sub_2',
-        name: 'Upper Body & Arms 💪',
-        description: 'Bench press, pull-ups & upper body',
-        category: 'Health',
-        type: 'positive',
-        colorTheme: 'cyan',
-        dailyTarget: 1,
-        parentId: 'habit_demo_1',
-        createdAt: `${currentYear}-01-01`,
-        logs: generateLogs(0.45, 2)
-      },
-      {
-        id: 'habit_demo_2',
-        name: 'Create Art & Design 🎨',
-        description: 'Draw, design or practice creative work',
-        category: 'Creativity',
-        type: 'positive',
-        colorTheme: '#a855f7',
-        dailyTarget: 1,
-        parentId: null,
-        createdAt: `${currentYear}-01-01`,
-        logs: generateLogs(0.5, 2)
-      },
-      {
-        id: 'habit_demo_3',
-        name: 'Days since Caffeine ☕',
-        description: 'Track clean days without caffeine relapse',
-        category: 'Wellness',
-        type: 'negative',
-        colorTheme: 'amber',
-        dailyTarget: 1,
-        parentId: null,
-        createdAt: `${currentYear}-01-01`,
-        logs: {
-          [`${currentYear}-02-15`]: { count: 1, note: 'Had 1 espresso' },
-          [`${currentYear}-05-10`]: { count: 1, note: 'Coffee relapse' }
-        }
-      }
-    ];
-
-    state.selectedHabitId = 'all';
-    state.selectedYear = currentYear;
-    saveState();
-    renderAll();
-  }
 
   // --- DOM ELEMENTS & EVENT LISTENERS ---
   const elements = {};
@@ -538,6 +420,24 @@
     }
 
     elements.modalData = document.getElementById('modal-data');
+
+    // Backfill Elements
+    elements.habitEnableBackfill = document.getElementById('habit-enable-backfill');
+    elements.backfillOptionsContainer = document.getElementById('backfill-options-container');
+    elements.backfillSection = document.getElementById('backfill-section');
+    elements.habitHistoryDuration = document.getElementById('habit-history-duration');
+    elements.habitHistoryFrequency = document.getElementById('habit-history-frequency');
+    elements.habitHistoryInstances = document.getElementById('habit-history-instances');
+
+    if (elements.habitEnableBackfill && elements.backfillOptionsContainer) {
+      elements.habitEnableBackfill.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          elements.backfillOptionsContainer.classList.remove('hidden');
+        } else {
+          elements.backfillOptionsContainer.classList.add('hidden');
+        }
+      });
+    }
 
     // Custom Color Sync
     elements.customColorPicker.addEventListener('input', (e) => {
@@ -822,20 +722,19 @@
     renderViewNavigation(route);
 
     if (state.habits.length === 0) {
-      elements.heatmapsGallery.innerHTML = `
-        <div class="empty-placeholder">
-          No habits created yet. Click "+ New Habit" or "Import CSV" in the Menu to start!
-        </div>
-      `;
+      const isHidden = elements.headerMenuContent.classList.toggle('hidden');
+      elements.btnHeaderMenu.setAttribute('aria-expanded', !isHidden);// show menu
       return;
     }
 
     if (route.view === 'home') {
       const topLevelHabits = state.habits.filter(h => !h.parentId);
 
-      // Render Combined Heatmap Card
-      const combinedCard = buildHeatmapCard(null, state.selectedYear);
-      elements.heatmapsGallery.appendChild(combinedCard);
+      // Render Combined Heatmap Card only if there are multiple habits overall
+      if (state.habits.length > 1) {
+        const combinedCard = buildHeatmapCard(null, state.selectedYear);
+        elements.heatmapsGallery.appendChild(combinedCard);
+      }
 
       topLevelHabits.forEach(habit => {
         const habitCard = buildHeatmapCard(habit, state.selectedYear);
@@ -855,18 +754,15 @@
         return;
       }
 
-      // Render target habit card first
-      const habitCard = buildHeatmapCard(targetHabit, state.selectedYear);
-      elements.heatmapsGallery.appendChild(habitCard);
-
       const subhabits = state.habits.filter(h => h.parentId === targetHabit.id);
       const allDescendantIds = getAllDescendantIds(targetHabit.id);
 
       if (subhabits.length > 0) {
-        // Combined Sub-habits Heatmap Card
+        // Combined Sub-habits Heatmap Card (serves as the combined view for target habit + sub-habits)
         const groupTarget = {
           isGroup: true,
-          title: `${targetHabit.name} & Sub-habits Combined Map`,
+          habit: targetHabit,
+          title: targetHabit.name,
           habitIds: allDescendantIds,
           colorTheme: targetHabit.colorTheme
         };
@@ -893,10 +789,13 @@
           elements.heatmapsGallery.appendChild(subCard);
         });
       } else {
+        // Render target habit card directly (when there are no sub-habits)
+        const habitCard = buildHeatmapCard(targetHabit, state.selectedYear);
+        elements.heatmapsGallery.appendChild(habitCard);
+
         const callout = document.createElement('div');
         callout.className = 'subhabit-callout';
         callout.innerHTML = `
-          <span>No sub-habits under <strong>${escapeHTML(targetHabit.name)}</strong> yet.</span>
           <button type="button" class="btn btn-secondary btn-sm btn-add-sub-callout">+ Add Sub-habit</button>
         `;
         elements.heatmapsGallery.appendChild(callout);
@@ -915,14 +814,15 @@
     const todayStr = getTodayKey();
     const isAll = targetOrNull === null;
     const isGroup = targetOrNull && targetOrNull.isGroup;
-    const habit = (!isAll && !isGroup) ? targetOrNull : null;
+    const habit = (!isAll && !isGroup) ? targetOrNull : (isGroup && targetOrNull.habit ? targetOrNull.habit : null);
 
     let cardHabitId = 'all';
     if (isGroup) cardHabitId = 'group_' + targetOrNull.habitIds.join('_');
     else if (habit) cardHabitId = habit.id;
 
-    const isCustomHex = habit && habit.colorTheme && habit.colorTheme.startsWith('#');
-    const theme = isAll ? 'green' : (isGroup ? (targetOrNull.colorTheme || 'green') : (isCustomHex ? 'custom' : (habit.colorTheme || 'green')));
+    const colorTheme = isAll ? null : (isGroup ? (targetOrNull.colorTheme || (habit ? habit.colorTheme : null)) : (habit ? habit.colorTheme : null));
+    const isCustomHex = colorTheme && colorTheme.startsWith('#');
+    const theme = isAll ? 'green' : (isCustomHex ? 'custom' : (colorTheme || 'green'));
     const isNegative = habit && habit.type === 'negative';
 
     const isCardFocused = focusedDayState.habitId === cardHabitId && focusedDayState.dateStr;
@@ -939,7 +839,7 @@
     }
 
     if (isCustomHex) {
-      const levels = getCustomThemeLevels(habit.colorTheme);
+      const levels = getCustomThemeLevels(colorTheme);
       card.style.setProperty('--custom-level-0', levels.level0);
       card.style.setProperty('--custom-level-1', levels.level1);
       card.style.setProperty('--custom-level-2', levels.level2);
@@ -965,9 +865,9 @@
     let titleHTML = `<h3>${escapeHTML(titleText)}</h3>`;
     if (habit) {
       if (isCurrentOpenPage) {
-        titleHTML = `<h3>${escapeHTML(habit.name)}</h3>`;
+        titleHTML = `<h3>${escapeHTML(titleText)}</h3>`;
       } else {
-        titleHTML = `<h3><a href="#/habit/${habit.id}" class="card-title-link" title="Open ${escapeHTML(habit.name)}">${escapeHTML(habit.name)}</a></h3>`;
+        titleHTML = `<h3><a href="#/habit/${habit.id}" class="card-title-link" title="Open ${escapeHTML(titleText)}">${escapeHTML(titleText)}</a></h3>`;
       }
     }
 
@@ -988,12 +888,15 @@
     let actionsHTML = '';
     if (habit) {
       const openMenuItem = !isCurrentOpenPage ? `<a href="#/habit/${habit.id}" class="card-menu-item">Open Habit Page</a>` : '';
+      const dragHandleHTML = (!isGroup) ? `
+        <div class="drag-handle" title="Drag to reorder habit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+        </div>
+      ` : '';
 
       actionsHTML = `
         <div class="card-header-actions">
-          <div class="drag-handle" title="Drag to reorder habit">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
-          </div>
+          ${dragHandleHTML}
           <div class="card-context-menu-dropdown">
             <button type="button" class="btn-card-menu-toggle" title="Options" aria-label="Habit Options">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
@@ -1055,7 +958,8 @@
           const count = log ? log.count : 0;
           const target = h.dailyTarget || 1;
           isDone = count >= target;
-          labelText = isDone ? `✓ +1 ${h.name} (${count})` : `+1 ${h.name}`;
+          const targetText = target > 1 ? ` (${count}/${target})` : (count > 0 ? ` (${count})` : '');
+          labelText = isDone ? `✓ +1 ${h.name}${targetText}` : `+1 ${h.name}${targetText}`;
         }
 
         actionButtonsHTML += `
@@ -1167,12 +1071,7 @@
 
     gridHTML += '</div>';
 
-    let footerHTML = `
-      <div class="heatmap-footer">
-      </div>
-    `;
-
-    card.innerHTML = headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>` + footerHTML;
+    card.innerHTML = headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>`;
     return card;
   }
 
@@ -1241,13 +1140,19 @@
 
     const count = log ? log.count : 0;
     const note = log ? log.note : '';
+    const dailyTarget = Math.max(1, habit.dailyTarget || 1);
     let level = 0;
 
-    if (count === 0) level = 0;
-    else if (count === 1) level = 1;
-    else if (count === 2) level = 2;
-    else if (count === 3) level = 3;
-    else level = 4;
+    if (count === 0) {
+      level = 0;
+    } else {
+      const ratio = count / dailyTarget;
+      if (ratio >= 1.0) {
+        level = 4;
+      } else {
+        level = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
+      }
+    }
 
     return { count, level, isRelapse: false, note };
   }
@@ -1390,7 +1295,7 @@
 
         let text = '';
         if (isRelapse) {
-          text = `⚠️ <strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
+          text = `<strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
         } else if (habitId.startsWith('all') || habitId.startsWith('group_')) {
           if (habitsDone) {
             text = `✨ <strong>Completed (${count}):</strong> ${habitsDone} on ${formattedDate}`;
@@ -1402,7 +1307,13 @@
           if (habit && habit.type === 'negative') {
             text = count > 0 ? `✨ <strong>Clean Day Success</strong> on ${formattedDate}` : `No data for ${formattedDate}`;
           } else {
-            text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
+            const dailyTarget = habit ? Math.max(1, habit.dailyTarget || 1) : 1;
+            if (dailyTarget > 1) {
+              const status = count >= dailyTarget ? ' 🎉 Goal Met!' : '';
+              text = `<strong>${count}/${dailyTarget} completed${status}</strong> on ${formattedDate}`;
+            } else {
+              text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
+            }
           }
         }
 
@@ -1594,6 +1505,10 @@
       document.getElementById('habit-category').value = habitToEdit.category || 'General';
       document.getElementById('habit-daily-target').value = habitToEdit.dailyTarget || 1;
 
+      if (elements.backfillSection) elements.backfillSection.classList.add('hidden');
+      if (elements.habitEnableBackfill) elements.habitEnableBackfill.checked = false;
+      if (elements.backfillOptionsContainer) elements.backfillOptionsContainer.classList.add('hidden');
+
       const typeRadio = elements.formHabit.querySelector(`input[name="habit-type"][value="${habitToEdit.type || 'positive'}"]`);
       if (typeRadio) typeRadio.checked = true;
 
@@ -1613,6 +1528,13 @@
       elements.modalHabitTitle.textContent = defaultParentId ? 'Create New Sub-Habit' : 'Create New Habit';
       document.getElementById('habit-id').value = '';
       elements.customSwatchPreview.style.backgroundColor = 'transparent';
+
+      if (elements.backfillSection) elements.backfillSection.classList.remove('hidden');
+      if (elements.habitEnableBackfill) elements.habitEnableBackfill.checked = false;
+      if (elements.backfillOptionsContainer) elements.backfillOptionsContainer.classList.add('hidden');
+      if (elements.habitHistoryDuration) elements.habitHistoryDuration.value = '30';
+      if (elements.habitHistoryFrequency) elements.habitHistoryFrequency.value = 'frequent';
+      if (elements.habitHistoryInstances) elements.habitHistoryInstances.value = '1';
     }
 
     elements.modalHabit.classList.remove('hidden');
@@ -1639,6 +1561,55 @@
 
     appendHabitOptions(null, 0);
     return html;
+  }
+
+  function generateBackfillLogs(daysToBackfill, frequencyVal, instancesVal, dailyTarget = 1, habitType = 'positive') {
+    const logs = {};
+    const today = new Date();
+    const days = Math.max(1, Math.min(3650, parseInt(daysToBackfill, 10) || 30));
+
+    let frequencyRatio = 0.8;
+    if (frequencyVal === 'daily') frequencyRatio = 1.0;
+    else if (frequencyVal === 'frequent') frequencyRatio = 0.8;
+    else if (frequencyVal === 'moderate') frequencyRatio = 0.5;
+    else if (frequencyVal === 'occasional') frequencyRatio = 0.25;
+
+    const startDate = new Date();
+    startDate.setDate(today.getDate() - days);
+
+    for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+      if (Math.random() < frequencyRatio) {
+        const dateKey = formatDateKey(d);
+        let count = 1;
+
+        if (habitType === 'negative') {
+          count = 1;
+        } else {
+          if (instancesVal === 'target') {
+            count = Math.max(1, dailyTarget);
+          } else if (instancesVal === 'random_target') {
+            const max = Math.max(1, dailyTarget);
+            count = Math.floor(Math.random() * max) + 1;
+          } else if (instancesVal === 'random_multi') {
+            const max = Math.max(3, dailyTarget);
+            count = Math.floor(Math.random() * max) + 1;
+          } else if (instancesVal === 'random_high') {
+            const max = Math.max(5, dailyTarget);
+            count = Math.floor(Math.random() * max) + 1;
+          } else {
+            const parsed = parseInt(instancesVal, 10);
+            count = (!isNaN(parsed) && parsed > 0) ? parsed : 1;
+          }
+        }
+
+        logs[dateKey] = {
+          count: count,
+          note: ''
+        };
+      }
+    }
+
+    return { logs, startDateKey: formatDateKey(startDate) };
   }
 
   function handleHabitFormSubmit(e) {
@@ -1676,8 +1647,21 @@
         habit.parentId = parentId;
       }
     } else {
+      let backfilledLogs = {};
+      let createdAtKey = getTodayKey();
+
+      if (elements.habitEnableBackfill && elements.habitEnableBackfill.checked) {
+        const durationVal = elements.habitHistoryDuration ? elements.habitHistoryDuration.value : '30';
+        const frequencyVal = elements.habitHistoryFrequency ? elements.habitHistoryFrequency.value : 'frequent';
+        const instancesVal = elements.habitHistoryInstances ? elements.habitHistoryInstances.value : '1';
+
+        const result = generateBackfillLogs(durationVal, frequencyVal, instancesVal, dailyTarget, type);
+        backfilledLogs = result.logs;
+        createdAtKey = result.startDateKey;
+      }
+
       const newHabit = {
-        id: 'habit_' + Date.now(),
+        id: name.trim().replace(/[^A-Za-z]/g, "~") + (parentId ? '_p_' + parentId : ''),
         name,
         type,
         description,
@@ -1685,8 +1669,8 @@
         colorTheme,
         dailyTarget,
         parentId,
-        createdAt: getTodayKey(),
-        logs: {}
+        createdAt: createdAtKey,
+        logs: backfilledLogs
       };
       state.habits.push(newHabit);
       state.selectedHabitId = newHabit.id;
