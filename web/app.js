@@ -1760,7 +1760,12 @@
       children.forEach(h => {
         const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
         const icon = h.type === 'negative' ? '🛑 ' : '';
-        habitSelectHTML += `<option value="${h.id}">${indent}${icon}${escapeHTML(h.name)}</option>`;
+        const pageId = window.location.toString().split("/").slice(-1)[0]
+        if (pageId == h.id) {
+          habitSelectHTML += `<option value="${h.id}" selected>${indent}${icon}${escapeHTML(h.name)}</option>`;
+        } else {
+          habitSelectHTML += `<option value="${h.id}">${indent}${icon}${escapeHTML(h.name)}</option>`;
+        }
         appendLogOptions(h.id, depth + 1);
       });
     }
