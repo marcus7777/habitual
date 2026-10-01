@@ -37,9 +37,10 @@
   };
 
   function getHabitHexColor(habit) {
-    if (!habit || !habit.colorTheme) return PRESET_THEME_HEX.green;
+    const defaultColour = Please.make_color({from_hash: habit.id})
+    if (!habit || !habit.colorTheme) return defaultColour;
     if (habit.colorTheme.startsWith('#')) return habit.colorTheme;
-    return PRESET_THEME_HEX[habit.colorTheme] || PRESET_THEME_HEX.green;
+    return PRESET_THEME_HEX[habit.colorTheme] || defaultColour;
   }
 
   // --- ROUTING & SUB-HABIT NAVIGATION HELPERS ---
@@ -1679,7 +1680,7 @@
     const parentIdVal = document.getElementById('habit-parent').value.trim();
     const parentId = parentIdVal ? parentIdVal : null;
 
-    let colorTheme = 'green';
+    let colorTheme = Please.make_color({from_hash: id});
     if (selectedColorRadio === 'custom') {
       const hexVal = elements.customColorHex.value;
       colorTheme = normalizeHex(hexVal);
