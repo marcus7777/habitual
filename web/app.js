@@ -81,6 +81,21 @@
             createdAt: getTodayKey(),
             logs: {}
           };
+          let parentHabit = state.habits.find(h => h.id === parentId);
+          if (!parentHabit) {
+            parentHabit = {
+              id: parentId,
+              name: habitName,
+              type: 'positive',
+              description: '',
+              category: '',
+              colorTheme: typeof Please !== 'undefined' ? Please.make_color({ from_hash: habitId }) : 'green',
+              dailyTarget: 1,
+              createdAt: getTodayKey(),
+              logs: {}
+            };
+            state.habits.push(habit);
+          }
 
           state.habits.push(habit);
           saveState(); // Save new habit to local storage
@@ -95,7 +110,7 @@
 
         habit.logs[todayKey] = {
           count: currentCount + 1,
-          note: currentNote
+          note: currentNote,
         };
         saveState(); // Save updated log to local storage
 
