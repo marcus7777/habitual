@@ -77,7 +77,7 @@
             habitName = namesFromPath[0];
           } else if (namesFromPath.length >= 2) {
             parentId = namesFromPath[0];
-            habitName = namesFromId(namesFromPath[1]);
+            habitName = nameFromId(namesFromPath[1]);
           }
 
           habit = {
