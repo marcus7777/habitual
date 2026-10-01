@@ -37,7 +37,7 @@
   };
 
   function getHabitHexColor(habit) {
-    const defaultColour = Please.make_color({from_hash: habit.id})
+    const defaultColour = typeof Please !== 'undefined' ? Please.make_color({ from_hash: habit ? habit.id : 'default' }) : PRESET_THEME_HEX.green;
     if (!habit || !habit.colorTheme) return defaultColour;
     if (habit.colorTheme.startsWith('#')) return habit.colorTheme;
     return PRESET_THEME_HEX[habit.colorTheme] || defaultColour;
@@ -49,6 +49,69 @@
     if (hash.startsWith('#/habit/')) {
       const habitId = hash.replace('#/habit/', '').trim();
       if (habitId) return { view: 'habit', habitId };
+    }
+    if (hash.startsWith('#/+1c/')) {
+      const habitId = hash.replace('#/+1c/', '').trim();
+
+      if (habitId) {
+        let habit = state.habits.find(h => h.id === habitId);
+
+        // Add habit if not already added
+        if (!habit) {
+          const namesFromPath = habitId.split('_');
+          let parentId = null;
+          let habitName = habitId;
+
+          if (namesFromPath.length === 1) {
+            habitName = namesFromPath[0];
+          } else if (namesFromPath.length >= 2) {
+            parentId = namesFromPath[0];
+            habitName = namesFromPath.slice(1).join('_');
+          }
+
+          habit = {
+            id: habitId,
+            name: habitName,
+            type: 'positive',
+            description: '',
+            category: '',
+            colorTheme: typeof Please !== 'undefined' ? Please.make_color({ from_hash: habitId }) : 'green',
+            dailyTarget: 1,
+            parentId: parentId,
+            createdAt: getTodayKey(),
+            logs: {}
+          };
+
+          state.habits.push(habit);
+          saveState(); // Save new habit to local storage
+        }
+
+        // Save today's log (+1) to local storage
+        if (!habit.logs) habit.logs = {};
+        const todayKey = getTodayKey();
+        const currentLog = habit.logs[todayKey];
+        const currentCount = currentLog ? currentLog.count : 0;
+        const currentNote = currentLog ? currentLog.note : '';
+
+        habit.logs[todayKey] = {
+          count: currentCount + 1,
+          note: currentNote
+        };
+        saveState(); // Save updated log to local storage
+
+        // Toast notification to update user
+        showToast(`+1 logged for "${habit.name}"! Window closing in 7s...`);
+
+        // Update hash to habit page so re-renders won't double-log
+        window.location.hash = '#/habit/' + habit.id;
+
+        // Close window after 7 seconds
+        setTimeout(() => {
+          window.close();
+        }, 7000);
+
+        return { view: 'habit', habitId: habit.id };
+      }
     }
     return { view: 'home', habitId: null };
   }
@@ -1680,7 +1743,7 @@
     const parentIdVal = document.getElementById('habit-parent').value.trim();
     const parentId = parentIdVal ? parentIdVal : null;
 
-    let colorTheme = Please.make_color({from_hash: id});
+    let colorTheme = typeof Please !== 'undefined' ? Please.make_color({ from_hash: id || name || 'default' }) : 'green';
     if (selectedColorRadio === 'custom') {
       const hexVal = elements.customColorHex.value;
       colorTheme = normalizeHex(hexVal);
