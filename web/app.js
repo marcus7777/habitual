@@ -121,6 +121,14 @@
     };
   }
 
+  function getHabitLevelColor(habit, level) {
+    if (!level || level <= 0) return '#161b22';
+    const hex = getHabitHexColor(habit);
+    const levels = getCustomThemeLevels(hex);
+    const lvlKey = 'level' + Math.min(4, Math.max(1, Math.round(level)));
+    return levels[lvlKey] || hex;
+  }
+
   function normalizeHex(hexStr) {
     const parsed = parseHexColor(hexStr);
     if (!parsed) return '#39d353';
@@ -1099,36 +1107,72 @@
 
     if (target === 'all' || Array.isArray(target) || (target && target.habitIds)) {
       const activeHabits = [];
+      let totalRatios = 0;
 
-      habitList.forEach(h => {
+      const habitData = habitList.map(h => {
+        const log = (h.logs && h.logs[dateStr]) ? h.logs[dateStr] : null;
         let isDone = false;
+        let ratio = 0;
+        let hLevel = 0;
+
         if (h.type === 'negative') {
-          if (!h.logs || !h.logs[dateStr] || h.logs[dateStr].count === 0) {
-            if (dateStr <= todayStr) isDone = true;
+          if (log && log.count > 0) {
+            isDone = false;
+            ratio = 0;
+            hLevel = 0;
+          } else if (dateStr <= todayStr) {
+            isDone = true;
+            ratio = 1.0;
+            hLevel = 4;
           }
-        } else if (h.logs && h.logs[dateStr] && h.logs[dateStr].count > 0) {
-          isDone = true;
+        } else {
+          const count = log ? log.count : 0;
+          const dailyTarget = Math.max(1, h.dailyTarget || 1);
+          if (count > 0) {
+            isDone = true;
+            ratio = Math.min(1.0, count / dailyTarget);
+            if (ratio >= 1.0) {
+              hLevel = 4;
+            } else {
+              hLevel = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
+            }
+          }
         }
 
         if (isDone) {
+          totalRatios += ratio;
+        }
+
+        return { habit: h, isDone, ratio, hLevel };
+      });
+
+      let overallLevel = 0;
+      const activeCount = habitData.filter(d => d.isDone).length;
+
+      if (activeCount > 0 && habitList.length > 0) {
+        const avgRatio = totalRatios / habitList.length;
+        if (avgRatio >= 1.0) {
+          overallLevel = 4;
+        } else {
+          overallLevel = Math.min(3, Math.max(1, Math.ceil(avgRatio * 3)));
+        }
+      }
+
+      habitData.forEach(item => {
+        if (item.isDone) {
+          const effectiveLevel = Math.max(1, Math.min(item.hLevel, overallLevel));
           activeHabits.push({
-            id: h.id,
-            name: h.name,
-            color: getHabitHexColor(h)
+            id: item.habit.id,
+            name: item.habit.name,
+            level: effectiveLevel,
+            color: getHabitLevelColor(item.habit, effectiveLevel)
           });
         }
       });
 
-      let level = 0;
-      if (activeHabits.length === 0) level = 0;
-      else if (activeHabits.length <= 2) level = 1;
-      else if (activeHabits.length <= 4) level = 2;
-      else if (activeHabits.length <= 6) level = 3;
-      else level = 4;
-
       return {
-        count: activeHabits.length,
-        level: level,
+        count: activeCount,
+        level: overallLevel,
         activeHabits,
         isRelapse: false,
         note: ''
