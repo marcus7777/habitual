@@ -35,7 +35,18 @@
     indigo: '#818cf8',
     rose: '#f43f5e'
   };
-
+  function nameFromId(id) {
+    const habit = state.habits.find(h => h.id === id);
+    if (habit) return habit.name;
+    // camelCase to Title Case
+    return id.replace(/([a-z])([A-Z])/g, '$1 $2').charAt(0).toUpperCase() + name.slice(1);
+  }
+  function idFromName(name) {
+    // titleCase to camelCase
+    return name.trim().replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
+      return index == 0 ? word.toLowerCase() : word.toUpperCase();
+    }).replace(/\s+/g, '');
+  }
   function getHabitHexColor(habit) {
     const defaultColour = typeof Please !== 'undefined' ? Please.make_color({ from_hash: habit ? habit.id : 'default' }) : PRESET_THEME_HEX.green;
     if (!habit || !habit.colorTheme) return defaultColour;
@@ -66,7 +77,7 @@
             habitName = namesFromPath[0];
           } else if (namesFromPath.length >= 2) {
             parentId = namesFromPath[0];
-            habitName = namesFromPath.slice(1).join('_');
+            habitName = namesFromPath(namesFromPath[1]);
           }
 
           habit = {
@@ -85,16 +96,17 @@
           if (!parentHabit) {
             parentHabit = {
               id: parentId,
-              name: habitName,
+              name: nameFromId(parentId),
               type: 'positive',
               description: '',
               category: '',
               colorTheme: typeof Please !== 'undefined' ? Please.make_color({ from_hash: habitId }) : 'green',
               dailyTarget: 1,
+              parentId: null,
               createdAt: getTodayKey(),
               logs: {}
             };
-            state.habits.push(habit);
+            state.habits.push(parentHabit);
           }
 
           state.habits.push(habit);
@@ -1794,7 +1806,7 @@
       }
 
       const newHabit = {
-        id: (parentId ? parentId + '+' : '') + name.trim().replace(/[^A-Za-z0-9]/g, "~"),
+        id: (parentId ? parentId + '_' : '') + idFromName(name),
         name,
         type,
         description,
@@ -1824,15 +1836,15 @@
     const habit = state.habits.find(h => h.id === habitId);
     if (!habit) return;
 
-    const subhabits = state.habits.filter(h => h.parentId === habitId);
+    const subHabits = state.habits.filter(h => h.parentId === habitId);
     let msg = `Are you sure you want to delete "${habit.name}"?`;
-    if (subhabits.length > 0) {
-      msg += ` Its ${subhabits.length} sub-habit(s) will become top-level habits.`;
+    if (subHabits.length > 0) {
+      msg += ` Its ${subHabits.length} sub-habit(s) will become top-level habits.`;
     }
 
     if (confirm(msg)) {
       state.habits = state.habits.filter(h => h.id !== habitId);
-      subhabits.forEach(sub => {
+      subHabits.forEach(sub => {
         sub.parentId = habit.parentId || null;
       });
 
