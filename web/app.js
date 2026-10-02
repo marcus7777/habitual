@@ -963,8 +963,31 @@
     if (isGroup) titleText = targetOrNull.title;
     else if (habit) titleText = habit.name;
 
-    const streakLabel = streakData.current > 0 ? `` : '';
-    const countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} in ${year}`;
+    let streakLabel = '';
+    if (streakData.current > 0) {
+      streakLabel = streakData.isWeekly
+        ? `🔥 ${streakData.current} wk${streakData.current === 1 ? '' : 's'}`
+        : `🔥 ${streakData.current} d`;
+    }
+
+    let countLabel = '';
+    if (stats.isWeekly) {
+      countLabel = `${stats.totalCount} of 52 weeks met in ${year}`;
+    } else {
+      countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} in ${year}`;
+    }
+
+    let frequencyBadgeHTML = '';
+    if (habit) {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      if (habit.frequencyType === 'weekly') {
+        const dayIdx = (habit.targetDays && habit.targetDays.length > 0) ? habit.targetDays[0] : 1;
+        frequencyBadgeHTML = `<span class="badge-frequency" title="Weekly target: Every ${dayNames[dayIdx]}">📅 Every ${dayNames[dayIdx]}</span>`;
+      } else if (habit.frequencyType === 'specific_days' && habit.targetDays && habit.targetDays.length > 0) {
+        const daysStr = habit.targetDays.map(d => dayNames[d]).join(', ');
+        frequencyBadgeHTML = `<span class="badge-frequency" title="Target days: ${daysStr}">📅 ${daysStr}</span>`;
+      }
+    }
 
     const colorBadgeStyle = isAll
       ? 'background-color: #39d353;'
@@ -1035,6 +1058,7 @@
           <span class="color-badge" style="${colorBadgeStyle}"></span>
           ${titleHTML}
           ${subhabitsBadgeHTML}
+          ${frequencyBadgeHTML}
           ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
           <span class="badge-count">${countLabel}</span>
         </div>
@@ -1162,8 +1186,10 @@
           }
         }
 
+        const targetDayClass = (cellData.isTargetDay && cellData.level === 0) ? 'target-day' : '';
+
         gridHTML += `
-          <div class="day-square level-${cellData.level} ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''}"
+          <div class="day-square level-${cellData.level} ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${targetDayClass}"
                style="${squareStyle}"
                data-date="${dateStr}"
                data-habit-id="${cardHabitId}"
@@ -1182,6 +1208,56 @@
 
     card.innerHTML = headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>`;
     return card;
+  }
+
+  // --- WEEKLY SCHEDULE HELPERS ---
+  function getWeekRangeForDate(dInput, weekStartDay = 1) {
+    const d = new Date(typeof dInput === 'string' ? dInput + 'T00:00:00' : dInput);
+    d.setHours(0, 0, 0, 0);
+    const day = d.getDay(); // 0 = Sun, 1 = Mon, ...
+    const diff = (day - weekStartDay + 7) % 7;
+    const start = new Date(d);
+    start.setDate(d.getDate() - diff);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return {
+      startKey: formatDateKey(start),
+      endKey: formatDateKey(end),
+      startDate: start,
+      endDate: end
+    };
+  }
+
+  function getWeeklyLogCount(habit, startKey, endKey) {
+    if (!habit || !habit.logs) return 0;
+    let total = 0;
+    const cur = new Date(startKey + 'T00:00:00');
+    const end = new Date(endKey + 'T00:00:00');
+    while (cur <= end) {
+      const key = formatDateKey(cur);
+      const log = habit.logs[key];
+      if (log && log.count > 0) {
+        total += log.count;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return total;
+  }
+
+  function getWeeklyActiveDaysCount(habit, startKey, endKey) {
+    if (!habit || !habit.logs) return 0;
+    let activeDays = 0;
+    const cur = new Date(startKey + 'T00:00:00');
+    const end = new Date(endKey + 'T00:00:00');
+    while (cur <= end) {
+      const key = formatDateKey(cur);
+      const log = habit.logs[key];
+      if (log && log.count > 0) {
+        activeDays++;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return activeDays;
   }
 
   function getCellData(dateStr, target, todayStr) {
@@ -1218,14 +1294,45 @@
           }
         } else {
           const count = log ? log.count : 0;
-          const dailyTarget = Math.max(1, h.dailyTarget || 1);
-          if (count > 0) {
-            isDone = true;
-            ratio = Math.min(1.0, count / dailyTarget);
-            if (ratio >= 1.0) {
+          if (h.frequencyType === 'weekly' && h.colorWholeWeek !== false) {
+            const anchor = (h.targetDays && h.targetDays.length > 0) ? h.targetDays[0] : 1;
+            const range = getWeekRangeForDate(dateStr, anchor);
+            const wCount = getWeeklyLogCount(h, range.startKey, range.endKey);
+            const req = h.weeklyTarget || 1;
+            if (wCount >= req) {
+              isDone = true;
+              ratio = 1.0;
               hLevel = 4;
-            } else {
+            } else if (count > 0) {
+              isDone = true;
+              ratio = Math.min(1.0, count / req);
               hLevel = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
+            }
+          } else if (h.frequencyType === 'specific_days' && h.colorWholeWeek !== false) {
+            const targetDays = h.targetDays || [1, 3, 5];
+            const anchor = targetDays[0] || 1;
+            const range = getWeekRangeForDate(dateStr, anchor);
+            const activeDays = getWeeklyActiveDaysCount(h, range.startKey, range.endKey);
+            const req = targetDays.length;
+            if (activeDays >= req) {
+              isDone = true;
+              ratio = 1.0;
+              hLevel = 4;
+            } else if (count > 0) {
+              isDone = true;
+              ratio = Math.min(1.0, count / (req || 1));
+              hLevel = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
+            }
+          } else {
+            const dailyTarget = Math.max(1, h.dailyTarget || 1);
+            if (count > 0) {
+              isDone = true;
+              ratio = Math.min(1.0, count / dailyTarget);
+              if (ratio >= 1.0) {
+                hLevel = 4;
+              } else {
+                hLevel = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
+              }
             }
           }
         }
@@ -1266,7 +1373,8 @@
         level: overallLevel,
         activeHabits,
         isRelapse: false,
-        note: ''
+        note: '',
+        isTargetDay: false
       };
     }
 
@@ -1275,31 +1383,88 @@
 
     if (habit.type === 'negative') {
       if (log && log.count > 0) {
-        return { count: log.count, level: 0, isRelapse: true, note: log.note || 'Relapse logged' };
+        return { count: log.count, level: 0, isRelapse: true, note: log.note || 'Relapse logged', isTargetDay: false };
       }
       if (dateStr <= todayStr) {
-        return { count: 1, level: 3, isRelapse: false, note: 'Clean day' };
+        return { count: 1, level: 3, isRelapse: false, note: 'Clean day', isTargetDay: false };
       }
-      return { count: 0, level: 0, isRelapse: false, note: '' };
+      return { count: 0, level: 0, isRelapse: false, note: '', isTargetDay: false };
     }
 
+    const dObj = new Date(dateStr + 'T00:00:00');
+    const dayOfWeek = dObj.getDay();
     const count = log ? log.count : 0;
     const note = log ? log.note : '';
-    const dailyTarget = Math.max(1, habit.dailyTarget || 1);
-    let level = 0;
 
-    if (count === 0) {
-      level = 0;
-    } else {
-      const ratio = count / dailyTarget;
-      if (ratio >= 1.0) {
-        level = 4;
+    if (habit.frequencyType === 'weekly') {
+      const anchorDay = (habit.targetDays && habit.targetDays.length > 0) ? habit.targetDays[0] : 1;
+      const isTargetDay = dayOfWeek === anchorDay;
+      const weekRange = getWeekRangeForDate(dateStr, anchorDay);
+      const weeklyTarget = habit.weeklyTarget || 1;
+      const weeklyCount = getWeeklyLogCount(habit, weekRange.startKey, weekRange.endKey);
+      const isGoalMet = weeklyCount >= weeklyTarget;
+
+      if (isGoalMet && habit.colorWholeWeek !== false) {
+        return {
+          count: count || 1,
+          level: 4,
+          isRelapse: false,
+          note: note || `Weekly goal met (${weeklyCount}/${weeklyTarget})`,
+          isTargetDay
+        };
       } else {
-        level = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
+        let level = 0;
+        if (count > 0) {
+          const ratio = count / weeklyTarget;
+          level = ratio >= 1.0 ? 4 : Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
+        }
+        return {
+          count,
+          level,
+          isRelapse: false,
+          note: note || (isTargetDay && count === 0 ? 'Target Day' : ''),
+          isTargetDay
+        };
       }
-    }
+    } else if (habit.frequencyType === 'specific_days') {
+      const targetDays = habit.targetDays || [1, 3, 5];
+      const anchorDay = targetDays[0] || 1;
+      const isTargetDay = targetDays.includes(dayOfWeek);
+      const weekRange = getWeekRangeForDate(dateStr, anchorDay);
+      const activeDaysCount = getWeeklyActiveDaysCount(habit, weekRange.startKey, weekRange.endKey);
+      const isWeekMet = activeDaysCount >= targetDays.length;
 
-    return { count, level, isRelapse: false, note };
+      if (isWeekMet && habit.colorWholeWeek !== false) {
+        return {
+          count: count || 1,
+          level: 4,
+          isRelapse: false,
+          note: note || 'Weekly target met',
+          isTargetDay
+        };
+      } else {
+        let level = 0;
+        if (count > 0) {
+          level = 4;
+        }
+        return {
+          count,
+          level,
+          isRelapse: false,
+          note: note || (isTargetDay && count === 0 ? 'Target Day' : ''),
+          isTargetDay
+        };
+      }
+    } else {
+      const dailyTarget = Math.max(1, habit.dailyTarget || 1);
+      let level = 0;
+      if (count > 0) {
+        const ratio = count / dailyTarget;
+        if (ratio >= 1.0) level = 4;
+        else level = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
+      }
+      return { count, level, isRelapse: false, note, isTargetDay: false };
+    }
   }
 
   function calculateStreakForTarget(target) {
@@ -1320,7 +1485,56 @@
           break;
         }
       }
-      return { current: currentStreak };
+      return { current: currentStreak, isWeekly: false };
+    }
+
+    if (target !== 'all' && target && !target.habitIds && (target.frequencyType === 'weekly' || target.frequencyType === 'specific_days')) {
+      const anchorDay = (target.targetDays && target.targetDays.length > 0) ? target.targetDays[0] : 1;
+      const reqTarget = target.frequencyType === 'weekly' ? (target.weeklyTarget || 1) : (target.targetDays ? target.targetDays.length : 1);
+
+      const todayKey = formatDateKey(today);
+      let currentWeekRange = getWeekRangeForDate(todayKey, anchorDay);
+
+      let weekStreak = 0;
+      let curWeekStart = new Date(currentWeekRange.startDate);
+
+      let curLogCount = target.frequencyType === 'weekly'
+        ? getWeeklyLogCount(target, currentWeekRange.startKey, currentWeekRange.endKey)
+        : getWeeklyActiveDaysCount(target, currentWeekRange.startKey, currentWeekRange.endKey);
+
+      if (curLogCount >= reqTarget) {
+        weekStreak++;
+        curWeekStart.setDate(curWeekStart.getDate() - 7);
+      } else {
+        const prevStart = new Date(curWeekStart);
+        prevStart.setDate(prevStart.getDate() - 7);
+        const prevRange = getWeekRangeForDate(formatDateKey(prevStart), anchorDay);
+        let prevLogCount = target.frequencyType === 'weekly'
+          ? getWeeklyLogCount(target, prevRange.startKey, prevRange.endKey)
+          : getWeeklyActiveDaysCount(target, prevRange.startKey, prevRange.endKey);
+
+        if (prevLogCount >= reqTarget) {
+          curWeekStart.setDate(curWeekStart.getDate() - 7);
+        } else {
+          return { current: 0, isWeekly: true };
+        }
+      }
+
+      while (true) {
+        const range = getWeekRangeForDate(formatDateKey(curWeekStart), anchorDay);
+        let count = target.frequencyType === 'weekly'
+          ? getWeeklyLogCount(target, range.startKey, range.endKey)
+          : getWeeklyActiveDaysCount(target, range.startKey, range.endKey);
+
+        if (count >= reqTarget) {
+          weekStreak++;
+          curWeekStart.setDate(curWeekStart.getDate() - 7);
+        } else {
+          break;
+        }
+      }
+
+      return { current: weekStreak, isWeekly: true };
     }
 
     const activeDateMap = {};
@@ -1361,12 +1575,39 @@
       }
     }
 
-    return { current: currentStreak };
+    return { current: currentStreak, isWeekly: false };
   }
 
   function calculateYearStatsForTarget(target, year) {
     let totalCount = 0;
     const now = new Date();
+
+    if (target !== 'all' && target && !target.habitIds && (target.frequencyType === 'weekly' || target.frequencyType === 'specific_days')) {
+      const anchorDay = (target.targetDays && target.targetDays.length > 0) ? target.targetDays[0] : 1;
+      const reqTarget = target.frequencyType === 'weekly' ? (target.weeklyTarget || 1) : (target.targetDays ? target.targetDays.length : 1);
+
+      let completedWeeks = 0;
+      const yearStart = new Date(year, 0, 1);
+      const yearEnd = new Date(year, 11, 31);
+
+      let curWeek = getWeekRangeForDate(formatDateKey(yearStart), anchorDay);
+      let curWeekStart = new Date(curWeek.startDate);
+
+      while (curWeekStart <= yearEnd) {
+        const range = getWeekRangeForDate(formatDateKey(curWeekStart), anchorDay);
+        let count = target.frequencyType === 'weekly'
+          ? getWeeklyLogCount(target, range.startKey, range.endKey)
+          : getWeeklyActiveDaysCount(target, range.startKey, range.endKey);
+
+        if (count >= reqTarget) {
+          completedWeeks++;
+        }
+
+        curWeekStart.setDate(curWeekStart.getDate() + 7);
+      }
+
+      return { totalCount: completedWeeks, isWeekly: true };
+    }
 
     if (target !== 'all' && target && !target.habitIds && target.type === 'negative') {
       const startOfYear = new Date(year, 0, 1);
@@ -1403,7 +1644,7 @@
       });
     }
 
-    return { totalCount };
+    return { totalCount, isWeekly: false };
   }
 
   function attachHeatmapSquareEvents() {
@@ -1633,6 +1874,19 @@
   }
 
   // --- MODAL HANDLERS ---
+  function updateFrequencyOptionsVisibility() {
+    const freqSelect = document.getElementById('habit-frequency-type');
+    if (!freqSelect) return;
+    const val = freqSelect.value;
+    const dailyOpts = document.getElementById('freq-daily-options');
+    const weeklyOpts = document.getElementById('freq-weekly-options');
+    const specificOpts = document.getElementById('freq-specific-options');
+
+    if (dailyOpts) dailyOpts.classList.toggle('hidden', val !== 'daily');
+    if (weeklyOpts) weeklyOpts.classList.toggle('hidden', val !== 'weekly');
+    if (specificOpts) specificOpts.classList.toggle('hidden', val !== 'specific_days');
+  }
+
   function openHabitModal(habitToEdit = null, defaultParentId = null) {
     elements.formHabit.reset();
 
@@ -1642,6 +1896,13 @@
       parentSelect.innerHTML = buildParentSelectOptions(habitToEdit ? habitToEdit.id : null, selectedParentId);
     }
 
+    const freqSelect = document.getElementById('habit-frequency-type');
+    if (freqSelect) {
+      freqSelect.value = habitToEdit ? (habitToEdit.frequencyType || 'daily') : 'daily';
+      freqSelect.onchange = updateFrequencyOptionsVisibility;
+    }
+    updateFrequencyOptionsVisibility();
+
     if (habitToEdit) {
       elements.modalHabitTitle.textContent = 'Edit Habit Goal';
       document.getElementById('habit-id').value = habitToEdit.id;
@@ -1649,6 +1910,24 @@
       document.getElementById('habit-description').value = habitToEdit.description || '';
       document.getElementById('habit-category').value = habitToEdit.category || 'General';
       document.getElementById('habit-daily-target').value = habitToEdit.dailyTarget || 1;
+
+      const freqType = habitToEdit.frequencyType || 'daily';
+      if (freqType === 'weekly') {
+        const daySelect = document.getElementById('habit-weekly-day');
+        if (daySelect) daySelect.value = (habitToEdit.targetDays && habitToEdit.targetDays.length > 0) ? String(habitToEdit.targetDays[0]) : '1';
+        const targetInput = document.getElementById('habit-weekly-target');
+        if (targetInput) targetInput.value = habitToEdit.weeklyTarget || 1;
+        const colorChk = document.getElementById('habit-color-whole-week');
+        if (colorChk) colorChk.checked = habitToEdit.colorWholeWeek !== false;
+      } else if (freqType === 'specific_days') {
+        const targetDays = habitToEdit.targetDays || [1, 3, 5];
+        const checkboxes = elements.formHabit.querySelectorAll('input[name="target-days"]');
+        checkboxes.forEach(chk => {
+          chk.checked = targetDays.includes(parseInt(chk.value, 10));
+        });
+        const colorChk = document.getElementById('habit-specific-color-whole-week');
+        if (colorChk) colorChk.checked = habitToEdit.colorWholeWeek !== false;
+      }
 
       if (elements.backfillSection) elements.backfillSection.classList.add('hidden');
       if (elements.habitEnableBackfill) elements.habitEnableBackfill.checked = false;
@@ -1673,6 +1952,20 @@
       elements.modalHabitTitle.textContent = defaultParentId ? 'Create New Sub-Habit' : 'Create New Habit';
       document.getElementById('habit-id').value = '';
       elements.customSwatchPreview.style.backgroundColor = 'transparent';
+
+      const daySelect = document.getElementById('habit-weekly-day');
+      if (daySelect) daySelect.value = '1';
+      const targetInput = document.getElementById('habit-weekly-target');
+      if (targetInput) targetInput.value = '1';
+      const colorChk = document.getElementById('habit-color-whole-week');
+      if (colorChk) colorChk.checked = true;
+      const checkboxes = elements.formHabit.querySelectorAll('input[name="target-days"]');
+      checkboxes.forEach(chk => {
+        const val = parseInt(chk.value, 10);
+        chk.checked = (val === 1 || val === 3 || val === 5);
+      });
+      const specColorChk = document.getElementById('habit-specific-color-whole-week');
+      if (specColorChk) specColorChk.checked = true;
 
       if (elements.backfillSection) elements.backfillSection.classList.remove('hidden');
       if (elements.habitEnableBackfill) elements.habitEnableBackfill.checked = false;
@@ -1708,7 +2001,7 @@
     return html;
   }
 
-  function generateBackfillLogs(daysToBackfill, frequencyVal, instancesVal, dailyTarget = 1, habitType = 'positive') {
+  function generateBackfillLogs(daysToBackfill, frequencyVal, instancesVal, dailyTarget = 1, habitType = 'positive', frequencyType = 'daily', targetDays = [1]) {
     const logs = {};
     const today = new Date();
     const days = Math.max(1, Math.min(3650, parseInt(daysToBackfill, 10) || 30));
@@ -1723,7 +2016,25 @@
     startDate.setDate(today.getDate() - days);
 
     for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
-      if (Math.random() < frequencyRatio) {
+      const dayOfWeek = d.getDay();
+      let shouldLog = false;
+
+      if (frequencyType === 'weekly') {
+        const targetDay = (targetDays && targetDays.length > 0) ? targetDays[0] : 1;
+        if (dayOfWeek === targetDay && Math.random() < frequencyRatio) {
+          shouldLog = true;
+        }
+      } else if (frequencyType === 'specific_days') {
+        if (targetDays.includes(dayOfWeek) && Math.random() < frequencyRatio) {
+          shouldLog = true;
+        }
+      } else {
+        if (Math.random() < frequencyRatio) {
+          shouldLog = true;
+        }
+      }
+
+      if (shouldLog) {
         const dateKey = formatDateKey(d);
         let count = 1;
 
@@ -1770,6 +2081,27 @@
     const parentIdVal = document.getElementById('habit-parent').value.trim();
     const parentId = parentIdVal ? parentIdVal : null;
 
+    const freqSelect = document.getElementById('habit-frequency-type');
+    const freqType = freqSelect ? freqSelect.value : 'daily';
+    let targetDays = [1];
+    let weeklyTarget = 1;
+    let colorWholeWeek = true;
+
+    if (freqType === 'weekly') {
+      const dayVal = parseInt(document.getElementById('habit-weekly-day').value, 10);
+      targetDays = [isNaN(dayVal) ? 1 : dayVal];
+      weeklyTarget = parseInt(document.getElementById('habit-weekly-target').value, 10) || 1;
+      const chk = document.getElementById('habit-color-whole-week');
+      colorWholeWeek = chk ? chk.checked : true;
+    } else if (freqType === 'specific_days') {
+      const checkedBtns = Array.from(elements.formHabit.querySelectorAll('input[name="target-days"]:checked'));
+      targetDays = checkedBtns.map(cb => parseInt(cb.value, 10));
+      if (targetDays.length === 0) targetDays = [1];
+      weeklyTarget = targetDays.length;
+      const chk = document.getElementById('habit-specific-color-whole-week');
+      colorWholeWeek = chk ? chk.checked : true;
+    }
+
     let colorTheme = typeof Please !== 'undefined' ? Please.make_color({ from_hash: id || name || 'default' }) : 'green';
     if (selectedColorRadio === 'custom') {
       const hexVal = elements.customColorHex.value;
@@ -1788,6 +2120,10 @@
         habit.description = description;
         habit.category = category;
         habit.dailyTarget = dailyTarget;
+        habit.frequencyType = freqType;
+        habit.targetDays = targetDays;
+        habit.weeklyTarget = weeklyTarget;
+        habit.colorWholeWeek = colorWholeWeek;
         habit.colorTheme = colorTheme;
         habit.parentId = parentId;
       }
@@ -1800,7 +2136,7 @@
         const frequencyVal = elements.habitHistoryFrequency ? elements.habitHistoryFrequency.value : 'frequent';
         const instancesVal = elements.habitHistoryInstances ? elements.habitHistoryInstances.value : '1';
 
-        const result = generateBackfillLogs(durationVal, frequencyVal, instancesVal, dailyTarget, type);
+        const result = generateBackfillLogs(durationVal, frequencyVal, instancesVal, dailyTarget, type, freqType, targetDays);
         backfilledLogs = result.logs;
         createdAtKey = result.startDateKey;
       }
@@ -1813,6 +2149,10 @@
         category,
         colorTheme,
         dailyTarget,
+        frequencyType: freqType,
+        targetDays,
+        weeklyTarget,
+        colorWholeWeek,
         parentId,
         createdAt: createdAtKey,
         logs: backfilledLogs

@@ -9,7 +9,8 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   './favicon.svg',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './please.js',
 ];
 
 // Install Event - Pre-cache Static Assets
