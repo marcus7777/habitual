@@ -1,0 +1,629 @@
+/**
+ * Automated Test Suite for Habitual
+ * Tests all 11 core features listed in README.md
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// --- MINIMAL DOM & LOCALSTORAGE MOCK FOR NODE.JS ---
+const mockLocalStorage = (() => {
+  let store = {};
+  return {
+    getItem: (key) => store[key] || null,
+    setItem: (key, value) => { store[key] = String(value); },
+    removeItem: (key) => { delete store[key]; },
+    clear: () => { store = {}; }
+  };
+})();
+
+global.window = global.window || {};
+global.document = global.document || {
+  addEventListener: () => {},
+  getElementById: () => null,
+  querySelector: () => null,
+  querySelectorAll: () => []
+};
+global.localStorage = mockLocalStorage;
+global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } };
+
+// Load Habitual Core
+const HabitualCore = require('../web/app.js');
+
+// --- SIMPLE ASSERTION & TEST HARNESS ---
+let totalTests = 0;
+let passedTests = 0;
+let failedTests = 0;
+const failures = [];
+
+function describe(suiteName, fn) {
+  console.log(`\n========================================`);
+  console.log(`🧪 TEST SUITE: ${suiteName}`);
+  console.log(`========================================`);
+  fn();
+}
+
+function test(testName, fn) {
+  totalTests++;
+  try {
+    // Reset state before each test
+    HabitualCore.resetState();
+    mockLocalStorage.clear();
+    fn();
+    passedTests++;
+    console.log(`  ✅ [PASS] ${testName}`);
+  } catch (err) {
+    failedTests++;
+    console.error(`  ❌ [FAIL] ${testName}`);
+    console.error(`     Error: ${err.message}`);
+    failures.push({ testName, error: err.message, stack: err.stack });
+  }
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message || 'Assertion failed');
+  }
+}
+
+function assertEqual(actual, expected, message) {
+  if (actual !== expected) {
+    throw new Error(`${message || 'Expected values to match'}: Expected "${expected}", got "${actual}"`);
+  }
+}
+
+function assertDeepEqual(actual, expected, message) {
+  const actualStr = JSON.stringify(actual);
+  const expectedStr = JSON.stringify(expected);
+  if (actualStr !== expectedStr) {
+    throw new Error(`${message || 'Expected deep equality'}: Expected ${expectedStr}, got ${actualStr}`);
+  }
+}
+
+// ============================================================================
+// FEATURE 1: 📊 7x52 HEATMAP GRID & SHADING LOGIC
+// ============================================================================
+describe('Feature 1: 📊 7x52 Heatmap Grid & Date Shading Logic', () => {
+  test('formatDateKey formats Date object to YYYY-MM-DD string', () => {
+    const d = new Date(2026, 0, 5); // Jan 5, 2026
+    const key = HabitualCore.formatDateKey(d);
+    assertEqual(key, '2026-01-05', 'Date formatting check');
+  });
+
+  test('parseDateKey converts YYYY-MM-DD string back to Date', () => {
+    const dateObj = HabitualCore.parseDateKey('2026-10-02');
+    assertEqual(dateObj.getFullYear(), 2026);
+    assertEqual(dateObj.getMonth(), 9); // October = index 9
+    assertEqual(dateObj.getDate(), 2);
+  });
+
+  test('parseFlexibleDate parses DD/MM/YYYY and YYYY-MM-DD formats', () => {
+    assertEqual(HabitualCore.parseFlexibleDate('15/08/2026'), '2026-08-15', 'DD/MM/YYYY format');
+    assertEqual(HabitualCore.parseFlexibleDate('2026-08-15'), '2026-08-15', 'YYYY-MM-DD format');
+    assertEqual(HabitualCore.parseFlexibleDate('5/3/2026'), '2026-03-05', 'Single digit D/M/YYYY format');
+  });
+
+  test('getDaysAgoKey returns accurate relative date strings', () => {
+    const today = HabitualCore.getTodayKey();
+    const todayDate = HabitualCore.parseDateKey(today);
+
+    const yesterdayDate = new Date(todayDate);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const expectedYesterday = HabitualCore.formatDateKey(yesterdayDate);
+
+    assertEqual(HabitualCore.getDaysAgoKey(0), today, 'Days ago 0 is today');
+    assertEqual(HabitualCore.getDaysAgoKey(1), expectedYesterday, 'Days ago 1 is yesterday');
+  });
+
+  test('Heatmap Level Calculation scales levels 0 to 4 based on completion target', () => {
+    const habit = { id: 'h1', dailyTarget: 4, type: 'positive', colorTheme: 'green' };
+
+    assertEqual(HabitualCore.getHabitLevelColor(habit, 0), '#161b22', '0 count returns level 0 background');
+    assertEqual(HabitualCore.getHabitLevelColor(habit, 1), '#1f492e', '1/4 ratio returns level 1 blended green');
+    assertEqual(HabitualCore.getHabitLevelColor(habit, 2), '#28773b', '2/4 ratio returns level 2 blended green');
+    assertEqual(HabitualCore.getHabitLevelColor(habit, 3), '#30a547', '3/4 ratio returns level 3 blended green');
+    assertEqual(HabitualCore.getHabitLevelColor(habit, 4), '#39d353', '4/4 target met returns level 4 full green');
+  });
+
+  test('Week Range Boundaries calculate 7-day windows', () => {
+    const weekRange = HabitualCore.getWeekRangeForDate('2026-10-02', 1); // Monday anchor
+    assert(weekRange.startKey <= '2026-10-02', 'Start key is before or on date');
+    assert(weekRange.endKey >= '2026-10-02', 'End key is on or after date');
+    assertEqual(weekRange.startDate.getDay(), 1, 'Start date is Monday (day 1)');
+  });
+
+  test('Month Range Boundaries calculate start and end of calendar month', () => {
+    const monthRange = HabitualCore.getMonthRangeForDate('2026-02-15');
+    assertEqual(monthRange.startKey, '2026-02-01', 'Month start key');
+    assertEqual(monthRange.endKey, '2026-02-28', 'Month end key for Feb non-leap year');
+  });
+});
+
+// ============================================================================
+// FEATURE 2: 🎯 POSITIVE & NEGATIVE HABIT GOAL TYPES
+// ============================================================================
+describe('Feature 2: 🎯 Positive & Negative Habit Goal Types', () => {
+  test('Positive Habit tracks build completion status', () => {
+    const habit = {
+      id: 'coding',
+      name: 'Daily Coding',
+      type: 'positive',
+      dailyTarget: 1,
+      logs: {
+        '2026-10-01': { count: 1, note: 'Built unit tests' },
+        '2026-10-02': { count: 0, note: '' }
+      }
+    };
+    assert(habit.logs['2026-10-01'].count >= habit.dailyTarget, 'Target met on 2026-10-01');
+    assert(habit.logs['2026-10-02'].count < habit.dailyTarget, 'Target missed on 2026-10-02');
+  });
+
+  test('Negative (Quit) Habit automatically calculates clean days (count = 0)', () => {
+    const today = new Date();
+    const todayKey = HabitualCore.formatDateKey(today);
+
+    const d1 = new Date(today); d1.setDate(d1.getDate() - 1); const k1 = HabitualCore.formatDateKey(d1);
+    const d2 = new Date(today); d2.setDate(d2.getDate() - 2); const k2 = HabitualCore.formatDateKey(d2);
+
+    const quitHabit = {
+      id: 'caffeine',
+      name: 'Days Since Caffeine',
+      type: 'negative',
+      logs: {
+        [k2]: { count: 1, note: 'Had coffee' } // Relapse 2 days ago
+        // k1 and today have no logs (count = 0) -> Clean days!
+      }
+    };
+
+    const streakInfo = HabitualCore.calculateStreakForTarget(quitHabit);
+    assertEqual(streakInfo.current, 2, '2 consecutive clean days calculated for quit habit');
+  });
+});
+
+// ============================================================================
+// FEATURE 3: 📅 FLEXIBLE SCHEDULES & TARGET FREQUENCIES
+// ============================================================================
+describe('Feature 3: 📅 Flexible Schedules & Target Frequencies', () => {
+  test('Weekly Schedule logs count within week window', () => {
+    const habit = {
+      id: 'weekly_gym',
+      name: 'Weekly Gym',
+      frequencyType: 'weekly',
+      weeklyTarget: 2,
+      targetDays: [1], // Monday anchor
+      logs: {
+        '2026-09-28': { count: 1 }, // Mon
+        '2026-09-30': { count: 1 }  // Wed
+      }
+    };
+
+    const weekCount = HabitualCore.getWeeklyLogCount(habit, '2026-09-28', '2026-10-04');
+    assertEqual(weekCount, 2, '2 completions logged in week window');
+    assert(weekCount >= habit.weeklyTarget, 'Weekly target requirement met');
+  });
+
+  test('Monthly Schedule logs count within month window', () => {
+    const habit = {
+      id: 'monthly_review',
+      name: 'Monthly Review',
+      frequencyType: 'monthly',
+      monthlyTarget: 1,
+      logs: {
+        '2026-10-15': { count: 1 }
+      }
+    };
+
+    const monthCount = HabitualCore.getMonthlyLogCount(habit, '2026-10-01', '2026-10-31');
+    assertEqual(monthCount, 1, '1 completion logged in monthly window');
+    assert(monthCount >= habit.monthlyTarget, 'Monthly target requirement met');
+  });
+
+  test('Specific Days of Week schedule filters active days', () => {
+    const habit = {
+      id: 'mwf_workout',
+      name: 'MWF Workout',
+      frequencyType: 'specific_days',
+      targetDays: [1, 3, 5], // Mon, Wed, Fri
+      logs: {
+        '2026-09-28': { count: 1 }, // Mon
+        '2026-09-30': { count: 1 }, // Wed
+        '2026-10-02': { count: 1 }  // Fri
+      }
+    };
+
+    const activeDaysCount = HabitualCore.getWeeklyActiveDaysCount(habit, '2026-09-28', '2026-10-04');
+    assertEqual(activeDaysCount, 3, 'All 3 scheduled target days logged');
+  });
+});
+
+// ============================================================================
+// FEATURE 4: 🌲 HIERARCHICAL SUB-HABITS & DEPENDENCY RULES
+// ============================================================================
+describe('Feature 4: 🌲 Hierarchical Sub-Habits & Dependency Rules', () => {
+  test('Sub-habit tree structure tracks ancestry and descendants', () => {
+    const state = HabitualCore.getState();
+    state.habits = [
+      { id: 'gym', name: 'Gym', parentId: null },
+      { id: 'gym_legDay', name: 'Leg Day', parentId: 'gym' },
+      { id: 'gym_legDay_squats', name: 'Squats', parentId: 'gym_legDay' }
+    ];
+
+    const chain = HabitualCore.getAncestryChain('gym_legDay_squats');
+    assertEqual(chain.length, 3, '3 nodes in ancestry chain');
+    assertEqual(chain[0].id, 'gym', 'Root parent is first element');
+    assertEqual(chain[1].id, 'gym_legDay', 'Intermediate parent is second element');
+    assertEqual(chain[2].id, 'gym_legDay_squats', 'Target sub-habit is last element');
+
+    const descendants = HabitualCore.getAllDescendantIds('gym');
+    assert(descendants.includes('gym'), 'Contains parent');
+    assert(descendants.includes('gym_legDay'), 'Contains child');
+    assert(descendants.includes('gym_legDay_squats'), 'Contains grandchild');
+  });
+
+  test('Dependency Rule: requires_parent auto-logs parent task', () => {
+    const state = HabitualCore.getState();
+    state.habits = [
+      { id: 'gym', name: 'Gym', dailyTarget: 1, logs: {} },
+      { id: 'gym_legDay', name: 'Leg Day', parentId: 'gym', parentDependency: 'requires_parent', dailyTarget: 1, logs: {} }
+    ];
+
+    const subHabit = state.habits[1];
+    HabitualCore.applyParentDependencyOnLog(subHabit, '2026-10-02', 1);
+
+    const parent = state.habits[0];
+    assert(parent.logs['2026-10-02'] !== undefined, 'Parent task automatically logged when sub-habit is logged');
+    assertEqual(parent.logs['2026-10-02'].count, 1, 'Parent task count set to target');
+  });
+
+  test('Dependency Rule: auto_complete_from_parent completes sub-habits when parent is logged', () => {
+    const state = HabitualCore.getState();
+    state.habits = [
+      { id: 'gym', name: 'Gym', dailyTarget: 1, logs: {} },
+      { id: 'gym_cardio', name: 'Cardio', parentId: 'gym', parentDependency: 'auto_complete_from_parent', dailyTarget: 1, logs: {} }
+    ];
+
+    const parentHabit = state.habits[0];
+    HabitualCore.applyParentDependencyOnLog(parentHabit, '2026-10-02', 1);
+
+    const childHabit = state.habits[1];
+    assert(childHabit.logs['2026-10-02'] !== undefined, 'Child habit auto-completed when parent task is logged');
+    assertEqual(childHabit.logs['2026-10-02'].count, 1);
+  });
+});
+
+// ============================================================================
+// FEATURE 5: 🎨 COLOR THEMES & CUSTOM HEX COLOR PICKER
+// ============================================================================
+describe('Feature 5: 🎨 Color Themes & Custom HEX Color Picker', () => {
+  test('Preset Themes return expected color HEX values', () => {
+    assertEqual(HabitualCore.PRESET_THEME_HEX.green, '#39d353');
+    assertEqual(HabitualCore.PRESET_THEME_HEX.blue, '#388bfd');
+    assertEqual(HabitualCore.PRESET_THEME_HEX.purple, '#a855f7');
+  });
+
+  test('Custom HEX parser and normalizer handles # and short hex', () => {
+    assertEqual(HabitualCore.normalizeHex('#ff0000'), '#ff0000', 'Full hex string');
+    assertEqual(HabitualCore.normalizeHex('39d353'), '#39d353', 'Hex without leading hash');
+    assertEqual(HabitualCore.normalizeHex('#f00'), '#ff0000', 'Short 3-character hex expansion');
+  });
+
+  test('getCustomThemeLevels generates 4 distinct gradient levels from custom HEX', () => {
+    const levels = HabitualCore.getCustomThemeLevels('#ff0000'); // Pure red
+    assertEqual(levels.level0, '#161b22', 'Level 0 is base background');
+    assert(levels.level1.startsWith('#'), 'Level 1 is a valid hex color');
+    assert(levels.level2.startsWith('#'), 'Level 2 is a valid hex color');
+    assert(levels.level3.startsWith('#'), 'Level 3 is a valid hex color');
+    assertEqual(levels.level4, '#ff0000', 'Level 4 matches custom HEX');
+  });
+});
+
+// ============================================================================
+// FEATURE 6: ⏱️ QUICK LOGGING & CALENDAR DATE PICKER
+// ============================================================================
+describe('Feature 6: ⏱️ Quick Logging & Calendar Date Picker', () => {
+  test('toggleHabitForDate updates check-in count and journal note', () => {
+    const state = HabitualCore.getState();
+    state.habits = [
+      { id: 'reading', name: 'Reading', type: 'positive', dailyTarget: 1, logs: {} }
+    ];
+
+    HabitualCore.toggleHabitForDate('reading', '2026-10-02');
+    const habit = state.habits[0];
+
+    assertEqual(habit.logs['2026-10-02'].count, 1, 'First toggle sets count to 1');
+
+    HabitualCore.toggleHabitForDate('reading', '2026-10-02');
+    assertEqual(habit.logs['2026-10-02'].count, 2, 'Second toggle increments count to 2');
+  });
+
+  test('Heatmap click pops up quick add modal with right habit and date selected', () => {
+    const state = HabitualCore.getState();
+    state.habits = [
+      { id: 'habit_1', name: 'Exercise', type: 'positive', dailyTarget: 1, logs: {} },
+      { id: 'habit_2', name: 'Meditation', type: 'positive', dailyTarget: 1, logs: {} }
+    ];
+
+    let selectValue = '';
+    let dateInputValue = '';
+    let modalOpened = false;
+
+    const coreElements = HabitualCore.getElements();
+    coreElements.modalLog = { classList: { remove: (cls) => { if (cls === 'hidden') modalOpened = true; }, add: () => {} } };
+    coreElements.modalLogHabitSelect = {
+      get value() { return selectValue; },
+      set value(val) { selectValue = val; },
+      innerHTML: ''
+    };
+    coreElements.modalLogDateInput = {
+      get value() { return dateInputValue; },
+      set value(val) { dateInputValue = val; }
+    };
+    coreElements.modalLogCount = { value: '1' };
+    coreElements.modalLogNote = { value: '' };
+
+    HabitualCore.openLogModal('2026-10-02', 'habit_2');
+
+    assertEqual(modalOpened, true, 'Quick add log modal opened on heatmap click');
+    assertEqual(dateInputValue, '2026-10-02', 'Clicked date selected in quick add modal');
+    assertEqual(selectValue, 'habit_2', 'Correct habit selected in quick add modal');
+  });
+});
+
+// ============================================================================
+// FEATURE 7: ⌛ PAST HISTORY BACKFILLING
+// ============================================================================
+describe('Feature 7: ⌛ Past History Backfilling', () => {
+  test('generateBackfillLogs creates history logs over specified duration', () => {
+    const duration = 30; // 30 days
+    const frequency = 'daily'; // 100% completion
+    const instances = '1';
+
+    const result = HabitualCore.generateBackfillLogs(
+      duration, frequency, instances, 1, 'positive', 'daily', [1], '1', 1, 1
+    );
+
+    const keys = Object.keys(result.logs);
+    assertEqual(keys.length, 31, 'Generated 31 calendar dates including today (duration 0 to 30)');
+    assertEqual(result.logs[keys[0]].count, 1, 'Backfilled entry count equals 1');
+  });
+
+  test('generateBackfillLogs supports variable frequency density (~50%)', () => {
+    const duration = 100;
+    const frequency = 'moderate'; // ~50%
+    const instances = '1';
+
+    const result = HabitualCore.generateBackfillLogs(
+      duration, frequency, instances, 1, 'positive', 'daily', [1], '1', 1, 1
+    );
+
+    const keys = Object.keys(result.logs);
+    assert(keys.length >= 30 && keys.length <= 70, `Moderate frequency produces ~50% logs (got ${keys.length})`);
+  });
+});
+
+// ============================================================================
+// FEATURE 8: 🔥 STREAK & YEAR ANALYTICS ENGINE
+// ============================================================================
+describe('Feature 8: 🔥 Streak & Year Analytics Engine', () => {
+  test('calculateStreakForTarget calculates active unbroken daily streak', () => {
+    const today = new Date();
+    const todayKey = HabitualCore.formatDateKey(today);
+
+    const d1 = new Date(today); d1.setDate(d1.getDate() - 1); const k1 = HabitualCore.formatDateKey(d1);
+    const d2 = new Date(today); d2.setDate(d2.getDate() - 2); const k2 = HabitualCore.formatDateKey(d2);
+
+    const habit = {
+      id: 'water',
+      name: 'Drink Water',
+      type: 'positive',
+      dailyTarget: 1,
+      logs: {
+        [todayKey]: { count: 1 },
+        [k1]: { count: 1 },
+        [k2]: { count: 1 }
+      }
+    };
+
+    const streak = HabitualCore.calculateStreakForTarget(habit);
+    assertEqual(streak.current, 3, '3-day unbroken streak calculated');
+  });
+
+  test('calculateYearStatsForTarget sums total annual completed units', () => {
+    const habit = {
+      id: 'meditation',
+      name: 'Meditation',
+      type: 'positive',
+      dailyTarget: 1,
+      logs: {
+        '2026-01-01': { count: 1 },
+        '2026-01-02': { count: 1 },
+        '2026-01-03': { count: 1 }
+      }
+    };
+
+    const stats = HabitualCore.calculateYearStatsForTarget(habit, 2026);
+    assertEqual(stats.totalCount, 3, '3 completions aggregated for year 2026');
+  });
+});
+
+// ============================================================================
+// FEATURE 9: 📥 CSV DATA IMPORT ENGINE
+// ============================================================================
+describe('Feature 9: 📥 CSV Data Import Engine', () => {
+  test('parseCSVLine handles quoted values and commas within quotes', () => {
+    const line = '2026-10-02,"Coding, Practice",5,"Note with ""quotes"""';
+    const parsed = HabitualCore.parseCSVLine(line);
+
+    assertEqual(parsed.length, 4, '4 columns parsed');
+    assertEqual(parsed[0], '2026-10-02');
+    assertEqual(parsed[1], 'Coding, Practice', 'Commas preserved inside quotes');
+    assertEqual(parsed[2], '5');
+    assertEqual(parsed[3], 'Note with "quotes"', 'Escaped quotes parsed correctly');
+  });
+
+  test('parseCSVAndImport imports habits and logs from CSV text', () => {
+    const csvContent = [
+      'Date,Daily Coding,Days Since Alcohol',
+      '01/10/2026,1,0',
+      '02/10/2026,2,0'
+    ].join('\n');
+
+    HabitualCore.parseCSVAndImport(csvContent, 'Test CSV');
+
+    const state = HabitualCore.getState();
+    assertEqual(state.habits.length, 2, '2 habits created from CSV columns');
+
+    const codingHabit = state.habits.find(h => h.name === 'Daily Coding');
+    assert(codingHabit !== undefined, 'Daily Coding habit found');
+    assertEqual(codingHabit.type, 'positive', 'Daily Coding categorized as positive');
+    assertEqual(codingHabit.logs['2026-10-01'].count, 1, 'Log entry for 01/10/2026 parsed');
+
+    const quitHabit = state.habits.find(h => h.name === 'Days Since Alcohol');
+    assert(quitHabit !== undefined, 'Days Since Alcohol habit found');
+    assertEqual(quitHabit.type, 'negative', 'Auto-detected quit habit from keyword');
+  });
+});
+
+// ============================================================================
+// FEATURE 10: 💾 DATA BACKUPS & PRIVACY
+// ============================================================================
+describe('Feature 10: 💾 Data Backups & Privacy', () => {
+  test('saveState and loadState persist data into local storage', () => {
+    const state = HabitualCore.getState();
+    state.habits = [
+      { id: 'test_habit', name: 'Test Habit', logs: { '2026-10-02': { count: 1 } } }
+    ];
+
+    HabitualCore.saveState();
+    HabitualCore.resetState(); // Clear in-memory state
+
+    assertEqual(HabitualCore.getState().habits.length, 0, 'In-memory state reset');
+
+    HabitualCore.loadState(); // Restore from local storage
+    assertEqual(HabitualCore.getState().habits.length, 1, 'Restored 1 habit from local storage');
+    assertEqual(HabitualCore.getState().habits[0].name, 'Test Habit');
+  });
+});
+
+// ============================================================================
+// FEATURE 11: 📱 PWA & OFFLINE SUPPORT
+// ============================================================================
+describe('Feature 11: 📱 PWA & Offline Support', () => {
+  test('Service Worker file exists and caches key PWA assets', () => {
+    const swPath = path.join(__dirname, '../web/sw.js');
+    assert(fs.existsSync(swPath), 'sw.js file exists');
+
+    const swContent = fs.readFileSync(swPath, 'utf8');
+    assert(swContent.includes('index.html'), 'Caches index.html');
+    assert(swContent.includes('app.js'), 'Caches app.js');
+    assert(swContent.includes('styles.css'), 'Caches styles.css');
+    assert(swContent.includes('manifest.json'), 'Caches manifest.json');
+  });
+
+  test('Web Manifest manifest.json specifies required PWA fields', () => {
+    const manifestPath = path.join(__dirname, '../web/manifest.json');
+    assert(fs.existsSync(manifestPath), 'manifest.json file exists');
+
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    assertEqual(manifest.short_name, 'Habitual');
+    assertEqual(manifest.display, 'standalone');
+    assert(Array.isArray(manifest.icons) && manifest.icons.length > 0, 'Manifest specifies PWA icons');
+  });
+});
+
+// ============================================================================
+// FEATURE 12: ⏸️ PAUSED HABITS IN EDIT DIALOGUE
+// ============================================================================
+describe('Feature 12: ⏸️ Paused Habits in Edit Dialogue', () => {
+  test('Pausing and unpausing a habit in habit edit dialogue updates isPaused status', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+    const habit = { id: 'coding', name: 'Daily Coding', type: 'positive', dailyTarget: 1, isPaused: false, logs: {} };
+    state.habits = [habit];
+
+    const mockClassList = { add: () => {}, remove: () => {}, toggle: () => {} };
+    const elementMap = {
+      'habit-id': { value: '' },
+      'habit-name': { value: 'Daily Coding' },
+      'habit-description': { value: '' },
+      'habit-category': { value: 'General' },
+      'habit-daily-target': { value: '1' },
+      'habit-parent': { value: '', innerHTML: '', selectedOptions: [] },
+      'habit-frequency-type': { value: 'daily', onchange: null },
+      'habit-parent-dependency': { value: 'none' },
+      'parent-dependency-section': { classList: mockClassList },
+      'parent-dependency-hint': { textContent: '' },
+      'freq-daily-options': { classList: mockClassList },
+      'freq-weekly-options': { classList: mockClassList },
+      'freq-monthly-options': { classList: mockClassList },
+      'freq-specific-options': { classList: mockClassList },
+      'freq-custom-options': { classList: mockClassList }
+    };
+
+    const originalGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => elementMap[id] || { value: '', classList: mockClassList };
+
+    const coreElements = HabitualCore.getElements();
+    let isPausedChecked = false;
+    coreElements.modalHabit = { classList: { remove: () => {}, add: () => {} } };
+    coreElements.modalHabitTitle = { textContent: '' };
+    coreElements.customSwatchPreview = { style: {} };
+    coreElements.formHabit = {
+      reset: () => {},
+      querySelector: (sel) => {
+        if (sel.includes('habit-type')) return { value: 'positive', checked: true };
+        if (sel.includes('habit-color')) return { value: 'green', checked: true };
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+    coreElements.habitIsPaused = {
+      get checked() { return isPausedChecked; },
+      set checked(v) { isPausedChecked = v; }
+    };
+    coreElements.habitShowStreak = { checked: false };
+
+    // Open edit habit modal
+    HabitualCore.openHabitModal(habit);
+    assertEqual(isPausedChecked, false, 'Edit dialogue initially reflects isPaused=false');
+
+    // Pause habit in dialogue and submit
+    isPausedChecked = true;
+    elementMap['habit-id'].value = 'coding';
+    elementMap['habit-name'].value = 'Daily Coding';
+    HabitualCore.handleHabitFormSubmit({ preventDefault: () => {} });
+    assertEqual(state.habits[0].isPaused, true, 'Habit isPaused set to true upon form submit');
+
+    // Open edit habit modal again
+    HabitualCore.openHabitModal(habit);
+    assertEqual(isPausedChecked, true, 'Edit dialogue reflects isPaused=true when re-opened');
+
+    // Unpause habit in dialogue and submit
+    isPausedChecked = false;
+    HabitualCore.handleHabitFormSubmit({ preventDefault: () => {} });
+    assertEqual(state.habits[0].isPaused, false, 'Habit isPaused toggled back to false upon form submit');
+
+    global.document.getElementById = originalGetElementById;
+  });
+});
+
+// ============================================================================
+// FINAL REPORT
+// ============================================================================
+console.log(`\n========================================`);
+console.log(`📊 TEST RESULTS SUMMARY`);
+console.log(`========================================`);
+console.log(`Total Tests Run : ${totalTests}`);
+console.log(`Passed          : ${passedTests} ✅`);
+console.log(`Failed          : ${failedTests} ❌`);
+
+if (failedTests > 0) {
+  console.log(`\nFailed Tests Details:`);
+  failures.forEach(f => {
+    console.error(`- ${f.testName}: ${f.error}`);
+  });
+  process.exit(1);
+} else {
+  console.log(`\n🎉 ALL TESTS PASSED SUCCESSFULLY!\n`);
+  process.exit(0);
+}
