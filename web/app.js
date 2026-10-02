@@ -227,6 +227,13 @@
     return `#${((1 << 24) + (parsed.r << 16) + (parsed.g << 8) + parsed.b).toString(16).slice(1)}`;
   }
 
+  function getHabitHexWithAlpha(habit, ratio) {
+    const hex = normalizeHex(getHabitHexColor(habit));
+    const alpha = Math.min(255, Math.max(0, Math.round((ratio || 0) * 255)));
+    const alphaHex = alpha.toString(16).padStart(2, '0');
+    return hex + alphaHex;
+  }
+
   // --- INITIALIZATION ---
   if (typeof document !== 'undefined' && document.addEventListener) {
     document.addEventListener('DOMContentLoaded', () => {
@@ -913,15 +920,29 @@
     if (route.view === 'home') {
       const topLevelHabits = state.habits.filter(h => !h.parentId);
 
-      // Render Combined Heatmap Card only if there are multiple habits overall
-      if (state.habits.length > 1) {
+      // Render Combined Heatmap Card only if there are multiple main habits overall
+      if (topLevelHabits.length > 1) {
         const combinedCard = buildHeatmapCard(null, state.selectedYear);
         elements.heatmapsGallery.appendChild(combinedCard);
       }
 
       topLevelHabits.forEach(habit => {
-        const habitCard = buildHeatmapCard(habit, state.selectedYear);
-        elements.heatmapsGallery.appendChild(habitCard);
+        const subhabits = state.habits.filter(h => h.parentId === habit.id);
+        if (subhabits.length > 0) {
+          const allDescendantIds = getAllDescendantIds(habit.id);
+          const groupTarget = {
+            isGroup: true,
+            habit: habit,
+            title: habit.name,
+            habitIds: allDescendantIds,
+            colorTheme: habit.colorTheme
+          };
+          const habitCard = buildHeatmapCard(groupTarget, state.selectedYear);
+          elements.heatmapsGallery.appendChild(habitCard);
+        } else {
+          const habitCard = buildHeatmapCard(habit, state.selectedYear);
+          elements.heatmapsGallery.appendChild(habitCard);
+        }
       });
     } else if (route.view === 'habit') {
       const targetHabit = state.habits.find(h => h.id === route.habitId);
@@ -1013,11 +1034,14 @@
     const streakData = calculateStreakForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit));
     const stats = calculateYearStatsForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit), year);
 
+    const isTopLevelGroup = isGroup && habit && !habit.parentId;
+    const isDraggable = (!isAll && (!isGroup || isTopLevelGroup));
+
     const card = document.createElement('div');
-    card.className = `heatmap-card theme-${theme} ${(!isAll && !isGroup) ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
+    card.className = `heatmap-card theme-${theme} ${isDraggable ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
     card.setAttribute('data-habit-id', cardHabitId);
 
-    if (!isAll && !isGroup && habit) {
+    if (isDraggable) {
       card.setAttribute('draggable', 'true');
     }
 
@@ -1124,7 +1148,7 @@
     let actionsHTML = '';
     if (habit) {
       const openMenuItem = !isCurrentOpenPage ? `<a href="#/habit/${habit.id}" class="card-menu-item">Open Habit Page</a>` : '';
-      const dragHandleHTML = (!isGroup) ? `
+      const dragHandleHTML = isDraggable ? `
         <div class="drag-handle" title="Drag to reorder habit">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
         </div>
@@ -1147,14 +1171,14 @@
           </div>
         </div>
       `;
-    } else if (!isAll && !isGroup) {
-      actionsHTML = `
+    } else if (!isAll) {
+      actionsHTML = isDraggable ? `
         <div class="card-header-actions">
           <div class="drag-handle" title="Drag to reorder habit">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
           </div>
         </div>
-      `;
+      ` : '';
     }
 
     let headerHTML = `
@@ -1529,13 +1553,14 @@
       }
 
       habitData.forEach(item => {
-        if (item.isDone) {
+        if (item.isDone && item.ratio > 0) {
           const effectiveLevel = Math.max(1, Math.min(item.hLevel, overallLevel));
           activeHabits.push({
             id: item.habit.id,
             name: item.habit.name,
+            ratio: item.ratio,
             level: effectiveLevel,
-            color: getHabitLevelColor(item.habit, effectiveLevel)
+            color: getHabitHexWithAlpha(item.habit, item.ratio)
           });
         }
       });
@@ -2189,6 +2214,15 @@
     });
   }
 
+  function getHabitIdFromCardId(idStr) {
+    if (!idStr) return null;
+    if (idStr.startsWith('group_')) {
+      const parts = idStr.replace('group_', '').split('_');
+      return parts[0];
+    }
+    return idStr;
+  }
+
   // --- HTML5 DRAG & DROP REORDERING HANDLER ---
   function attachCardDragAndDropHandlers() {
     let draggedHabitId = null;
@@ -2226,15 +2260,20 @@
         const targetHabitId = card.dataset.habitId;
 
         if (draggedHabitId && targetHabitId && draggedHabitId !== targetHabitId) {
-          const fromIndex = state.habits.findIndex(h => h.id === draggedHabitId);
-          const toIndex = state.habits.findIndex(h => h.id === targetHabitId);
+          const fromId = getHabitIdFromCardId(draggedHabitId);
+          const toId = getHabitIdFromCardId(targetHabitId);
 
-          if (fromIndex !== -1 && toIndex !== -1) {
-            const [movedHabit] = state.habits.splice(fromIndex, 1);
-            state.habits.splice(toIndex, 0, movedHabit);
-            saveState();
-            renderAll();
-            showToast(`Reordered "${movedHabit.name}"`);
+          if (fromId && toId && fromId !== toId) {
+            const fromIndex = state.habits.findIndex(h => h.id === fromId);
+            const toIndex = state.habits.findIndex(h => h.id === toId);
+
+            if (fromIndex !== -1 && toIndex !== -1) {
+              const [movedHabit] = state.habits.splice(fromIndex, 1);
+              state.habits.splice(toIndex, 0, movedHabit);
+              saveState();
+              renderAll();
+              showToast(`Reordered "${movedHabit.name}"`);
+            }
           }
         }
       });
@@ -2918,7 +2957,9 @@
     getCustomThemeLevels,
     getHabitHexColor,
     getHabitLevelColor,
+    getHabitHexWithAlpha,
     normalizeHex,
+    getCellData,
     getWeekRangeForDate,
     getMonthRangeForDate,
     getWeeklyLogCount,
