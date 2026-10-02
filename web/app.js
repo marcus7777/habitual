@@ -228,16 +228,20 @@
   }
 
   // --- INITIALIZATION ---
-  document.addEventListener('DOMContentLoaded', () => {
-    loadState();
-    initUI();
-    registerServiceWorker();
-    window.addEventListener('hashchange', renderAll);
-    renderAll();
-    if (state.showQuickLogOnStartup) {
-      openLogModal(getTodayKey());
-    }
-  });
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      initUI();
+      registerServiceWorker();
+      if (typeof window !== 'undefined' && window.addEventListener) {
+        window.addEventListener('hashchange', renderAll);
+      }
+      renderAll();
+      if (state.showQuickLogOnStartup) {
+        openLogModal(getTodayKey());
+      }
+    });
+  }
 
   // --- PWA SERVICE WORKER ---
   function registerServiceWorker() {
@@ -353,6 +357,31 @@
   }
 
   // --- CSV PARSER & IMPORT ENGINE ---
+  function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"' || char === "'") {
+        if (inQuotes && line[i + 1] === char) {
+          current += char;
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
   function parseCSVAndImport(csvText, sourceName = 'CSV') {
     if (!csvText) return;
 
@@ -360,26 +389,6 @@
     if (lines.length < 2) {
       alert('CSV file appears empty or missing rows.');
       return;
-    }
-
-    function parseCSVLine(line) {
-      const result = [];
-      let current = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"' || char === "'") {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      result.push(current.trim());
-      return result;
     }
 
     const header = parseCSVLine(lines[0]);
@@ -496,6 +505,17 @@
     elements.modalHabitTitle = document.getElementById('modal-habit-title');
     elements.habitParent = document.getElementById('habit-parent');
     elements.habitShowStreak = document.getElementById('habit-show-streak');
+    elements.habitIsPaused = document.getElementById('habit-is-paused');
+    elements.habitName = document.getElementById('habit-name');
+    elements.habitIdPreview = document.getElementById('habit-id-preview');
+    elements.habitIdDisplay = document.getElementById('habit-id-display');
+    elements.habitFormDetails = document.getElementById('habit-form-details');
+
+    if (elements.habitName) {
+      elements.habitName.addEventListener('blur', () => {
+        handleHabitNameBlur();
+      });
+    }
 
     elements.customColorPicker = document.getElementById('habit-custom-color-picker');
     elements.customColorHex = document.getElementById('habit-custom-color-hex');
@@ -713,6 +733,7 @@
 
   // --- RENDER ENGINE ---
   function renderAll() {
+    if (!elements.yearSelector || !elements.heatmapsGallery) return;
     renderYearSelector();
     renderHeatmapsGallery();
   }
@@ -778,6 +799,54 @@
     }
   }
 
+  function applyParentDependencyOnLog(habit, dateKey, newCount) {
+    if (!habit) return;
+
+    // 1. If this habit is a sub-habit with parent dependency rules
+    if (habit.parentId && habit.parentDependency && habit.parentDependency !== 'none' && newCount > 0) {
+      const parent = state.habits.find(h => h.id === habit.parentId);
+      if (parent) {
+        if (!parent.logs) parent.logs = {};
+        const parentLog = parent.logs[dateKey];
+        const parentCount = parentLog ? parentLog.count : 0;
+
+        if (habit.parentDependency === 'requires_parent' || habit.parentDependency === 'auto_log_parent') {
+          const reqTarget = parent.type === 'negative' ? 0 : (parent.dailyTarget || 1);
+          if (parent.type !== 'negative') {
+            if (parentCount < reqTarget) {
+              parent.logs[dateKey] = {
+                count: reqTarget,
+                note: (parentLog && parentLog.note) ? parentLog.note : `Auto-logged from sub-habit "${habit.name}"`
+              };
+              showToast(`Logged "${habit.name}" & auto-logged parent task "${parent.name}"!`);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. If this habit is a parent task, check for child sub-habits set to 'auto_complete_from_parent'
+    if (newCount > 0) {
+      const autoSubs = state.habits.filter(h => h.parentId === habit.id && h.parentDependency === 'auto_complete_from_parent');
+      autoSubs.forEach(sub => {
+        if (!sub.logs) sub.logs = {};
+        const subLog = sub.logs[dateKey];
+        const subTarget = sub.type === 'negative' ? 0 : (sub.dailyTarget || 1);
+
+        if (sub.type !== 'negative') {
+          const subCount = subLog ? subLog.count : 0;
+          if (subCount < subTarget) {
+            sub.logs[dateKey] = {
+              count: subTarget,
+              note: (subLog && subLog.note) ? subLog.note : `Auto-completed when parent "${habit.name}" was completed`
+            };
+            showToast(`Logged "${habit.name}" & auto-completed sub-habit "${sub.name}"!`);
+          }
+        }
+      });
+    }
+  }
+
   function toggleHabitForDate(habitId, dateKey) {
     const habit = state.habits.find(h => h.id === habitId);
     if (!habit) return;
@@ -788,11 +857,14 @@
     const currentCount = currentLog ? currentLog.count : 0;
     const currentNote = currentLog ? currentLog.note : '';
 
+    let newCount = currentCount + 1;
     if (habit.type === 'negative') {
-      habit.logs[dateKey] = { count: currentCount + 1, note: currentNote || 'Relapse logged' };
+      habit.logs[dateKey] = { count: newCount, note: currentNote || 'Relapse logged' };
     } else {
-      habit.logs[dateKey] = { count: currentCount + 1, note: currentNote };
+      habit.logs[dateKey] = { count: newCount, note: currentNote };
     }
+
+    applyParentDependencyOnLog(habit, dateKey, newCount);
 
     saveState();
     renderAll();
@@ -942,11 +1014,11 @@
     const stats = calculateYearStatsForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit), year);
 
     const card = document.createElement('div');
-    card.className = `heatmap-card theme-${theme} ${(!isAll && !isGroup) ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''}`;
+    card.className = `heatmap-card theme-${theme} ${(!isAll && !isGroup) ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
+    card.setAttribute('data-habit-id', cardHabitId);
 
     if (!isAll && !isGroup && habit) {
       card.setAttribute('draggable', 'true');
-      card.setAttribute('data-habit-id', habit.id);
     }
 
     if (isCustomHex) {
@@ -1029,6 +1101,25 @@
       }
     }
 
+    // Parent Dependency badge
+    let dependencyBadgeHTML = '';
+    if (habit && habit.parentId && habit.parentDependency && habit.parentDependency !== 'none') {
+      const parent = state.habits.find(h => h.id === habit.parentId);
+      const pName = parent ? parent.name : 'Parent Task';
+      if (habit.parentDependency === 'requires_parent') {
+        dependencyBadgeHTML = `<span class="badge-dependency" title="Requires '${escapeHTML(pName)}' to be completed first">🔗 Requires ${escapeHTML(pName)}</span>`;
+      } else if (habit.parentDependency === 'auto_log_parent') {
+        dependencyBadgeHTML = `<span class="badge-dependency" title="Logging this sub-habit auto-logs '${escapeHTML(pName)}'">⚡ Auto-logs ${escapeHTML(pName)}</span>`;
+      } else if (habit.parentDependency === 'auto_complete_from_parent') {
+        dependencyBadgeHTML = `<span class="badge-dependency" title="Logging '${escapeHTML(pName)}' auto-completes this sub-habit">🔄 Auto-completes with ${escapeHTML(pName)}</span>`;
+      } else if (habit.parentDependency === 'parent_days_only') {
+        dependencyBadgeHTML = `<span class="badge-dependency" title="Goal active only on days when '${escapeHTML(pName)}' is done">📅 Active on ${escapeHTML(pName)} Days</span>`;
+      }
+    }
+
+    // Paused badge
+    let pausedBadgeHTML = (habit && habit.isPaused) ? '<span class="badge-paused" title="This habit is currently paused">⏸️ Paused</span>' : '';
+
     // Context Menu for Habit Actions
     let actionsHTML = '';
     if (habit) {
@@ -1050,6 +1141,7 @@
               ${openMenuItem}
               <button type="button" class="card-menu-item btn-card-add-sub" data-habit-id="${habit.id}">+ Add Sub-habit</button>
               <button type="button" class="card-menu-item btn-card-edit" data-habit-id="${habit.id}">Edit Habit</button>
+              <button type="button" class="card-menu-item btn-card-pause" data-habit-id="${habit.id}">${habit.isPaused ? '▶️ Resume Habit' : '⏸️ Pause Habit'}</button>
               <button type="button" class="card-menu-item btn-card-delete text-danger" data-habit-id="${habit.id}">Delete Habit</button>
             </div>
           </div>
@@ -1066,12 +1158,14 @@
     }
 
     let headerHTML = `
-      <div class="heatmap-card-header">
+      <div class="heatmap-card-header ${actionsHTML ? 'has-actions' : ''}">
         <div class="heatmap-title-row">
           <span class="color-badge" style="${colorBadgeStyle}"></span>
           ${titleHTML}
           ${subhabitsBadgeHTML}
+          ${dependencyBadgeHTML}
           ${frequencyBadgeHTML}
+          ${pausedBadgeHTML}
           ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
           <span class="badge-count">${countLabel}</span>
         </div>
@@ -1474,6 +1568,26 @@
     const count = log ? log.count : 0;
     const note = log ? log.note : '';
 
+    if (habit.parentId && habit.parentDependency === 'parent_days_only') {
+      const parent = state.habits.find(h => h.id === habit.parentId);
+      if (parent) {
+        const parentLog = parent.logs ? parent.logs[dateStr] : null;
+        let isParentDoneOnDate = parent.type === 'negative'
+          ? ((!parentLog || parentLog.count === 0) && dateStr <= todayStr)
+          : (parentLog && parentLog.count > 0);
+
+        if (!isParentDoneOnDate && count === 0) {
+          return {
+            count: 0,
+            level: 0,
+            isRelapse: false,
+            note: note || `Parent task "${parent.name}" was not completed on this date (Sub-habit inactive)`,
+            isTargetDay: false
+          };
+        }
+      }
+    }
+
     if (habit.frequencyType === 'weekly') {
       const anchorDay = (habit.targetDays && habit.targetDays.length > 0) ? habit.targetDays[0] : 1;
       const isTargetDay = dayOfWeek === anchorDay;
@@ -1692,6 +1806,45 @@
       return { current: weekStreak, isWeekly: true };
     }
 
+    if (target !== 'all' && target && !target.habitIds && target.parentId && target.parentDependency === 'parent_days_only') {
+      const parent = state.habits.find(h => h.id === target.parentId);
+      if (parent) {
+        let currentStreak = 0;
+        let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const minDate = new Date(today.getFullYear() - 3, 0, 1);
+
+        while (checkDate >= minDate) {
+          let key = formatDateKey(checkDate);
+          let parentLog = parent.logs ? parent.logs[key] : null;
+          let isParentDone = parent.type === 'negative'
+            ? ((!parentLog || parentLog.count === 0) && key <= formatDateKey(today))
+            : (parentLog && parentLog.count > 0);
+
+          if (!isParentDone) {
+            checkDate.setDate(checkDate.getDate() - 1);
+            continue;
+          }
+
+          let subLog = target.logs ? target.logs[key] : null;
+          let isSubDone = target.type === 'negative'
+            ? (!subLog || subLog.count === 0)
+            : (subLog && subLog.count >= (target.dailyTarget || 1));
+
+          if (isSubDone) {
+            currentStreak++;
+            checkDate.setDate(checkDate.getDate() - 1);
+          } else {
+            if (key === formatDateKey(today)) {
+              checkDate.setDate(checkDate.getDate() - 1);
+              continue;
+            }
+            break;
+          }
+        }
+        return { current: currentStreak, isWeekly: false, isMonthly: false };
+      }
+    }
+
     const activeDateMap = {};
     let habitList = [];
     if (target === 'all') {
@@ -1816,22 +1969,37 @@
   }
 
   function attachHeatmapSquareEvents() {
-    // Click anywhere on a heatmap card to pop up details with today's date
+    // Click anywhere on a heatmap card or day square to pop up quick add dialog with date and habit selected
     const cards = elements.heatmapsGallery.querySelectorAll('.heatmap-card');
     cards.forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions')) {
+        if (
+          e.target.closest('.focused-day-toolbar') ||
+          e.target.closest('.card-header-actions') ||
+          e.target.closest('.card-context-menu-dropdown') ||
+          e.target.closest('.btn-card-menu-toggle')
+        ) {
           return;
         }
         e.stopPropagation();
-        elements.customTooltip.classList.add('hidden');
+        if (elements.customTooltip) elements.customTooltip.classList.add('hidden');
 
+        const square = e.target.closest('.day-square[data-date]');
         const cardHabitId = card.getAttribute('data-habit-id') || 'all';
-        if (focusedDayState.habitId === cardHabitId && focusedDayState.dateStr) {
-          return;
+
+        let targetDate = getTodayKey();
+        let targetHabitId = cardHabitId;
+
+        if (square) {
+          if (square.dataset.date) {
+            targetDate = square.dataset.date;
+          }
+          if (square.dataset.habitId && square.dataset.habitId !== 'all' && !square.dataset.habitId.startsWith('group_')) {
+            targetHabitId = square.dataset.habitId;
+          }
         }
-        focusedDayState = { habitId: cardHabitId, dateStr: getTodayKey() };
-        renderAll();
+
+        openLogModal(targetDate, targetHabitId);
       });
     });
 
@@ -1936,10 +2104,18 @@
 
         // Close all other open card context menus
         elements.heatmapsGallery.querySelectorAll('.card-menu-content').forEach(m => {
-          if (m !== menu) m.classList.add('hidden');
+          if (m !== menu) {
+            m.classList.add('hidden');
+            const otherCard = m.closest('.heatmap-card');
+            if (otherCard) otherCard.classList.remove('menu-open');
+          }
         });
 
-        menu.classList.toggle('hidden');
+        const isHidden = menu.classList.toggle('hidden');
+        const parentCard = btn.closest('.heatmap-card');
+        if (parentCard) {
+          parentCard.classList.toggle('menu-open', !isHidden);
+        }
       });
     });
 
@@ -1947,6 +2123,7 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.card-context-menu-dropdown') && elements.heatmapsGallery) {
         elements.heatmapsGallery.querySelectorAll('.card-menu-content').forEach(m => m.classList.add('hidden'));
+        elements.heatmapsGallery.querySelectorAll('.heatmap-card.menu-open').forEach(c => c.classList.remove('menu-open'));
       }
     });
 
@@ -1957,6 +2134,8 @@
         const habitId = btn.dataset.habitId;
         const menu = btn.closest('.card-menu-content');
         if (menu) menu.classList.add('hidden');
+        const parentCard = btn.closest('.heatmap-card');
+        if (parentCard) parentCard.classList.remove('menu-open');
         openHabitModal(null, habitId);
       });
     });
@@ -1967,8 +2146,27 @@
         const habitId = btn.dataset.habitId;
         const menu = btn.closest('.card-menu-content');
         if (menu) menu.classList.add('hidden');
+        const parentCard = btn.closest('.heatmap-card');
+        if (parentCard) parentCard.classList.remove('menu-open');
         const habit = state.habits.find(h => h.id === habitId);
         if (habit) openHabitModal(habit);
+      });
+    });
+
+    elements.heatmapsGallery.querySelectorAll('.btn-card-pause').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const habitId = btn.dataset.habitId;
+        const menu = btn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
+        const parentCard = btn.closest('.heatmap-card');
+        if (parentCard) parentCard.classList.remove('menu-open');
+        const habit = state.habits.find(h => h.id === habitId);
+        if (habit) {
+          habit.isPaused = !habit.isPaused;
+          saveState();
+          renderAll();
+        }
       });
     });
 
@@ -1978,6 +2176,8 @@
         const habitId = btn.dataset.habitId;
         const menu = btn.closest('.card-menu-content');
         if (menu) menu.classList.add('hidden');
+        const parentCard = btn.closest('.heatmap-card');
+        if (parentCard) parentCard.classList.remove('menu-open');
         deleteHabit(habitId);
       });
     });
@@ -2066,6 +2266,48 @@
       parentSelect.innerHTML = buildParentSelectOptions(habitToEdit ? habitToEdit.id : null, selectedParentId);
     }
 
+    const parentDepSec = document.getElementById('parent-dependency-section');
+    const parentDepSelect = document.getElementById('habit-parent-dependency');
+    const parentDepHint = document.getElementById('parent-dependency-hint');
+
+    function updateParentDependencyUI() {
+      const pVal = parentSelect ? parentSelect.value : '';
+      if (parentDepSec) {
+        if (pVal) parentDepSec.classList.remove('hidden');
+        else parentDepSec.classList.add('hidden');
+      }
+
+      if (parentDepHint && parentDepSelect) {
+        const depVal = parentDepSelect.value;
+        const selectedOpt = parentSelect && parentSelect.selectedOptions[0] ? parentSelect.selectedOptions[0].text : '';
+        const parentName = selectedOpt ? selectedOpt.replace(/^(\s|↳|🛑)*/, '').trim() : 'parent task';
+
+        if (depVal === 'requires_parent') {
+          parentDepHint.textContent = `Requires "${parentName}" to be logged on the same day. Auto-logs "${parentName}" if not yet done when you check this off.`;
+        } else if (depVal === 'auto_log_parent') {
+          parentDepHint.textContent = `Logging this sub-habit will automatically log / increment "${parentName}" for the same date.`;
+        } else if (depVal === 'auto_complete_from_parent') {
+          parentDepHint.textContent = `Logging "${parentName}" will automatically mark this sub-habit as complete for the same date.`;
+        } else if (depVal === 'parent_days_only') {
+          parentDepHint.textContent = `Goal & streak for this sub-habit are active ONLY on days when you complete "${parentName}". Non-parent days will not break your sub-habit streak.`;
+        } else {
+          parentDepHint.textContent = `Independent sub-habit. Can be logged on any day regardless of "${parentName}".`;
+        }
+      }
+    }
+
+    if (parentSelect) {
+      parentSelect.onchange = () => {
+        updateParentDependencyUI();
+        if (elements.habitName && elements.habitName.value.trim().length > 0) {
+          handleHabitNameBlur();
+        }
+      };
+    }
+    if (parentDepSelect) {
+      parentDepSelect.onchange = updateParentDependencyUI;
+    }
+
     const freqSelect = document.getElementById('habit-frequency-type');
     if (freqSelect) {
       freqSelect.value = habitToEdit ? (habitToEdit.frequencyType || 'daily') : 'daily';
@@ -2077,10 +2319,15 @@
       elements.modalHabitTitle.textContent = 'Edit Habit Goal';
       document.getElementById('habit-id').value = habitToEdit.id;
       document.getElementById('habit-name').value = habitToEdit.name;
+      if (elements.habitIdDisplay) elements.habitIdDisplay.textContent = habitToEdit.id;
+      if (elements.habitIdPreview) elements.habitIdPreview.classList.remove('hidden');
+      if (elements.habitFormDetails) elements.habitFormDetails.classList.remove('hidden');
       document.getElementById('habit-description').value = habitToEdit.description || '';
       document.getElementById('habit-category').value = habitToEdit.category || 'General';
       document.getElementById('habit-daily-target').value = habitToEdit.dailyTarget || 1;
       if (elements.habitShowStreak) elements.habitShowStreak.checked = habitToEdit.showStreak === true;
+      if (elements.habitIsPaused) elements.habitIsPaused.checked = habitToEdit.isPaused === true;
+      if (parentDepSelect) parentDepSelect.value = habitToEdit.parentDependency || 'none';
 
       const freqType = habitToEdit.frequencyType || 'daily';
       if (freqType === 'weekly') {
@@ -2129,8 +2376,14 @@
     } else {
       elements.modalHabitTitle.textContent = defaultParentId ? 'Create New Sub-Habit' : 'Create New Habit';
       document.getElementById('habit-id').value = '';
+      if (elements.habitName) elements.habitName.value = '';
+      if (elements.habitIdDisplay) elements.habitIdDisplay.textContent = '';
+      if (elements.habitIdPreview) elements.habitIdPreview.classList.add('hidden');
+      if (elements.habitFormDetails) elements.habitFormDetails.classList.add('hidden');
       elements.customSwatchPreview.style.backgroundColor = 'transparent';
       if (elements.habitShowStreak) elements.habitShowStreak.checked = false;
+      if (elements.habitIsPaused) elements.habitIsPaused.checked = false;
+      if (parentDepSelect) parentDepSelect.value = 'none';
 
       const daySelect = document.getElementById('habit-weekly-day');
       if (daySelect) daySelect.value = '1';
@@ -2162,8 +2415,53 @@
       if (elements.habitHistoryInstances) elements.habitHistoryInstances.value = '1';
     }
 
+    updateParentDependencyUI();
     elements.modalHabit.classList.remove('hidden');
   }
+
+  function handleHabitNameBlur() {
+    if (!elements.habitName) return;
+    const nameVal = elements.habitName.value.trim();
+    const currentIdInput = document.getElementById('habit-id');
+    const currentId = currentIdInput ? currentIdInput.value : '';
+    const isEditMode = Boolean(currentId);
+
+    if (nameVal.length > 0) {
+      const parentSelect = document.getElementById('habit-parent');
+      const parentIdVal = parentSelect ? parentSelect.value.trim() : '';
+
+      let derivedId = currentId;
+      if (!isEditMode) {
+        derivedId = (parentIdVal ? parentIdVal + '_' : '') + idFromName(nameVal);
+      }
+
+      if (elements.habitIdDisplay) {
+        elements.habitIdDisplay.textContent = derivedId;
+      }
+      if (elements.habitIdPreview) {
+        elements.habitIdPreview.classList.remove('hidden');
+      }
+
+      if (elements.habitFormDetails) {
+        elements.habitFormDetails.classList.remove('hidden');
+      }
+
+      if (!isEditMode && typeof Please !== 'undefined') {
+        const derivedColor = Please.make_color({ from_hash: derivedId });
+        if (derivedColor && typeof derivedColor === 'string') {
+          const normalized = normalizeHex(derivedColor);
+          if (elements.radioColorCustom) elements.radioColorCustom.checked = true;
+          if (elements.customColorHex) elements.customColorHex.value = normalized;
+          if (elements.customColorPicker) elements.customColorPicker.value = normalized;
+          if (elements.customSwatchPreview) elements.customSwatchPreview.style.backgroundColor = normalized;
+        }
+      }
+    } else if (!isEditMode) {
+      if (elements.habitIdPreview) elements.habitIdPreview.classList.add('hidden');
+      if (elements.habitFormDetails) elements.habitFormDetails.classList.add('hidden');
+    }
+  }
+
 
   function buildParentSelectOptions(excludeId = null, currentParentId = null) {
     let html = `<option value="">None (Top-Level Habit)</option>`;
@@ -2179,7 +2477,8 @@
         if (invalidIds.has(h.id)) return;
         const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
         const isSelected = h.id === currentParentId;
-        html += `<option value="${h.id}" ${isSelected ? 'selected' : ''}>${indent}${escapeHTML(h.name)}</option>`;
+        const pausedSuffix = h.isPaused ? ' (Paused)' : '';
+        html += `<option value="${h.id}" ${isSelected ? 'selected' : ''}>${indent}${escapeHTML(h.name)}${pausedSuffix}</option>`;
         appendHabitOptions(h.id, depth + 1);
       });
     }
@@ -2276,7 +2575,10 @@
     const selectedColorRadio = elements.formHabit.querySelector('input[name="habit-color"]:checked').value;
     const parentIdVal = document.getElementById('habit-parent').value.trim();
     const parentId = parentIdVal ? parentIdVal : null;
+    const parentDepSelect = document.getElementById('habit-parent-dependency');
+    const parentDependency = (parentId && parentDepSelect) ? parentDepSelect.value : 'none';
     const showStreak = elements.habitShowStreak ? elements.habitShowStreak.checked : false;
+    const isPaused = elements.habitIsPaused ? elements.habitIsPaused.checked : false;
 
     const freqSelect = document.getElementById('habit-frequency-type');
     const freqType = freqSelect ? freqSelect.value : 'daily';
@@ -2327,6 +2629,7 @@
         habit.category = category;
         habit.dailyTarget = dailyTarget;
         habit.showStreak = showStreak;
+        habit.isPaused = isPaused;
         habit.frequencyType = freqType;
         habit.targetDays = targetDays;
         habit.weeklyTarget = weeklyTarget;
@@ -2336,6 +2639,7 @@
         habit.colorWholeMonth = colorWholeMonth;
         habit.colorTheme = colorTheme;
         habit.parentId = parentId;
+        habit.parentDependency = parentDependency;
       }
     } else {
       let backfilledLogs = {};
@@ -2358,6 +2662,7 @@
         description,
         category,
         showStreak,
+        isPaused,
         colorTheme,
         dailyTarget,
         frequencyType: freqType,
@@ -2368,6 +2673,7 @@
         colorWholeWeek,
         colorWholeMonth,
         parentId,
+        parentDependency,
         createdAt: createdAtKey,
         logs: backfilledLogs
       };
@@ -2445,47 +2751,62 @@
       children.forEach(h => {
         const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
         const icon = h.type === 'negative' ? '🛑 ' : '';
-        const pageId = window.location.toString().split("/").slice(-1)[0]
+        const pausedSuffix = h.isPaused ? ' (Paused)' : '';
+        const pageId = (typeof window !== 'undefined' && window.location) ? window.location.toString().split("/").slice(-1)[0] : '';
         if (pageId == h.id) {
-          habitSelectHTML += `<option value="${h.id}" selected>${indent}${icon}${escapeHTML(h.name)}</option>`;
+          habitSelectHTML += `<option value="${h.id}" selected>${indent}${icon}${escapeHTML(h.name)}${pausedSuffix}</option>`;
         } else {
-          habitSelectHTML += `<option value="${h.id}">${indent}${icon}${escapeHTML(h.name)}</option>`;
+          habitSelectHTML += `<option value="${h.id}">${indent}${icon}${escapeHTML(h.name)}${pausedSuffix}</option>`;
         }
         appendLogOptions(h.id, depth + 1);
       });
     }
     appendLogOptions(null, 0);
 
-    elements.modalLogHabitSelect.innerHTML = habitSelectHTML || '<option value="">No habits</option>';
+    if (elements.modalLogHabitSelect) {
+      elements.modalLogHabitSelect.innerHTML = habitSelectHTML || '<option value="">No habits</option>';
 
-    let targetId = (preferredHabitId && preferredHabitId !== 'all') ? preferredHabitId : state.selectedHabitId;
-    if (targetId !== 'all' && state.habits.some(h => h.id === targetId)) {
-      elements.modalLogHabitSelect.value = targetId;
+      let targetId = (preferredHabitId && preferredHabitId !== 'all' && !preferredHabitId.startsWith('group_')) ? preferredHabitId : state.selectedHabitId;
+      if (targetId !== 'all' && state.habits.some(h => h.id === targetId)) {
+        elements.modalLogHabitSelect.value = targetId;
+      }
     }
 
     loadLogModalValues();
-    elements.modalLogHabitSelect.onchange = () => loadLogModalValues();
+    if (elements.modalLogHabitSelect) {
+      elements.modalLogHabitSelect.onchange = () => loadLogModalValues();
+    }
 
     if (elements.modalLogShowOnStartup) {
       elements.modalLogShowOnStartup.checked = !!state.showQuickLogOnStartup;
     }
 
-    elements.modalLog.classList.remove('hidden');
+    if (elements.modalLog) {
+      elements.modalLog.classList.remove('hidden');
+    }
   }
 
   function loadLogModalValues() {
+    if (!elements.modalLogHabitSelect) return;
     const habitId = elements.modalLogHabitSelect.value;
     const habit = state.habits.find(h => h.id === habitId);
 
     const countLabel = document.getElementById('modal-log-count-label');
     const countHint = document.getElementById('modal-log-count-hint');
 
-    if (habit && habit.type === 'negative') {
-      countLabel.textContent = 'Relapse / Slip Count';
-      countHint.textContent = '0 = Clean Day Success. 1+ = Relapse/Slip occurred.';
-    } else {
-      countLabel.textContent = 'Completion Count';
-      countHint.textContent = 'Number of times target was completed on this day.';
+    if (countLabel) {
+      if (habit && habit.type === 'negative') {
+        countLabel.textContent = 'Relapse / Slip Count';
+      } else {
+        countLabel.textContent = 'Completion Count';
+      }
+    }
+    if (countHint) {
+      if (habit && habit.type === 'negative') {
+        countHint.textContent = '0 = Clean Day Success. 1+ = Relapse/Slip occurred.';
+      } else {
+        countHint.textContent = 'Number of times target was completed on this day.';
+      }
     }
 
     if (habit && habit.logs && habit.logs[activeLogDateKey]) {
@@ -2508,6 +2829,8 @@
     const note = elements.modalLogNote.value.trim();
 
     habit.logs[activeLogDateKey] = { count, note };
+
+    applyParentDependencyOnLog(habit, activeLogDateKey, count);
 
     saveState();
     elements.modalLog.classList.add('hidden');
@@ -2569,4 +2892,66 @@
       .replace(/'/g, '&#039;');
   }
 
+  // --- CORE EXPORTS FOR TESTING ---
+  const HabitualCore = {
+    getState: () => state,
+    setState: (newState) => { state = newState; },
+    resetState: () => {
+      state = {
+        habits: [],
+        selectedHabitId: 'all',
+        selectedYear: CURRENT_YEAR,
+        showQuickLogOnStartup: false
+      };
+    },
+    loadState,
+    saveState,
+    formatDateKey,
+    parseDateKey,
+    parseFlexibleDate,
+    getTodayKey,
+    getDaysAgoKey,
+    idFromName,
+    nameFromId,
+    parseHexColor,
+    blendColors,
+    getCustomThemeLevels,
+    getHabitHexColor,
+    getHabitLevelColor,
+    normalizeHex,
+    getWeekRangeForDate,
+    getMonthRangeForDate,
+    getWeeklyLogCount,
+    getMonthlyLogCount,
+    getWeeklyActiveDaysCount,
+    calculateStreakForTarget,
+    calculateYearStatsForTarget,
+    getAncestryChain,
+    getAllDescendantIds,
+    parseCSVLine,
+    parseCSVAndImport,
+    generateBackfillLogs,
+    applyParentDependencyOnLog,
+    toggleHabitForDate,
+    openHabitModal,
+    handleHabitFormSubmit,
+    openLogModal,
+    attachHeatmapSquareEvents,
+    getElements: () => elements,
+    initUI,
+    parseHash,
+    navigateTo,
+    escapeHTML,
+    COLOR_PALETTE,
+    PRESET_THEME_HEX
+  };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = HabitualCore;
+  }
+  if (typeof window !== 'undefined') {
+    window.HabitualCore = HabitualCore;
+  }
+
 })();
+
