@@ -1,10 +1,94 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-  <rect width="512" height="512" rx="110" fill="#0d1117"/>
-  <rect x="60" y="60" width="392" height="392" rx="40" fill="#161b22" stroke="#30363d" stroke-width="12"/>
-  <!-- Minimalist Heatmap Grid -->
-  <rect x="100" y="100" width="130" height="120" rx="18" fill="#238636"/>
-  <rect x="250" y="100" width="162" height="120" rx="18" fill="#26a641"/>
-  <rect x="100" y="240" width="130" height="172" rx="18" fill="#39d353"/>
-  <!-- Emoji Icon Badge -->
-  <text x="330" y="330" font-size="140" text-anchor="middle" dominant-baseline="central">📊</text>
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c20" />
+      <stop offset="50%" stop-color="#180e29" />
+      <stop offset="100%" stop-color="#090514" />
+    </linearGradient>
+
+    <!-- Border Gradient -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff007f" />
+      <stop offset="40%" stop-color="#7928ca" />
+      <stop offset="70%" stop-color="#00f0ff" />
+      <stop offset="100%" stop-color="#00ff88" />
+    </linearGradient>
+
+    <!-- Bolt / Emblem Gradient -->
+    <linearGradient id="boltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff0080" />
+      <stop offset="50%" stop-color="#ffab00" />
+      <stop offset="100%" stop-color="#00f0ff" />
+    </linearGradient>
+
+    <!-- Heatmap Tile Gradients -->
+    <linearGradient id="tileGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f0ff" />
+      <stop offset="100%" stop-color="#7928ca" />
+    </linearGradient>
+    <linearGradient id="tileGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#39d353" />
+      <stop offset="100%" stop-color="#00f0ff" />
+    </linearGradient>
+    <linearGradient id="tileGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff007f" />
+      <stop offset="100%" stop-color="#ff8800" />
+    </linearGradient>
+    <linearGradient id="tileGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7928ca" />
+      <stop offset="100%" stop-color="#ff007f" />
+    </linearGradient>
+
+    <!-- Glow Filters -->
+    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="tileGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Outer Rounded Card -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)" />
+  <rect x="16" y="16" width="480" height="480" rx="98" fill="none" stroke="url(#borderGrad)" stroke-width="12" opacity="0.9" />
+
+  <!-- Cyber Heatmap Grid (Funky stair step / matrix design) -->
+  <g opacity="0.9">
+    <!-- Row 1 -->
+    <rect x="70" y="70" width="105" height="105" rx="22" fill="url(#tileGrad2)" filter="url(#tileGlow)" />
+    <rect x="195" y="70" width="105" height="105" rx="22" fill="url(#tileGrad1)" />
+    <rect x="320" y="70" width="122" height="105" rx="22" fill="url(#tileGrad3)" filter="url(#tileGlow)" />
+
+    <!-- Row 2 -->
+    <rect x="70" y="195" width="105" height="105" rx="22" fill="url(#tileGrad4)" />
+    <rect x="195" y="195" width="105" height="105" rx="22" fill="url(#tileGrad3)" filter="url(#tileGlow)" />
+    <rect x="320" y="195" width="122" height="105" rx="22" fill="url(#tileGrad2)" />
+
+    <!-- Row 3 -->
+    <rect x="70" y="320" width="105" height="122" rx="22" fill="url(#tileGrad1)" filter="url(#tileGlow)" />
+    <rect x="195" y="320" width="105" height="122" rx="22" fill="url(#tileGrad2)" />
+    <rect x="320" y="320" width="122" height="122" rx="22" fill="url(#tileGrad4)" filter="url(#tileGlow)" />
+  </g>
+
+  <!-- Funky Lightning Streak Overlay -->
+  <g filter="url(#neonGlow)">
+    <path d="M 271,61 L 158,250 L 250,250 L 179,450 L 353,210 L 261,210 Z"
+          fill="url(#boltGrad)"
+          stroke="#ffffff"
+          stroke-width="7"
+          stroke-linejoin="round" />
+  </g>
+
+  <!-- Sparkle Stars for Extra Funk -->
+  <path d="M 112,112 L 116,122 L 126,126 L 116,130 L 112,140 L 108,130 L 98,126 L 108,122 Z" fill="#00f0ff" opacity="0.95" />
+  <path d="M 398,398 L 403,410 L 415,415 L 403,420 L 398,432 L 393,420 L 381,415 L 393,410 Z" fill="#ff007f" opacity="0.95" />
 </svg>

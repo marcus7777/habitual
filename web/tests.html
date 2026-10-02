@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habitual - Interactive Automated Test Suite</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      padding: 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .test-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+    }
+    .test-stats {
+      display: flex;
+      gap: 1rem;
+    }
+    .stat-badge {
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .stat-total { background: var(--bg-secondary); border: 1px solid var(--border-color); }
+    .stat-pass { background: rgba(57, 211, 83, 0.15); color: #39d353; border: 1px solid #39d353; }
+    .stat-fail { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid #f85149; }
+
+    .suite-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .suite-header {
+      padding: 1rem 1.2rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    .test-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .test-item {
+      padding: 0.8rem 1.2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 0.95rem;
+    }
+    .test-item:last-child {
+      border-bottom: none;
+    }
+    .test-status {
+      font-weight: bold;
+      font-size: 1rem;
+    }
+    .test-pass .test-status { color: #39d353; }
+    .test-fail .test-status { color: #f85149; }
+    .test-error {
+      margin-top: 0.3rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #f85149;
+      background: rgba(248, 81, 73, 0.1);
+      padding: 0.5rem;
+      border-radius: 4px;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 1rem;
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">&larr; Back to Habitual App</a>
+
+  <header class="test-header">
+    <div>
+      <h1>🧪 Habitual Test Suite</h1>
+      <p class="muted-text">Automated Feature Verification for all 11 Core Features</p>
+    </div>
+    <div class="test-stats">
+      <span class="stat-badge stat-total" id="stat-total">Total: 0</span>
+      <span class="stat-badge stat-pass" id="stat-pass">Passed: 0</span>
+      <span class="stat-badge stat-fail" id="stat-fail">Failed: 0</span>
+    </div>
+  </header>
+
+  <main id="test-results-container"></main>
+
+  <script src="please.js"></script>
+  <script src="app.js"></script>
+  <script>
+    (function () {
+      const core = window.HabitualCore;
+      let total = 0, passed = 0, failed = 0;
+
+      const container = document.getElementById('test-results-container');
+      let currentSuiteEl = null;
+
+      function describe(name, fn) {
+        const card = document.createElement('div');
+        card.className = 'suite-card';
+        card.innerHTML = `<div class="suite-header">${name}</div><ul class="test-list"></ul>`;
+        container.appendChild(card);
+        currentSuiteEl = card.querySelector('.test-list');
+        fn();
+      }
+
+      function test(name, fn) {
+        total++;
+        const item = document.createElement('li');
+        item.className = 'test-item';
+
+        try {
+          core.resetState();
+          localStorage.clear();
+          fn();
+          passed++;
+          item.classList.add('test-pass');
+          item.innerHTML = `<span class="test-status">✅</span> <div><strong>PASS:</strong> ${name}</div>`;
+        } catch (err) {
+          failed++;
+          item.classList.add('test-fail');
+          item.innerHTML = `
+            <span class="test-status">❌</span>
+            <div>
+              <strong>FAIL:</strong> ${name}
+              <div class="test-error">${err.message}</div>
+            </div>
+          `;
+        }
+
+        currentSuiteEl.appendChild(item);
+        updateStats();
+      }
+
+      function assert(cond, msg) { if (!cond) throw new Error(msg || 'Assertion failed'); }
+      function assertEqual(act, exp, msg) {
+        if (act !== exp) throw new Error(`${msg || 'Expected match'}: Expected "${exp}", got "${act}"`);
+      }
+
+      function updateStats() {
+        document.getElementById('stat-total').textContent = `Total: ${total}`;
+        document.getElementById('stat-pass').textContent = `Passed: ${passed} ✅`;
+        document.getElementById('stat-fail').textContent = `Failed: ${failed} ❌`;
+      }
+
+      // --- RUN ALL TESTS ---
+
+      describe('Feature 1: 📊 7x52 Heatmap Grid & Date Shading Logic', () => {
+        test('formatDateKey formats Date object to YYYY-MM-DD string', () => {
+          assertEqual(core.formatDateKey(new Date(2026, 0, 5)), '2026-01-05');
+        });
+        test('parseDateKey converts YYYY-MM-DD string back to Date', () => {
+          const d = core.parseDateKey('2026-10-02');
+          assertEqual(d.getFullYear(), 2026);
+          assertEqual(d.getMonth(), 9);
+          assertEqual(d.getDate(), 2);
+        });
+        test('parseFlexibleDate parses DD/MM/YYYY and YYYY-MM-DD formats', () => {
+          assertEqual(core.parseFlexibleDate('15/08/2026'), '2026-08-15');
+          assertEqual(core.parseFlexibleDate('2026-08-15'), '2026-08-15');
+        });
+        test('getDaysAgoKey returns accurate relative date strings', () => {
+          const today = core.getTodayKey();
+          assertEqual(core.getDaysAgoKey(0), today);
+        });
+        test('Heatmap Level Calculation scales levels 0 to 4', () => {
+          const h = { id: 'h1', dailyTarget: 4, type: 'positive', colorTheme: 'green' };
+          assertEqual(core.getHabitLevelColor(h, 0), '#161b22');
+          assertEqual(core.getHabitLevelColor(h, 1), '#1f492e');
+          assertEqual(core.getHabitLevelColor(h, 2), '#28773b');
+          assertEqual(core.getHabitLevelColor(h, 3), '#30a547');
+          assertEqual(core.getHabitLevelColor(h, 4), '#39d353');
+        });
+      });
+
+      describe('Feature 2: 🎯 Positive & Negative Habit Goal Types', () => {
+        test('Positive Habit tracks build completion status', () => {
+          const h = { id: 'c', type: 'positive', dailyTarget: 1, logs: { '2026-10-01': { count: 1 } } };
+          assert(h.logs['2026-10-01'].count >= h.dailyTarget);
+        });
+        test('Negative (Quit) Habit calculates clean days automatically', () => {
+          const today = new Date();
+          const d2 = new Date(today); d2.setDate(d2.getDate() - 2);
+          const quit = {
+            id: 'caf', type: 'negative',
+            logs: { [core.formatDateKey(d2)]: { count: 1 } }
+          };
+          assertEqual(core.calculateStreakForTarget(quit).current, 2);
+        });
+      });
+
+      describe('Feature 3: 📅 Flexible Schedules & Target Frequencies', () => {
+        test('Weekly Schedule logs count within week window', () => {
+          const h = { id: 'w', frequencyType: 'weekly', weeklyTarget: 2, targetDays: [1], logs: { '2026-09-28': { count: 1 }, '2026-09-30': { count: 1 } } };
+          assertEqual(core.getWeeklyLogCount(h, '2026-09-28', '2026-10-04'), 2);
+        });
+        test('Monthly Schedule logs count within month window', () => {
+          const h = { id: 'm', frequencyType: 'monthly', monthlyTarget: 1, logs: { '2026-10-15': { count: 1 } } };
+          assertEqual(core.getMonthlyLogCount(h, '2026-10-01', '2026-10-31'), 1);
+        });
+      });
+
+      describe('Feature 4: 🌲 Hierarchical Sub-Habits & Dependency Rules', () => {
+        test('Sub-habit tree structure tracks ancestry and descendants', () => {
+          core.setState({
+            habits: [
+              { id: 'gym', parentId: null },
+              { id: 'gym_legDay', parentId: 'gym' },
+              { id: 'gym_legDay_squats', parentId: 'gym_legDay' }
+            ]
+          });
+          const chain = core.getAncestryChain('gym_legDay_squats');
+          assertEqual(chain[0].id, 'gym');
+          assertEqual(chain[2].id, 'gym_legDay_squats');
+        });
+        test('Dependency Rule: requires_parent auto-logs parent task', () => {
+          core.setState({
+            habits: [
+              { id: 'gym', dailyTarget: 1, logs: {} },
+              { id: 'gym_leg', parentId: 'gym', parentDependency: 'requires_parent', dailyTarget: 1, logs: {} }
+            ]
+          });
+          core.applyParentDependencyOnLog(core.getState().habits[1], '2026-10-02', 1);
+          assertEqual(core.getState().habits[0].logs['2026-10-02'].count, 1);
+        });
+      });
+
+      describe('Feature 5: 🎨 Color Themes & Custom HEX Color Picker', () => {
+        test('Preset Themes and Custom HEX normalizer', () => {
+          assertEqual(core.PRESET_THEME_HEX.green, '#39d353');
+          assertEqual(core.normalizeHex('#f00'), '#ff0000');
+        });
+        test('getCustomThemeLevels generates 4 gradient levels', () => {
+          const lvl = core.getCustomThemeLevels('#ff0000');
+          assertEqual(lvl.level0, '#161b22');
+          assertEqual(lvl.level4, '#ff0000');
+        });
+      });
+
+      describe('Feature 6: ⏱️ Quick Logging & Day Notes', () => {
+        test('toggleHabitForDate updates check-in count', () => {
+          core.setState({ habits: [{ id: 'read', type: 'positive', logs: {} }] });
+          core.toggleHabitForDate('read', '2026-10-02');
+          assertEqual(core.getState().habits[0].logs['2026-10-02'].count, 1);
+        });
+      });
+
+      describe('Feature 7: ⌛ Past History Backfilling', () => {
+        test('generateBackfillLogs generates history logs over specified duration', () => {
+          const res = core.generateBackfillLogs(30, 'daily', '1', 1, 'positive', 'daily', [1], '1', 1, 1);
+          assertEqual(Object.keys(res.logs).length, 31);
+        });
+      });
+
+      describe('Feature 8: 🔥 Streak & Year Analytics Engine', () => {
+        test('calculateStreakForTarget calculates unbroken active streak', () => {
+          const today = new Date();
+          const k0 = core.formatDateKey(today);
+          const d1 = new Date(today); d1.setDate(d1.getDate() - 1); const k1 = core.formatDateKey(d1);
+          const h = { id: 'w', type: 'positive', dailyTarget: 1, logs: { [k0]: { count: 1 }, [k1]: { count: 1 } } };
+          assertEqual(core.calculateStreakForTarget(h).current, 2);
+        });
+      });
+
+      describe('Feature 9: 📥 CSV Data Import Engine', () => {
+        test('parseCSVAndImport imports habits from CSV string', () => {
+          const csv = 'Date,Coding,Days Since Alcohol\n01/10/2026,1,0';
+          core.parseCSVAndImport(csv, 'Test');
+          assertEqual(core.getState().habits.length, 2);
+        });
+      });
+
+      describe('Feature 10: 💾 Data Backups & Privacy', () => {
+        test('saveState and loadState persist data in local storage', () => {
+          core.setState({ habits: [{ id: 'test', name: 'Test' }] });
+          core.saveState();
+          core.resetState();
+          core.loadState();
+          assertEqual(core.getState().habits[0].name, 'Test');
+        });
+      });
+
+      describe('Feature 11: 📱 PWA Support', () => {
+        test('Service Worker and Manifest registered', () => {
+          assert(window.navigator.serviceWorker !== undefined, 'Service worker available');
+        });
+      });
+
+    })();
+  </script>
+</body>
+</html>

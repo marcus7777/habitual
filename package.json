@@ -1,0 +1,17 @@
+{
+  "name": "habitual",
+  "version": "1.0.20",
+  "description": "Minimalist 100% fluid GitHub-style habit progression visualizer",
+  "main": "web/app.js",
+  "scripts": {
+    "test": "node tests/run-tests.js"
+  },
+  "keywords": [
+    "habit-tracker",
+    "github-style",
+    "heatmap",
+    "pwa"
+  ],
+  "author": "",
+  "license": "MIT"
+}
