@@ -39,7 +39,7 @@
     const habit = state.habits.find(h => h.id === id);
     if (habit) return habit.name;
     // camelCase to Title Case
-    return id.replace(/([a-z])([A-Z])/g, '$1 $2').charAt(0).toUpperCase() + name.slice(1);
+    return id.replace(/([a-z])([A-Z])/g, '$1 $2').charAt(0).toUpperCase() + id.slice(1);
   }
   function idFromName(name) {
     // titleCase to camelCase
