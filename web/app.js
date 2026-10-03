@@ -35,24 +35,47 @@
     indigo: '#818cf8',
     rose: '#f43f5e'
   };
-  function nameFromId(id) {
-    const habit = state.habits.find(h => h.id === id);
-    if (habit) return habit.name;
-    // camelCase to Title Case
-    const name = id.replace(/([a-z])([A-Z])/g, '$1 $2')
+  function deriveNameFromId(id) {
+    if (!id) return '';
+    let baseId = id;
+    if (baseId.includes('_')) {
+      const parts = baseId.split('_');
+      baseId = parts[parts.length - 1];
+    }
+    const name = baseId.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
     return name.charAt(0).toUpperCase() + name.slice(1);
   }
+
+  function nameFromId(id) {
+    const habit = (state && state.habits) ? state.habits.find(h => h.id === id) : null;
+    if (habit && habit.name) return habit.name;
+    return deriveNameFromId(id);
+  }
+
   function idFromName(name) {
     // titleCase to camelCase
     return name.trim().replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
       return index == 0 ? word.toLowerCase() : word.toUpperCase();
     }).replace(/\s+/g, '');
   }
+
+  function getDefaultColorForId(id) {
+    if (!id) return 'green';
+    if (typeof Please !== 'undefined') {
+      const col = Please.make_color({ from_hash: id });
+      if (col) {
+        return (typeof col === 'string' && col.startsWith('#')) ? normalizeHex(col) : col;
+      }
+    }
+    return 'green';
+  }
+
   function getHabitHexColor(habit) {
-    const defaultColour = typeof Please !== 'undefined' ? Please.make_color({ from_hash: habit ? habit.id : 'default' }) : PRESET_THEME_HEX.green;
-    if (!habit || !habit.colorTheme) return defaultColour;
+    const defaultColour = getDefaultColorForId(habit ? habit.id : 'default');
+    const defaultHex = defaultColour.startsWith('#') ? defaultColour : (PRESET_THEME_HEX[defaultColour] || PRESET_THEME_HEX.green);
+    if (!habit || !habit.colorTheme) return defaultHex;
     if (habit.colorTheme.startsWith('#')) return habit.colorTheme;
-    return PRESET_THEME_HEX[habit.colorTheme] || defaultColour;
+    return PRESET_THEME_HEX[habit.colorTheme] || defaultHex;
   }
 
   // --- ROUTING & SUB-HABIT NAVIGATION HELPERS ---
@@ -267,7 +290,49 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        state.habits = parsed.habits || [];
+        state.habits = (parsed.habits || []).map(h => {
+          const id = h.id;
+          const derivedName = deriveNameFromId(id);
+          const derivedColor = getDefaultColorForId(id);
+
+          const restoredLogs = {};
+          if (h.logs) {
+            Object.keys(h.logs).forEach(dateKey => {
+              const entry = h.logs[dateKey];
+              if (typeof entry === 'number') {
+                restoredLogs[dateKey] = { count: entry, note: '' };
+              } else if (entry && typeof entry === 'object') {
+                restoredLogs[dateKey] = {
+                  count: entry.count || 0,
+                  note: entry.note || ''
+                };
+              }
+            });
+          }
+
+          return {
+            id: id,
+            name: h.name || derivedName,
+            type: h.type || 'positive',
+            description: h.description || '',
+            category: h.category || '',
+            showStreak: Boolean(h.showStreak),
+            isPaused: Boolean(h.isPaused),
+            colorTheme: h.colorTheme || derivedColor,
+            dailyTarget: h.dailyTarget || 1,
+            frequencyType: h.frequencyType || 'daily',
+            targetDays: h.targetDays || [1, 2, 3, 4, 5, 6, 0],
+            weeklyTarget: h.weeklyTarget || 1,
+            monthlyDay: h.monthlyDay || 1,
+            monthlyTarget: h.monthlyTarget || 1,
+            colorWholeWeek: Boolean(h.colorWholeWeek),
+            colorWholeMonth: Boolean(h.colorWholeMonth),
+            parentId: h.parentId || null,
+            parentDependency: h.parentDependency || 'none',
+            createdAt: h.createdAt || getTodayKey(),
+            logs: restoredLogs
+          };
+        });
         state.selectedHabitId = parsed.selectedHabitId || 'all';
         state.selectedYear = parsed.selectedYear || CURRENT_YEAR;
         state.showQuickLogOnStartup = parsed.showQuickLogOnStartup || false;
@@ -280,7 +345,84 @@
 
   function saveState() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const serializedHabits = state.habits.map(habit => {
+        const derivedName = deriveNameFromId(habit.id);
+        const derivedColor = getDefaultColorForId(habit.id);
+
+        const h = { id: habit.id };
+
+        // Save name only if user edited/overwrote it (differs from derived name)
+        if (habit.name && habit.name.trim() !== derivedName) {
+          h.name = habit.name;
+        }
+
+        // Save colorTheme only if user edited/overwrote it (differs from derived color)
+        if (habit.colorTheme) {
+          const normTheme = habit.colorTheme.startsWith('#') ? normalizeHex(habit.colorTheme) : habit.colorTheme;
+          const normDerived = derivedColor.startsWith('#') ? normalizeHex(derivedColor) : derivedColor;
+          if (normTheme !== normDerived) {
+            h.colorTheme = habit.colorTheme;
+          }
+        }
+
+        if (habit.type && habit.type !== 'positive') h.type = habit.type;
+        if (habit.description) h.description = habit.description;
+        if (habit.category) h.category = habit.category;
+        if (habit.showStreak) h.showStreak = true;
+        if (habit.isPaused) h.isPaused = true;
+        if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
+        if (habit.frequencyType && habit.frequencyType !== 'daily') h.frequencyType = habit.frequencyType;
+
+        if (habit.targetDays && Array.isArray(habit.targetDays)) {
+          const defaultDays = [1, 2, 3, 4, 5, 6, 0];
+          const isDefaultDays = habit.targetDays.length === 7 && defaultDays.every((d, i) => habit.targetDays[i] === d);
+          if (!isDefaultDays) h.targetDays = habit.targetDays;
+        }
+
+        if (habit.weeklyTarget && habit.weeklyTarget !== 1) h.weeklyTarget = habit.weeklyTarget;
+        if (habit.monthlyDay && habit.monthlyDay !== 1) h.monthlyDay = habit.monthlyDay;
+        if (habit.monthlyTarget && habit.monthlyTarget !== 1) h.monthlyTarget = habit.monthlyTarget;
+        if (habit.colorWholeWeek) h.colorWholeWeek = true;
+        if (habit.colorWholeMonth) h.colorWholeMonth = true;
+        if (habit.parentId) h.parentId = habit.parentId;
+        if (habit.parentDependency && habit.parentDependency !== 'none') h.parentDependency = habit.parentDependency;
+        if (habit.createdAt) h.createdAt = habit.createdAt;
+
+        // Save logs without empty notes, and omit count=0 logs with no note
+        if (habit.logs) {
+          const cleanLogs = {};
+          let hasLogs = false;
+          Object.keys(habit.logs).forEach(dateKey => {
+            const log = habit.logs[dateKey];
+            if (!log) return;
+            const count = log.count || 0;
+            const note = (log.note || '').trim();
+
+            if (count > 0 || note !== '') {
+              hasLogs = true;
+              if (note !== '') {
+                cleanLogs[dateKey] = { count, note };
+              } else {
+                cleanLogs[dateKey] = { count };
+              }
+            }
+          });
+          if (hasLogs) {
+            h.logs = cleanLogs;
+          }
+        }
+
+        return h;
+      });
+
+      const payload = {
+        habits: serializedHabits,
+        selectedHabitId: state.selectedHabitId || 'all',
+        selectedYear: state.selectedYear || CURRENT_YEAR,
+        showQuickLogOnStartup: state.showQuickLogOnStartup || false
+      };
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
       console.error('Failed to save state to LocalStorage:', e);
     }
@@ -505,6 +647,20 @@
     elements.yearSelector = document.getElementById('year-selector');
     elements.heatmapsGallery = document.getElementById('heatmaps-gallery');
     elements.customTooltip = document.getElementById('custom-tooltip');
+
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('scroll', () => {
+        if (elements.customTooltip && !elements.customTooltip.classList.contains('hidden')) {
+          elements.customTooltip.classList.add('hidden');
+        }
+      }, { passive: true });
+
+      window.addEventListener('resize', () => {
+        if (elements.customTooltip && !elements.customTooltip.classList.contains('hidden')) {
+          elements.customTooltip.classList.add('hidden');
+        }
+      }, { passive: true });
+    }
 
     // Modals
     elements.modalHabit = document.getElementById('modal-habit');
@@ -860,7 +1016,7 @@
             if (parentCount < reqTarget) {
               parent.logs[dateKey] = {
                 count: reqTarget,
-                note: (parentLog && parentLog.note) ? parentLog.note : `Auto-logged from sub-habit "${habit.name}"`
+                note: (parentLog && parentLog.note) ? parentLog.note : ''
               };
               showToast(`Logged "${habit.name}" & auto-logged parent task "${parent.name}"!`);
             }
@@ -882,13 +1038,62 @@
           if (subCount < subTarget) {
             sub.logs[dateKey] = {
               count: subTarget,
-              note: (subLog && subLog.note) ? subLog.note : `Auto-completed when parent "${habit.name}" was completed`
+              note: (subLog && subLog.note) ? subLog.note : ''
             };
             showToast(`Logged "${habit.name}" & auto-completed sub-habit "${sub.name}"!`);
           }
         }
       });
     }
+  }
+
+  function setHabitPauseState(habit, newIsPaused, dateStr = getTodayKey()) {
+    if (!habit) return;
+    const wasPaused = Boolean(habit.isPaused);
+    habit.isPaused = Boolean(newIsPaused);
+
+    if (!Array.isArray(habit.pauseHistory)) {
+      habit.pauseHistory = [];
+    }
+
+    if (newIsPaused && !wasPaused) {
+      habit.pauseHistory.push({
+        startDate: dateStr,
+        endDate: null
+      });
+    } else if (!newIsPaused && wasPaused) {
+      if (habit.pauseHistory.length > 0) {
+        const lastEntry = habit.pauseHistory[habit.pauseHistory.length - 1];
+        if (!lastEntry.endDate) {
+          lastEntry.endDate = dateStr;
+        }
+      }
+    }
+  }
+
+  function isHabitPausedOnDate(habit, dateStr) {
+    if (!habit) return false;
+
+    if (Array.isArray(habit.pauseHistory) && habit.pauseHistory.length > 0) {
+      for (const range of habit.pauseHistory) {
+        const start = range.startDate;
+        const end = range.endDate;
+        if (start && dateStr >= start) {
+          if (!end || dateStr <= end) {
+            return true;
+          }
+        }
+      }
+    }
+
+    if (habit.isPaused) {
+      const createdAt = habit.createdAt || getTodayKey();
+      if (dateStr >= createdAt || dateStr === getTodayKey()) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   function toggleHabitForDate(habitId, dateKey) {
@@ -902,11 +1107,7 @@
     const currentNote = currentLog ? currentLog.note : '';
 
     let newCount = currentCount + 1;
-    if (habit.type === 'negative') {
-      habit.logs[dateKey] = { count: newCount, note: currentNote || 'Relapse logged' };
-    } else {
-      habit.logs[dateKey] = { count: newCount, note: currentNote };
-    }
+    habit.logs[dateKey] = { count: newCount, note: currentNote };
 
     applyParentDependencyOnLog(habit, dateKey, newCount);
 
@@ -1355,15 +1556,17 @@
         }
 
         const targetDayClass = (cellData.isTargetDay && cellData.level === 0) ? 'target-day' : '';
+        const isPausedDayClass = cellData.isPaused ? 'is-paused-day' : '';
 
         gridHTML += `
-          <div class="day-square level-${cellData.level} ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${targetDayClass}"
+          <div class="day-square level-${cellData.level} ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${targetDayClass} ${isPausedDayClass}"
                style="${squareStyle}"
                data-date="${dateStr}"
                data-habit-id="${cardHabitId}"
                data-count="${cellData.count}"
                data-level="${cellData.level}"
                data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
+               data-paused="${cellData.isPaused ? 'true' : 'false'}"
                data-note="${escapeHTML(cellData.note)}"
                ${habitsDoneAttr}>
           </div>
@@ -1602,18 +1805,33 @@
         }
       });
 
+      const allPaused = (habitList.length > 0) && habitList.every(h => isHabitPausedOnDate(h, dateStr));
+
       return {
         count: activeCount,
         level: overallLevel,
         activeHabits,
         isRelapse: false,
-        note: '',
+        isPaused: allPaused,
+        note: allPaused ? '⏸️ Paused' : '',
         isTargetDay: false
       };
     }
 
     const habit = target;
     const log = (habit.logs && habit.logs[dateStr]) ? habit.logs[dateStr] : null;
+    const isPaused = isHabitPausedOnDate(habit, dateStr);
+
+    if (isPaused && (!log || log.count === 0)) {
+      return {
+        count: 0,
+        level: 0,
+        isRelapse: false,
+        isPaused: true,
+        note: (log && log.note) ? log.note : '⏸️ Paused (Tracking paused)',
+        isTargetDay: false
+      };
+    }
 
     if (habit.type === 'negative') {
       if (log && log.count > 0) {
@@ -2149,12 +2367,15 @@
         const habitId = sq.dataset.habitId;
         const count = parseInt(sq.dataset.count, 10) || 0;
         const isRelapse = sq.dataset.relapse === 'true';
+        const isPaused = sq.dataset.paused === 'true';
         const note = sq.dataset.note;
         const habitsDone = sq.dataset.habitsDone;
         const formattedDate = formatPrettyDate(dateStr);
 
         let text = '';
-        if (isRelapse) {
+        if (isPaused) {
+          text = `⏸️ <strong>Paused (Tracking paused)</strong> on ${formattedDate}`;
+        } else if (isRelapse) {
           text = `<strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
         } else if (habitId.startsWith('all') || habitId.startsWith('group_')) {
           if (habitsDone) {
@@ -2181,8 +2402,25 @@
         elements.customTooltip.classList.remove('hidden');
 
         const rect = sq.getBoundingClientRect();
-        elements.customTooltip.style.left = `${rect.left + window.scrollX - 40}px`;
-        elements.customTooltip.style.top = `${rect.top + window.scrollY - 34}px`;
+        const tooltipWidth = elements.customTooltip.offsetWidth;
+        const tooltipHeight = elements.customTooltip.offsetHeight;
+
+        const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+        const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+        const padding = 8;
+
+        let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+        left = Math.max(padding, Math.min(left, viewportWidth - tooltipWidth - padding));
+
+        const gap = 8;
+        let top = rect.top - tooltipHeight - gap;
+        if (top < padding) {
+          top = rect.bottom + gap;
+        }
+        top = Math.max(padding, Math.min(top, viewportHeight - tooltipHeight - padding));
+
+        elements.customTooltip.style.left = `${left}px`;
+        elements.customTooltip.style.top = `${top}px`;
       });
 
       sq.addEventListener('mouseleave', () => {
@@ -2301,7 +2539,7 @@
         if (parentCard) parentCard.classList.remove('menu-open');
         const habit = state.habits.find(h => h.id === habitId);
         if (habit) {
-          habit.isPaused = !habit.isPaused;
+          setHabitPauseState(habit, !habit.isPaused);
           saveState();
           renderAll();
         }
@@ -2736,7 +2974,7 @@
           const logDate = getTargetDayOfMonthDate(cur.getFullYear(), cur.getMonth(), monthlyDay);
           if (logDate >= startDate && logDate <= today) {
             const key = formatDateKey(logDate);
-            logs[key] = { count: getCountForLog(), note: habitType === 'negative' ? 'Relapse logged' : '' };
+            logs[key] = { count: getCountForLog() };
           }
         }
         cur.setMonth(cur.getMonth() + 1);
@@ -2754,7 +2992,7 @@
 
           if (targetDate >= startDate && targetDate <= today) {
             const key = formatDateKey(targetDate);
-            logs[key] = { count: getCountForLog(), note: habitType === 'negative' ? 'Relapse logged' : '' };
+            logs[key] = { count: getCountForLog() };
           }
         }
         curStart.setDate(curStart.getDate() + 7);
@@ -2764,14 +3002,14 @@
         const dayOfWeek = d.getDay();
         if (targetDays.includes(dayOfWeek) && shouldCreateLog()) {
           const key = formatDateKey(d);
-          logs[key] = { count: getCountForLog(), note: habitType === 'negative' ? 'Relapse logged' : '' };
+          logs[key] = { count: getCountForLog() };
         }
       }
     } else {
       for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
         if (shouldCreateLog()) {
           const key = formatDateKey(d);
-          logs[key] = { count: getCountForLog(), note: habitType === 'negative' ? 'Relapse logged' : '' };
+          logs[key] = { count: getCountForLog() };
         }
       }
     }
@@ -2845,7 +3083,7 @@
         habit.category = category;
         habit.dailyTarget = dailyTarget;
         habit.showStreak = showStreak;
-        habit.isPaused = isPaused;
+        setHabitPauseState(habit, isPaused);
         habit.frequencyType = freqType;
         habit.targetDays = targetDays;
         habit.weeklyTarget = weeklyTarget;
@@ -2898,6 +3136,7 @@
         category,
         showStreak,
         isPaused,
+        pauseHistory: isPaused ? [{ startDate: getTodayKey(), endDate: null }] : [],
         colorTheme,
         dailyTarget,
         frequencyType: freqType,
@@ -3230,6 +3469,8 @@
     getDaysAgoKey,
     idFromName,
     nameFromId,
+    deriveNameFromId,
+    getDefaultColorForId,
     parseHexColor,
     blendColors,
     getCustomThemeLevels,
@@ -3253,6 +3494,8 @@
     generateBackfillLogs,
     applyParentDependencyOnLog,
     toggleHabitForDate,
+    setHabitPauseState,
+    isHabitPausedOnDate,
     openHabitModal,
     handleHabitNameBlur,
     handleHabitFormSubmit,

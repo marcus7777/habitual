@@ -503,6 +503,89 @@ describe('Feature 10: 💾 Data Backups & Privacy', () => {
     assertEqual(HabitualCore.getState().habits.length, 1, 'Restored 1 habit from local storage');
     assertEqual(HabitualCore.getState().habits[0].name, 'Test Habit');
   });
+
+  test('saveState minimizes stored data by deriving default name, color, and omitting empty notes', () => {
+    const defaultColor = HabitualCore.getDefaultColorForId('dailyExercise');
+    const state = HabitualCore.getState();
+
+    // Habit with default derived name ("Daily Exercise"), derived color, default type/targets, and log without user note
+    state.habits = [
+      {
+        id: 'dailyExercise',
+        name: 'Daily Exercise',
+        colorTheme: defaultColor,
+        type: 'positive',
+        dailyTarget: 1,
+        frequencyType: 'daily',
+        logs: { '2026-10-02': { count: 1, note: '' } }
+      }
+    ];
+
+    HabitualCore.saveState();
+
+    // Inspect raw JSON stored in LocalStorage
+    const rawSaved = mockLocalStorage.getItem('habitual_tracker_v1');
+    assert(rawSaved !== null, 'LocalStorage item exists');
+
+    const parsed = JSON.parse(rawSaved);
+    const savedHabit = parsed.habits[0];
+
+    // Verify minimal storage: name, colorTheme, default type/target, and empty note are omitted from JSON
+    assertEqual(savedHabit.id, 'dailyExercise', 'ID is stored');
+    assertEqual(savedHabit.name, undefined, 'Name is omitted from LocalStorage because it matches derived name');
+    assertEqual(savedHabit.colorTheme, undefined, 'Color is omitted from LocalStorage because it matches derived color');
+    assertEqual(savedHabit.type, undefined, 'Default positive type omitted');
+    assertEqual(savedHabit.dailyTarget, undefined, 'Default daily target 1 omitted');
+    assertEqual(savedHabit.logs['2026-10-02'].note, undefined, 'Empty note is omitted from stored log entry');
+
+    // Verify loadState derives name, color, and restores defaults into memory
+    HabitualCore.resetState();
+    HabitualCore.loadState();
+
+    const restoredHabit = HabitualCore.getState().habits[0];
+    assertEqual(restoredHabit.name, 'Daily Exercise', 'Derived name restored on load');
+    assertEqual(restoredHabit.colorTheme, defaultColor, 'Derived color restored on load');
+    assertEqual(restoredHabit.type, 'positive', 'Default type restored on load');
+    assertEqual(restoredHabit.logs['2026-10-02'].note, '', 'Note restored as empty string');
+  });
+
+  test('saveState stores custom overwritten name, custom color, and user notes', () => {
+    const state = HabitualCore.getState();
+
+    // Habit with custom name, custom color, and user note
+    state.habits = [
+      {
+        id: 'dailyExercise',
+        name: 'Custom Workout Plan', // Overwritten by user
+        colorTheme: '#ff0055',       // Overwritten by user
+        type: 'positive',
+        dailyTarget: 2,               // Overwritten by user
+        logs: { '2026-10-02': { count: 2, note: 'Hit personal record!' } } // User note
+      }
+    ];
+
+    HabitualCore.saveState();
+
+    const rawSaved = mockLocalStorage.getItem('habitual_tracker_v1');
+    const parsed = JSON.parse(rawSaved);
+    const savedHabit = parsed.habits[0];
+
+    // Verify overwritten fields ARE saved
+    assertEqual(savedHabit.name, 'Custom Workout Plan', 'Custom overwritten name IS stored');
+    assertEqual(savedHabit.colorTheme, '#ff0055', 'Custom overwritten color IS stored');
+    assertEqual(savedHabit.dailyTarget, 2, 'Custom daily target IS stored');
+    assertEqual(savedHabit.logs['2026-10-02'].note, 'Hit personal record!', 'User log note IS stored');
+
+    // Verify loadState preserves custom values
+    HabitualCore.resetState();
+    HabitualCore.loadState();
+
+    const restoredHabit = HabitualCore.getState().habits[0];
+    assertEqual(restoredHabit.name, 'Custom Workout Plan', 'Custom name restored');
+    assertEqual(restoredHabit.colorTheme, '#ff0055', 'Custom color restored');
+    assertEqual(restoredHabit.dailyTarget, 2, 'Custom daily target restored');
+    assertEqual(restoredHabit.logs['2026-10-02'].note, 'Hit personal record!', 'User log note restored');
+  });
 });
 
 // ============================================================================
@@ -825,7 +908,7 @@ describe('Feature 17: ⌛ Backfilling in Edit Dialogue & Negative Habit Logic', 
     if (relapseCount > 0) {
       const firstKey = Object.keys(res80.logs)[0];
       assertEqual(res80.logs[firstKey].count, 1, 'Relapse log count is 1');
-      assertEqual(res80.logs[firstKey].note, 'Relapse logged', 'Relapse log note is "Relapse logged"');
+      assertEqual(res80.logs[firstKey].note || '', '', 'Relapse log note is empty (not programmatically added)');
     }
   });
 
@@ -870,6 +953,44 @@ describe('Feature 17: ⌛ Backfilling in Edit Dialogue & Negative Habit Logic', 
     assert(freqText.includes('avoided the bad habit'), 'Frequency label updated for negative habit');
 
     global.document.getElementById = originalGetElementById;
+  });
+});
+
+// ============================================================================
+// FEATURE 18: ⏸️ PAUSE HISTORY & HEATMAP PAUSED DAY INDICATORS
+// ============================================================================
+describe('Feature 18: ⏸️ Pause History & Heatmap Paused Day Indicators', () => {
+  test('setHabitPauseState records pause start and end dates in pauseHistory array', () => {
+    const habit = { id: 'gym', name: 'Gym', isPaused: false, pauseHistory: [] };
+
+    HabitualCore.setHabitPauseState(habit, true, '2026-10-01');
+    assertEqual(habit.isPaused, true, 'habit.isPaused updated to true');
+    assertEqual(habit.pauseHistory.length, 1, 'pauseHistory contains 1 entry');
+    assertEqual(habit.pauseHistory[0].startDate, '2026-10-01', 'startDate recorded as 2026-10-01');
+    assertEqual(habit.pauseHistory[0].endDate, null, 'endDate initially null');
+
+    assertEqual(HabitualCore.isHabitPausedOnDate(habit, '2026-10-02'), true, 'isHabitPausedOnDate returns true during pause');
+
+    HabitualCore.setHabitPauseState(habit, false, '2026-10-05');
+    assertEqual(habit.isPaused, false, 'habit.isPaused updated to false');
+    assertEqual(habit.pauseHistory[0].endDate, '2026-10-05', 'endDate recorded as 2026-10-05');
+
+    assertEqual(HabitualCore.isHabitPausedOnDate(habit, '2026-10-02'), true, 'Historical pause date 2026-10-02 remains paused');
+    assertEqual(HabitualCore.isHabitPausedOnDate(habit, '2026-10-06'), false, 'Date after unpause 2026-10-06 returns false');
+  });
+
+  test('getCellData includes isPaused flag for paused days', () => {
+    const habit = {
+      id: 'reading',
+      name: 'Reading',
+      isPaused: true,
+      pauseHistory: [{ startDate: '2026-10-01', endDate: null }],
+      logs: {}
+    };
+
+    const cellData = HabitualCore.getCellData('2026-10-02', habit, '2026-10-03');
+    assertEqual(cellData.isPaused, true, 'cellData.isPaused set to true on paused date');
+    assert(cellData.note.includes('Paused'), 'cellData note indicates paused status');
   });
 });
 
