@@ -878,8 +878,14 @@
       reader.readAsText(file);
     };
 
-    document.getElementById('input-header-csv').addEventListener('change', handleCSVUpload);
-    document.getElementById('input-modal-csv').addEventListener('change', handleCSVUpload);
+    const inputHeaderCsv = document.getElementById('input-header-csv');
+    if (inputHeaderCsv) {
+      inputHeaderCsv.addEventListener('change', handleCSVUpload);
+    }
+    const inputModalCsv = document.getElementById('input-modal-csv');
+    if (inputModalCsv) {
+      inputModalCsv.addEventListener('change', handleCSVUpload);
+    }
 
     elements.formHabit.addEventListener('submit', handleHabitFormSubmit);
 
