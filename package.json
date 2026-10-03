@@ -13,5 +13,12 @@
     "pwa"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "firebase-tools": "^14.23.0"
+  },
+  "allowScripts": {
+    "re2@1.27.0": true,
+    "protobufjs@7.6.6": true
+  }
 }
