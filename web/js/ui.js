@@ -362,11 +362,20 @@ window.HabitualCore = window.HabitualCore || {};
       });
 
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions') || e.target.closest('.card-context-menu-dropdown') || e.target.closest('.btn-card-menu-toggle')) return;
+        if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions') || e.target.closest('.card-context-menu-dropdown') || e.target.closest('.btn-card-menu-toggle') || e.target.closest('.card-title-link') || e.target.closest('.btn-card-quick-log')) return;
         const sq = e.target.closest('.day-square[data-date]');
         if (sq && sq._isLongPressTriggered) { sq._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
         e.stopPropagation();
         if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
+
+        const hasSubhabits = card.getAttribute('data-has-subhabits') === 'true';
+        const rawHabitId = card.getAttribute('data-habit-id-raw');
+
+        if (hasSubhabits && rawHabitId) {
+          core.toggleConcertina(rawHabitId);
+          return;
+        }
+
         const cardHabitId = card.getAttribute('data-habit-id') || 'all';
         let targetHabitId = cardHabitId;
         if (sq && sq.dataset.habitId && sq.dataset.habitId !== 'all' && !sq.dataset.habitId.startsWith('group_')) targetHabitId = sq.dataset.habitId;
@@ -533,7 +542,27 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.card-title-link, .badge-subhabits').forEach(el => {
+    core.elements.heatmapsGallery.querySelectorAll('.btn-toggle-concertina, .btn-put-away').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const habitId = btn.dataset.habitId || btn.dataset.parentId;
+        if (habitId) core.toggleConcertina(habitId);
+      });
+    });
+
+    core.elements.heatmapsGallery.querySelectorAll('.btn-card-quick-log').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const habitId = btn.dataset.habitId;
+        if (habitId) {
+          core.openLogModal(core.getTodayKey(), habitId);
+        }
+      });
+    });
+
+    core.elements.heatmapsGallery.querySelectorAll('.card-title-link').forEach(el => {
       el.addEventListener('click', (e) => e.stopPropagation());
     });
   };

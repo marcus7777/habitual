@@ -24,7 +24,8 @@ window.HabitualCore = window.HabitualCore || {};
     habits: [],
     selectedHabitId: 'all',
     selectedYear: core.CURRENT_YEAR,
-    showQuickLogOnStartup: false
+    showQuickLogOnStartup: false,
+    expandedHabitIds: new Set()
   };
 
   core.activeCalendarHabit = null;

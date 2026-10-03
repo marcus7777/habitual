@@ -1578,3 +1578,137 @@ body.dark-theme {
 .margin-top-sm {
   margin-top: 8px !important;
 }
+
+/* Concertina Accordion & Indentation for Sub-habits */
+.heatmap-group-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.subhabits-concertina {
+  margin-left: 24px;
+  padding-left: 14px;
+  border-left: 2px dashed rgba(88, 166, 255, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin-top 0.25s ease;
+  margin-top: 0;
+  pointer-events: none;
+}
+
+.subhabits-concertina.expanded {
+  max-height: 4000px;
+  opacity: 1;
+  margin-top: 12px;
+  pointer-events: auto;
+}
+
+.concertina-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 2px;
+}
+
+.concertina-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-put-away {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-put-away:hover {
+  background: var(--bg-pill-active);
+  color: var(--text-main);
+  border-color: var(--accent-blue);
+}
+
+.btn-toggle-concertina {
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-pill);
+  color: var(--accent-blue);
+  font-family: var(--font-sans);
+}
+
+.btn-toggle-concertina:hover {
+  background-color: var(--bg-pill-active);
+  border-color: var(--accent-blue);
+}
+
+.concertina-arrow {
+  font-size: 0.75rem;
+  margin-left: 2px;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+/* Prominent Quick Log Button on Heatmap Cards */
+.btn-card-quick-log {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-family: var(--font-sans);
+  user-select: none;
+  margin-left: auto;
+  min-height: 32px;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+
+.btn-card-quick-log:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.15);
+}
+
+.btn-card-quick-log:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.btn-card-quick-log.goal-met {
+  animation: tickPulse 0.35s ease-out;
+}
+
+@keyframes tickPulse {
+  0% { transform: scale(0.9); }
+  50% { transform: scale(1.12); }
+  100% { transform: scale(1.0); }
+}
+
+
