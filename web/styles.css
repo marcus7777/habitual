@@ -65,6 +65,12 @@
   padding: 0;
 }
 
+/* Common Utility Helpers */
+.flex-row { display: flex; align-items: center; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+
 body.dark-theme {
   background-color: var(--bg-app);
   color: var(--text-main);

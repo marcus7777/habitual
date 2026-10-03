@@ -264,8 +264,6 @@ window.HabitualCore = window.HabitualCore || {};
       reader.readAsText(file);
     };
 
-    const inputHeaderCsv = document.getElementById('input-header-csv');
-    if (inputHeaderCsv) inputHeaderCsv.addEventListener('change', handleCSVUpload);
     const inputModalCsv = document.getElementById('input-modal-csv');
     if (inputModalCsv) inputModalCsv.addEventListener('change', handleCSVUpload);
 
@@ -855,51 +853,62 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.handleHabitFormSubmit = function(e) {
-    e.preventDefault();
-    const id = document.getElementById('habit-id').value;
-    const name = document.getElementById('habit-name').value.trim();
-    const type = core.elements.formHabit.querySelector('input[name="habit-type"]:checked').value;
-    const description = document.getElementById('habit-description').value.trim();
-    const category = document.getElementById('habit-category').value.trim();
-    const dailyTarget = parseInt(document.getElementById('habit-daily-target').value, 10) || 1;
-    const selectedColorRadio = core.elements.formHabit.querySelector('input[name="habit-color"]:checked').value;
-    const parentIdVal = document.getElementById('habit-parent').value.trim();
+    if (e && e.preventDefault) e.preventDefault();
+    const formEl = core.elements.formHabit || document.getElementById('form-habit');
+    let formData = null;
+    try {
+      if (formEl && typeof FormData !== 'undefined') {
+        formData = new FormData(formEl);
+      }
+    } catch (err) {
+      formData = null;
+    }
+    const getVal = (key) => (formData && formData.get) ? formData.get(key) : null;
+    const hasVal = (key) => (formData && formData.has) ? formData.has(key) : false;
+
+    const id = getVal('habit-id') || (document.getElementById('habit-id') ? document.getElementById('habit-id').value : '');
+    const name = (getVal('habit-name') || (document.getElementById('habit-name') ? document.getElementById('habit-name').value : '')).trim();
+    const typeRadio = formEl ? formEl.querySelector('input[name="habit-type"]:checked') : null;
+    const type = typeRadio ? typeRadio.value : (getVal('habit-type') || 'positive');
+    const description = (getVal('habit-description') || (document.getElementById('habit-description') ? document.getElementById('habit-description').value : '')).trim();
+    const category = (getVal('habit-category') || (document.getElementById('habit-category') ? document.getElementById('habit-category').value : '')).trim();
+    const dailyTargetInput = document.getElementById('habit-daily-target');
+    const dailyTarget = parseInt(getVal('habit-daily-target') || (dailyTargetInput ? dailyTargetInput.value : '1'), 10) || 1;
+    const colorRadio = formEl ? formEl.querySelector('input[name="habit-color"]:checked') : null;
+    const selectedColorRadio = colorRadio ? colorRadio.value : (getVal('habit-color') || 'green');
+    const parentIdVal = (getVal('habit-parent') || (document.getElementById('habit-parent') ? document.getElementById('habit-parent').value : '')).trim();
     const parentId = parentIdVal ? parentIdVal : null;
     const parentDepSelect = document.getElementById('habit-parent-dependency');
-    const parentDependency = (parentId && parentDepSelect) ? parentDepSelect.value : 'none';
-    const showStreak = core.elements.habitShowStreak ? core.elements.habitShowStreak.checked : false;
-    const isPaused = core.elements.habitIsPaused ? core.elements.habitIsPaused.checked : false;
+    const parentDependency = parentId ? (getVal('habit-parent-dependency') || (parentDepSelect ? parentDepSelect.value : 'none')) : 'none';
+    const showStreak = core.elements.habitShowStreak ? core.elements.habitShowStreak.checked : hasVal('habit-show-streak');
+    const isPaused = core.elements.habitIsPaused ? core.elements.habitIsPaused.checked : hasVal('habit-is-paused');
 
     const freqSelect = document.getElementById('habit-frequency-type');
-    const freqType = freqSelect ? freqSelect.value : 'daily';
+    const freqType = getVal('habit-frequency-type') || (freqSelect ? freqSelect.value : 'daily');
     let targetDays = [1], weeklyTarget = 1, monthlyDay = '1', monthlyTarget = 1, colorWholeWeek = true, colorWholeMonth = true, customTarget = 1, customInterval = 3, customUnit = 'days';
 
     if (freqType === 'weekly') {
-      const dayVal = parseInt(document.getElementById('habit-weekly-day').value, 10);
+      const dayVal = parseInt(getVal('habit-weekly-day') || (document.getElementById('habit-weekly-day') ? document.getElementById('habit-weekly-day').value : '1'), 10);
       targetDays = [isNaN(dayVal) ? 1 : dayVal];
-      weeklyTarget = parseInt(document.getElementById('habit-weekly-target').value, 10) || 1;
+      weeklyTarget = parseInt(getVal('habit-weekly-target') || (document.getElementById('habit-weekly-target') ? document.getElementById('habit-weekly-target').value : '1'), 10) || 1;
       const chk = document.getElementById('habit-color-whole-week');
-      colorWholeWeek = chk ? chk.checked : true;
+      colorWholeWeek = chk ? chk.checked : hasVal('habit-color-whole-week');
     } else if (freqType === 'monthly') {
-      const mDayVal = document.getElementById('habit-monthly-day').value;
-      monthlyDay = mDayVal || '1';
-      monthlyTarget = parseInt(document.getElementById('habit-monthly-target').value, 10) || 1;
+      monthlyDay = getVal('habit-monthly-day') || (document.getElementById('habit-monthly-day') ? document.getElementById('habit-monthly-day').value : '1');
+      monthlyTarget = parseInt(getVal('habit-monthly-target') || (document.getElementById('habit-monthly-target') ? document.getElementById('habit-monthly-target').value : '1'), 10) || 1;
       const chk = document.getElementById('habit-color-whole-month');
-      colorWholeMonth = chk ? chk.checked : true;
+      colorWholeMonth = chk ? chk.checked : hasVal('habit-color-whole-month');
     } else if (freqType === 'specific_days') {
-      const checkedBtns = Array.from(core.elements.formHabit.querySelectorAll('input[name="target-days"]:checked'));
+      const checkedBtns = formEl ? Array.from(formEl.querySelectorAll('input[name="target-days"]:checked')) : [];
       targetDays = checkedBtns.map(cb => parseInt(cb.value, 10));
       if (targetDays.length === 0) targetDays = [1];
       weeklyTarget = targetDays.length;
       const chk = document.getElementById('habit-specific-color-whole-week');
-      colorWholeWeek = chk ? chk.checked : true;
+      colorWholeWeek = chk ? chk.checked : hasVal('habit-specific-color-whole-week');
     } else if (freqType === 'custom_interval') {
-      const cTargetInput = document.getElementById('habit-custom-target');
-      customTarget = cTargetInput ? (parseInt(cTargetInput.value, 10) || 1) : 1;
-      const cIntervalInput = document.getElementById('habit-custom-interval');
-      customInterval = cIntervalInput ? (parseInt(cIntervalInput.value, 10) || 3) : 3;
-      const cUnitSelect = document.getElementById('habit-custom-unit');
-      customUnit = cUnitSelect ? cUnitSelect.value : 'days';
+      customTarget = parseInt(getVal('habit-custom-target') || (document.getElementById('habit-custom-target') ? document.getElementById('habit-custom-target').value : '1'), 10) || 1;
+      customInterval = parseInt(getVal('habit-custom-interval') || (document.getElementById('habit-custom-interval') ? document.getElementById('habit-custom-interval').value : '3'), 10) || 3;
+      customUnit = getVal('habit-custom-unit') || (document.getElementById('habit-custom-unit') ? document.getElementById('habit-custom-unit').value : 'days');
     }
 
     let colorTheme = typeof Please !== 'undefined' ? Please.make_color({ from_hash: id || name || 'default' }) : 'green';
