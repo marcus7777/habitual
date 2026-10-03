@@ -608,6 +608,96 @@ describe('Feature 12: ⏸️ Paused Habits in Edit Dialogue', () => {
 });
 
 // ============================================================================
+// FEATURE 13: 🎨 255-LEVEL TRANSPARENCY COMBINED HEATMAP
+// ============================================================================
+describe('Feature 13: 🎨 255-Level Transparency Combined Heatmap', () => {
+  test('getHabitHexWithAlpha generates 8-character hex color with transparency based on target completion ratio', () => {
+    const habit = { id: 'h1', name: 'Exercise', colorTheme: 'green' }; // green hex #39d353
+
+    // 100% target met (ratio = 1.0) -> alpha 255 -> ff
+    const hexFull = HabitualCore.getHabitHexWithAlpha(habit, 1.0);
+    assertEqual(hexFull, '#39d353ff', '100% target met generates full opacity alpha ff');
+
+    // 50% target met (ratio = 0.5) -> alpha 128 -> 80
+    const hexHalf = HabitualCore.getHabitHexWithAlpha(habit, 0.5);
+    assertEqual(hexHalf, '#39d35380', '50% target met generates 128 alpha (80 in hex)');
+
+    // 0% target met (ratio = 0.0) -> alpha 0 -> 00
+    const hexZero = HabitualCore.getHabitHexWithAlpha(habit, 0.0);
+    assertEqual(hexZero, '#39d35300', '0% target met generates 0 alpha (00 in hex)');
+  });
+
+  test('getCellData includes 8-character hex colors with transparency for active habits in combined heatmap', () => {
+    const habit1 = { id: 'h1', name: 'Exercise', type: 'positive', dailyTarget: 2, colorTheme: 'green', logs: { '2026-10-02': { count: 1 } } }; // ratio 0.5 -> #39d35380
+    const habit2 = { id: 'h2', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: 'blue', logs: { '2026-10-02': { count: 1 } } };  // ratio 1.0 -> #388bfdff
+
+    HabitualCore.setState({
+      habits: [habit1, habit2],
+      selectedHabitId: 'all',
+      selectedYear: 2026
+    });
+
+    const cellData = HabitualCore.getCellData('2026-10-02', 'all', '2026-10-02');
+    assertEqual(cellData.count, 2, '2 active habits found on target date');
+    assertEqual(cellData.activeHabits.length, 2, '2 items in activeHabits array');
+
+    const h1Data = cellData.activeHabits.find(a => a.id === 'h1');
+    assertEqual(h1Data.color, '#39d35380', '50% completion translated to #39d35380 8-char hex transparency');
+
+    const h2Data = cellData.activeHabits.find(a => a.id === 'h2');
+    assertEqual(h2Data.color, '#388bfdff', '100% completion translated to #388bfdff 8-char hex transparency');
+  });
+});
+
+// ============================================================================
+// FEATURE 14: 📁 HOME PAGE PARENT HABIT & SUB-HABITS COMBINED HEATMAP
+// ============================================================================
+describe('Feature 14: 📁 Home Page Parent Habit & Sub-Habits Combined Heatmap', () => {
+  test('Top-level parent habit with sub-habits includes descendant habit IDs in combined heatmap cell data', () => {
+    const parentHabit = { id: 'health', name: 'Health', type: 'positive', dailyTarget: 1, colorTheme: 'emerald', logs: { '2026-10-02': { count: 1 } } };
+    const subHabit = { id: 'running', name: 'Running', parentId: 'health', type: 'positive', dailyTarget: 1, colorTheme: 'orange', logs: { '2026-10-02': { count: 1 } } };
+
+    HabitualCore.setState({
+      habits: [parentHabit, subHabit],
+      selectedHabitId: 'all',
+      selectedYear: 2026
+    });
+
+    const descendantIds = HabitualCore.getAllDescendantIds(parentHabit.id);
+    assertDeepEqual(descendantIds, ['health', 'running'], 'Descendant IDs include parent and sub-habit');
+
+    const groupTarget = {
+      isGroup: true,
+      habit: parentHabit,
+      title: parentHabit.name,
+      habitIds: descendantIds,
+      colorTheme: parentHabit.colorTheme
+    };
+
+    const cellData = HabitualCore.getCellData('2026-10-02', groupTarget, '2026-10-02');
+    assertEqual(cellData.count, 2, 'Group card combines logs for both parent habit and sub-habit');
+    assertEqual(cellData.activeHabits.length, 2, 'activeHabits contains both parent and sub-habit');
+  });
+
+  test('Single top-level main habit (with sub-habits) filters topLevelHabits count to 1', () => {
+    const parentHabit = { id: 'health', name: 'Health', type: 'positive', dailyTarget: 1, logs: {} };
+    const subHabit1 = { id: 'running', name: 'Running', parentId: 'health', type: 'positive', dailyTarget: 1, logs: {} };
+    const subHabit2 = { id: 'diet', name: 'Diet', parentId: 'health', type: 'positive', dailyTarget: 1, logs: {} };
+
+    HabitualCore.setState({
+      habits: [parentHabit, subHabit1, subHabit2],
+      selectedHabitId: 'all',
+      selectedYear: 2026
+    });
+
+    const state = HabitualCore.getState();
+    const topLevelHabits = state.habits.filter(h => !h.parentId);
+    assertEqual(topLevelHabits.length, 1, 'Only 1 main top-level habit exists');
+    assertEqual(state.habits.length, 3, 'Total habits count is 3 including sub-habits');
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);
