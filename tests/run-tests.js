@@ -612,6 +612,15 @@ describe('Feature 11: 📱 PWA & Offline Support', () => {
     assertEqual(manifest.display, 'standalone');
     assert(Array.isArray(manifest.icons) && manifest.icons.length > 0, 'Manifest specifies PWA icons');
   });
+
+  test('robots.txt exists and contains standard crawler rules', () => {
+    const robotsPath = path.join(__dirname, '../web/robots.txt');
+    assert(fs.existsSync(robotsPath), 'robots.txt file exists');
+
+    const robotsContent = fs.readFileSync(robotsPath, 'utf8');
+    assert(robotsContent.includes('User-agent: *'), 'Specifies User-agent');
+    assert(robotsContent.includes('Allow: /'), 'Allows root path');
+  });
 });
 
 // ============================================================================
