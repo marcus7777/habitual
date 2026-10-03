@@ -1157,6 +1157,23 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     assert(!quickLogBtn.classList.contains('goal-met'), 'Button does not have goal-met class');
     assert(quickLogBtn.textContent.includes('+'), 'Button displays + symbol when goal is unfulfilled');
   });
+
+  test('toggleHabitForDate increments progress directly when goal not met', () => {
+    HabitualCore.resetState();
+    const coreElements = HabitualCore.getElements();
+    coreElements.heatmapsGallery = createMockElement('div');
+    coreElements.yearSelector = createMockElement('select');
+
+    const todayKey = HabitualCore.getTodayKey();
+    const habit = { id: 'pushups', name: 'Pushups', type: 'positive', dailyTarget: 2, logs: {} };
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'pushups', selectedYear: 2026 });
+
+    HabitualCore.toggleHabitForDate('pushups', todayKey);
+    assertEqual(habit.logs[todayKey].count, 1, 'Increments count to 1');
+
+    HabitualCore.toggleHabitForDate('pushups', todayKey);
+    assertEqual(habit.logs[todayKey].count, 2, 'Increments count to 2, reaching daily target');
+  });
 });
 
 // ============================================================================

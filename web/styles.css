@@ -1670,35 +1670,41 @@ body.dark-theme {
   transition: transform 0.2s ease;
 }
 
-/* Prominent Quick Log Button on Heatmap Cards */
+/* Prominent Quick Log Icon Button on Heatmap Cards */
 .btn-card-quick-log {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 5px 14px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: var(--radius-md, 6px);
+  border: 2px solid var(--border-color);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   font-family: var(--font-sans);
   user-select: none;
   margin-left: auto;
-  min-height: 32px;
   box-shadow: var(--shadow-sm);
-  white-space: nowrap;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.quick-log-icon {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .btn-card-quick-log:hover {
-  transform: translateY(-2px) scale(1.04);
+  transform: translateY(-2px) scale(1.1);
   box-shadow: var(--shadow-md);
-  filter: brightness(1.15);
+  filter: brightness(1.2);
 }
 
 .btn-card-quick-log:active {
-  transform: translateY(0) scale(0.96);
+  transform: translateY(0) scale(0.92);
 }
 
 .btn-card-quick-log.goal-met {
@@ -1706,8 +1712,8 @@ body.dark-theme {
 }
 
 @keyframes tickPulse {
-  0% { transform: scale(0.9); }
-  50% { transform: scale(1.12); }
+  0% { transform: scale(0.85); }
+  50% { transform: scale(1.18); }
   100% { transform: scale(1.0); }
 }
 

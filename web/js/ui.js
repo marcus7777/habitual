@@ -556,8 +556,14 @@ window.HabitualCore = window.HabitualCore || {};
         e.stopPropagation();
         e.preventDefault();
         const habitId = btn.dataset.habitId;
-        if (habitId) {
+        const isGoalMet = btn.dataset.goalMet === 'true';
+
+        if (!habitId) return;
+
+        if (isGoalMet) {
           core.openLogModal(core.getTodayKey(), habitId);
+        } else {
+          core.toggleHabitForDate(habitId, core.getTodayKey());
         }
       });
     });

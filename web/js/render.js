@@ -352,31 +352,24 @@ window.HabitualCore = window.HabitualCore || {};
       const count = log ? log.count : 0;
       const target = Math.max(1, habit.dailyTarget || 1);
 
-      let btnText = '';
-      if (habit.type === 'negative') {
-        btnText = isGoalMet ? '✓ Clean Day' : `⚠️ ${count} Slip${count === 1 ? '' : 's'}`;
-      } else {
-        if (target > 1) {
-          btnText = isGoalMet ? `✓ ${count}/${target}` : `+ ${count}/${target}`;
-        } else {
-          btnText = isGoalMet ? '✓ Done' : '+ Log Today';
-        }
-      }
+      let iconHTML = isGoalMet ? '✓' : '+';
 
       let bgStyle = '';
       if (isGoalMet) {
-        bgStyle = `background-color: ${hexColor}; color: #ffffff; border-color: ${hexColor}; box-shadow: 0 0 10px ${core.getHabitHexWithAlpha(habit, 0.4)};`;
+        bgStyle = `background-color: ${hexColor}; color: #ffffff; border-color: ${hexColor}; box-shadow: 0 0 12px ${core.getHabitHexWithAlpha(habit, 0.5)};`;
       } else {
-        const alphaHex = core.getHabitHexWithAlpha(habit, Math.max(0.15, ratio * 0.85));
+        const alphaHex = core.getHabitHexWithAlpha(habit, Math.max(0.18, ratio * 0.85));
         bgStyle = `background-color: ${alphaHex}; border-color: ${hexColor}; color: var(--text-main);`;
       }
 
-      const tooltipText = `Log activity for ${core.escapeHTML(habit.name)} (Today: ${count}/${target})`;
+      const tooltipText = isGoalMet
+        ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}). Click to open log details.`
+        : `${core.escapeHTML(habit.name)}: ${count}/${target} completed. Click to log +1.`;
 
       bigLogButtonHTML = `
         <button type="button" class="btn-card-quick-log ${isGoalMet ? 'goal-met' : ''}"
-                style="${bgStyle}" data-habit-id="${habit.id}" title="${tooltipText}">
-          ${core.escapeHTML(btnText)}
+                style="${bgStyle}" data-habit-id="${habit.id}" data-goal-met="${isGoalMet ? 'true' : 'false'}" title="${tooltipText}" aria-label="${tooltipText}">
+          <span class="quick-log-icon">${iconHTML}</span>
         </button>`;
     }
 
