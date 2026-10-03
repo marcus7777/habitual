@@ -236,14 +236,6 @@
     };
   }
 
-  function getHabitLevelColor(habit, level) {
-    if (!level || level <= 0) return '#161b22';
-    const hex = getHabitHexColor(habit);
-    const levels = getCustomThemeLevels(hex);
-    const lvlKey = 'level' + Math.min(4, Math.max(1, Math.round(level)));
-    return levels[lvlKey] || hex;
-  }
-
   function normalizeHex(hexStr) {
     const parsed = parseHexColor(hexStr);
     if (!parsed) return '#39d353';
@@ -1283,15 +1275,6 @@
       card.setAttribute('draggable', 'true');
     }
 
-    if (isCustomHex) {
-      const levels = getCustomThemeLevels(colorTheme);
-      card.style.setProperty('--custom-level-0', levels.level0);
-      card.style.setProperty('--custom-level-1', levels.level1);
-      card.style.setProperty('--custom-level-2', levels.level2);
-      card.style.setProperty('--custom-level-3', levels.level3);
-      card.style.setProperty('--custom-level-4', levels.level4);
-    }
-
     const route = parseHash();
     const isCurrentOpenPage = route.view === 'habit' && route.habitId === (habit ? habit.id : null);
 
@@ -1529,7 +1512,7 @@
         const isCurrentYear = d.getFullYear() === year;
 
         if (!isCurrentYear) {
-          gridHTML += '<div class="day-square level-0" style="opacity: 0.12;"></div>';
+          gridHTML += '<div class="day-square" style="opacity: 0.12;"></div>';
           return;
         }
 
@@ -1558,18 +1541,22 @@
           if (cellData.activeHabits && cellData.activeHabits.length > 0) {
             habitsDoneAttr = `data-habits-done="${escapeHTML(cellData.activeHabits.map(h => h.name).join(', '))}"`;
           }
+        } else {
+          if (cellData.ratio > 0) {
+            squareStyle = `background-color: ${getHabitHexWithAlpha(habit, cellData.ratio)};`;
+          }
         }
 
-        const targetDayClass = (cellData.isTargetDay && cellData.level === 0) ? 'target-day' : '';
+        const targetDayClass = (cellData.isTargetDay && (!cellData.ratio || cellData.ratio === 0)) ? 'target-day' : '';
         const isPausedDayClass = cellData.isPaused ? 'is-paused-day' : '';
 
         gridHTML += `
-          <div class="day-square level-${cellData.level} ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${targetDayClass} ${isPausedDayClass}"
+          <div class="day-square ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${targetDayClass} ${isPausedDayClass}"
                style="${squareStyle}"
                data-date="${dateStr}"
                data-habit-id="${cardHabitId}"
                data-count="${cellData.count}"
-               data-level="${cellData.level}"
+               data-ratio="${cellData.ratio || 0}"
                data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
                data-paused="${cellData.isPaused ? 'true' : 'false'}"
                data-note="${escapeHTML(cellData.note)}"
@@ -1708,17 +1695,14 @@
         const log = (h.logs && h.logs[dateStr]) ? h.logs[dateStr] : null;
         let isDone = false;
         let ratio = 0;
-        let hLevel = 0;
 
         if (h.type === 'negative') {
           if (log && log.count > 0) {
             isDone = false;
             ratio = 0;
-            hLevel = 0;
           } else if (dateStr <= todayStr) {
             isDone = true;
             ratio = 1.0;
-            hLevel = 4;
           }
         } else {
           const count = log ? log.count : 0;
@@ -1730,11 +1714,9 @@
             if (wCount >= req) {
               isDone = true;
               ratio = 1.0;
-              hLevel = 4;
             } else if (count > 0) {
               isDone = true;
               ratio = Math.min(1.0, count / req);
-              hLevel = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
             }
           } else if (h.frequencyType === 'monthly' && h.colorWholeMonth !== false) {
             const mRange = getMonthRangeForDate(dateStr);
@@ -1743,11 +1725,9 @@
             if (mCount >= req) {
               isDone = true;
               ratio = 1.0;
-              hLevel = 4;
             } else if (count > 0) {
               isDone = true;
               ratio = Math.min(1.0, count / req);
-              hLevel = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
             }
           } else if (h.frequencyType === 'specific_days' && h.colorWholeWeek !== false) {
             const targetDays = h.targetDays || [1, 3, 5];
@@ -1758,22 +1738,15 @@
             if (activeDays >= req) {
               isDone = true;
               ratio = 1.0;
-              hLevel = 4;
             } else if (count > 0) {
               isDone = true;
               ratio = Math.min(1.0, count / (req || 1));
-              hLevel = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
             }
           } else {
             const dailyTarget = Math.max(1, h.dailyTarget || 1);
             if (count > 0) {
               isDone = true;
               ratio = Math.min(1.0, count / dailyTarget);
-              if (ratio >= 1.0) {
-                hLevel = 4;
-              } else {
-                hLevel = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
-              }
             }
           }
         }
@@ -1782,39 +1755,28 @@
           totalRatios += ratio;
         }
 
-        return { habit: h, isDone, ratio, hLevel };
+        return { habit: h, isDone, ratio };
       });
 
-      let overallLevel = 0;
       const activeCount = habitData.filter(d => d.isDone).length;
-
-      if (activeCount > 0 && habitList.length > 0) {
-        const avgRatio = totalRatios / habitList.length;
-        if (avgRatio >= 1.0) {
-          overallLevel = 4;
-        } else {
-          overallLevel = Math.min(3, Math.max(1, Math.ceil(avgRatio * 3)));
-        }
-      }
 
       habitData.forEach(item => {
         if (item.isDone && item.ratio > 0) {
-          const effectiveLevel = Math.max(1, Math.min(item.hLevel, overallLevel));
           activeHabits.push({
             id: item.habit.id,
             name: item.habit.name,
             ratio: item.ratio,
-            level: effectiveLevel,
             color: getHabitHexWithAlpha(item.habit, item.ratio)
           });
         }
       });
 
       const allPaused = (habitList.length > 0) && habitList.every(h => isHabitPausedOnDate(h, dateStr));
+      const avgRatio = habitList.length > 0 ? (totalRatios / habitList.length) : 0;
 
       return {
         count: activeCount,
-        level: overallLevel,
+        ratio: avgRatio,
         activeHabits,
         isRelapse: false,
         isPaused: allPaused,
@@ -1830,7 +1792,7 @@
     if (isPaused && (!log || log.count === 0)) {
       return {
         count: 0,
-        level: 0,
+        ratio: 0,
         isRelapse: false,
         isPaused: true,
         note: (log && log.note) ? log.note : '⏸️ Paused (Tracking paused)',
@@ -1840,12 +1802,12 @@
 
     if (habit.type === 'negative') {
       if (log && log.count > 0) {
-        return { count: log.count, level: 0, isRelapse: true, note: log.note || 'Relapse logged', isTargetDay: false };
+        return { count: log.count, ratio: 0, isRelapse: true, note: log.note || 'Relapse logged', isTargetDay: false };
       }
       if (dateStr <= todayStr) {
-        return { count: 1, level: 3, isRelapse: false, note: 'Clean day', isTargetDay: false };
+        return { count: 1, ratio: 1.0, isRelapse: false, note: 'Clean day', isTargetDay: false };
       }
-      return { count: 0, level: 0, isRelapse: false, note: '', isTargetDay: false };
+      return { count: 0, ratio: 0, isRelapse: false, note: '', isTargetDay: false };
     }
 
     const dObj = new Date(dateStr + 'T00:00:00');
@@ -1864,7 +1826,7 @@
         if (!isParentDoneOnDate && count === 0) {
           return {
             count: 0,
-            level: 0,
+            ratio: 0,
             isRelapse: false,
             note: note || `Parent task "${parent.name}" was not completed on this date (Sub-habit inactive)`,
             isTargetDay: false
@@ -1884,20 +1846,16 @@
       if (isGoalMet && habit.colorWholeWeek !== false) {
         return {
           count: count || 1,
-          level: 4,
+          ratio: 1.0,
           isRelapse: false,
           note: note || `Weekly goal met (${weeklyCount}/${weeklyTarget})`,
           isTargetDay
         };
       } else {
-        let level = 0;
-        if (count > 0) {
-          const ratio = count / weeklyTarget;
-          level = ratio >= 1.0 ? 4 : Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
-        }
+        const ratio = count > 0 ? Math.min(1.0, count / weeklyTarget) : 0;
         return {
           count,
-          level,
+          ratio,
           isRelapse: false,
           note: note || (isTargetDay && count === 0 ? 'Target Day' : ''),
           isTargetDay
@@ -1916,20 +1874,16 @@
       if (isGoalMet && habit.colorWholeMonth !== false) {
         return {
           count: count || 1,
-          level: 4,
+          ratio: 1.0,
           isRelapse: false,
           note: note || `Monthly goal met (${monthlyCount}/${monthlyTarget})`,
           isTargetDay
         };
       } else {
-        let level = 0;
-        if (count > 0) {
-          const ratio = count / monthlyTarget;
-          level = ratio >= 1.0 ? 4 : Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
-        }
+        const ratio = count > 0 ? Math.min(1.0, count / monthlyTarget) : 0;
         return {
           count,
-          level,
+          ratio,
           isRelapse: false,
           note: note || (isTargetDay && count === 0 ? 'Target Day' : ''),
           isTargetDay
@@ -1946,19 +1900,16 @@
       if (isWeekMet && habit.colorWholeWeek !== false) {
         return {
           count: count || 1,
-          level: 4,
+          ratio: 1.0,
           isRelapse: false,
           note: note || 'Weekly target met',
           isTargetDay
         };
       } else {
-        let level = 0;
-        if (count > 0) {
-          level = 4;
-        }
+        const ratio = count > 0 ? 1.0 : 0;
         return {
           count,
-          level,
+          ratio,
           isRelapse: false,
           note: note || (isTargetDay && count === 0 ? 'Target Day' : ''),
           isTargetDay
@@ -1966,13 +1917,8 @@
       }
     } else {
       const dailyTarget = Math.max(1, habit.dailyTarget || 1);
-      let level = 0;
-      if (count > 0) {
-        const ratio = count / dailyTarget;
-        if (ratio >= 1.0) level = 4;
-        else level = Math.min(3, Math.max(1, Math.ceil(ratio * 3)));
-      }
-      return { count, level, isRelapse: false, note, isTargetDay: false };
+      const ratio = count > 0 ? Math.min(1.0, count / dailyTarget) : 0;
+      return { count, ratio, isRelapse: false, note, isTargetDay: false };
     }
   }
 
@@ -3512,7 +3458,6 @@
     blendColors,
     getCustomThemeLevels,
     getHabitHexColor,
-    getHabitLevelColor,
     getHabitHexWithAlpha,
     normalizeHex,
     updateBackfillWordingUI,
