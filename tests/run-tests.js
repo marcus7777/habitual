@@ -735,6 +735,81 @@ describe('Feature 15: 📅 Date Navigator Arrows, Long-press & Future Reminders'
 });
 
 // ============================================================================
+// FEATURE 16: ⌨️ ENTER KEY ON HABIT NAME BLURS INPUT INSTEAD OF SUBMITTING FORM
+// ============================================================================
+describe('Feature 16: ⌨️ Enter Key on Habit Name Blurs Input', () => {
+  test('Pressing Enter key on habit name input calls preventDefault and blurs input', () => {
+    let blurred = false;
+    let defaultPrevented = false;
+
+    const mockHabitName = {
+      value: 'Morning Run',
+      listeners: {},
+      addEventListener(event, fn) {
+        this.listeners[event] = fn;
+      },
+      blur() {
+        blurred = true;
+        if (this.listeners['blur']) {
+          this.listeners['blur']();
+        }
+      }
+    };
+
+    let formDetailsHidden = true;
+    const mockFormDetails = {
+      classList: {
+        remove: (cls) => {
+          if (cls === 'hidden') formDetailsHidden = false;
+        },
+        add: (cls) => {
+          if (cls === 'hidden') formDetailsHidden = true;
+        }
+      }
+    };
+
+    const mockIdDisplay = { textContent: '' };
+    const mockIdPreview = {
+      classList: {
+        remove: () => {},
+        add: () => {}
+      }
+    };
+
+    const originalGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'habit-name') return mockHabitName;
+      if (id === 'habit-form-details') return mockFormDetails;
+      if (id === 'habit-id-display') return mockIdDisplay;
+      if (id === 'habit-id-preview') return mockIdPreview;
+      if (id === 'habit-id') return { value: '' };
+      if (id === 'habit-parent') return { value: '' };
+      return { value: '', addEventListener: () => {}, classList: { add: () => {}, remove: () => {} } };
+    };
+
+    HabitualCore.initUI();
+
+    assert(typeof mockHabitName.listeners['keydown'] === 'function', 'keydown event listener attached to habitName');
+
+    const event = {
+      key: 'Enter',
+      keyCode: 13,
+      preventDefault: () => {
+        defaultPrevented = true;
+      }
+    };
+
+    mockHabitName.listeners['keydown'](event);
+
+    assertEqual(defaultPrevented, true, 'preventDefault called when Enter key is pressed');
+    assertEqual(blurred, true, 'input blur() called when Enter key is pressed');
+    assertEqual(mockIdDisplay.textContent, 'morningRun', 'handleHabitNameBlur derived habit ID correctly on blur');
+
+    global.document.getElementById = originalGetElementById;
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);
