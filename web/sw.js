@@ -1,6 +1,6 @@
 /* Habitual */
 
-const CACHE_NAME = 'habitual-v7';
+const CACHE_NAME = 'habitual-v9';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,6 +11,19 @@ const ASSETS_TO_CACHE = [
   './icon-192.png',
   './icon-512.png',
   './please.js',
+  './fonts/inter-cyrillic-ext.woff2',
+  './fonts/inter-cyrillic.woff2',
+  './fonts/inter-greek-ext.woff2',
+  './fonts/inter-greek.woff2',
+  './fonts/inter-vietnamese.woff2',
+  './fonts/inter-latin-ext.woff2',
+  './fonts/inter-latin.woff2',
+  './fonts/jetbrains-mono-cyrillic-ext.woff2',
+  './fonts/jetbrains-mono-cyrillic.woff2',
+  './fonts/jetbrains-mono-greek.woff2',
+  './fonts/jetbrains-mono-vietnamese.woff2',
+  './fonts/jetbrains-mono-latin-ext.woff2',
+  './fonts/jetbrains-mono-latin.woff2',
 ];
 
 // Install Event - Pre-cache Static Assets

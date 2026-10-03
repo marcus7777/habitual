@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habitual - Interactive Automated Test Suite</title>
+  <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="styles.css">
   <style>
     body {
@@ -301,9 +302,15 @@
         });
       });
 
-      describe('Feature 11: 📱 PWA Support', () => {
+      describe('Feature 11: 📱 PWA & Navigation Support', () => {
         test('Service Worker and Manifest registered', () => {
           assert(window.navigator.serviceWorker !== undefined, 'Service worker available');
+        });
+        test('Logo header brand link points to home page #/', () => {
+          const headerBrand = document.querySelector('.header-brand');
+          if (headerBrand) {
+            assertEqual(headerBrand.getAttribute('href'), '#/', 'Header brand link targets home page #/');
+          }
         });
       });
 

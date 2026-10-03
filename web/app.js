@@ -550,6 +550,25 @@
       });
     }
 
+    const btnDatePrev = document.getElementById('btn-modal-date-prev');
+    const btnDateNext = document.getElementById('btn-modal-date-next');
+    if (btnDatePrev) {
+      btnDatePrev.addEventListener('click', () => shiftModalLogDate(-1));
+    }
+    if (btnDateNext) {
+      btnDateNext.addEventListener('click', () => shiftModalLogDate(1));
+    }
+
+    const btnIcsReminder = document.getElementById('btn-modal-ics-reminder');
+    if (btnIcsReminder) {
+      btnIcsReminder.addEventListener('click', () => {
+        const habitId = elements.modalLogHabitSelect ? elements.modalLogHabitSelect.value : null;
+        const habit = state.habits.find(h => h.id === habitId);
+        const habitName = habit ? habit.name : 'Habit';
+        downloadICSReminder(habitName, activeLogDateKey);
+      });
+    }
+
     if (elements.modalLogShowOnStartup) {
       elements.modalLogShowOnStartup.addEventListener('change', (e) => {
         state.showQuickLogOnStartup = e.target.checked;
@@ -615,6 +634,18 @@
         openLogModal(customDateVal, activeCalendarHabit ? activeCalendarHabit.id : null);
       }
     });
+
+    // Logo / Header Brand Click to Home Navigation
+    const headerBrand = document.querySelector('.header-brand');
+    if (headerBrand) {
+      headerBrand.addEventListener('click', (e) => {
+        if (window.location.hash === '#/' || window.location.hash === '' || window.location.hash === '#') {
+          e.preventDefault();
+          navigateTo('#/');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    }
 
     // Header Dropdown Menu Toggle
     elements.btnHeaderMenu = document.getElementById('btn-header-menu');
@@ -1994,9 +2025,84 @@
   }
 
   function attachHeatmapSquareEvents() {
-    // Click anywhere on a heatmap card or day square to pop up quick add dialog with date and habit selected
     const cards = elements.heatmapsGallery.querySelectorAll('.heatmap-card');
     cards.forEach(card => {
+      // Long press detection on day squares
+      const squares = card.querySelectorAll('.day-square[data-date]');
+      squares.forEach(sq => {
+        let longPressTimer = null;
+        let startX = 0;
+        let startY = 0;
+
+        const cancelLongPress = () => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+        };
+
+        const startLongPress = (e) => {
+          if (e.button !== undefined && e.button !== 0) return;
+          cancelLongPress();
+          sq._isLongPressTriggered = false;
+
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          startX = clientX;
+          startY = clientY;
+
+          longPressTimer = setTimeout(() => {
+            sq._isLongPressTriggered = true;
+            longPressTimer = null;
+
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+              try { navigator.vibrate(40); } catch (err) {}
+            }
+
+            if (elements.customTooltip) elements.customTooltip.classList.add('hidden');
+
+            const dateStr = sq.dataset.date;
+            let targetHabitId = sq.dataset.habitId;
+            if (!targetHabitId || targetHabitId === 'all' || targetHabitId.startsWith('group_')) {
+              targetHabitId = card.getAttribute('data-habit-id') || 'all';
+            }
+
+            openLogModal(dateStr, targetHabitId);
+          }, 500);
+        };
+
+        const moveLongPress = (e) => {
+          if (!longPressTimer) return;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const dist = Math.hypot(clientX - startX, clientY - startY);
+          if (dist > 10) {
+            cancelLongPress();
+          }
+        };
+
+        if (typeof window !== 'undefined' && window.PointerEvent) {
+          sq.addEventListener('pointerdown', startLongPress);
+          sq.addEventListener('pointermove', moveLongPress);
+          sq.addEventListener('pointerup', cancelLongPress);
+          sq.addEventListener('pointercancel', cancelLongPress);
+        } else {
+          sq.addEventListener('mousedown', startLongPress);
+          sq.addEventListener('mousemove', moveLongPress);
+          sq.addEventListener('mouseup', cancelLongPress);
+          sq.addEventListener('touchstart', startLongPress, { passive: true });
+          sq.addEventListener('touchmove', moveLongPress, { passive: true });
+          sq.addEventListener('touchend', cancelLongPress);
+          sq.addEventListener('touchcancel', cancelLongPress);
+        }
+
+        sq.addEventListener('contextmenu', (e) => {
+          if (sq._isLongPressTriggered) {
+            e.preventDefault();
+          }
+        });
+      });
+
       card.addEventListener('click', (e) => {
         if (
           e.target.closest('.focused-day-toolbar') ||
@@ -2006,25 +2112,26 @@
         ) {
           return;
         }
+
+        const sq = e.target.closest('.day-square[data-date]');
+        if (sq && sq._isLongPressTriggered) {
+          sq._isLongPressTriggered = false;
+          e.stopPropagation();
+          e.preventDefault();
+          return;
+        }
+
         e.stopPropagation();
         if (elements.customTooltip) elements.customTooltip.classList.add('hidden');
 
-        const square = e.target.closest('.day-square[data-date]');
         const cardHabitId = card.getAttribute('data-habit-id') || 'all';
-
-        let targetDate = getTodayKey();
         let targetHabitId = cardHabitId;
 
-        if (square) {
-          if (square.dataset.date) {
-            targetDate = square.dataset.date;
-          }
-          if (square.dataset.habitId && square.dataset.habitId !== 'all' && !square.dataset.habitId.startsWith('group_')) {
-            targetHabitId = square.dataset.habitId;
-          }
+        if (sq && sq.dataset.habitId && sq.dataset.habitId !== 'all' && !sq.dataset.habitId.startsWith('group_')) {
+          targetHabitId = sq.dataset.habitId;
         }
 
-        openLogModal(targetDate, targetHabitId);
+        openLogModal(getTodayKey(), targetHabitId);
       });
     });
 
@@ -2825,6 +2932,76 @@
     }
   }
 
+  function shiftModalLogDate(days) {
+    if (!activeLogDateKey) activeLogDateKey = getTodayKey();
+    const d = parseDateKey(activeLogDateKey);
+    d.setDate(d.getDate() + days);
+    activeLogDateKey = formatDateKey(d);
+    if (elements.modalLogDateInput) {
+      elements.modalLogDateInput.value = activeLogDateKey;
+    }
+    loadLogModalValues();
+  }
+
+  function updateReminderLinks(habitName, dateStr) {
+    const cleanDate = dateStr.replace(/-/g, '');
+    const gCalStart = `${cleanDate}T090000`;
+    const gCalEnd = `${cleanDate}T093000`;
+    const title = encodeURIComponent(`Habit Reminder: ${habitName}`);
+    const details = encodeURIComponent(`Reminder to complete habit "${habitName}" in Habitual.`);
+    const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${gCalStart}/${gCalEnd}&details=${details}`;
+
+    const linkGCal = document.getElementById('link-modal-google-cal');
+    if (linkGCal) {
+      linkGCal.href = gCalUrl;
+    }
+  }
+
+  function generateICSFile(habitName, dateStr) {
+    const cleanDate = dateStr.replace(/-/g, '');
+    const nowIso = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const uid = `habitual-${Date.now()}-${cleanDate}@habitual.app`;
+
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Habitual//Habit Tracker//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${nowIso}`,
+      `DTSTART:${cleanDate}T090000`,
+      `DTEND:${cleanDate}T093000`,
+      `SUMMARY:Habit Reminder: ${habitName}`,
+      `DESCRIPTION:Reminder to log habit "${habitName}" in Habitual.`,
+      'STATUS:CONFIRMED',
+      'BEGIN:VALARM',
+      'TRIGGER:-PT15M',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:Reminder to log habit "${habitName}"`,
+      'END:VALARM',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    return icsContent;
+  }
+
+  function downloadICSReminder(habitName, dateStr) {
+    const icsData = generateICSFile(habitName, dateStr);
+    const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const sanitizedName = habitName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    a.download = `${sanitizedName}_reminder_${dateStr}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function loadLogModalValues() {
     if (!elements.modalLogHabitSelect) return;
     const habitId = elements.modalLogHabitSelect.value;
@@ -2854,6 +3031,18 @@
     } else {
       elements.modalLogCount.value = (habit && habit.type === 'negative') ? 0 : 1;
       elements.modalLogNote.value = '';
+    }
+
+    // Future Date Reminder Section
+    const todayStr = getTodayKey();
+    const reminderBox = document.getElementById('modal-log-reminder-box');
+    if (reminderBox) {
+      if (activeLogDateKey > todayStr) {
+        reminderBox.classList.remove('hidden');
+        updateReminderLinks(habit ? habit.name : 'Habit', activeLogDateKey);
+      } else {
+        reminderBox.classList.add('hidden');
+      }
     }
   }
 
@@ -2977,6 +3166,10 @@
     openHabitModal,
     handleHabitFormSubmit,
     openLogModal,
+    shiftModalLogDate,
+    updateReminderLinks,
+    generateICSFile,
+    downloadICSReminder,
     attachHeatmapSquareEvents,
     getElements: () => elements,
     initUI,
