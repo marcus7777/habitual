@@ -1,0 +1,1 @@
+const fs=require('fs'); let c=fs.readFileSync('web/js/ui.js', 'utf8'); c=c.replace(/const id = document\.getElementById\('habit-id'\)\.value;/g, 'const fd = new FormData(core.elements.formHabit); const id = fd.get(\\'habit-id\\');').replace(/document\.getElementById\('habit-([']+)'\)\.value/g, 'fd.get(\\'habit-\\')'); fs.writeFileSync('web/js/ui.js', c);  
