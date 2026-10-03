@@ -17,17 +17,39 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="manifest" href="manifest.json">
 
-  <!-- Fonts & Styles -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Preload Local Fonts for Fastest First Contentful Paint (FCP) -->
+  <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- Critical Inline Styles for Instant Shell Paint -->
+  <style>
+    :root {
+      --bg-app: #0d1117;
+      --text-main: #f0f6fc;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      margin: 0;
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    .app-container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+
+  <!-- Styles -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="dark-theme">
   <div id="app" class="app-container">
     <!-- Navigation Header -->
     <header class="app-header">
-      <div class="header-brand">
+      <a href="#/" class="header-brand" title="Habitual - Go to Home">
         <div class="logo-icon" title="Habitual Visualizer">
           <svg class="logo-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <defs>
@@ -43,7 +65,7 @@
           <h1>Habitual</h1>
           <span class="brand-tagline">Visual habit progression</span>
         </div>
-      </div>
+      </a>
 
       <!-- Header Actions Dropdown Menu -->
       <div class="header-actions">
@@ -488,7 +510,28 @@
       <div class="modal-body">
         <div class="form-group">
           <label for="modal-log-date-input">Select Date</label>
-          <input type="date" id="modal-log-date-input" class="text-input" style="color-scheme: dark; font-family: var(--font-mono); font-size: 0.95rem; font-weight: 600;">
+          <div class="date-navigator-group">
+            <button type="button" id="btn-modal-date-prev" class="btn btn-secondary date-nav-btn" title="Previous Day" aria-label="Previous Day">&lsaquo;</button>
+            <input type="date" id="modal-log-date-input" class="text-input" style="color-scheme: dark; font-family: var(--font-mono); font-size: 0.95rem; font-weight: 600; flex: 1;">
+            <button type="button" id="btn-modal-date-next" class="btn btn-secondary date-nav-btn" title="Next Day" aria-label="Next Day">&rsaquo;</button>
+          </div>
+        </div>
+
+        <div id="modal-log-reminder-box" class="reminder-box hidden">
+          <div class="reminder-box-header">
+            <span>⏰ Future Date Reminder</span>
+          </div>
+          <p class="reminder-box-desc">
+            This date is in the future. Add a calendar reminder so you don't miss it!
+          </p>
+          <div class="reminder-box-actions">
+            <button type="button" id="btn-modal-ics-reminder" class="btn btn-secondary btn-sm">
+              📅 Download .ics Reminder
+            </button>
+            <a id="link-modal-google-cal" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+              🌐 Google Calendar
+            </a>
+          </div>
         </div>
 
         <div class="form-group">
@@ -578,7 +621,7 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
-  <script src="please.js"></script>
+  <script src="please.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>
