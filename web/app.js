@@ -519,6 +519,12 @@
     elements.habitFormDetails = document.getElementById('habit-form-details');
 
     if (elements.habitName) {
+      elements.habitName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+          e.preventDefault();
+          elements.habitName.blur();
+        }
+      });
       elements.habitName.addEventListener('blur', () => {
         handleHabitNameBlur();
       });
@@ -3164,6 +3170,7 @@
     applyParentDependencyOnLog,
     toggleHabitForDate,
     openHabitModal,
+    handleHabitNameBlur,
     handleHabitFormSubmit,
     openLogModal,
     shiftModalLogDate,
