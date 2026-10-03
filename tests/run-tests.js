@@ -18,13 +18,75 @@ const mockLocalStorage = (() => {
 })();
 
 global.window = global.window || {};
+global.window.location = global.window.location || { hash: '#/', toString: () => '#/' };
 global.window.HabitualCore = global.window.HabitualCore || {};
 
-global.document = global.document || {
+function createMockElement(tagName) {
+  const children = [];
+  const attributes = {};
+  const classListSet = new Set();
+  let innerHTMLVal = '';
+  const elem = {
+    tagName: tagName.toUpperCase(),
+    get className() { return Array.from(classListSet).join(' '); },
+    set className(val) { classListSet.clear(); (val || '').split(' ').filter(Boolean).forEach(c => classListSet.add(c)); },
+    children,
+    attributes,
+    get innerHTML() { return innerHTMLVal; },
+    set innerHTML(val) {
+      innerHTMLVal = val;
+      const classMatches = val.match(/class="([^"]+)"/g) || [];
+      classMatches.forEach(m => {
+        const classes = m.replace('class="', '').replace('"', '').split(' ');
+        const mockChild = createMockElement('div');
+        classes.forEach(c => mockChild.classList.add(c));
+        if (mockChild.classList.contains('btn-card-quick-log')) {
+          const btnMatch = val.match(/<button[^>]*btn-card-quick-log[^>]*>([\s\S]*?)<\/button>/);
+          if (btnMatch) mockChild.textContent = btnMatch[1].trim();
+        }
+        children.push(mockChild);
+      });
+    },
+    classList: {
+      add: (cls) => classListSet.add(cls),
+      remove: (cls) => classListSet.delete(cls),
+      contains: (cls) => classListSet.has(cls),
+      toggle: (cls, force) => {
+        if (force !== undefined) {
+          if (force) classListSet.add(cls); else classListSet.delete(cls);
+          return force;
+        }
+        if (classListSet.has(cls)) { classListSet.delete(cls); return false; }
+        classListSet.add(cls); return true;
+      }
+    },
+    setAttribute: (k, v) => { attributes[k] = String(v); },
+    getAttribute: (k) => attributes[k] || null,
+    appendChild: (child) => { children.push(child); return child; },
+    querySelector: function(sel) {
+      if (sel.startsWith('.')) {
+        const cls = sel.slice(1);
+        for (const child of children) {
+          if (child.classList && child.classList.contains(cls)) return child;
+          if (child.querySelector) {
+            const found = child.querySelector(sel);
+            if (found) return found;
+          }
+        }
+      }
+      return null;
+    },
+    querySelectorAll: () => []
+  };
+  return elem;
+}
+
+global.document = {
   addEventListener: () => {},
   getElementById: () => null,
   querySelector: () => null,
-  querySelectorAll: () => []
+  querySelectorAll: () => [],
+  createElement: createMockElement
 };
 global.localStorage = mockLocalStorage;
 global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } };
@@ -1019,6 +1081,81 @@ describe('Feature 18: ⏸️ Pause History & Heatmap Paused Day Indicators', () 
     const cellData = HabitualCore.getCellData('2026-10-02', habit, '2026-10-03');
     assertEqual(cellData.isPaused, true, 'cellData.isPaused set to true on paused date');
     assert(cellData.note.includes('Paused'), 'cellData note indicates paused status');
+  });
+});
+
+// ============================================================================
+// FEATURE 19: 📁 CONCERTINA ACCORDION & INDENTED SUB-HABITS
+// ============================================================================
+describe('Feature 19: 📁 Concertina Accordion & Indented Sub-habits', () => {
+  test('toggleConcertina toggles expandedHabitIds set and updates badge/arrow', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'gym', name: 'Gym', parentId: null, dailyTarget: 1, logs: {} };
+    const sub = { id: 'gym_legs', name: 'Legs', parentId: 'gym', dailyTarget: 1, logs: {} };
+    HabitualCore.setState({
+      habits: [parent, sub],
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      expandedHabitIds: new Set()
+    });
+
+    assertEqual(HabitualCore.state.expandedHabitIds.has('gym'), false, 'Initially collapsed');
+
+    HabitualCore.toggleConcertina('gym');
+    assertEqual(HabitualCore.state.expandedHabitIds.has('gym'), true, 'Expanded after first toggle');
+
+    HabitualCore.toggleConcertina('gym');
+    assertEqual(HabitualCore.state.expandedHabitIds.has('gym'), false, 'Collapsed after second toggle');
+  });
+
+  test('renderHabitTree builds group wrapper with subhabits-concertina container', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'gym', name: 'Gym', parentId: null, dailyTarget: 1, colorTheme: 'green', logs: {} };
+    const sub = { id: 'gym_legs', name: 'Legs', parentId: 'gym', dailyTarget: 1, colorTheme: 'blue', logs: {} };
+    HabitualCore.setState({
+      habits: [parent, sub],
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      expandedHabitIds: new Set(['gym'])
+    });
+
+    const treeNode = HabitualCore.renderHabitTree(parent, 2026);
+    assert(treeNode.className.includes('heatmap-group-wrapper'), 'Parent node wrapped in heatmap-group-wrapper');
+    const concertina = treeNode.querySelector('.subhabits-concertina');
+    assert(concertina !== null, 'Contains .subhabits-concertina container');
+    assert(concertina.classList.contains('expanded'), 'concertina is expanded when in expandedHabitIds');
+    const putAwayBtn = concertina.querySelector('.btn-put-away');
+    assert(putAwayBtn !== null, 'Contains ▲ Put away button');
+  });
+});
+
+// ============================================================================
+// FEATURE 20: 🎯 PROMINENT QUICK LOG BUTTON & TICK MARK GOAL REACHED
+// ============================================================================
+describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached', () => {
+  test('buildHeatmapCard renders btn-card-quick-log with tick mark when goal is reached', () => {
+    HabitualCore.resetState();
+    const todayKey = HabitualCore.getTodayKey();
+    const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 2, colorTheme: 'blue', logs: { [todayKey]: { count: 2 } } };
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    const quickLogBtn = card.querySelector('.btn-card-quick-log');
+    assert(quickLogBtn !== null, 'Card contains .btn-card-quick-log button');
+    assert(quickLogBtn.classList.contains('goal-met'), 'Button has goal-met class');
+    assert(quickLogBtn.textContent.includes('✓'), 'Button content contains tick mark ✓ when goal is reached');
+  });
+
+  test('btn-card-quick-log displays plus sign when goal is not yet reached', () => {
+    HabitualCore.resetState();
+    const habit = { id: 'reading', name: 'Reading', type: 'positive', dailyTarget: 2, colorTheme: 'purple', logs: {} };
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    const quickLogBtn = card.querySelector('.btn-card-quick-log');
+    assert(quickLogBtn !== null, 'Card contains .btn-card-quick-log button');
+    assert(!quickLogBtn.classList.contains('goal-met'), 'Button does not have goal-met class');
+    assert(quickLogBtn.textContent.includes('+'), 'Button displays + symbol when goal is unfulfilled');
   });
 });
 

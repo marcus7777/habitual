@@ -93,6 +93,95 @@ window.HabitualCore = window.HabitualCore || {};
       .join('');
   };
 
+  core.toggleConcertina = function(habitId) {
+    if (!core.state.expandedHabitIds) core.state.expandedHabitIds = new Set();
+    const isExpanded = core.state.expandedHabitIds.has(habitId);
+    if (isExpanded) {
+      core.state.expandedHabitIds.delete(habitId);
+    } else {
+      core.state.expandedHabitIds.add(habitId);
+    }
+
+    const concertinas = document.querySelectorAll(`.subhabits-concertina[data-parent-id="${habitId}"]`);
+    concertinas.forEach(concertina => {
+      if (isExpanded) {
+        concertina.classList.remove('expanded');
+      } else {
+        concertina.classList.add('expanded');
+      }
+    });
+
+    const badges = document.querySelectorAll(`.btn-toggle-concertina[data-habit-id="${habitId}"]`);
+    badges.forEach(badge => {
+      const arrow = badge.querySelector('.concertina-arrow');
+      const directSubs = core.state.habits.filter(h => h.parentId === habitId);
+      if (arrow) arrow.textContent = !isExpanded ? '▲' : '▼';
+      badge.title = !isExpanded ? 'Click to put away sub-habits' : `Click to view ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}`;
+    });
+  };
+
+  core.renderHabitTree = function(habit, year) {
+    const subhabits = core.state.habits.filter(h => h.parentId === habit.id);
+    const hasSubhabits = subhabits.length > 0;
+
+    let target;
+    if (hasSubhabits) {
+      const allDescendantIds = core.getAllDescendantIds(habit.id);
+      target = {
+        isGroup: true,
+        habit: habit,
+        title: habit.name,
+        habitIds: allDescendantIds,
+        colorTheme: habit.colorTheme
+      };
+    } else {
+      target = habit;
+    }
+
+    const card = core.buildHeatmapCard(target, year);
+    card.setAttribute('data-has-subhabits', hasSubhabits ? 'true' : 'false');
+    card.setAttribute('data-habit-id-raw', habit.id);
+
+    if (!hasSubhabits) return card;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'heatmap-group-wrapper';
+    wrapper.setAttribute('data-habit-id', habit.id);
+    wrapper.appendChild(card);
+
+    const isExpanded = core.state.expandedHabitIds && core.state.expandedHabitIds.has(habit.id);
+
+    const concertina = document.createElement('div');
+    concertina.className = `subhabits-concertina ${isExpanded ? 'expanded' : ''}`;
+    concertina.setAttribute('data-parent-id', habit.id);
+
+    const concertinaHeader = document.createElement('div');
+    concertinaHeader.className = 'concertina-header';
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'concertina-title';
+    titleSpan.textContent = `↳ Sub-habits (${subhabits.length})`;
+
+    const putAwayBtn = document.createElement('button');
+    putAwayBtn.type = 'button';
+    putAwayBtn.className = 'btn-put-away';
+    putAwayBtn.setAttribute('data-parent-id', habit.id);
+    putAwayBtn.title = 'Put away sub-habits';
+    putAwayBtn.textContent = '▲ Put away';
+
+    concertinaHeader.appendChild(titleSpan);
+    concertinaHeader.appendChild(putAwayBtn);
+    concertina.appendChild(concertinaHeader);
+
+    subhabits.forEach(sub => {
+      const subNode = core.renderHabitTree(sub, year);
+      concertina.appendChild(subNode);
+    });
+
+    wrapper.appendChild(concertina);
+    return wrapper;
+  };
+
   core.renderHeatmapsGallery = function() {
     core.elements.heatmapsGallery.innerHTML = '';
     const route = core.parseHash ? core.parseHash() : { view: 'home', habitId: null };
@@ -114,18 +203,8 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       topLevelHabits.forEach(habit => {
-        const subhabits = core.state.habits.filter(h => h.parentId === habit.id);
-        if (subhabits.length > 0) {
-          const allDescendantIds = core.getAllDescendantIds(habit.id);
-          const groupTarget = {
-            isGroup: true, habit: habit, title: habit.name, habitIds: allDescendantIds, colorTheme: habit.colorTheme
-          };
-          const habitCard = core.buildHeatmapCard(groupTarget, core.state.selectedYear);
-          core.elements.heatmapsGallery.appendChild(habitCard);
-        } else {
-          const habitCard = core.buildHeatmapCard(habit, core.state.selectedYear);
-          core.elements.heatmapsGallery.appendChild(habitCard);
-        }
+        const habitNode = core.renderHabitTree(habit, core.state.selectedYear);
+        core.elements.heatmapsGallery.appendChild(habitNode);
       });
     } else if (route.view === 'habit') {
       const targetHabit = core.state.habits.find(h => h.id === route.habitId);
@@ -140,36 +219,11 @@ window.HabitualCore = window.HabitualCore || {};
         return;
       }
 
+      const habitNode = core.renderHabitTree(targetHabit, core.state.selectedYear);
+      core.elements.heatmapsGallery.appendChild(habitNode);
+
       const subhabits = core.state.habits.filter(h => h.parentId === targetHabit.id);
-      const allDescendantIds = core.getAllDescendantIds(targetHabit.id);
-
-      if (subhabits.length > 0) {
-        const groupTarget = {
-          isGroup: true, habit: targetHabit, title: targetHabit.name, habitIds: allDescendantIds, colorTheme: targetHabit.colorTheme
-        };
-        const groupCard = core.buildHeatmapCard(groupTarget, core.state.selectedYear);
-        core.elements.heatmapsGallery.appendChild(groupCard);
-
-        const sectionHeader = document.createElement('div');
-        sectionHeader.className = 'subhabits-section-header';
-        sectionHeader.innerHTML = `
-          <h4>📁 Sub-habits (${subhabits.length})</h4>
-          <button type="button" class="btn btn-secondary btn-sm btn-add-sub-section">+ New Sub-habit</button>
-        `;
-        core.elements.heatmapsGallery.appendChild(sectionHeader);
-
-        sectionHeader.querySelector('.btn-add-sub-section').addEventListener('click', () => {
-          if (core.openHabitModal) core.openHabitModal(null, targetHabit.id);
-        });
-
-        subhabits.forEach(sub => {
-          const subCard = core.buildHeatmapCard(sub, core.state.selectedYear);
-          core.elements.heatmapsGallery.appendChild(subCard);
-        });
-      } else {
-        const habitCard = core.buildHeatmapCard(targetHabit, core.state.selectedYear);
-        core.elements.heatmapsGallery.appendChild(habitCard);
-
+      if (subhabits.length === 0) {
         const callout = document.createElement('div');
         callout.className = 'subhabit-callout';
         callout.innerHTML = `<button type="button" class="btn btn-secondary btn-sm btn-add-sub-callout">+ Add Sub-habit</button>`;
@@ -268,8 +322,10 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit) {
       const directSubs = core.state.habits.filter(h => h.parentId === habit.id);
       if (directSubs.length > 0) {
-        if (isCurrentOpenPage) subhabitsBadgeHTML = `<span class="badge-subhabits">📁 ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}</span>`;
-        else subhabitsBadgeHTML = `<a href="#/habit/${habit.id}" class="badge-subhabits" title="View ${directSubs.length} sub-habits">📁 ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}</a>`;
+        const isExpanded = core.state.expandedHabitIds && core.state.expandedHabitIds.has(habit.id);
+        const arrowChar = isExpanded ? '▲' : '▼';
+        const titleText = isExpanded ? 'Click to put away sub-habits' : `Click to view ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}`;
+        subhabitsBadgeHTML = `<button type="button" class="badge-subhabits btn-toggle-concertina" data-habit-id="${habit.id}" title="${titleText}">📁 ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'} <span class="concertina-arrow">${arrowChar}</span></button>`;
       }
     }
 
@@ -284,6 +340,45 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     let pausedBadgeHTML = (habit && habit.isPaused) ? '<span class="badge-paused" title="This habit is currently paused">⏸️ Paused</span>' : '';
+
+    let bigLogButtonHTML = '';
+    if (habit) {
+      const cellData = core.getCellData(todayStr, habit, todayStr);
+      const ratio = Math.min(1.0, Math.max(0, cellData.ratio || 0));
+      const isGoalMet = ratio >= 1.0;
+      const hexColor = core.getHabitHexColor(habit);
+
+      const log = (habit.logs && habit.logs[todayStr]) ? habit.logs[todayStr] : null;
+      const count = log ? log.count : 0;
+      const target = Math.max(1, habit.dailyTarget || 1);
+
+      let btnText = '';
+      if (habit.type === 'negative') {
+        btnText = isGoalMet ? '✓ Clean Day' : `⚠️ ${count} Slip${count === 1 ? '' : 's'}`;
+      } else {
+        if (target > 1) {
+          btnText = isGoalMet ? `✓ ${count}/${target}` : `+ ${count}/${target}`;
+        } else {
+          btnText = isGoalMet ? '✓ Done' : '+ Log Today';
+        }
+      }
+
+      let bgStyle = '';
+      if (isGoalMet) {
+        bgStyle = `background-color: ${hexColor}; color: #ffffff; border-color: ${hexColor}; box-shadow: 0 0 10px ${core.getHabitHexWithAlpha(habit, 0.4)};`;
+      } else {
+        const alphaHex = core.getHabitHexWithAlpha(habit, Math.max(0.15, ratio * 0.85));
+        bgStyle = `background-color: ${alphaHex}; border-color: ${hexColor}; color: var(--text-main);`;
+      }
+
+      const tooltipText = `Log activity for ${core.escapeHTML(habit.name)} (Today: ${count}/${target})`;
+
+      bigLogButtonHTML = `
+        <button type="button" class="btn-card-quick-log ${isGoalMet ? 'goal-met' : ''}"
+                style="${bgStyle}" data-habit-id="${habit.id}" title="${tooltipText}">
+          ${core.escapeHTML(btnText)}
+        </button>`;
+    }
 
     let actionsHTML = '';
     if (habit) {
@@ -329,6 +424,7 @@ window.HabitualCore = window.HabitualCore || {};
           ${pausedBadgeHTML}
           ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
           <span class="badge-count">${countLabel}</span>
+          ${bigLogButtonHTML}
         </div>
         ${actionsHTML}
       </div>`;
