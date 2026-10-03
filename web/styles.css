@@ -36,7 +36,7 @@
 
   --text-main: #f0f6fc;
   --text-muted: #8b949e;
-  --text-dim: #6e7681;
+  --text-dim: #8f9aa9;
 
   --accent-blue: #58a6ff;
   --accent-green: #3fb950;
@@ -57,66 +57,6 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.6);
 
-  /* Heatmap Color Themes */
-  --theme-green-0: #161b22;
-  --theme-green-1: #0e4429;
-  --theme-green-2: #006d32;
-  --theme-green-3: #26a641;
-  --theme-green-4: #39d353;
-
-  --theme-blue-0: #161b22;
-  --theme-blue-1: #042654;
-  --theme-blue-2: #084c9e;
-  --theme-blue-3: #1175e8;
-  --theme-blue-4: #388bfd;
-
-  --theme-purple-0: #161b22;
-  --theme-purple-1: #271052;
-  --theme-purple-2: #4c1d95;
-  --theme-purple-3: #7e22ce;
-  --theme-purple-4: #a855f7;
-
-  --theme-orange-0: #161b22;
-  --theme-orange-1: #431407;
-  --theme-orange-2: #7c2d12;
-  --theme-orange-3: #c2410c;
-  --theme-orange-4: #f97316;
-
-  --theme-crimson-0: #161b22;
-  --theme-crimson-1: #4c0519;
-  --theme-crimson-2: #881337;
-  --theme-crimson-3: #e11d48;
-  --theme-crimson-4: #fb7185;
-
-  --theme-cyan-0: #161b22;
-  --theme-cyan-1: #083344;
-  --theme-cyan-2: #155e75;
-  --theme-cyan-3: #0891b2;
-  --theme-cyan-4: #22d3ee;
-
-  --theme-emerald-0: #161b22;
-  --theme-emerald-1: #064e3b;
-  --theme-emerald-2: #047857;
-  --theme-emerald-3: #10b981;
-  --theme-emerald-4: #34d399;
-
-  --theme-amber-0: #161b22;
-  --theme-amber-1: #451a03;
-  --theme-amber-2: #78350f;
-  --theme-amber-3: #b45309;
-  --theme-amber-4: #f59e0b;
-
-  --theme-indigo-0: #161b22;
-  --theme-indigo-1: #1e1b4b;
-  --theme-indigo-2: #3730a3;
-  --theme-indigo-3: #4f46e5;
-  --theme-indigo-4: #818cf8;
-
-  --theme-rose-0: #161b22;
-  --theme-rose-1: #4c0519;
-  --theme-rose-2: #9f1239;
-  --theme-rose-3: #e11d48;
-  --theme-rose-4: #f43f5e;
 }
 
 * {
@@ -717,17 +657,6 @@ body.dark-theme {
   flex-shrink: 0;
 }
 
-.color-badge.green { background-color: var(--theme-green-4); }
-.color-badge.blue { background-color: var(--theme-blue-4); }
-.color-badge.purple { background-color: var(--theme-purple-4); }
-.color-badge.orange { background-color: var(--theme-orange-4); }
-.color-badge.crimson { background-color: var(--theme-crimson-4); }
-.color-badge.cyan { background-color: var(--theme-cyan-4); }
-.color-badge.emerald { background-color: var(--theme-emerald-4); }
-.color-badge.amber { background-color: var(--theme-amber-4); }
-.color-badge.indigo { background-color: var(--theme-indigo-4); }
-.color-badge.rose { background-color: var(--theme-rose-4); }
-
 /* Fluid 100% Width Grid System */
 .heatmap-wrapper {
   width: 100%;
@@ -762,7 +691,6 @@ body.dark-theme {
   aspect-ratio: 1 / 1;
   border-radius: 1.5px;
   cursor: pointer;
-  background-color: var(--theme-green-0);
   outline: 1px solid rgba(255, 255, 255, 0.03);
   transition: transform 0.1s ease, outline 0.1s ease;
 }
