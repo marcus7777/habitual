@@ -810,6 +810,70 @@ describe('Feature 16: ⌨️ Enter Key on Habit Name Blurs Input', () => {
 });
 
 // ============================================================================
+// FEATURE 17: ⌛ BACKFILLING IN EDIT DIALOGUE & NEGATIVE HABIT LOGIC
+// ============================================================================
+describe('Feature 17: ⌛ Backfilling in Edit Dialogue & Negative Habit Logic', () => {
+  test('generateBackfillLogs generates clean days vs relapses for negative habits', () => {
+    // 100% clean negative habit -> 0 relapses logged
+    const res100 = HabitualCore.generateBackfillLogs(30, 'daily', '1', 1, 'negative', 'daily');
+    assertEqual(Object.keys(res100.logs).length, 0, '100% clean quit habit generates 0 relapse logs');
+
+    // 80% clean negative habit -> ~20% relapses logged (approx 6 out of 30 days)
+    const res80 = HabitualCore.generateBackfillLogs(30, 'frequent', '1', 1, 'negative', 'daily');
+    const relapseCount = Object.keys(res80.logs).length;
+    assert(relapseCount > 0 && relapseCount < 20, '80% clean quit habit generates small proportion of relapse logs');
+    if (relapseCount > 0) {
+      const firstKey = Object.keys(res80.logs)[0];
+      assertEqual(res80.logs[firstKey].count, 1, 'Relapse log count is 1');
+      assertEqual(res80.logs[firstKey].note, 'Relapse logged', 'Relapse log note is "Relapse logged"');
+    }
+  });
+
+  test('updateBackfillWordingUI updates labels dynamically for Quit (negative) habits', () => {
+    let titleHTML = '';
+    let descText = '';
+    let freqText = '';
+
+    const mockRadio = { value: 'negative' };
+    const mockForm = {
+      querySelector: (sel) => {
+        if (sel.includes('habit-type')) return mockRadio;
+        return null;
+      }
+    };
+
+    const mockTitle = {
+      set innerHTML(v) { titleHTML = v; }
+    };
+    const mockDesc = {
+      set textContent(v) { descText = v; }
+    };
+    const mockFreqLabel = {
+      set textContent(v) { freqText = v; }
+    };
+
+    const originalGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'backfill-checkbox-title') return mockTitle;
+      if (id === 'backfill-checkbox-desc') return mockDesc;
+      if (id === 'label-history-frequency') return mockFreqLabel;
+      return { value: '', addEventListener: () => {}, classList: { add: () => {}, remove: () => {} } };
+    };
+
+    const coreElements = HabitualCore.getElements();
+    coreElements.formHabit = mockForm;
+
+    HabitualCore.updateBackfillWordingUI();
+
+    assert(titleHTML.includes('Clean Days'), 'Title updated to Clean Days for negative habit');
+    assert(descText.includes('clean days vs slip-ups'), 'Description updated for negative habit');
+    assert(freqText.includes('avoided the bad habit'), 'Frequency label updated for negative habit');
+
+    global.document.getElementById = originalGetElementById;
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);
