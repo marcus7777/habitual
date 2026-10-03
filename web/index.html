@@ -452,28 +452,28 @@
         <div class="form-group highlight-form-box" id="backfill-section">
           <label class="checkbox-label">
             <input type="checkbox" id="habit-enable-backfill">
-            <span><strong>Add Past History / Starting Point</strong></span>
+            <span id="backfill-checkbox-title"><strong>Add Past History / Backfill Progress</strong></span>
           </label>
-          <small class="muted-text">Fill out past heatmap activity so you don't start from a blank canvas.</small>
+          <small class="muted-text" id="backfill-checkbox-desc">Fill out past heatmap activity so you don't start from a blank canvas.</small>
 
           <div id="backfill-options-container" class="backfill-options-grid hidden">
             <div class="form-group">
-              <label for="habit-history-duration">How many days to backfill?</label>
+              <label for="habit-history-duration" id="label-history-duration">How many days to backfill?</label>
               <input id="habit-history-duration" type="number" class="text-input" min="1" max="3650" value="30" placeholder="e.g. 30">
             </div>
 
             <div class="form-group">
-              <label for="habit-history-frequency">How regularly / frequently did you hit your target?</label>
+              <label for="habit-history-frequency" id="label-history-frequency">How consistently did you complete this habit?</label>
               <select id="habit-history-frequency" class="select-input">
                 <option value="daily">Every single target period (100% complete)</option>
                 <option value="frequent" selected>Most periods (~80% / 4 out of 5)</option>
-                <option value="moderate">Regularly (~50% / half the time)</option>
+                <option value="moderate">Half the time (~50% / half the time)</option>
                 <option value="occasional">Occasionally (~25% / 1 out of 4)</option>
               </select>
             </div>
 
-            <div class="form-group">
-              <label for="habit-history-instances">Daily completion count / instances per active day</label>
+            <div class="form-group" id="group-history-instances">
+              <label for="habit-history-instances" id="label-history-instances">Daily completion count / instances per active day</label>
               <select id="habit-history-instances" class="select-input">
                 <option value="1" selected>1 instance per day</option>
                 <option value="2">2 instances per day</option>
@@ -486,7 +486,7 @@
                 <option value="random_multi">Random / Variable (1 to 3 instances)</option>
                 <option value="random_high">Random / Variable (1 to 5 instances)</option>
               </select>
-              <small class="muted-text">Allows backfilling single or multiple completed check-ins per day.</small>
+              <small class="muted-text" id="desc-history-instances">Allows backfilling single or multiple completed check-ins per day.</small>
             </div>
           </div>
         </div>

@@ -2506,9 +2506,12 @@
         if (colorChk) colorChk.checked = habitToEdit.colorWholeWeek !== false;
       }
 
-      if (elements.backfillSection) elements.backfillSection.classList.add('hidden');
+      if (elements.backfillSection) elements.backfillSection.classList.remove('hidden');
       if (elements.habitEnableBackfill) elements.habitEnableBackfill.checked = false;
       if (elements.backfillOptionsContainer) elements.backfillOptionsContainer.classList.add('hidden');
+      if (elements.habitHistoryDuration) elements.habitHistoryDuration.value = '30';
+      if (elements.habitHistoryFrequency) elements.habitHistoryFrequency.value = 'frequent';
+      if (elements.habitHistoryInstances) elements.habitHistoryInstances.value = '1';
 
       const typeRadio = elements.formHabit.querySelector(`input[name="habit-type"][value="${habitToEdit.type || 'positive'}"]`);
       if (typeRadio) typeRadio.checked = true;
@@ -2566,6 +2569,12 @@
       if (elements.habitHistoryFrequency) elements.habitHistoryFrequency.value = 'frequent';
       if (elements.habitHistoryInstances) elements.habitHistoryInstances.value = '1';
     }
+
+    const typeRadios = elements.formHabit ? elements.formHabit.querySelectorAll('input[name="habit-type"]') : [];
+    typeRadios.forEach(radio => {
+      radio.onchange = updateBackfillWordingUI;
+    });
+    updateBackfillWordingUI();
 
     updateParentDependencyUI();
     elements.modalHabit.classList.remove('hidden');
@@ -2639,6 +2648,52 @@
     return html;
   }
 
+  function updateBackfillWordingUI() {
+    const typeRadio = elements.formHabit ? elements.formHabit.querySelector('input[name="habit-type"]:checked') : null;
+    const isNegative = typeRadio ? typeRadio.value === 'negative' : false;
+
+    const titleEl = document.getElementById('backfill-checkbox-title');
+    const descEl = document.getElementById('backfill-checkbox-desc');
+    const freqLabel = document.getElementById('label-history-frequency');
+    const freqSelect = document.getElementById('habit-history-frequency');
+    const groupInstances = document.getElementById('group-history-instances');
+
+    if (titleEl) {
+      titleEl.innerHTML = isNegative
+        ? '<strong>Add Past History / Backfill Clean Days</strong>'
+        : '<strong>Add Past History / Backfill Progress</strong>';
+    }
+    if (descEl) {
+      descEl.textContent = isNegative
+        ? 'Fill in past history showing clean days vs slip-ups.'
+        : 'Fill out past heatmap activity so you don\'t start from a blank canvas.';
+    }
+    if (freqLabel) {
+      freqLabel.textContent = isNegative
+        ? 'How consistently were you clean / avoided the bad habit?'
+        : 'How consistently did you complete this habit?';
+    }
+    if (freqSelect && typeof freqSelect.querySelector === 'function') {
+      const optDaily = freqSelect.querySelector('option[value="daily"]');
+      const optFreq = freqSelect.querySelector('option[value="frequent"]');
+      const optMod = freqSelect.querySelector('option[value="moderate"]');
+      const optOcc = freqSelect.querySelector('option[value="occasional"]');
+
+      if (optDaily) optDaily.textContent = isNegative ? '100% clean (no relapses logged)' : 'Every single target period (100% complete)';
+      if (optFreq) optFreq.textContent = isNegative ? 'Most days clean (~80% clean / 20% slip-ups)' : 'Most periods (~80% / 4 out of 5)';
+      if (optMod) optMod.textContent = isNegative ? 'Half the time clean (~50% clean / 50% slip-ups)' : 'Half the time (~50% / half the time)';
+      if (optOcc) optOcc.textContent = isNegative ? 'Occasionally clean (~25% clean / 75% slip-ups)' : 'Occasionally (~25% / 1 out of 4)';
+    }
+
+    if (groupInstances) {
+      if (isNegative) {
+        groupInstances.classList.add('hidden');
+      } else {
+        groupInstances.classList.remove('hidden');
+      }
+    }
+  }
+
   function generateBackfillLogs(daysToBackfill, frequencyVal, instancesVal, dailyTarget = 1, habitType = 'positive', frequencyType = 'daily', targetDays = [1], monthlyDay = '1', monthlyTarget = 1, weeklyTarget = 1) {
     const logs = {};
     const today = new Date();
@@ -2663,16 +2718,25 @@
       return (!isNaN(parsed) && parsed > 0) ? parsed : 1;
     }
 
+    function shouldCreateLog() {
+      if (habitType === 'negative') {
+        // For quit habits: frequencyRatio is clean day percentage.
+        // Relapse (count = 1) occurs on non-clean days (probability 1 - frequencyRatio).
+        return Math.random() >= frequencyRatio;
+      }
+      return Math.random() < frequencyRatio;
+    }
+
     if (frequencyType === 'monthly') {
       let cur = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
       const todayMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
       while (cur <= todayMonthStart) {
-        if (Math.random() < frequencyRatio) {
+        if (shouldCreateLog()) {
           const logDate = getTargetDayOfMonthDate(cur.getFullYear(), cur.getMonth(), monthlyDay);
           if (logDate >= startDate && logDate <= today) {
             const key = formatDateKey(logDate);
-            logs[key] = { count: getCountForLog(), note: '' };
+            logs[key] = { count: getCountForLog(), note: habitType === 'negative' ? 'Relapse logged' : '' };
           }
         }
         cur.setMonth(cur.getMonth() + 1);
@@ -2683,14 +2747,14 @@
       let curStart = new Date(curWeekRange.startDate);
 
       while (curStart <= today) {
-        if (Math.random() < frequencyRatio) {
+        if (shouldCreateLog()) {
           const targetDate = new Date(curStart);
           const dayDiff = (targetWeekDay - targetDate.getDay() + 7) % 7;
           targetDate.setDate(targetDate.getDate() + dayDiff);
 
           if (targetDate >= startDate && targetDate <= today) {
             const key = formatDateKey(targetDate);
-            logs[key] = { count: getCountForLog(), note: '' };
+            logs[key] = { count: getCountForLog(), note: habitType === 'negative' ? 'Relapse logged' : '' };
           }
         }
         curStart.setDate(curStart.getDate() + 7);
@@ -2698,16 +2762,16 @@
     } else if (frequencyType === 'specific_days') {
       for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
         const dayOfWeek = d.getDay();
-        if (targetDays.includes(dayOfWeek) && Math.random() < frequencyRatio) {
+        if (targetDays.includes(dayOfWeek) && shouldCreateLog()) {
           const key = formatDateKey(d);
-          logs[key] = { count: getCountForLog(), note: '' };
+          logs[key] = { count: getCountForLog(), note: habitType === 'negative' ? 'Relapse logged' : '' };
         }
       }
     } else {
       for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
-        if (Math.random() < frequencyRatio) {
+        if (shouldCreateLog()) {
           const key = formatDateKey(d);
-          logs[key] = { count: getCountForLog(), note: '' };
+          logs[key] = { count: getCountForLog(), note: habitType === 'negative' ? 'Relapse logged' : '' };
         }
       }
     }
@@ -2792,6 +2856,25 @@
         habit.colorTheme = colorTheme;
         habit.parentId = parentId;
         habit.parentDependency = parentDependency;
+
+        if (elements.habitEnableBackfill && elements.habitEnableBackfill.checked) {
+          const durationVal = elements.habitHistoryDuration ? elements.habitHistoryDuration.value : '30';
+          const frequencyVal = elements.habitHistoryFrequency ? elements.habitHistoryFrequency.value : 'frequent';
+          const instancesVal = elements.habitHistoryInstances ? elements.habitHistoryInstances.value : '1';
+
+          const result = generateBackfillLogs(durationVal, frequencyVal, instancesVal, dailyTarget, type, freqType, targetDays, monthlyDay, monthlyTarget, weeklyTarget);
+          if (!habit.logs) habit.logs = {};
+
+          Object.keys(result.logs).forEach(dateKey => {
+            if (!habit.logs[dateKey]) {
+              habit.logs[dateKey] = result.logs[dateKey];
+            }
+          });
+
+          if (!habit.createdAt || result.startDateKey < habit.createdAt) {
+            habit.createdAt = result.startDateKey;
+          }
+        }
       }
     } else {
       let backfilledLogs = {};
@@ -3154,6 +3237,7 @@
     getHabitLevelColor,
     getHabitHexWithAlpha,
     normalizeHex,
+    updateBackfillWordingUI,
     getCellData,
     getWeekRangeForDate,
     getMonthRangeForDate,
