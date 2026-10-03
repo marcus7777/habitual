@@ -697,6 +697,43 @@ describe('Feature 14: 📁 Home Page Parent Habit & Sub-Habits Combined Heatmap'
   });
 });
 
+// FEATURE 15: 📅 DATE NAVIGATOR ARROWS, LONG-PRESS & FUTURE DATE REMINDERS
+describe('Feature 15: 📅 Date Navigator Arrows, Long-press & Future Reminders', () => {
+  test('shiftModalLogDate navigates dates forward and backward accurately', () => {
+    const habit = { id: 'meditation', name: 'Meditation', type: 'positive', dailyTarget: 1, logs: {} };
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'meditation', selectedYear: 2026 });
+
+    let dateValue = '2026-10-02';
+    const coreElements = HabitualCore.getElements();
+    coreElements.modalLogDateInput = {
+      get value() { return dateValue; },
+      set value(v) { dateValue = v; }
+    };
+    coreElements.modalLogHabitSelect = { value: 'meditation' };
+    coreElements.modalLogCount = { value: '1' };
+    coreElements.modalLogNote = { value: '' };
+
+    HabitualCore.openLogModal('2026-10-02', 'meditation');
+    assertEqual(dateValue, '2026-10-02', 'Initial date set to 2026-10-02');
+
+    HabitualCore.shiftModalLogDate(-1);
+    assertEqual(dateValue, '2026-10-01', 'shiftModalLogDate(-1) shifted back to 2026-10-01');
+
+    HabitualCore.shiftModalLogDate(2);
+    assertEqual(dateValue, '2026-10-03', 'shiftModalLogDate(2) shifted forward to 2026-10-03');
+  });
+
+  test('generateICSFile constructs valid iCalendar .ics formatted reminder string', () => {
+    const icsContent = HabitualCore.generateICSFile('Daily Reading', '2026-10-15');
+
+    assert(icsContent.includes('BEGIN:VCALENDAR'), 'ICS file starts with BEGIN:VCALENDAR');
+    assert(icsContent.includes('SUMMARY:Habit Reminder: Daily Reading'), 'ICS contains habit title in SUMMARY');
+    assert(icsContent.includes('DTSTART:20261015T090000'), 'ICS contains target DTSTART');
+    assert(icsContent.includes('BEGIN:VALARM'), 'ICS includes VALARM reminder alarm');
+    assert(icsContent.includes('END:VCALENDAR'), 'ICS ends with END:VCALENDAR');
+  });
+});
+
 // ============================================================================
 // FINAL REPORT
 // ============================================================================
