@@ -214,11 +214,6 @@ body.dark-theme {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
-.logo-emoji {
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
 .brand-text h1 {
   font-size: 1.3rem;
   font-weight: 700;
@@ -368,46 +363,6 @@ body.dark-theme {
   background-color: #f85149;
 }
 
-.btn-icon-ghost {
-  padding: 5px;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.btn-icon-ghost:hover {
-  background-color: var(--bg-pill);
-  color: var(--text-main);
-}
-
-/* Quick Check-in Buttons Row */
-.quick-checkin-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 12px 16px;
-}
-
-.quick-checkin-header {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.quick-buttons-grid {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
-}
-
 .quick-log-btn {
   display: inline-flex;
   align-items: center;
@@ -534,108 +489,6 @@ body.dark-theme {
   gap: 5px;
   font-size: 0.8rem;
   text-decoration: none;
-}
-
-/* Habit Filter Pills */
-.habit-bar-container {
-  overflow: hidden;
-}
-
-.habit-pills-scroll {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
-}
-
-.habit-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.habit-pill:hover {
-  background-color: var(--bg-card-hover);
-  color: var(--text-main);
-  border-color: var(--text-muted);
-}
-
-.habit-pill.active {
-  background-color: var(--bg-pill-active);
-  color: var(--text-main);
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 1px var(--accent-blue);
-}
-
-.pill-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-/* Global Controls Bar */
-.controls-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.controls-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.controls-left h2 {
-  font-size: 1.15rem;
-  font-weight: 600;
-}
-
-.controls-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.type-badge {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.type-badge.positive {
-  background-color: rgba(63, 185, 80, 0.15);
-  color: var(--accent-green);
-  border: 1px solid rgba(63, 185, 80, 0.3);
-}
-
-.type-badge.negative {
-  background-color: rgba(248, 81, 73, 0.15);
-  color: #f85149;
-  border: 1px solid rgba(248, 81, 73, 0.3);
 }
 
 .select-input {
@@ -1382,18 +1235,6 @@ body.dark-theme {
   font-size: 1rem;
 }
 
-.log-date-badge {
-  background-color: var(--bg-pill);
-  border: 1px solid var(--border-color);
-  padding: 7px 12px;
-  border-radius: var(--radius-md);
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--accent-blue);
-  text-align: center;
-  font-family: var(--font-mono);
-}
-
 /* Data Option Cards */
 .data-option-card {
   display: flex;
@@ -1410,12 +1251,6 @@ body.dark-theme {
 .data-option-card.highlight-card {
   border-color: var(--accent-blue);
   background-color: rgba(88, 166, 255, 0.05);
-}
-
-.data-card-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .data-option-card.danger-zone {
@@ -1590,12 +1425,6 @@ body.dark-theme {
 .badge-subhabits:hover {
   background-color: var(--bg-pill-active);
   border-color: var(--accent-blue);
-}
-
-.btn-xs {
-  padding: 4px 10px;
-  font-size: 0.78rem;
-  border-radius: var(--radius-sm);
 }
 
 .subhabits-section-header {
