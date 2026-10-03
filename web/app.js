@@ -3152,6 +3152,12 @@
       pendingQuickLogAfterHabit = false;
       const createdHabitId = id || (state.habits.length > 0 ? state.habits[state.habits.length - 1].id : null);
       openLogModal(activeLogDateKey || getTodayKey(), createdHabitId);
+    } else if (!id) {
+      if (parentId) {
+        navigateTo(`#/habit/${parentId}`);
+      } else {
+        navigateTo(`#/habit/${state.selectedHabitId}`);
+      }
     }
   }
 
