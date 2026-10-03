@@ -243,20 +243,20 @@
         <button id="modal-habit-close" class="btn-close">&times;</button>
       </div>
       <form id="form-habit" class="modal-body">
-        <input type="hidden" id="habit-id">
+        <input type="hidden" name="habit-id" id="habit-id">
 
         <div class="form-group">
           <label for="habit-name">Habit Name <span class="required">*</span></label>
-          <input type="text" id="habit-name" class="text-input" placeholder="e.g. Daily Coding, Gym, Days since Caffeine" required>
-          <div id="habit-id-preview" class="habit-id-preview hidden">
-            <small class="muted-text">Habit ID: <code id="habit-id-display"></code></small>
+          <input type="text" name="habit-name" id="habit-name" class="text-input" placeholder="e.g. Daily Coding, Gym, Days since Caffeine" required>
+          <div name="habit-id-preview" id="habit-id-preview" class="habit-id-preview hidden">
+            <small class="muted-text">Habit ID: <code name="habit-id-display" id="habit-id-display"></code></small>
           </div>
         </div>
 
-        <div id="habit-form-details" class="hidden">
+        <div name="habit-form-details" id="habit-form-details" class="hidden">
           <div class="form-group">
             <label for="habit-parent">Parent Habit (Nest inside another habit)</label>
-            <select id="habit-parent" class="select-input">
+            <select name="habit-parent" id="habit-parent" class="select-input">
               <option value="">None (Top-Level Habit)</option>
               <!-- Populated dynamically by JS -->
             </select>
@@ -266,7 +266,7 @@
         <!-- Parent Dependency Options (visible when a Parent Habit is selected) -->
         <div class="form-group highlight-form-box hidden" id="parent-dependency-section">
           <label for="habit-parent-dependency"><strong>Parent Task Dependency Rule</strong></label>
-          <select id="habit-parent-dependency" class="select-input">
+          <select name="habit-parent-dependency" id="habit-parent-dependency" class="select-input">
             <option value="none" selected>Independent (Can be logged on any day)</option>
             <option value="requires_parent">Requires Parent Completed First (Must log parent task first)</option>
             <option value="auto_log_parent">Auto-Log Parent Task (Logging sub-habit automatically logs parent task)</option>
@@ -300,17 +300,17 @@
 
         <div class="form-group">
           <label for="habit-description">Description / Goal</label>
-          <input type="text" id="habit-description" class="text-input" placeholder="e.g. Build long-term consistency">
+          <input type="text" name="habit-description" id="habit-description" class="text-input" placeholder="e.g. Build long-term consistency">
         </div>
 
         <div class="form-group">
           <label for="habit-category">Category</label>
-          <input type="text" id="habit-category" class="text-input" placeholder="e.g. Health, Career, Learning" value="General">
+          <input type="text" name="habit-category" id="habit-category" class="text-input" placeholder="e.g. Health, Career, Learning" value="General">
         </div>
 
         <div class="form-group">
           <label class="checkbox-label">
-            <input type="checkbox" id="habit-show-streak">
+            <input type="checkbox" name="habit-show-streak" id="habit-show-streak">
             <span><strong>Show Streak Icon / Badge</strong> (🔥 active streak counter)</span>
           </label>
           <small class="muted-text">Display current active streak counter in the card header.</small>
@@ -318,7 +318,7 @@
 
         <div class="form-group">
           <label class="checkbox-label">
-            <input type="checkbox" id="habit-is-paused">
+            <input type="checkbox" name="habit-is-paused" id="habit-is-paused">
             <span><strong>Pause Habit</strong> (⏸️ Temporarily pause tracking)</span>
           </label>
           <small class="muted-text">Paused habits display a ⏸️ Paused badge on cards and in habit selection menus.</small>
@@ -376,8 +376,8 @@
           <!-- Custom HEX Colour Controls -->
           <div class="custom-color-input-container" id="custom-color-container">
             <div class="custom-color-picker-row">
-              <input type="color" id="habit-custom-color-picker" value="#39d353" class="color-picker-input" title="Choose color visually" aria-label="Custom Color Picker">
-              <input type="text" id="habit-custom-color-hex" class="text-input hex-input" placeholder="#39d353" value="#39d353" maxlength="7" spellcheck="false" aria-label="Custom HEX Code">
+              <input type="color" name="habit-custom-color-picker" id="habit-custom-color-picker" value="#39d353" class="color-picker-input" title="Choose color visually" aria-label="Custom Color Picker">
+              <input type="text" name="habit-custom-color-hex" id="habit-custom-color-hex" class="text-input hex-input" placeholder="#39d353" value="#39d353" maxlength="7" spellcheck="false" aria-label="Custom HEX Code">
               <span class="hex-label-hint">Custom HEX Code</span>
             </div>
           </div>
@@ -386,7 +386,7 @@
         <!-- Target Schedule & Frequency Section -->
         <div class="form-group highlight-form-box">
           <label for="habit-frequency-type"><strong>Target Schedule & Frequency</strong></label>
-          <select id="habit-frequency-type" class="select-input">
+          <select name="habit-frequency-type" id="habit-frequency-type" class="select-input">
             <option value="daily" selected>Every Day (Daily)</option>
             <option value="weekly">Weekly Target (e.g. Every Monday / 1x per week)</option>
             <option value="monthly">Monthly Target (e.g. 1x per month)</option>
@@ -399,7 +399,7 @@
           <div id="freq-daily-options" class="schedule-sub-options">
             <div class="form-group margin-top-sm">
               <label for="habit-daily-target">Daily Target Count (Number of times per day)</label>
-              <input type="number" id="habit-daily-target" class="text-input" min="1" max="100" value="1">
+              <input type="number" name="habit-daily-target" id="habit-daily-target" class="text-input" min="1" max="100" value="1">
               <small class="muted-text">Target number of check-ins / completions per active day.</small>
             </div>
           </div>
@@ -408,7 +408,7 @@
           <div id="freq-weekly-options" class="schedule-sub-options hidden">
             <div class="form-group margin-top-sm">
               <label for="habit-weekly-day">Target Day of Week</label>
-              <select id="habit-weekly-day" class="select-input">
+              <select name="habit-weekly-day" id="habit-weekly-day" class="select-input">
                 <option value="0" selected>Every Sunday</option>
                 <option value="1">Every Monday</option>
                 <option value="2">Every Tuesday</option>
@@ -420,16 +420,16 @@
             </div>
             <div class="form-group">
               <label for="habit-weekly-target">Times per period required</label>
-              <input type="number" id="habit-weekly-target" class="text-input" min="1" max="100" value="1">
+              <input type="number" name="habit-weekly-target" id="habit-weekly-target" class="text-input" min="1" max="100" value="1">
             </div>
             <div class="form-group">
               <label for="habit-weekly-interval">Repeat Interval (Every N Weeks)</label>
-              <input type="number" id="habit-weekly-interval" class="text-input" min="1" max="52" value="1">
+              <input type="number" name="habit-weekly-interval" id="habit-weekly-interval" class="text-input" min="1" max="52" value="1">
               <small class="muted-text">Set to 1 for every week, 2 for bi-weekly (every 2 weeks), etc.</small>
             </div>
             <div class="form-group">
               <label class="checkbox-label">
-                <input type="checkbox" id="habit-color-whole-week" checked>
+                <input type="checkbox" name="habit-color-whole-week" id="habit-color-whole-week" checked>
                 <span><strong>Color entire week</strong> when target is completed</span>
               </label>
               <small class="muted-text">Logging your practice session colours the heatmap for that full week block until the next target day.</small>
@@ -440,7 +440,7 @@
           <div id="freq-monthly-options" class="schedule-sub-options hidden">
             <div class="form-group margin-top-sm">
               <label for="habit-monthly-day">Target Day of Month</label>
-              <select id="habit-monthly-day" class="select-input">
+              <select name="habit-monthly-day" id="habit-monthly-day" class="select-input">
                 <option value="1" selected>1st of Month</option>
                 <option value="5">5th of Month</option>
                 <option value="10">10th of Month</option>
@@ -452,16 +452,16 @@
             </div>
             <div class="form-group">
               <label for="habit-monthly-target">Times per period required</label>
-              <input type="number" id="habit-monthly-target" class="text-input" min="1" max="100" value="1">
+              <input type="number" name="habit-monthly-target" id="habit-monthly-target" class="text-input" min="1" max="100" value="1">
             </div>
             <div class="form-group">
               <label for="habit-monthly-interval">Repeat Interval (Every N Months)</label>
-              <input type="number" id="habit-monthly-interval" class="text-input" min="1" max="24" value="1">
+              <input type="number" name="habit-monthly-interval" id="habit-monthly-interval" class="text-input" min="1" max="24" value="1">
               <small class="muted-text">Set to 1 for every month, 3 for quarterly (every 3 months), etc.</small>
             </div>
             <div class="form-group">
               <label class="checkbox-label">
-                <input type="checkbox" id="habit-color-whole-month" checked>
+                <input type="checkbox" name="habit-color-whole-month" id="habit-color-whole-month" checked>
                 <span><strong>Color entire month block</strong> when target is completed</span>
               </label>
               <small class="muted-text">Logging your check-in colours the heatmap for that full month block.</small>
@@ -484,11 +484,11 @@
             </div>
             <div class="form-group">
               <label for="habit-specific-interval">Repeat Interval (Every N Weeks)</label>
-              <input type="number" id="habit-specific-interval" class="text-input" min="1" max="52" value="1">
+              <input type="number" name="habit-specific-interval" id="habit-specific-interval" class="text-input" min="1" max="52" value="1">
             </div>
             <div class="form-group">
               <label class="checkbox-label">
-                <input type="checkbox" id="habit-specific-color-whole-week" checked>
+                <input type="checkbox" name="habit-specific-color-whole-week" id="habit-specific-color-whole-week" checked>
                 <span><strong>Color entire week block</strong> when weekly target is met</span>
               </label>
             </div>
@@ -498,17 +498,17 @@
           <div id="freq-custom-options" class="schedule-sub-options hidden">
             <div class="form-group margin-top-sm">
               <label for="habit-custom-target">Target Completion Count</label>
-              <input type="number" id="habit-custom-target" class="text-input" min="1" max="100" value="1">
+              <input type="number" name="habit-custom-target" id="habit-custom-target" class="text-input" min="1" max="100" value="1">
               <small class="muted-text">Number of times required in each period.</small>
             </div>
             <div class="form-group">
               <label for="habit-custom-interval">Interval Number (Arbitrary Period)</label>
-              <input type="number" id="habit-custom-interval" class="text-input" min="1" max="365" value="3">
+              <input type="number" name="habit-custom-interval" id="habit-custom-interval" class="text-input" min="1" max="365" value="3">
               <small class="muted-text">Frequency length (e.g. 3, 5, 10, 14, 30, etc.).</small>
             </div>
             <div class="form-group">
               <label for="habit-custom-unit">Interval Time Unit</label>
-              <select id="habit-custom-unit" class="select-input">
+              <select name="habit-custom-unit" id="habit-custom-unit" class="select-input">
                 <option value="days" selected>Days (e.g. Every 3 Days, Every 10 Days)</option>
                 <option value="weeks">Weeks (e.g. Every 2 Weeks, Every 4 Weeks)</option>
                 <option value="months">Months (e.g. Every 2 Months, Every 3 Months)</option>
@@ -520,7 +520,7 @@
         <!-- Starting Point / History Backfill -->
         <div class="form-group highlight-form-box" id="backfill-section">
           <label class="checkbox-label">
-            <input type="checkbox" id="habit-enable-backfill">
+            <input type="checkbox" name="habit-enable-backfill" id="habit-enable-backfill">
             <span id="backfill-checkbox-title"><strong>Add Past History / Backfill Progress</strong></span>
           </label>
           <small class="muted-text" id="backfill-checkbox-desc">Fill out past heatmap activity so you don't start from a blank canvas.</small>
@@ -528,12 +528,12 @@
           <div id="backfill-options-container" class="backfill-options-grid hidden">
             <div class="form-group">
               <label for="habit-history-duration" id="label-history-duration">How many days to backfill?</label>
-              <input id="habit-history-duration" type="number" class="text-input" min="1" max="3650" value="30" placeholder="e.g. 30">
+              <input name="habit-history-duration" id="habit-history-duration" type="number" class="text-input" min="1" max="3650" value="30" placeholder="e.g. 30">
             </div>
 
             <div class="form-group">
               <label for="habit-history-frequency" id="label-history-frequency">How consistently did you complete this habit?</label>
-              <select id="habit-history-frequency" class="select-input">
+              <select name="habit-history-frequency" id="habit-history-frequency" class="select-input">
                 <option value="daily">Every single target period (100% complete)</option>
                 <option value="frequent" selected>Most periods (~80% / 4 out of 5)</option>
                 <option value="moderate">Half the time (~50% / half the time)</option>
@@ -543,7 +543,7 @@
 
             <div class="form-group" id="group-history-instances">
               <label for="habit-history-instances" id="label-history-instances">Daily completion count / instances per active day</label>
-              <select id="habit-history-instances" class="select-input">
+              <select name="habit-history-instances" id="habit-history-instances" class="select-input">
                 <option value="1" selected>1 instance per day</option>
                 <option value="2">2 instances per day</option>
                 <option value="3">3 instances per day</option>
@@ -691,6 +691,11 @@
   </div>
 
   <script src="please.js" defer></script>
+  <!-- App Core -->
+  <script src="js/state.js" defer></script>
+  <script src="js/storage.js" defer></script>
+  <script src="js/render.js" defer></script>
+  <script src="js/ui.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

@@ -18,6 +18,8 @@ const mockLocalStorage = (() => {
 })();
 
 global.window = global.window || {};
+global.window.HabitualCore = global.window.HabitualCore || {};
+
 global.document = global.document || {
   addEventListener: () => {},
   getElementById: () => null,
@@ -27,8 +29,25 @@ global.document = global.document || {
 global.localStorage = mockLocalStorage;
 global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } };
 
-// Load Habitual Core
-const HabitualCore = require('../web/app.js');
+// Load Habitual Core Files
+require('../web/js/state.js');
+require('../web/js/storage.js');
+require('../web/js/render.js');
+require('../web/js/ui.js');
+const HabitualCore = global.window.HabitualCore;
+
+HabitualCore.resetState = function() {
+  HabitualCore.state = {
+    habits: [],
+    selectedHabitId: 'all',
+    selectedYear: HabitualCore.CURRENT_YEAR,
+    showQuickLogOnStartup: false
+  };
+};
+
+HabitualCore.getState = () => HabitualCore.state;
+HabitualCore.setState = (newState) => { HabitualCore.state = newState; };
+HabitualCore.getElements = () => HabitualCore.elements;
 
 // --- SIMPLE ASSERTION & TEST HARNESS ---
 let totalTests = 0;
