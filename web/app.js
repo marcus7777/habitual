@@ -1333,6 +1333,11 @@
       } else if (habit.frequencyType === 'specific_days' && habit.targetDays && habit.targetDays.length > 0) {
         const daysStr = habit.targetDays.map(d => dayNames[d]).join(', ');
         frequencyBadgeHTML = `<span class="badge-frequency" title="Target days: ${daysStr}">📅 ${daysStr}</span>`;
+      } else if (habit.frequencyType === 'custom_interval') {
+        const cTarget = habit.customTarget || 1;
+        const cInterval = habit.customInterval || 3;
+        const cUnit = habit.customUnit || 'days';
+        frequencyBadgeHTML = `<span class="badge-frequency" title="Custom schedule: ${cTarget}x every ${cInterval} ${cUnit}">📅 ${cTarget}x every ${cInterval} ${cUnit}</span>`;
       }
     }
 
@@ -2640,11 +2645,13 @@
     const weeklyOpts = document.getElementById('freq-weekly-options');
     const monthlyOpts = document.getElementById('freq-monthly-options');
     const specificOpts = document.getElementById('freq-specific-options');
+    const customOpts = document.getElementById('freq-custom-options');
 
     if (dailyOpts) dailyOpts.classList.toggle('hidden', val !== 'daily');
     if (weeklyOpts) weeklyOpts.classList.toggle('hidden', val !== 'weekly');
     if (monthlyOpts) monthlyOpts.classList.toggle('hidden', val !== 'monthly');
     if (specificOpts) specificOpts.classList.toggle('hidden', val !== 'specific_days');
+    if (customOpts) customOpts.classList.toggle('hidden', val !== 'custom_interval');
   }
 
   function openHabitModal(habitToEdit = null, defaultParentId = null) {
@@ -2742,6 +2749,13 @@
         });
         const colorChk = document.getElementById('habit-specific-color-whole-week');
         if (colorChk) colorChk.checked = habitToEdit.colorWholeWeek !== false;
+      } else if (freqType === 'custom_interval') {
+        const cTargetInput = document.getElementById('habit-custom-target');
+        if (cTargetInput) cTargetInput.value = habitToEdit.customTarget || 1;
+        const cIntervalInput = document.getElementById('habit-custom-interval');
+        if (cIntervalInput) cIntervalInput.value = habitToEdit.customInterval || 3;
+        const cUnitSelect = document.getElementById('habit-custom-unit');
+        if (cUnitSelect) cUnitSelect.value = habitToEdit.customUnit || 'days';
       }
 
       if (elements.backfillSection) elements.backfillSection.classList.remove('hidden');
@@ -2799,6 +2813,13 @@
       });
       const specColorChk = document.getElementById('habit-specific-color-whole-week');
       if (specColorChk) specColorChk.checked = true;
+
+      const cTargetInput = document.getElementById('habit-custom-target');
+      if (cTargetInput) cTargetInput.value = '1';
+      const cIntervalInput = document.getElementById('habit-custom-interval');
+      if (cIntervalInput) cIntervalInput.value = '3';
+      const cUnitSelect = document.getElementById('habit-custom-unit');
+      if (cUnitSelect) cUnitSelect.value = 'days';
 
       if (elements.backfillSection) elements.backfillSection.classList.remove('hidden');
       if (elements.habitEnableBackfill) elements.habitEnableBackfill.checked = false;
@@ -3042,6 +3063,9 @@
     let monthlyTarget = 1;
     let colorWholeWeek = true;
     let colorWholeMonth = true;
+    let customTarget = 1;
+    let customInterval = 3;
+    let customUnit = 'days';
 
     if (freqType === 'weekly') {
       const dayVal = parseInt(document.getElementById('habit-weekly-day').value, 10);
@@ -3062,6 +3086,13 @@
       weeklyTarget = targetDays.length;
       const chk = document.getElementById('habit-specific-color-whole-week');
       colorWholeWeek = chk ? chk.checked : true;
+    } else if (freqType === 'custom_interval') {
+      const cTargetInput = document.getElementById('habit-custom-target');
+      customTarget = cTargetInput ? (parseInt(cTargetInput.value, 10) || 1) : 1;
+      const cIntervalInput = document.getElementById('habit-custom-interval');
+      customInterval = cIntervalInput ? (parseInt(cIntervalInput.value, 10) || 3) : 3;
+      const cUnitSelect = document.getElementById('habit-custom-unit');
+      customUnit = cUnitSelect ? cUnitSelect.value : 'days';
     }
 
     let colorTheme = typeof Please !== 'undefined' ? Please.make_color({ from_hash: id || name || 'default' }) : 'green';
@@ -3091,6 +3122,9 @@
         habit.monthlyTarget = monthlyTarget;
         habit.colorWholeWeek = colorWholeWeek;
         habit.colorWholeMonth = colorWholeMonth;
+        habit.customTarget = customTarget;
+        habit.customInterval = customInterval;
+        habit.customUnit = customUnit;
         habit.colorTheme = colorTheme;
         habit.parentId = parentId;
         habit.parentDependency = parentDependency;
@@ -3146,6 +3180,9 @@
         monthlyTarget,
         colorWholeWeek,
         colorWholeMonth,
+        customTarget,
+        customInterval,
+        customUnit,
         parentId,
         parentDependency,
         createdAt: createdAtKey,
