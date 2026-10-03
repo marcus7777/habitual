@@ -185,13 +185,13 @@
           const today = core.getTodayKey();
           assertEqual(core.getDaysAgoKey(0), today);
         });
-        test('Heatmap Level Calculation scales levels 0 to 4', () => {
+        test('Heatmap Ratio Calculation scales continuous alpha', () => {
           const h = { id: 'h1', dailyTarget: 4, type: 'positive', colorTheme: 'green' };
-          assertEqual(core.getHabitLevelColor(h, 0), '#161b22');
-          assertEqual(core.getHabitLevelColor(h, 1), '#1f492e');
-          assertEqual(core.getHabitLevelColor(h, 2), '#28773b');
-          assertEqual(core.getHabitLevelColor(h, 3), '#30a547');
-          assertEqual(core.getHabitLevelColor(h, 4), '#39d353');
+          assertEqual(core.getHabitHexWithAlpha(h, 0.0), '#39d35300');
+          assertEqual(core.getHabitHexWithAlpha(h, 0.25), '#39d35340');
+          assertEqual(core.getHabitHexWithAlpha(h, 0.50), '#39d35380');
+          assertEqual(core.getHabitHexWithAlpha(h, 0.75), '#39d353bf');
+          assertEqual(core.getHabitHexWithAlpha(h, 1.0), '#39d353ff');
         });
       });
 

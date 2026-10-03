@@ -115,14 +115,14 @@ describe('Feature 1: 📊 7x52 Heatmap Grid & Date Shading Logic', () => {
     assertEqual(HabitualCore.getDaysAgoKey(1), expectedYesterday, 'Days ago 1 is yesterday');
   });
 
-  test('Heatmap Level Calculation scales levels 0 to 4 based on completion target', () => {
-    const habit = { id: 'h1', dailyTarget: 4, type: 'positive', colorTheme: 'green' };
+  test('Heatmap Ratio Calculation scales continuous alpha based on completion ratio', () => {
+    const habit = { id: 'h1', dailyTarget: 4, type: 'positive', colorTheme: 'green' }; // #39d353
 
-    assertEqual(HabitualCore.getHabitLevelColor(habit, 0), '#161b22', '0 count returns level 0 background');
-    assertEqual(HabitualCore.getHabitLevelColor(habit, 1), '#1f492e', '1/4 ratio returns level 1 blended green');
-    assertEqual(HabitualCore.getHabitLevelColor(habit, 2), '#28773b', '2/4 ratio returns level 2 blended green');
-    assertEqual(HabitualCore.getHabitLevelColor(habit, 3), '#30a547', '3/4 ratio returns level 3 blended green');
-    assertEqual(HabitualCore.getHabitLevelColor(habit, 4), '#39d353', '4/4 target met returns level 4 full green');
+    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.0), '#39d35300', '0 ratio returns transparent hex');
+    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.25), '#39d35340', '1/4 ratio returns 25% alpha hex');
+    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.50), '#39d35380', '2/4 ratio returns 50% alpha hex');
+    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.75), '#39d353bf', '3/4 ratio returns 75% alpha hex');
+    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 1.0), '#39d353ff', '4/4 ratio returns 100% alpha hex');
   });
 
   test('Week Range Boundaries calculate 7-day windows', () => {
