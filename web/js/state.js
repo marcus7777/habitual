@@ -411,21 +411,23 @@ window.HabitualCore = window.HabitualCore || {};
       });
       const allPaused = (habitList.length > 0) && habitList.every(h => core.isHabitPausedOnDate(h, dateStr));
       const avgRatio = habitList.length > 0 ? (totalRatios / habitList.length) : 0;
-      return { count: activeCount, ratio: avgRatio, activeHabits, isRelapse: false, isPaused: allPaused, note: allPaused ? '⏸️ Paused' : '', isTargetDay: false };
+      const hasNote = habitList.some(h => h.logs && h.logs[dateStr] && h.logs[dateStr].note && h.logs[dateStr].note.trim() !== '');
+      return { count: activeCount, ratio: avgRatio, activeHabits, isRelapse: false, isPaused: allPaused, note: allPaused ? '⏸️ Paused' : '', isTargetDay: false, hasNote };
     }
 
     const habit = target;
     const log = (habit.logs && habit.logs[dateStr]) ? habit.logs[dateStr] : null;
     const isPaused = core.isHabitPausedOnDate(habit, dateStr);
+    const hasNote = Boolean(log && log.note && log.note.trim() !== '');
 
     if (isPaused && (!log || log.count === 0)) {
-      return { count: 0, ratio: 0, isRelapse: false, isPaused: true, note: (log && log.note) ? log.note : '⏸️ Paused (Tracking paused)', isTargetDay: false };
+      return { count: 0, ratio: 0, isRelapse: false, isPaused: true, note: (log && log.note) ? log.note : '⏸️ Paused (Tracking paused)', isTargetDay: false, hasNote };
     }
 
     if (habit.type === 'negative') {
-      if (log && log.count > 0) return { count: log.count, ratio: 0, isRelapse: true, note: log.note || 'Relapse logged', isTargetDay: false };
-      if (dateStr <= todayStr) return { count: 1, ratio: 1.0, isRelapse: false, note: 'Clean day', isTargetDay: false };
-      return { count: 0, ratio: 0, isRelapse: false, note: '', isTargetDay: false };
+      if (log && log.count > 0) return { count: log.count, ratio: 0, isRelapse: true, note: log.note || 'Relapse logged', isTargetDay: false, hasNote };
+      if (dateStr <= todayStr) return { count: 1, ratio: 1.0, isRelapse: false, note: 'Clean day', isTargetDay: false, hasNote };
+      return { count: 0, ratio: 0, isRelapse: false, note: '', isTargetDay: false, hasNote };
     }
 
     const dObj = new Date(dateStr + 'T00:00:00');
@@ -439,7 +441,7 @@ window.HabitualCore = window.HabitualCore || {};
         const parentLog = parent.logs ? parent.logs[dateStr] : null;
         let isParentDoneOnDate = parent.type === 'negative' ? ((!parentLog || parentLog.count === 0) && dateStr <= todayStr) : (parentLog && parentLog.count > 0);
         if (!isParentDoneOnDate && count === 0) {
-          return { count: 0, ratio: 0, isRelapse: false, note: note || `Parent task "${parent.name}" was not completed on this date (Sub-habit inactive)`, isTargetDay: false };
+          return { count: 0, ratio: 0, isRelapse: false, note: note || `Parent task "${parent.name}" was not completed on this date (Sub-habit inactive)`, isTargetDay: false, hasNote };
         }
       }
     }
@@ -451,9 +453,9 @@ window.HabitualCore = window.HabitualCore || {};
       const weeklyTarget = habit.weeklyTarget || 1;
       const weeklyCount = core.getWeeklyLogCount(habit, weekRange.startKey, weekRange.endKey);
       if (weeklyCount >= weeklyTarget && habit.colorWholeWeek !== false) {
-        return { count: count || 1, ratio: 1.0, isRelapse: false, note: note || `Weekly goal met (${weeklyCount}/${weeklyTarget})`, isTargetDay };
+        return { count: count || 1, ratio: 1.0, isRelapse: false, note: note || `Weekly goal met (${weeklyCount}/${weeklyTarget})`, isTargetDay, hasNote };
       }
-      return { count, ratio: count > 0 ? Math.min(1.0, count / weeklyTarget) : 0, isRelapse: false, note: note || (isTargetDay && count === 0 ? 'Target Day' : ''), isTargetDay };
+      return { count, ratio: count > 0 ? Math.min(1.0, count / weeklyTarget) : 0, isRelapse: false, note: note || (isTargetDay && count === 0 ? 'Target Day' : ''), isTargetDay, hasNote };
     } else if (habit.frequencyType === 'monthly') {
       const monthRange = core.getMonthRangeForDate(dateStr);
       const targetDate = core.getTargetDayOfMonthDate(monthRange.year, monthRange.month, habit.monthlyDay || '1');
@@ -461,22 +463,22 @@ window.HabitualCore = window.HabitualCore || {};
       const monthlyTarget = habit.monthlyTarget || 1;
       const monthlyCount = core.getMonthlyLogCount(habit, monthRange.startKey, monthRange.endKey);
       if (monthlyCount >= monthlyTarget && habit.colorWholeMonth !== false) {
-        return { count: count || 1, ratio: 1.0, isRelapse: false, note: note || `Monthly goal met (${monthlyCount}/${monthlyTarget})`, isTargetDay };
+        return { count: count || 1, ratio: 1.0, isRelapse: false, note: note || `Monthly goal met (${monthlyCount}/${monthlyTarget})`, isTargetDay, hasNote };
       }
-      return { count, ratio: count > 0 ? Math.min(1.0, count / monthlyTarget) : 0, isRelapse: false, note: note || (isTargetDay && count === 0 ? 'Target Day' : ''), isTargetDay };
+      return { count, ratio: count > 0 ? Math.min(1.0, count / monthlyTarget) : 0, isRelapse: false, note: note || (isTargetDay && count === 0 ? 'Target Day' : ''), isTargetDay, hasNote };
     } else if (habit.frequencyType === 'specific_days') {
       const targetDays = habit.targetDays || [1, 3, 5];
       const isTargetDay = targetDays.includes(dayOfWeek);
       const weekRange = core.getWeekRangeForDate(dateStr, targetDays[0] || 1);
       const activeDaysCount = core.getWeeklyActiveDaysCount(habit, weekRange.startKey, weekRange.endKey);
       if (activeDaysCount >= targetDays.length && habit.colorWholeWeek !== false) {
-        return { count: count || 1, ratio: 1.0, isRelapse: false, note: note || 'Weekly target met', isTargetDay };
+        return { count: count || 1, ratio: 1.0, isRelapse: false, note: note || 'Weekly target met', isTargetDay, hasNote };
       }
-      return { count, ratio: count > 0 ? 1.0 : 0, isRelapse: false, note: note || (isTargetDay && count === 0 ? 'Target Day' : ''), isTargetDay };
+      return { count, ratio: count > 0 ? 1.0 : 0, isRelapse: false, note: note || (isTargetDay && count === 0 ? 'Target Day' : ''), isTargetDay, hasNote };
     }
 
     const dailyTarget = Math.max(1, habit.dailyTarget || 1);
-    return { count, ratio: count > 0 ? Math.min(1.0, count / dailyTarget) : 0, isRelapse: false, note, isTargetDay: false };
+    return { count, ratio: count > 0 ? Math.min(1.0, count / dailyTarget) : 0, isRelapse: false, note, isTargetDay: false, hasNote };
   };
 
   core.calculateStreakForTarget = function(target) {
