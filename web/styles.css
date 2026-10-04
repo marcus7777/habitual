@@ -676,6 +676,7 @@ body.dark-theme {
   flex-direction: column;
   gap: 0;
   user-select: none;
+  padding: 1px;
 }
 
 .heatmap-weeks-grid {
