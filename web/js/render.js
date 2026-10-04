@@ -520,8 +520,11 @@ window.HabitualCore = window.HabitualCore || {};
             habitsDoneAttr = `data-habits-done="${core.escapeHTML(cellData.activeHabits.map(h => h.name).join(', '))}"`;
           }
         } else {
+          const baseHex = core.normalizeHex(core.getHabitHexColor(habit));
           if (cellData.ratio > 0) {
             squareStyle = `background-color: ${core.getHabitHexWithAlpha(habit, cellData.ratio)};`;
+          } else {
+            squareStyle = `background-color: ${baseHex}11;`;
           }
         }
 

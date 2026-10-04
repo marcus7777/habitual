@@ -138,7 +138,9 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.getHabitHexWithAlpha = function(habit, ratio) {
     const hex = core.normalizeHex(core.getHabitHexColor(habit));
-    const alpha = Math.min(255, Math.max(0, Math.round((ratio || 0) * 255)));
+    if (!ratio || ratio <= 0) return hex + '00';
+    const minAlpha = 34; // 0x22 floor for active progress
+    const alpha = Math.min(255, Math.max(minAlpha, Math.round(minAlpha + Math.min(1.0, ratio) * (255 - minAlpha))));
     const alphaHex = alpha.toString(16).padStart(2, '0');
     return hex + alphaHex;
   };

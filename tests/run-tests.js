@@ -200,9 +200,9 @@ describe('Feature 1: 📊 7x52 Heatmap Grid & Date Shading Logic', () => {
     const habit = { id: 'h1', dailyTarget: 4, type: 'positive', colorTheme: 'green' }; // #39d353
 
     assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.0), '#39d35300', '0 ratio returns transparent hex');
-    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.25), '#39d35340', '1/4 ratio returns 25% alpha hex');
-    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.50), '#39d35380', '2/4 ratio returns 50% alpha hex');
-    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.75), '#39d353bf', '3/4 ratio returns 75% alpha hex');
+    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.25), '#39d35359', '1/4 ratio returns floor 22 + scaled alpha hex');
+    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.50), '#39d35391', '2/4 ratio returns floor 22 + scaled alpha hex');
+    assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.75), '#39d353c8', '3/4 ratio returns floor 22 + scaled alpha hex');
     assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 1.0), '#39d353ff', '4/4 ratio returns 100% alpha hex');
   });
 
@@ -791,9 +791,9 @@ describe('Feature 13: 🎨 255-Level Transparency Combined Heatmap', () => {
     const hexFull = HabitualCore.getHabitHexWithAlpha(habit, 1.0);
     assertEqual(hexFull, '#39d353ff', '100% target met generates full opacity alpha ff');
 
-    // 50% target met (ratio = 0.5) -> alpha 128 -> 80
+    // 50% target met (ratio = 0.5) -> alpha 145 -> 91
     const hexHalf = HabitualCore.getHabitHexWithAlpha(habit, 0.5);
-    assertEqual(hexHalf, '#39d35380', '50% target met generates 128 alpha (80 in hex)');
+    assertEqual(hexHalf, '#39d35391', '50% target met generates 145 alpha (91 in hex) starting from floor 22');
 
     // 0% target met (ratio = 0.0) -> alpha 0 -> 00
     const hexZero = HabitualCore.getHabitHexWithAlpha(habit, 0.0);
@@ -815,7 +815,7 @@ describe('Feature 13: 🎨 255-Level Transparency Combined Heatmap', () => {
     assertEqual(cellData.activeHabits.length, 2, '2 items in activeHabits array');
 
     const h1Data = cellData.activeHabits.find(a => a.id === 'h1');
-    assertEqual(h1Data.color, '#39d35380', '50% completion translated to #39d35380 8-char hex transparency');
+    assertEqual(h1Data.color, '#39d35391', '50% completion translated to #39d35391 8-char hex transparency');
 
     const h2Data = cellData.activeHabits.find(a => a.id === 'h2');
     assertEqual(h2Data.color, '#388bfdff', '100% completion translated to #388bfdff 8-char hex transparency');
@@ -1220,6 +1220,13 @@ describe('Feature 21: ✂️ Cut-off Top Right Corner Note Indicator', () => {
     const html = card.innerHTML;
     assert(html.includes('has-note'), 'Rendered HTML includes has-note class');
     assert(html.includes('data-has-note="true"'), 'Rendered HTML includes data-has-note="true" attribute');
+  });
+
+  test('buildHeatmapCard sets background-color with 11 alpha hint for uncompleted day squares', () => {
+    const habit = { id: 'reading', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: 'green', logs: {} };
+    const card = HabitualCore.buildHeatmapCard(habit, 2026, 'green', '2026-10-03');
+    const html = card.innerHTML;
+    assert(html.includes('background-color: #39d35311;'), 'Uncompleted day square receives #39d35311 hint background');
   });
 });
 
