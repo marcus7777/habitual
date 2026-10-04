@@ -697,10 +697,10 @@ body.dark-theme {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: 1.5px;
+  border-radius: 0.27vw;
   cursor: pointer;
-  outline: 1px solid rgba(255, 255, 255, 0.03);
-  transition: transform 0.1s ease, outline 0.1s ease;
+  outline: 1px solid rgba(49, 49, 49);
+  transition: transform 0.2s ease, outline 0.1s ease;
 }
 
 .day-square.has-note {
