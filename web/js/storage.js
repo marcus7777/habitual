@@ -123,6 +123,7 @@ window.HabitualCore = window.HabitualCore || {};
       };
 
       localStorage.setItem(core.STORAGE_KEY, JSON.stringify(payload));
+      if (core.updatePWAWidgets) core.updatePWAWidgets();
     } catch (e) {
       console.error('Failed to save state to LocalStorage:', e);
     }

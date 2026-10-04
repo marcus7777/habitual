@@ -142,12 +142,14 @@
 
       <!-- Header Actions Dropdown Menu -->
       <div class="header-actions">
+        <button id="btn-open-widgets" class="btn btn-secondary header-btn" title="Widgets Gallery">
+          🧩 Widgets
+        </button>
         <div class="header-menu-dropdown">
           <button id="btn-header-menu" class="btn btn-secondary dropdown-toggle" aria-expanded="false" title="Menu Options">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-
           <div id="header-menu-content" class="dropdown-menu-content hidden">
             <button id="menu-btn-add-habit" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
@@ -156,6 +158,10 @@
             <button id="menu-btn-quick-log" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               Quick Check-in Today
+            </button>
+            <button id="menu-btn-open-widgets" class="dropdown-item">
+              <span>🧩</span>
+              Widgets Gallery
             </button>
             <div class="dropdown-divider"></div>
             <div class="dropdown-item-group">
@@ -248,155 +254,106 @@
           <label for="habit-name">Habit Name <span class="required">*</span></label>
           <input type="text" name="habit-name" id="habit-name" class="text-input" placeholder="e.g. Daily Coding, Gym, Days since Caffeine" required>
           <div name="habit-id-preview" id="habit-id-preview" class="habit-id-preview hidden">
-            <small class="muted-text">Habit ID: <code name="habit-id-display" id="habit-id-display"></code></small>
+            <span>Derived Unique ID: <strong name="habit-id-display" id="habit-id-display"></strong></span>
           </div>
         </div>
 
-        <div name="habit-form-details" id="habit-form-details" class="hidden">
-          <div class="form-group">
-            <label for="habit-parent">Parent Habit (Nest inside another habit)</label>
-            <select name="habit-parent" id="habit-parent" class="select-input">
-              <option value="">None (Top-Level Habit)</option>
-              <!-- Populated dynamically by JS -->
-            </select>
-            <small class="muted-text">Nest habit (e.g. "Leg Day" in "Gym")</small>
-          </div>
+        <div class="form-group">
+          <label for="habit-description">Goal Description (Optional)</label>
+          <input type="text" name="habit-description" id="habit-description" class="text-input" placeholder="e.g. Build daily coding discipline">
+        </div>
 
-        <!-- Parent Dependency Options (visible when a Parent Habit is selected) -->
-        <div class="form-group highlight-form-box hidden" id="parent-dependency-section">
-          <label for="habit-parent-dependency"><strong>Parent Task Dependency Rule</strong></label>
-          <select name="habit-parent-dependency" id="habit-parent-dependency" class="select-input">
-            <option value="none" selected>Independent (Can be logged on any day)</option>
-            <option value="requires_parent">Requires Parent Completed First (Must log parent task first)</option>
-            <option value="auto_log_parent">Auto-Log Parent Task (Logging sub-habit automatically logs parent task)</option>
-            <option value="auto_complete_from_parent">Auto-Complete with Parent (Logging parent task automatically completes sub-habit)</option>
-            <option value="parent_days_only">Only Active on Parent Days (Goal & streak active only when parent task is done)</option>
+        <div class="form-group">
+          <label for="habit-category">Category (Optional)</label>
+          <input type="text" name="habit-category" id="habit-category" class="text-input" placeholder="e.g. Health, Fitness, Productivity">
+        </div>
+
+        <div class="form-group">
+          <label for="habit-parent">Parent Habit (Hierarchical Grouping)</label>
+          <select name="habit-parent" id="habit-parent" class="select-input">
+            <option value="">None (Top-Level Main Habit)</option>
           </select>
-          <small class="muted-text" id="parent-dependency-hint">
-            Choose how doing the parent task influences or triggers this sub-habit.
-          </small>
+        </div>
+
+        <div id="parent-dependency-section" class="form-group highlight-form-box hidden">
+          <label for="habit-parent-dependency">Parent Task Dependency Rule</label>
+          <select name="habit-parent-dependency" id="habit-parent-dependency" class="select-input">
+            <option value="none">Independent (Logged freely on any day)</option>
+            <option value="requires_parent">Requires Parent Completed First</option>
+            <option value="auto_log_parent">Auto-Log Parent Task</option>
+            <option value="auto_complete_from_parent">Auto-Complete with Parent</option>
+            <option value="parent_days_only">Only Active on Parent Days</option>
+          </select>
+          <small id="parent-dependency-hint" class="muted-text margin-top-xs"></small>
         </div>
 
         <div class="form-group">
           <label>Habit Goal Type</label>
-          <div class="habit-type-selector">
-            <label class="type-card">
+          <div class="radio-group-box">
+            <label class="radio-pill">
               <input type="radio" name="habit-type" value="positive" checked>
-              <span class="type-card-content">
-                <span class="type-card-title">🟢 Build Habit (Positive)</span>
-                <span class="type-card-desc">Mark success on days you complete the task</span>
-              </span>
+              <span>Build Habit (Positive)</span>
             </label>
-            <label class="type-card">
+            <label class="radio-pill">
               <input type="radio" name="habit-type" value="negative">
-              <span class="type-card-content">
-                <span class="type-card-title">🔴 Quit Habit (Negative)</span>
-                <span class="type-card-desc">Mark success each day you avoid the bad habit</span>
-              </span>
+              <span>Quit Habit (Negative)</span>
             </label>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="habit-description">Description / Goal</label>
-          <input type="text" name="habit-description" id="habit-description" class="text-input" placeholder="e.g. Build long-term consistency">
-        </div>
-
-        <div class="form-group">
-          <label for="habit-category">Category</label>
-          <input type="text" name="habit-category" id="habit-category" class="text-input" placeholder="e.g. Health, Career, Learning" value="General">
-        </div>
-
-        <div class="form-group">
           <label class="checkbox-label">
-            <input type="checkbox" name="habit-show-streak" id="habit-show-streak">
-            <span><strong>Show Streak Icon / Badge</strong> (🔥 active streak counter)</span>
+            <input type="checkbox" name="habit-show-streak" id="habit-show-streak" checked>
+            <span>Show active streak badge (🔥)</span>
           </label>
-          <small class="muted-text">Display current active streak counter in the card header.</small>
         </div>
 
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" name="habit-is-paused" id="habit-is-paused">
-            <span><strong>Pause Habit</strong> (⏸️ Temporarily pause tracking)</span>
+            <span>⏸️ Pause tracking (In-active habit)</span>
           </label>
-          <small class="muted-text">Paused habits display a ⏸️ Paused badge on cards and in habit selection menus.</small>
         </div>
 
         <div class="form-group">
-          <label>Heatmap Colour Theme</label>
-          <div class="color-picker-grid">
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="green" checked>
-              <span class="color-swatch theme-green" title="Emerald Green"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="blue">
-              <span class="color-swatch theme-blue" title="GitHub Blue"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="purple">
-              <span class="color-swatch theme-purple" title="Electric Purple"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="orange">
-              <span class="color-swatch theme-orange" title="Fire Orange"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="crimson">
-              <span class="color-swatch theme-crimson" title="Crimson Rose"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="cyan">
-              <span class="color-swatch theme-cyan" title="Cyan Spark"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="emerald">
-              <span class="color-swatch theme-emerald" title="Deep Emerald"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="amber">
-              <span class="color-swatch theme-amber" title="Amber Gold"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="indigo">
-              <span class="color-swatch theme-indigo" title="Deep Indigo"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="rose">
-              <span class="color-swatch theme-rose" title="Rose Pink"></span>
-            </label>
-            <label class="color-option">
+          <label>Heatmap Color Theme</label>
+          <div class="color-palette-picker">
+            <label class="color-option green"><input type="radio" name="habit-color" value="green" checked><span class="swatch"></span></label>
+            <label class="color-option blue"><input type="radio" name="habit-color" value="blue"><span class="swatch"></span></label>
+            <label class="color-option purple"><input type="radio" name="habit-color" value="purple"><span class="swatch"></span></label>
+            <label class="color-option orange"><input type="radio" name="habit-color" value="orange"><span class="swatch"></span></label>
+            <label class="color-option crimson"><input type="radio" name="habit-color" value="crimson"><span class="swatch"></span></label>
+            <label class="color-option cyan"><input type="radio" name="habit-color" value="cyan"><span class="swatch"></span></label>
+            <label class="color-option emerald"><input type="radio" name="habit-color" value="emerald"><span class="swatch"></span></label>
+            <label class="color-option amber"><input type="radio" name="habit-color" value="amber"><span class="swatch"></span></label>
+            <label class="color-option indigo"><input type="radio" name="habit-color" value="indigo"><span class="swatch"></span></label>
+            <label class="color-option rose"><input type="radio" name="habit-color" value="rose"><span class="swatch"></span></label>
+            <label class="color-option custom">
               <input type="radio" name="habit-color" value="custom" id="radio-color-custom">
-              <span class="color-swatch theme-custom-swatch" id="custom-swatch-preview" title="Custom HEX Color">🎨</span>
+              <span class="swatch custom-swatch" id="custom-swatch-preview"></span>
             </label>
           </div>
-
-          <!-- Custom HEX Colour Controls -->
-          <div class="custom-color-input-container" id="custom-color-container">
-            <div class="custom-color-picker-row">
-              <input type="color" name="habit-custom-color-picker" id="habit-custom-color-picker" value="#39d353" class="color-picker-input" title="Choose color visually" aria-label="Custom Color Picker">
-              <input type="text" name="habit-custom-color-hex" id="habit-custom-color-hex" class="text-input hex-input" placeholder="#39d353" value="#39d353" maxlength="7" spellcheck="false" aria-label="Custom HEX Code">
-              <span class="hex-label-hint">Custom HEX Code</span>
-            </div>
+          <div id="custom-hex-container" class="custom-hex-row margin-top-xs hidden">
+            <label for="habit-custom-hex" class="sr-only">Custom HEX Color</label>
+            <input type="color" id="habit-custom-hex-picker" class="color-picker-input" value="#39d353">
+            <input type="text" name="habit-custom-hex" id="habit-custom-hex" class="text-input hex-text-input" placeholder="#39d353" maxlength="7">
+            <small class="muted-text">Custom HEX code (#RRGGBB)</small>
           </div>
         </div>
 
-        <!-- Target Schedule & Frequency Section -->
-        <div class="form-group highlight-form-box">
-          <label for="habit-frequency-type"><strong>Target Schedule & Frequency</strong></label>
+        <div class="form-group">
+          <label for="habit-frequency-type">Schedule & Target Frequency</label>
           <select name="habit-frequency-type" id="habit-frequency-type" class="select-input">
-            <option value="daily" selected>Every Day (Daily)</option>
-            <option value="weekly">Weekly Target (e.g. Every Monday / 1x per week)</option>
-            <option value="monthly">Monthly Target (e.g. 1x per month)</option>
+            <option value="daily" selected>Daily Target (Every Active Day)</option>
+            <option value="weekly">Weekly Target (Specific Days Per Week)</option>
+            <option value="monthly">Monthly Target (Specific Days Per Month)</option>
             <option value="specific_days">Specific Days of Week (e.g. Mon, Wed, Fri)</option>
-            <option value="custom_interval">Custom Interval / Arbitrary Period (e.g. X times every N days/weeks/months)</option>
+            <option value="custom">Custom Interval (e.g. Every N Days/Weeks)</option>
           </select>
-          <small class="muted-text">Choose how often you plan to practice or track this habit goal.</small>
 
           <!-- Sub-options for Daily -->
-          <div id="freq-daily-options" class="schedule-sub-options">
-            <div class="form-group margin-top-sm">
+          <div id="freq-daily-options" class="schedule-sub-options margin-top-xs">
+            <div class="form-group">
               <label for="habit-daily-target">Daily Target Count (Number of times per day)</label>
               <input type="number" name="habit-daily-target" id="habit-daily-target" class="text-input" min="1" max="100" value="1">
               <small class="muted-text">Target number of check-ins / completions per active day.</small>
@@ -563,7 +520,6 @@
           <button type="button" class="btn btn-ghost" id="btn-cancel-habit">Cancel</button>
           <button type="submit" class="btn btn-primary">Save Habit</button>
         </div>
-        </div>
       </form>
     </div>
   </div>
@@ -689,12 +645,26 @@
     </div>
   </div>
 
+  <!-- MODAL: PWA & Platform Widgets Gallery -->
+  <div id="modal-widgets" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-dialog-lg">
+      <div class="modal-header">
+        <h3>🧩 Habitual Widgets Gallery</h3>
+        <button id="btn-close-widgets" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body" id="widget-gallery-content">
+        <!-- Rendered dynamically by JS -->
+      </div>
+    </div>
+  </div>
+
   <script src="please.js" defer></script>
   <!-- App Core -->
   <script src="js/state.js" defer></script>
   <script src="js/storage.js" defer></script>
   <script src="js/render.js" defer></script>
   <script src="js/ui.js" defer></script>
+  <script src="js/widgets.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

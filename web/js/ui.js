@@ -110,6 +110,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.modalLogCount = document.getElementById('modal-log-count');
     core.elements.modalLogNote = document.getElementById('modal-log-note');
     core.elements.modalLogShowOnStartup = document.getElementById('modal-log-show-on-startup');
+    core.elements.modalWidgets = document.getElementById('modal-widgets');
 
     if (core.elements.modalLogDateInput) {
       core.elements.modalLogDateInput.addEventListener('change', (e) => {
@@ -234,6 +235,12 @@ window.HabitualCore = window.HabitualCore || {};
     const menuQuickLog = document.getElementById('menu-btn-quick-log');
     if (menuQuickLog) menuQuickLog.addEventListener('click', () => { if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden'); core.openLogModal(core.getTodayKey()); });
 
+    const menuOpenWidgets = document.getElementById('menu-btn-open-widgets');
+    if (menuOpenWidgets) menuOpenWidgets.addEventListener('click', () => {
+      if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
+      if (core.openWidgetsModal) core.openWidgetsModal();
+    });
+
     const menuDataModal = document.getElementById('menu-btn-data-modal');
     if (menuDataModal) menuDataModal.addEventListener('click', () => { if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden'); core.elements.modalData.classList.remove('hidden'); });
 
@@ -318,6 +325,8 @@ window.HabitualCore = window.HabitualCore || {};
         if (core.renderAll) core.renderAll();
       }
     });
+
+    if (core.initWidgetsUI) core.initWidgetsUI();
   };
 
   core.attachHeatmapSquareEvents = function() {

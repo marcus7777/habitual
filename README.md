@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/HabitualLogoHighQuality02.jpg" alt="Habitual Logo" width="200" />
+</p>
+
 # Habitual - GitHub-Style Habit Progression Engine
 
 Habitual is a long-term, privacy-first habit progression tracker and visualizer featuring GitHub-style 7x52 year contribution heatmaps, 255-level continuous transparency shading, customizable color themes, flexible scheduling, nested sub-habits with concertina accordions, pause history, backfilling, CSV data importing, calendar reminders, and support for both positive (building) and negative (quitting) habit goals.

@@ -18,6 +18,31 @@ window.HabitualCore = window.HabitualCore || {};
     }
   }
 
+  function handleUrlParamsOnStartup() {
+    if (typeof window === 'undefined' || !window.location || !window.location.search) return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const action = urlParams.get('action');
+      const habitId = urlParams.get('habitId');
+
+      if (action === 'quick-log') {
+        if (core.openLogModal && core.getTodayKey) {
+          core.openLogModal(core.getTodayKey(), habitId || null);
+        }
+      } else if (action === 'heatmaps' || action === 'widgets') {
+        if (habitId && core.state) {
+          core.state.selectedHabitId = habitId;
+          if (core.renderAll) core.renderAll();
+        }
+        if (action === 'widgets' && core.openWidgetsModal) {
+          core.openWidgetsModal();
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse URL startup params:', e);
+    }
+  }
+
   // --- INITIALIZATION ---
   if (typeof document !== 'undefined' && document.addEventListener) {
     document.addEventListener('DOMContentLoaded', () => {
@@ -32,6 +57,9 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       if (core.renderAll) core.renderAll();
+      if (core.updatePWAWidgets) core.updatePWAWidgets();
+
+      handleUrlParamsOnStartup();
 
       if (core.state && core.state.showQuickLogOnStartup) {
         if (core.openLogModal && core.getTodayKey) {

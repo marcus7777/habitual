@@ -1,6 +1,6 @@
 /**
  * Automated Test Suite for Habitual
- * Tests all 11 core features listed in README.md
+ * Tests all core features listed in README.md including PWA Widgets
  */
 
 const fs = require('fs');
@@ -18,7 +18,9 @@ const mockLocalStorage = (() => {
 })();
 
 global.window = global.window || {};
-global.window.location = global.window.location || { hash: '#/', toString: () => '#/' };
+global.window.location = global.window.location || { hash: '#/', search: '', toString: () => '#/' };
+global.window.addEventListener = global.window.addEventListener || (() => {});
+global.window.removeEventListener = global.window.removeEventListener || (() => {});
 global.window.HabitualCore = global.window.HabitualCore || {};
 
 function createMockElement(tagName) {
@@ -89,13 +91,14 @@ global.document = {
   createElement: createMockElement
 };
 global.localStorage = mockLocalStorage;
-global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } };
+global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }), controller: { postMessage: () => {} }, addEventListener: () => {} } };
 
 // Load Habitual Core Files
 require('../web/js/state.js');
 require('../web/js/storage.js');
 require('../web/js/render.js');
 require('../web/js/ui.js');
+require('../web/js/widgets.js');
 const HabitualCore = global.window.HabitualCore;
 
 HabitualCore.resetState = function() {
@@ -1247,6 +1250,122 @@ describe('Feature 22: 🎨 Coloured Habit Tab Heading', () => {
     const title = card.querySelector('.tab-title');
     assert(title !== null, 'Card contains .tab-title element');
     assert(card.innerHTML.includes('Daily Coding'), 'Card HTML displays habit name "Daily Coding" inside tab');
+  });
+});
+
+// ============================================================================
+// FEATURE 23: 🧩 PWA & PLATFORM WIDGETS FOR QUICK ADDING & HEATMAPS
+// ============================================================================
+describe('Feature 23: 🧩 PWA & Platform Widgets for Quick Adding & Heatmaps', () => {
+  test('Web Manifest manifest.json specifies widgets and launcher shortcuts', () => {
+    const manifestPath = path.join(__dirname, '../web/manifest.json');
+    assert(fs.existsSync(manifestPath), 'manifest.json file exists');
+
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    assert(Array.isArray(manifest.widgets), 'manifest.json specifies widgets array');
+    assertEqual(manifest.widgets.length, 2, '2 widgets defined in manifest');
+
+    const quickAddWidget = manifest.widgets.find(w => w.tag === 'habitual-quick-add');
+    assert(quickAddWidget !== undefined, 'habitual-quick-add widget found in manifest');
+    assertEqual(quickAddWidget.name, 'Habitual Quick Add');
+
+    const heatmapWidget = manifest.widgets.find(w => w.tag === 'habitual-heatmap');
+    assert(heatmapWidget !== undefined, 'habitual-heatmap widget found in manifest');
+    assertEqual(heatmapWidget.name, 'Habitual Heatmap');
+
+    assert(Array.isArray(manifest.shortcuts), 'manifest.json specifies shortcuts array');
+    assertEqual(manifest.shortcuts.length, 2, '2 shortcuts defined in manifest');
+    assert(manifest.shortcuts[0].url.includes('action=quick-log'), 'First shortcut launches quick-log action');
+  });
+
+  test('Widget Adaptive Card JSON templates exist and parse as valid JSON', () => {
+    const quickAddTemplatePath = path.join(__dirname, '../web/widgets/quick-add-template.json');
+    const heatmapTemplatePath = path.join(__dirname, '../web/widgets/heatmap-template.json');
+
+    assert(fs.existsSync(quickAddTemplatePath), 'quick-add-template.json file exists');
+    assert(fs.existsSync(heatmapTemplatePath), 'heatmap-template.json file exists');
+
+    const quickAddJson = JSON.parse(fs.readFileSync(quickAddTemplatePath, 'utf8'));
+    const heatmapJson = JSON.parse(fs.readFileSync(heatmapTemplatePath, 'utf8'));
+
+    assertEqual(quickAddJson.type, 'AdaptiveCard');
+    assertEqual(heatmapJson.type, 'AdaptiveCard');
+  });
+
+  test('getQuickAddWidgetPayload constructs habit list, completion statuses, and streaks', () => {
+    const todayKey = HabitualCore.getTodayKey();
+    HabitualCore.setState({
+      habits: [
+        { id: 'water', name: 'Drink Water', type: 'positive', dailyTarget: 2, logs: { [todayKey]: { count: 2 } } },
+        { id: 'coding', name: 'Daily Coding', type: 'positive', dailyTarget: 1, logs: {} }
+      ],
+      selectedHabitId: 'all',
+      selectedYear: 2026
+    });
+
+    const payload = HabitualCore.getQuickAddWidgetPayload();
+    assertEqual(payload.habits.length, 2, 'Payload contains 2 active habits');
+
+    const waterItem = payload.habits.find(h => h.id === 'water');
+    assertEqual(waterItem.isCompleted, true, 'Water habit completed today');
+    assertEqual(waterItem.statusIcon, '✓', 'Completed habit has tick icon ✓');
+
+    const codingItem = payload.habits.find(h => h.id === 'coding');
+    assertEqual(codingItem.isCompleted, false, 'Coding habit uncompleted today');
+    assertEqual(codingItem.statusIcon, '+', 'Uncompleted habit has plus icon +');
+  });
+
+  test('getHeatmapWidgetPayload constructs mini 7x12 contribution grid matrix', () => {
+    const todayKey = HabitualCore.getTodayKey();
+    HabitualCore.setState({
+      habits: [
+        { id: 'exercise', name: 'Exercise', type: 'positive', dailyTarget: 1, colorTheme: 'green', logs: { [todayKey]: { count: 1 } } }
+      ],
+      selectedHabitId: 'exercise',
+      selectedYear: 2026
+    });
+
+    const payload = HabitualCore.getHeatmapWidgetPayload('exercise');
+    assertEqual(payload.habitName, 'Exercise');
+    assertEqual(payload.miniWeeks.length, 12, 'Constructs 12 mini week columns');
+    assertEqual(payload.miniWeeks[0].length, 7, 'Each week column has 7 day cells');
+  });
+
+  test('Service Worker caches widget template files and includes widgetclick listener', () => {
+    const swPath = path.join(__dirname, '../web/sw.js');
+    const swContent = fs.readFileSync(swPath, 'utf8');
+
+    assert(swContent.includes('quick-add-template.json'), 'SW pre-caches quick-add-template.json');
+    assert(swContent.includes('heatmap-template.json'), 'SW pre-caches heatmap-template.json');
+    assert(swContent.includes('widgetclick'), 'SW adds widgetclick event listener');
+    assert(swContent.includes('widgetinstall'), 'SW adds widgetinstall event listener');
+  });
+
+  test('renderWidgetsGallery builds interactive Quick Add and Heatmap cards in Widget Modal', () => {
+    const todayKey = HabitualCore.getTodayKey();
+    HabitualCore.setState({
+      habits: [
+        { id: 'reading', name: 'Reading Books', type: 'positive', dailyTarget: 1, colorTheme: 'blue', logs: {} }
+      ],
+      selectedHabitId: 'all',
+      selectedYear: 2026
+    });
+
+    const mockGallery = createMockElement('div');
+    const originalGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'widget-gallery-content') return mockGallery;
+      if (id === 'modal-widgets') return { classList: { remove: () => {}, add: () => {} } };
+      return { value: '', addEventListener: () => {}, classList: { add: () => {}, remove: () => {} } };
+    };
+
+    HabitualCore.openWidgetsModal();
+
+    assert(mockGallery.innerHTML.includes('Quick Add Widget'), 'Gallery contains Quick Add Widget title');
+    assert(mockGallery.innerHTML.includes('Heatmap Grid Widget'), 'Gallery contains Heatmap Grid Widget title');
+    assert(mockGallery.innerHTML.includes('Reading Books'), 'Gallery displays habit name "Reading Books"');
+
+    global.document.getElementById = originalGetElementById;
   });
 });
 

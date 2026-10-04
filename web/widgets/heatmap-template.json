@@ -1,0 +1,66 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "🔥 ${habitName} Heatmap",
+                  "weight": "Bolder",
+                  "size": "Medium",
+                  "color": "Accent"
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Streak: ${currentStreak} days • ${yearTotal} completions in ${year}",
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "7x52 Contribution Grid Matrix",
+          "weight": "Bolder",
+          "size": "Small",
+          "spacing": "Medium"
+        },
+        {
+          "type": "TextBlock",
+          "text": "${matrixSummary}",
+          "size": "Small",
+          "isSubtle": true,
+          "wrap": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Submit",
+      "title": "View Full Heatmap",
+      "data": {
+        "verb": "view-heatmap",
+        "habitId": "${habitId}"
+      }
+    }
+  ]
+}
