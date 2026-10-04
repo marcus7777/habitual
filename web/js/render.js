@@ -398,18 +398,13 @@ window.HabitualCore = window.HabitualCore || {};
           </div>
         </div>`;
     } else if (!isAll) {
-      actionsHTML = isDraggable ? `
-        <div class="card-header-actions">
-          <div class="drag-handle" title="Drag to reorder habit">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
-          </div>
-        </div>` : '';
+      actionsHTML = '';
     }
 
     let headerHTML = `
       <div class="heatmap-card-header ${actionsHTML ? 'has-actions' : ''}">
         <div class="heatmap-title-row">
-          <span class="color-badge" style="${colorBadgeStyle}"></span>
+          ${isAll ? '':'<span class="color-badge" style="${colorBadgeStyle}"></span>'}
           ${titleHTML}
           ${subhabitsBadgeHTML}
           ${dependencyBadgeHTML}
