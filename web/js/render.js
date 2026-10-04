@@ -527,13 +527,15 @@ window.HabitualCore = window.HabitualCore || {};
 
         const targetDayClass = (cellData.isTargetDay && (!cellData.ratio || cellData.ratio === 0)) ? 'target-day' : '';
         const isPausedDayClass = cellData.isPaused ? 'is-paused-day' : '';
+        const hasNoteClass = cellData.hasNote ? 'has-note' : '';
 
         gridHTML += `
-          <div class="day-square ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${targetDayClass} ${isPausedDayClass}"
+          <div class="day-square ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${targetDayClass} ${isPausedDayClass} ${hasNoteClass}"
                style="${squareStyle}" data-date="${dateStr}" data-habit-id="${cardHabitId}"
                data-count="${cellData.count}" data-ratio="${cellData.ratio || 0}"
                data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
                data-paused="${cellData.isPaused ? 'true' : 'false'}"
+               data-has-note="${cellData.hasNote ? 'true' : 'false'}"
                data-note="${core.escapeHTML(cellData.note)}" ${habitsDoneAttr}>
           </div>`;
       });

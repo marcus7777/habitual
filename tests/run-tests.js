@@ -1176,6 +1176,53 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
   });
 });
 
+describe('Feature 21: ✂️ Cut-off Top Right Corner Note Indicator', () => {
+  test('getCellData sets hasNote=true for days with log notes and hasNote=false for empty notes', () => {
+    const state = HabitualCore.getState();
+    state.habits = [
+      {
+        id: 'journaling',
+        name: 'Journaling',
+        type: 'positive',
+        dailyTarget: 1,
+        logs: {
+          '2026-10-01': { count: 1, note: 'Had a productive day!' },
+          '2026-10-02': { count: 1, note: '' }
+        }
+      }
+    ];
+
+    const cellData1 = HabitualCore.getCellData('2026-10-01', state.habits[0], '2026-10-03');
+    assertEqual(cellData1.hasNote, true, 'cellData.hasNote is true when user note exists');
+
+    const cellData2 = HabitualCore.getCellData('2026-10-02', state.habits[0], '2026-10-03');
+    assertEqual(cellData2.hasNote, false, 'cellData.hasNote is false when note is empty');
+
+    const cellData3 = HabitualCore.getCellData('2026-10-03', state.habits[0], '2026-10-03');
+    assertEqual(cellData3.hasNote, false, 'cellData.hasNote is false when log is missing');
+  });
+
+  test('buildHeatmapCard outputs has-note class and data-has-note="true" attribute', () => {
+    const state = HabitualCore.getState();
+    state.habits = [
+      {
+        id: 'meditation',
+        name: 'Meditation',
+        type: 'positive',
+        dailyTarget: 1,
+        logs: {
+          '2026-10-02': { count: 1, note: 'Deep focus session' }
+        }
+      }
+    ];
+
+    const card = HabitualCore.buildHeatmapCard(state.habits[0], 2026, 'green', '2026-10-03');
+    const html = card.innerHTML;
+    assert(html.includes('has-note'), 'Rendered HTML includes has-note class');
+    assert(html.includes('data-has-note="true"'), 'Rendered HTML includes data-has-note="true" attribute');
+  });
+});
+
 // ============================================================================
 // FINAL REPORT
 // ============================================================================

@@ -412,6 +412,10 @@ window.HabitualCore = window.HabitualCore || {};
             } else text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
           }
         }
+        const hasUserNote = sq.dataset.hasNote === 'true';
+        if (hasUserNote && note && note.trim() !== '') {
+          text += `<br><span style="color: var(--accent-amber, #d29922); opacity: 0.95; font-size: 0.88em;">📝 ${core.escapeHTML(note)}</span>`;
+        }
         core.elements.customTooltip.innerHTML = text;
         core.elements.customTooltip.classList.remove('hidden');
 
