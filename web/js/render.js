@@ -155,24 +155,6 @@ window.HabitualCore = window.HabitualCore || {};
     concertina.className = `subhabits-concertina ${isExpanded ? 'expanded' : ''}`;
     concertina.setAttribute('data-parent-id', habit.id);
 
-    const concertinaHeader = document.createElement('div');
-    concertinaHeader.className = 'concertina-header';
-
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'concertina-title';
-    titleSpan.textContent = `↳ Sub-habits (${subhabits.length})`;
-
-    const putAwayBtn = document.createElement('button');
-    putAwayBtn.type = 'button';
-    putAwayBtn.className = 'btn-put-away';
-    putAwayBtn.setAttribute('data-parent-id', habit.id);
-    putAwayBtn.title = 'Put away sub-habits';
-    putAwayBtn.textContent = '▲ Put away';
-
-    concertinaHeader.appendChild(titleSpan);
-    concertinaHeader.appendChild(putAwayBtn);
-    concertina.appendChild(concertinaHeader);
-
     subhabits.forEach(sub => {
       const subNode = core.renderHabitTree(sub, year);
       concertina.appendChild(subNode);
