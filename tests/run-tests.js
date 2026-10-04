@@ -1231,6 +1231,26 @@ describe('Feature 21: ✂️ Cut-off Top Right Corner Note Indicator', () => {
 });
 
 // ============================================================================
+// FEATURE 22: 🎨 COLOURED HABIT TAB HEADING
+// ============================================================================
+describe('Feature 22: 🎨 Coloured Habit Tab Heading', () => {
+  test('buildHeatmapCard renders coloured habit tab with habit name and color styles', () => {
+    const habit = { id: 'coding', name: 'Daily Coding', type: 'positive', dailyTarget: 1, colorTheme: 'purple', logs: {} };
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+
+    const colorTab = card.querySelector('.habit-color-tab');
+    assert(colorTab !== null, 'Card contains .habit-color-tab element');
+
+    const pill = card.querySelector('.color-tab-pill');
+    assert(pill !== null, 'Card contains .color-tab-pill element');
+
+    const title = card.querySelector('.tab-title');
+    assert(title !== null, 'Card contains .tab-title element');
+    assert(card.innerHTML.includes('Daily Coding'), 'Card HTML displays habit name "Daily Coding" inside tab');
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);

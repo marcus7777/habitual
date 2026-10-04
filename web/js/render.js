@@ -298,12 +298,19 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    const colorBadgeStyle = isAll ? 'background-color: #39d353;' : `background-color: ${core.getHabitHexColor(habit || targetOrNull)};`;
+    const colorHex = isAll ? '#39d353' : core.getHabitHexColor(habit || targetOrNull);
 
-    let titleHTML = `<h3>${core.escapeHTML(titleText)}</h3>`;
+    let titleContent = core.escapeHTML(titleText);
     if (habit && !isCurrentOpenPage) {
-      titleHTML = `<h3><a href="#/habit/${habit.id}" class="card-title-link" title="Open ${core.escapeHTML(titleText)}">${core.escapeHTML(titleText)}</a></h3>`;
+      titleContent = `<a href="#/habit/${habit.id}" class="card-title-link" title="Open ${core.escapeHTML(titleText)}">${core.escapeHTML(titleText)}</a>`;
     }
+
+    const habitTabHTML = `
+      <div class="habit-color-tab" style="background-color: ${colorHex}1f; border-color: ${colorHex}4d; box-shadow: 0 0 10px ${colorHex}1f;">
+        <span class="color-tab-pill" style="background-color: ${colorHex}; box-shadow: 0 0 6px ${colorHex};"></span>
+        <h3 class="tab-title">${titleContent}</h3>
+      </div>
+    `;
 
     let subhabitsBadgeHTML = '';
     if (habit) {
@@ -391,8 +398,7 @@ window.HabitualCore = window.HabitualCore || {};
     let headerHTML = `
       <div class="heatmap-card-header ${actionsHTML ? 'has-actions' : ''}">
         <div class="heatmap-title-row">
-          ${isAll ? '':'<span class="color-badge" style="${colorBadgeStyle}"></span>'}
-          ${titleHTML}
+          ${habitTabHTML}
           ${subhabitsBadgeHTML}
           ${dependencyBadgeHTML}
           ${frequencyBadgeHTML}
