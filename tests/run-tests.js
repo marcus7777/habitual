@@ -1336,6 +1336,75 @@ describe('Feature 23: 🎨 24 Google Calendar Colours in colours.js', () => {
   });
 });
 
+describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hide from All)', () => {
+  test('showCount option controls rendering of badge-count in card header', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+    const habit = { id: 'test_count', name: 'Test Count', createdAt: HabitualCore.getTodayKey(), showCount: true, logs: {} };
+    state.habits.push(habit);
+
+    const cardShow = HabitualCore.buildHeatmapCard(habit, 2026);
+    assert(cardShow.innerHTML.includes('badge-count'), 'Heatmap card includes badge-count when showCount is true');
+
+    habit.showCount = false;
+    const cardHide = HabitualCore.buildHeatmapCard(habit, 2026);
+    assert(!cardHide.innerHTML.includes('badge-count'), 'Heatmap card hides badge-count when showCount is false');
+  });
+
+  test('showDuration option renders badge-duration in card header with active duration', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+    const habit = { id: 'test_dur', name: 'Test Duration', createdAt: '2026-01-01', showDuration: true, logs: {} };
+    state.habits.push(habit);
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    assert(card.innerHTML.includes('badge-duration'), 'Heatmap card includes badge-duration when showDuration is true');
+    assert(card.innerHTML.includes('⏱️'), 'badge-duration contains stopwatch icon');
+
+    habit.showDuration = false;
+    const cardHide = HabitualCore.buildHeatmapCard(habit, 2026);
+    assert(!cardHide.innerHTML.includes('badge-duration'), 'Heatmap card hides badge-duration when showDuration is false');
+  });
+
+  test('hideFromAll option excludes habit from combined All heatmap calculation', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+    const today = HabitualCore.getTodayKey();
+
+    const h1 = { id: 'h1', name: 'Habit 1', hideFromAll: false, logs: { [today]: { count: 1 } } };
+    const h2 = { id: 'h2', name: 'Habit 2', hideFromAll: true, logs: { [today]: { count: 1 } } };
+    state.habits.push(h1, h2);
+
+    const cellData = HabitualCore.getCellData(today, 'all', today);
+    assert(cellData.activeHabits.length === 1, 'Only non-hidden habit is included in All active habits');
+    assertEqual(cellData.activeHabits[0].id, 'h1', 'Included active habit is h1');
+  });
+
+  test('saveState and loadState persist showCount, showDuration, and hideFromAll options', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+    state.habits.push({
+      id: 'custom_opts',
+      name: 'Custom Options',
+      createdAt: HabitualCore.getTodayKey(),
+      showCount: false,
+      showDuration: true,
+      hideFromAll: true,
+      logs: {}
+    });
+
+    HabitualCore.saveState();
+    HabitualCore.resetState();
+    HabitualCore.loadState();
+
+    const restored = HabitualCore.getState().habits.find(h => h.id === 'custom_opts');
+    assert(restored !== undefined, 'Restored habit exists');
+    assertEqual(restored.showCount, false, 'showCount false is persisted');
+    assertEqual(restored.showDuration, true, 'showDuration true is persisted');
+    assertEqual(restored.hideFromAll, true, 'hideFromAll true is persisted');
+  });
+});
+
 // ============================================================================
 // FINAL REPORT
 // ============================================================================

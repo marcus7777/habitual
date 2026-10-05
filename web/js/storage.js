@@ -35,6 +35,9 @@ window.HabitualCore = window.HabitualCore || {};
             description: h.description || '',
             category: h.category || '',
             showStreak: Boolean(h.showStreak),
+            showCount: h.showCount !== undefined ? Boolean(h.showCount) : true,
+            showDuration: Boolean(h.showDuration),
+            hideFromAll: Boolean(h.hideFromAll),
             isPaused: Boolean(h.isPaused),
             colorTheme: h.colorTheme || derivedColor,
             dailyTarget: h.dailyTarget || 1,
@@ -79,6 +82,9 @@ window.HabitualCore = window.HabitualCore || {};
         if (habit.description) h.description = habit.description;
         if (habit.category) h.category = habit.category;
         if (habit.showStreak) h.showStreak = true;
+        if (habit.showCount === false) h.showCount = false;
+        if (habit.showDuration) h.showDuration = true;
+        if (habit.hideFromAll) h.hideFromAll = true;
         if (habit.isPaused) h.isPaused = true;
         if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
         if (habit.frequencyType && habit.frequencyType !== 'daily') h.frequencyType = habit.frequencyType;
