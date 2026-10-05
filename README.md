@@ -1,6 +1,6 @@
 # Habitual - GitHub-Style Habit Progression Engine
 
-Habitual is a long-term, privacy-first habit progression tracker and visualizer featuring GitHub-style 7x52 year contribution heatmaps, 255-level continuous transparency shading, customizable color themes, flexible scheduling, nested sub-habits with concertina accordions, pause history, backfilling, CSV data importing, calendar reminders, and support for both positive (building) and negative (quitting) habit goals.
+Habitual is a long-term, privacy-first habit progression tracker and visualizer featuring GitHub-style 7x52 year contribution heatmaps, 255-level continuous transparency shading, customizable color themes, flexible scheduling, drag-and-drop & tap-to-move habit reordering handles, nested sub-habits with concertina accordions, pause history, backfilling, CSV data importing, calendar reminders, and support for both positive (building) and negative (quitting) habit goals.
 
 ---
 
@@ -112,9 +112,17 @@ Organize complex habit routines into structured parent-child trees:
 
 ---
 
+### ↕️ 14. Drag & Drop Reordering & Tap-to-Move Handles
+- **Mouse Drag-and-Drop**: Easily reorder habit cards across your gallery using the dedicated drag handle (`⋮⋮`).
+- **Tap-to-Move Arrows**: Tap or click the drag handle to reveal floating Up (▲) and Down (▼) arrow controls for precise reordering on mobile or desktop.
+- **Smart Position Sensing**: Automatically hides the Up arrow when a habit is at the top of its list, and hides the Down arrow when at the bottom.
+- **Accessible Focus & Auto-Dismiss**: The move pop-up automatically receives focus when opened, supports keyboard navigation, and closes on focus loss (`blur`) or when clicking outside.
+
+---
+
 ## 🧪 Automated Testing Suite
 
-Habitual includes a comprehensive automated test suite covering all core features across **53 individual test specifications in 22 test suites** (100% pass rate).
+Habitual includes a comprehensive automated test suite covering all core features across **62 individual test specifications in 25 test suites** (100% pass rate).
 
 ### Running Tests via Terminal (Node.js)
 To execute the automated test suite in command line:
