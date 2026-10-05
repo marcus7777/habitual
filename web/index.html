@@ -325,59 +325,43 @@
 
         <div class="form-group">
           <label>Heatmap Colour Theme</label>
-          <div class="color-picker-grid">
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="green" checked>
-              <span class="color-swatch theme-green" title="Emerald Green"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="blue">
-              <span class="color-swatch theme-blue" title="GitHub Blue"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="purple">
-              <span class="color-swatch theme-purple" title="Electric Purple"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="orange">
-              <span class="color-swatch theme-orange" title="Fire Orange"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="crimson">
-              <span class="color-swatch theme-crimson" title="Crimson Rose"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="cyan">
-              <span class="color-swatch theme-cyan" title="Cyan Spark"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="emerald">
-              <span class="color-swatch theme-emerald" title="Deep Emerald"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="amber">
-              <span class="color-swatch theme-amber" title="Amber Gold"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="indigo">
-              <span class="color-swatch theme-indigo" title="Deep Indigo"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="rose">
-              <span class="color-swatch theme-rose" title="Rose Pink"></span>
-            </label>
-            <label class="color-option">
-              <input type="radio" name="habit-color" value="custom" id="radio-color-custom">
-              <span class="color-swatch theme-custom-swatch" id="custom-swatch-preview" title="Custom HEX Color">🎨</span>
-            </label>
-          </div>
-
           <!-- Custom HEX Colour Controls -->
           <div class="custom-color-input-container" id="custom-color-container">
             <div class="custom-color-picker-row">
               <input type="color" name="habit-custom-color-picker" id="habit-custom-color-picker" value="#39d353" class="color-picker-input" title="Choose color visually" aria-label="Custom Color Picker">
               <input type="text" name="habit-custom-color-hex" id="habit-custom-color-hex" class="text-input hex-input" placeholder="#39d353" value="#39d353" maxlength="7" spellcheck="false" aria-label="Custom HEX Code">
               <span class="hex-label-hint">Custom HEX Code</span>
+            </div>
+
+            <!-- Colors Dropdown -->
+            <div class="calendar-color-select-row" style="margin-top: 10px;">
+              <select id="habit-calendar-color-select" name="habit-calendar-color-select" class="select-input" style="width: 100%; font-size: 0.88rem; padding: 6px 10px;" aria-label="Select Colour">
+                <option value="" disabled selected>-- 🎨 Select Color --</option>
+                <option value="#795548" style="background-color: #795548; color: #ffffff;">Cocoa (#795548)</option>
+                <option value="#E67C73" style="background-color: #E67C73; color: #ffffff;">Flamingo (#E67C73)</option>
+                <option value="#D50000" style="background-color: #D50000; color: #ffffff;">Tomato (#D50000)</option>
+                <option value="#F4511E" style="background-color: #F4511E; color: #ffffff;">Tangerine (#F4511E)</option>
+                <option value="#EF6C00" style="background-color: #EF6C00; color: #ffffff;">Pumpkin (#EF6C00)</option>
+                <option value="#F09300" style="background-color: #F09300; color: #ffffff;">Mango (#F09300)</option>
+                <option value="#009688" style="background-color: #009688; color: #ffffff;">Eucalyptus (#009688)</option>
+                <option value="#0B8043" style="background-color: #0B8043; color: #ffffff;">Basil (#0B8043)</option>
+                <option value="#7CB342" style="background-color: #7CB342; color: #ffffff;">Pistachio (#7CB342)</option>
+                <option value="#C0CA33" style="background-color: #C0CA33; color: #000000;">Avocado (#C0CA33)</option>
+                <option value="#E4C441" style="background-color: #E4C441; color: #000000;">Citron (#E4C441)</option>
+                <option value="#F6BF26" style="background-color: #F6BF26; color: #000000;">Banana (#F6BF26)</option>
+                <option value="#33B679" style="background-color: #33B679; color: #ffffff;">Sage (#33B679)</option>
+                <option value="#039BE5" style="background-color: #039BE5; color: #ffffff;">Peacock (#039BE5)</option>
+                <option value="#4285F4" style="background-color: #4285F4; color: #ffffff;">Cobalt (#4285F4)</option>
+                <option value="#3F51B5" style="background-color: #3F51B5; color: #ffffff;">Blueberry (#3F51B5)</option>
+                <option value="#7986CB" style="background-color: #7986CB; color: #ffffff;">Lavender (#7986CB)</option>
+                <option value="#B39DDB" style="background-color: #B39DDB; color: #000000;">Wisteria (#B39DDB)</option>
+                <option value="#616161" style="background-color: #616161; color: #ffffff;">Graphite (#616161)</option>
+                <option value="#A79B8E" style="background-color: #A79B8E; color: #ffffff;">Birch (#A79B8E)</option>
+                <option value="#AD1457" style="background-color: #AD1457; color: #ffffff;">Radicchio (#AD1457)</option>
+                <option value="#D81B60" style="background-color: #D81B60; color: #ffffff;">Cherry Blossom (#D81B60)</option>
+                <option value="#8E24AA" style="background-color: #8E24AA; color: #ffffff;">Grape (#8E24AA)</option>
+                <option value="#9E69AF" style="background-color: #9E69AF; color: #ffffff;">Amethyst (#9E69AF)</option>
+              </select>
             </div>
           </div>
         </div>
@@ -689,7 +673,7 @@
     </div>
   </div>
 
-  <script src="please.js" defer></script>
+  <script src="colours.js" defer></script>
   <!-- App Core -->
   <script src="js/state.js" defer></script>
   <script src="js/storage.js" defer></script>

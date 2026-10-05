@@ -10,7 +10,7 @@ const ASSETS_TO_CACHE = [
   './favicon.svg',
   './icon-192.png',
   './icon-512.png',
-  './please.js',
+  './colours.js',
   './fonts/inter-cyrillic-ext.woff2',
   './fonts/inter-cyrillic.woff2',
   './fonts/inter-greek-ext.woff2',

@@ -33,14 +33,14 @@ window.HabitualCore = window.HabitualCore || {};
           }
           habit = {
             id: habitId, name: habitName, type: 'positive', description: '', category: '',
-            colorTheme: typeof Please !== 'undefined' ? Please.make_color({ from_hash: habitId }) : 'green',
+            colorTheme: core.getDefaultColorForId(habitId),
             dailyTarget: 1, parentId: parentId, createdAt: core.getTodayKey(), logs: {}
           };
           let parentHabit = core.state.habits.find(h => h.id === parentId);
           if (!parentHabit && parentId) {
             parentHabit = {
               id: parentId, name: core.nameFromId(parentId), type: 'positive', description: '', category: '',
-              colorTheme: typeof Please !== 'undefined' ? Please.make_color({ from_hash: habitId }) : 'green',
+              colorTheme: core.getDefaultColorForId(parentId),
               dailyTarget: 1, parentId: null, createdAt: core.getTodayKey(), logs: {}
             };
             core.state.habits.push(parentHabit);
@@ -99,6 +99,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.customColorHex = document.getElementById('habit-custom-color-hex');
     core.elements.radioColorCustom = document.getElementById('radio-color-custom');
     core.elements.customSwatchPreview = document.getElementById('custom-swatch-preview');
+    core.elements.calendarColorSelect = document.getElementById('habit-calendar-color-select');
 
     core.elements.modalCalendarPicker = document.getElementById('modal-calendar-picker');
     core.elements.modalCalendarBadge = document.getElementById('modal-calendar-habit-badge');
@@ -153,23 +154,40 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
+    if (core.elements.calendarColorSelect) {
+      core.elements.calendarColorSelect.addEventListener('change', (e) => {
+        const hex = e.target.value;
+        if (hex) {
+          if (core.elements.customColorHex) core.elements.customColorHex.value = hex;
+          if (core.elements.customColorPicker) core.elements.customColorPicker.value = hex;
+          if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
+            core.elements.customSwatchPreview.style.backgroundColor = hex;
+          }
+        }
+      });
+    }
+
     if (core.elements.customColorPicker) {
       core.elements.customColorPicker.addEventListener('input', (e) => {
         const color = e.target.value;
-        core.elements.customColorHex.value = color;
-        core.elements.radioColorCustom.checked = true;
-        core.elements.customSwatchPreview.style.backgroundColor = color;
+        if (core.elements.customColorHex) core.elements.customColorHex.value = color;
+        if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
+          core.elements.customSwatchPreview.style.backgroundColor = color;
+        }
+        core.syncCalendarColorDropdown(color);
       });
     }
 
     if (core.elements.customColorHex) {
       core.elements.customColorHex.addEventListener('input', (e) => {
         let val = e.target.value.trim();
-        core.elements.radioColorCustom.checked = true;
         if (core.parseHexColor(val)) {
           const hex = core.normalizeHex(val);
-          core.elements.customColorPicker.value = hex;
-          core.elements.customSwatchPreview.style.backgroundColor = hex;
+          if (core.elements.customColorPicker) core.elements.customColorPicker.value = hex;
+          if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
+            core.elements.customSwatchPreview.style.backgroundColor = hex;
+          }
+          core.syncCalendarColorDropdown(hex);
         }
       });
     }
@@ -481,11 +499,15 @@ window.HabitualCore = window.HabitualCore || {};
             m.classList.add('hidden');
             const otherCard = m.closest('.heatmap-card');
             if (otherCard) otherCard.classList.remove('menu-open');
+            const otherWrapper = m.closest('.heatmap-group-wrapper');
+            if (otherWrapper) otherWrapper.classList.remove('menu-open');
           }
         });
         const isHidden = menu.classList.toggle('hidden');
         const parentCard = btn.closest('.heatmap-card');
         if (parentCard) parentCard.classList.toggle('menu-open', !isHidden);
+        const parentWrapper = btn.closest('.heatmap-group-wrapper');
+        if (parentWrapper) parentWrapper.classList.toggle('menu-open', !isHidden);
       });
     });
 
@@ -493,6 +515,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (!e.target.closest('.card-context-menu-dropdown') && core.elements.heatmapsGallery) {
         core.elements.heatmapsGallery.querySelectorAll('.card-menu-content').forEach(m => m.classList.add('hidden'));
         core.elements.heatmapsGallery.querySelectorAll('.heatmap-card.menu-open').forEach(c => c.classList.remove('menu-open'));
+        core.elements.heatmapsGallery.querySelectorAll('.heatmap-group-wrapper.menu-open').forEach(w => w.classList.remove('menu-open'));
       }
     });
 
@@ -503,6 +526,8 @@ window.HabitualCore = window.HabitualCore || {};
         if (menu) menu.classList.add('hidden');
         const parentCard = btn.closest('.heatmap-card');
         if (parentCard) parentCard.classList.remove('menu-open');
+        const parentWrapper = btn.closest('.heatmap-group-wrapper');
+        if (parentWrapper) parentWrapper.classList.remove('menu-open');
         core.openHabitModal(null, btn.dataset.habitId);
       });
     });
@@ -514,6 +539,8 @@ window.HabitualCore = window.HabitualCore || {};
         if (menu) menu.classList.add('hidden');
         const parentCard = btn.closest('.heatmap-card');
         if (parentCard) parentCard.classList.remove('menu-open');
+        const parentWrapper = btn.closest('.heatmap-group-wrapper');
+        if (parentWrapper) parentWrapper.classList.remove('menu-open');
         const habit = core.state.habits.find(h => h.id === btn.dataset.habitId);
         if (habit) core.openHabitModal(habit);
       });
@@ -526,6 +553,8 @@ window.HabitualCore = window.HabitualCore || {};
         if (menu) menu.classList.add('hidden');
         const parentCard = btn.closest('.heatmap-card');
         if (parentCard) parentCard.classList.remove('menu-open');
+        const parentWrapper = btn.closest('.heatmap-group-wrapper');
+        if (parentWrapper) parentWrapper.classList.remove('menu-open');
         const habit = core.state.habits.find(h => h.id === btn.dataset.habitId);
         if (habit) {
           core.setHabitPauseState(habit, !habit.isPaused);
@@ -542,6 +571,8 @@ window.HabitualCore = window.HabitualCore || {};
         if (menu) menu.classList.add('hidden');
         const parentCard = btn.closest('.heatmap-card');
         if (parentCard) parentCard.classList.remove('menu-open');
+        const parentWrapper = btn.closest('.heatmap-group-wrapper');
+        if (parentWrapper) parentWrapper.classList.remove('menu-open');
         core.deleteHabit(btn.dataset.habitId);
       });
     });
@@ -738,18 +769,14 @@ window.HabitualCore = window.HabitualCore || {};
       const typeRadio = core.elements.formHabit.querySelector(`input[name="habit-type"][value="${habitToEdit.type || 'positive'}"]`);
       if (typeRadio) typeRadio.checked = true;
 
-      const isCustomHex = habitToEdit.colorTheme && habitToEdit.colorTheme.startsWith('#');
-      if (isCustomHex) {
-        if (core.elements.radioColorCustom) core.elements.radioColorCustom.checked = true;
-        const normalized = core.normalizeHex(habitToEdit.colorTheme);
-        if (core.elements.customColorHex) core.elements.customColorHex.value = normalized;
-        if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalized;
-        if (core.elements.customSwatchPreview) core.elements.customSwatchPreview.style.backgroundColor = normalized;
-      } else {
-        const colorRadio = core.elements.formHabit.querySelector(`input[name="habit-color"][value="${habitToEdit.colorTheme || 'green'}"]`);
-        if (colorRadio) colorRadio.checked = true;
-        if (core.elements.customSwatchPreview) core.elements.customSwatchPreview.style.backgroundColor = 'transparent';
+      const rawColor = habitToEdit.colorTheme || core.getDefaultColorForId(habitToEdit.id);
+      const normalized = rawColor.startsWith('#') ? core.normalizeHex(rawColor) : (core.PRESET_THEME_HEX[rawColor] || core.getDefaultColorForId(habitToEdit.id));
+      if (core.elements.customColorHex) core.elements.customColorHex.value = normalized;
+      if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalized;
+      if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
+        core.elements.customSwatchPreview.style.backgroundColor = normalized;
       }
+      core.syncCalendarColorDropdown(normalized);
     } else {
       if (core.elements.modalHabitTitle) core.elements.modalHabitTitle.textContent = defaultParentId ? 'Create New Sub-Habit' : 'Create New Habit';
       document.getElementById('habit-id').value = '';
@@ -757,7 +784,10 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitIdDisplay) core.elements.habitIdDisplay.textContent = '';
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.add('hidden');
       if (core.elements.habitFormDetails) core.elements.habitFormDetails.classList.add('hidden');
-      if (core.elements.customSwatchPreview) core.elements.customSwatchPreview.style.backgroundColor = 'transparent';
+      if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
+        core.elements.customSwatchPreview.style.backgroundColor = 'transparent';
+      }
+      core.syncCalendarColorDropdown('');
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = false;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = false;
       if (parentDepSelect) parentDepSelect.value = 'none';
@@ -806,6 +836,22 @@ window.HabitualCore = window.HabitualCore || {};
     if (core.elements.modalHabit) core.elements.modalHabit.classList.remove('hidden');
   };
 
+  core.syncCalendarColorDropdown = function(hex) {
+    if (!core.elements.calendarColorSelect || !core.elements.calendarColorSelect.options) return;
+    if (!hex) {
+      core.elements.calendarColorSelect.value = '';
+      return;
+    }
+    const upperHex = hex.toUpperCase();
+    const options = Array.from(core.elements.calendarColorSelect.options);
+    const matchedOpt = options.find(opt => opt && opt.value && opt.value.toUpperCase() === upperHex);
+    if (matchedOpt) {
+      core.elements.calendarColorSelect.value = matchedOpt.value;
+    } else {
+      core.elements.calendarColorSelect.value = '';
+    }
+  };
+
   core.handleHabitNameBlur = function() {
     if (!core.elements.habitName) return;
     const nameVal = core.elements.habitName.value.trim();
@@ -823,14 +869,17 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.remove('hidden');
       if (core.elements.habitFormDetails) core.elements.habitFormDetails.classList.remove('hidden');
 
-      if (!isEditMode && typeof Please !== 'undefined') {
-        const derivedColor = Please.make_color({ from_hash: derivedId });
+      if (!isEditMode) {
+        const derivedColor = core.getDefaultColorForId(derivedId);
         if (derivedColor && typeof derivedColor === 'string') {
           const normalized = core.normalizeHex(derivedColor);
           if (core.elements.radioColorCustom) core.elements.radioColorCustom.checked = true;
           if (core.elements.customColorHex) core.elements.customColorHex.value = normalized;
           if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalized;
-          if (core.elements.customSwatchPreview) core.elements.customSwatchPreview.style.backgroundColor = normalized;
+          if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
+            core.elements.customSwatchPreview.style.backgroundColor = normalized;
+          }
+          core.syncCalendarColorDropdown(normalized);
         }
       }
     } else if (!isEditMode) {
@@ -950,13 +999,17 @@ window.HabitualCore = window.HabitualCore || {};
       customUnit = getVal('habit-custom-unit') || (document.getElementById('habit-custom-unit') ? document.getElementById('habit-custom-unit').value : 'days');
     }
 
-    let colorTheme = typeof Please !== 'undefined' ? Please.make_color({ from_hash: id || name || 'default' }) : 'green';
-    if (selectedColorRadio === 'custom') {
-      const hexVal = core.elements.customColorHex.value;
-      colorTheme = core.normalizeHex(hexVal);
-    } else {
-      colorTheme = selectedColorRadio;
-    }
+    const calSelect = document.getElementById('habit-calendar-color-select');
+    const calVal = (calSelect && calSelect.value) ? calSelect.value : (getVal('habit-calendar-color-select') || '');
+    const hexInput = document.getElementById('habit-custom-color-hex');
+    const hexVal = (hexInput && hexInput.value) ? hexInput.value : (core.elements.customColorHex ? core.elements.customColorHex.value : (getVal('habit-custom-color-hex') || ''));
+    const pickerInput = document.getElementById('habit-custom-color-picker');
+    const pickerVal = (pickerInput && pickerInput.value) ? pickerInput.value : (getVal('habit-custom-color-picker') || '');
+
+    const chosenColor = calVal || hexVal || pickerVal;
+    let colorTheme = (chosenColor && core.parseHexColor(chosenColor))
+      ? core.normalizeHex(chosenColor)
+      : core.getDefaultColorForId(id || name || 'default');
 
     if (!name) return;
 

@@ -92,6 +92,7 @@ global.localStorage = mockLocalStorage;
 global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } };
 
 // Load Habitual Core Files
+require('../web/colours.js');
 require('../web/js/state.js');
 require('../web/js/storage.js');
 require('../web/js/render.js');
@@ -1247,6 +1248,91 @@ describe('Feature 22: 🎨 Coloured Habit Tab Heading', () => {
     const title = card.querySelector('.tab-title');
     assert(title !== null, 'Card contains .tab-title element');
     assert(card.innerHTML.includes('Daily Coding'), 'Card HTML displays habit name "Daily Coding" inside tab');
+  });
+});
+
+// ============================================================================
+// FEATURE 23: 🎨 24 GOOGLE CALENDAR COLOURS IN COLOURS.JS
+// ============================================================================
+describe('Feature 23: 🎨 24 Google Calendar Colours in colours.js', () => {
+  test('windows.colour and window.colour return array of 24 Google Calendar hex colors', () => {
+    assert(typeof global.window.colour === 'function', 'window.colour is a function');
+    assert(typeof global.windows.colour === 'function', 'windows.colour is a function');
+    const colours = global.windows.colour();
+    assert(Array.isArray(colours), 'windows.colour() returns an array');
+    assertEqual(colours.length, 24, 'returns 24 hex colors');
+    assert(colours.includes('#795548'), 'includes Cocoa (#795548)');
+    assert(colours.includes('#9E69AF'), 'includes Amethyst (#9E69AF)');
+  });
+
+  test('window.colour(str) and window.colourFromString(str) return deterministic color from string', () => {
+    assert(typeof global.window.colourFromString === 'function', 'window.colourFromString is a function');
+    const color1 = global.window.colourFromString('workout');
+    const color2 = global.window.colourFromString('workout');
+    const color3 = global.window.colour('workout');
+    assertEqual(color1, color2, 'same string returns identical color');
+    assertEqual(color1, color3, 'window.colour("workout") returns same color as colourFromString');
+    assert(global.window.colour().includes(color1), 'returned color is one of the 24 Google Calendar colors');
+
+    const differentColor = global.window.colourFromString('reading');
+    assert(typeof differentColor === 'string', 'returns hex string');
+    assert(differentColor.startsWith('#'), 'hex string starts with #');
+  });
+
+  test('Updating habit color in edit form saves and persists in LocalStorage', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+    const originalHabit = {
+      id: 'running',
+      name: 'Morning Run',
+      type: 'positive',
+      dailyTarget: 1,
+      colorTheme: '#33b679', // Sage
+      logs: {}
+    };
+    state.habits = [originalHabit];
+
+    // Mock form elements for saving
+    const coreElements = HabitualCore.getElements();
+    coreElements.formHabit = {
+      reset: () => {},
+      querySelector: (sel) => {
+        if (sel.includes('habit-type')) return { value: 'positive', checked: true };
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+    coreElements.customColorHex = { value: '#d50000' }; // Tomato (#d50000)
+    coreElements.customColorPicker = { value: '#d50000' };
+
+    // Mock document.getElementById for form fields
+    const prevGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'habit-id') return { value: 'running' };
+      if (id === 'habit-name') return { value: 'Morning Run' };
+      if (id === 'habit-calendar-color-select') return { value: '#d50000' };
+      if (id === 'habit-custom-color-hex') return { value: '#d50000' };
+      if (id === 'habit-custom-color-picker') return { value: '#d50000' };
+      return prevGetElementById ? prevGetElementById(id) : null;
+    };
+
+    // Execute save habit with updated color
+    HabitualCore.handleHabitFormSubmit({ preventDefault: () => {} });
+
+    global.document.getElementById = prevGetElementById;
+
+    const updatedHabit = state.habits.find(h => h.id === 'running');
+    assert(updatedHabit !== undefined, 'Habit still exists');
+    assertEqual(updatedHabit.colorTheme, '#d50000', 'Updated colorTheme in state memory to Tomato (#d50000)');
+
+    // Save and reload state to test persistence
+    HabitualCore.saveState();
+    HabitualCore.resetState();
+    HabitualCore.loadState();
+
+    const restoredHabit = HabitualCore.getState().habits.find(h => h.id === 'running');
+    assert(restoredHabit !== undefined, 'Restored habit exists after loadState()');
+    assertEqual(restoredHabit.colorTheme, '#d50000', 'Restored habit retains updated colorTheme from LocalStorage');
   });
 });
 

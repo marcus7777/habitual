@@ -49,7 +49,7 @@ Organize complex habit routines into structured parent-child trees:
 - **10 Preset Color Themes**: Select from 10 custom color palettes: `green` (Emerald), `blue` (GitHub Blue), `purple` (Electric Purple), `orange` (Fire), `crimson`, `cyan`, `emerald`, `amber`, `indigo`, and `rose`.
 - **Custom HEX Color Picker**: Choose any custom HEX color code (`#RRGGBB`). Dynamic gradient level calculations generate seamless heatmap shade levels automatically.
 - **Coloured Habit Tab Headings**: Habit cards feature distinctive colored tab headers with theme color pills, subtle border tinting, and glowing shadows.
-- **Smart Palette Generation**: Automated hash-based color assignments via `Please.js`.
+- **Smart Palette Generation**: Automated hash-based color assignments via 24 Google Calendar colors (`colours.js`).
 
 ---
 
