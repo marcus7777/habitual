@@ -395,7 +395,7 @@ window.HabitualCore = window.HabitualCore || {};
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
             </div>
             ${hasArrows ? `
-            <div class="drag-arrows hidden">
+            <div class="drag-arrows hidden" tabindex="-1">
               ${!isFirstSibling ? `<button type="button" class="btn-move-up" data-habit-id="${habit.id}" aria-label="Move Up">▲</button>` : ''}
               ${!isLastSibling ? `<button type="button" class="btn-move-down" data-habit-id="${habit.id}" aria-label="Move Down">▼</button>` : ''}
             </div>

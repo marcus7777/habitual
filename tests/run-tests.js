@@ -1406,6 +1406,35 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
 });
 
 // ============================================================================
+// FEATURE 25: 🎯 FOCUS HABIT NAME INPUT WHEN HABIT MODAL OPENS
+// ============================================================================
+describe('Feature 25: 🎯 Focus Habit Name Input when Habit Modal Opens', () => {
+  test('openHabitModal sets focus on the habit-name input field', () => {
+    let focusCalled = false;
+    const mockHabitName = {
+      value: '',
+      focus() {
+        focusCalled = true;
+      }
+    };
+
+    const originalGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'habit-name') return mockHabitName;
+      if (id === 'modal-habit') return { classList: { remove: () => {}, add: () => {}, toggle: () => {} } };
+      if (id === 'form-habit') return { reset: () => {}, querySelectorAll: () => [] };
+      return { value: '', selectedOptions: [{ text: '' }], classList: { add: () => {}, remove: () => {}, toggle: () => {} } };
+    };
+
+    HabitualCore.openHabitModal();
+
+    assertEqual(focusCalled, true, 'focus() was called on habit-name input when opening habit modal');
+
+    global.document.getElementById = originalGetElementById;
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);
