@@ -70,6 +70,7 @@
 .flex-col { display: flex; flex-direction: column; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; }
 .flex-center { display: flex; align-items: center; justify-content: center; }
+.muted-text { color: var(--text-muted); }
 
 body.dark-theme {
   background-color: var(--bg-app);
@@ -576,6 +577,12 @@ body.dark-theme {
   z-index: 10;
 }
 
+.drag-handle-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .drag-handle {
   cursor: grab;
   color: var(--text-dim);
@@ -595,6 +602,44 @@ body.dark-theme {
 
 .drag-handle:active {
   cursor: grabbing;
+}
+
+.drag-arrows {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  z-index: 20;
+}
+
+.drag-arrows.hidden {
+  display: none;
+}
+
+.btn-move-up,
+.btn-move-down {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-move-up:hover,
+.btn-move-down:hover {
+  background-color: var(--bg-pill);
 }
 
 .heatmap-card.dragging {

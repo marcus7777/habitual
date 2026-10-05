@@ -380,10 +380,28 @@ window.HabitualCore = window.HabitualCore || {};
     let actionsHTML = '';
     if (habit) {
       const openMenuItem = !isCurrentOpenPage ? `<a href="#/habit/${habit.id}" class="card-menu-item">Open Habit Page</a>` : '';
-      const dragHandleHTML = isDraggable ? `
-        <div class="drag-handle" title="Drag to reorder habit">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
-        </div>` : '';
+      let dragHandleHTML = '';
+      if (isDraggable) {
+        const siblings = core.state.habits.filter(h => h.parentId === habit.parentId);
+        const siblingIndex = siblings.findIndex(h => h.id === habit.id);
+        const isFirstSibling = siblingIndex === 0;
+        const isLastSibling = siblingIndex === siblings.length - 1;
+
+        const hasArrows = !isFirstSibling || !isLastSibling;
+
+        dragHandleHTML = `
+          <div class="drag-handle-container">
+            <div class="drag-handle" title="Tap to move, or drag to reorder">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+            </div>
+            ${hasArrows ? `
+            <div class="drag-arrows hidden">
+              ${!isFirstSibling ? `<button type="button" class="btn-move-up" data-habit-id="${habit.id}" aria-label="Move Up">▲</button>` : ''}
+              ${!isLastSibling ? `<button type="button" class="btn-move-down" data-habit-id="${habit.id}" aria-label="Move Down">▼</button>` : ''}
+            </div>
+            ` : ''}
+          </div>`;
+      }
 
       actionsHTML = `
         <div class="card-header-actions">

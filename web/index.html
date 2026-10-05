@@ -159,7 +159,7 @@
             </button>
             <div class="dropdown-divider"></div>
             <div class="dropdown-item-group">
-              <span class="dropdown-label">Select Year:</span>
+              <span>Select Year:</span>
               <select id="year-selector" class="select-input" aria-label="Select Year">
                 <!-- Populated by JS -->
                 <option value="2026" selected="">2026</option>
@@ -193,7 +193,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.0.29</p>
+      <p>Habitual &bull; v1.0.31</p>
     </footer>
   </div>
 
@@ -204,11 +204,11 @@
   <div id="modal-calendar-picker" class="modal-backdrop hidden">
     <div class="modal-dialog modal-dialog-sm">
       <div class="modal-header">
-        <h3 id="modal-calendar-title">Select Date to Log</h3>
+        <h3>Select Date to Log</h3>
         <button id="modal-calendar-close" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="calendar-modal-info">
+        <div>
           <span id="modal-calendar-habit-badge" class="badge-count">Habit Name</span>
           <p class="muted-text">Pick a past date or tap a quick option below:</p>
         </div>
@@ -247,12 +247,12 @@
         <div class="form-group">
           <label for="habit-name">Habit Name <span class="required">*</span></label>
           <input type="text" name="habit-name" id="habit-name" class="text-input" placeholder="e.g. Daily Coding, Gym, Days since Caffeine" required>
-          <div name="habit-id-preview" id="habit-id-preview" class="habit-id-preview hidden">
-            <small class="muted-text">Habit ID: <code name="habit-id-display" id="habit-id-display"></code></small>
+          <div id="habit-id-preview" class="habit-id-preview hidden">
+            <small class="muted-text">Habit ID: <code id="habit-id-display"></code></small>
           </div>
         </div>
 
-        <div name="habit-form-details" id="habit-form-details" class="hidden">
+        <div id="habit-form-details" class="hidden">
           <div class="form-group">
             <label for="habit-parent">Parent Habit (Nest inside another habit)</label>
             <select name="habit-parent" id="habit-parent" class="select-input">
@@ -350,7 +350,7 @@
         <div class="form-group">
           <label>Heatmap Colour Theme</label>
           <!-- Custom HEX Colour Controls -->
-          <div class="custom-color-input-container" id="custom-color-container">
+          <div class="custom-color-input-container">
             <div class="custom-color-picker-row">
               <input type="color" name="habit-custom-color-picker" id="habit-custom-color-picker" value="#39d353" class="color-picker-input" title="Choose color visually" aria-label="Custom Color Picker">
               <input type="text" name="habit-custom-color-hex" id="habit-custom-color-hex" class="text-input hex-input" placeholder="#39d353" value="#39d353" maxlength="7" spellcheck="false" aria-label="Custom HEX Code">
@@ -358,7 +358,7 @@
             </div>
 
             <!-- Colors Dropdown -->
-            <div class="calendar-color-select-row" style="margin-top: 10px;">
+            <div style="margin-top: 10px;">
               <select id="habit-calendar-color-select" name="habit-calendar-color-select" class="select-input" style="width: 100%; font-size: 0.88rem; padding: 6px 10px;" aria-label="Select Colour">
                 <option value="" disabled selected>-- 🎨 Select Color --</option>
                 <option value="#795548" style="background-color: #795548; color: #ffffff;">Cocoa (#795548)</option>
@@ -430,8 +430,8 @@
               <input type="number" name="habit-weekly-target" id="habit-weekly-target" class="text-input" min="1" max="100" value="1">
             </div>
             <div class="form-group">
-              <label for="habit-weekly-interval">Repeat Interval (Every N Weeks)</label>
-              <input type="number" name="habit-weekly-interval" id="habit-weekly-interval" class="text-input" min="1" max="52" value="1">
+              <label>Repeat Interval (Every N Weeks)</label>
+              <input type="number" class="text-input" min="1" max="52" value="1" aria-label="Repeat Interval (Every N Weeks)">
               <small class="muted-text">Set to 1 for every week, 2 for bi-weekly (every 2 weeks), etc.</small>
             </div>
             <div class="form-group">
@@ -462,8 +462,8 @@
               <input type="number" name="habit-monthly-target" id="habit-monthly-target" class="text-input" min="1" max="100" value="1">
             </div>
             <div class="form-group">
-              <label for="habit-monthly-interval">Repeat Interval (Every N Months)</label>
-              <input type="number" name="habit-monthly-interval" id="habit-monthly-interval" class="text-input" min="1" max="24" value="1">
+              <label>Repeat Interval (Every N Months)</label>
+              <input type="number" class="text-input" min="1" max="24" value="1" aria-label="Repeat Interval (Every N Months)">
               <small class="muted-text">Set to 1 for every month, 3 for quarterly (every 3 months), etc.</small>
             </div>
             <div class="form-group">
@@ -490,8 +490,8 @@
               </div>
             </div>
             <div class="form-group">
-              <label for="habit-specific-interval">Repeat Interval (Every N Weeks)</label>
-              <input type="number" name="habit-specific-interval" id="habit-specific-interval" class="text-input" min="1" max="52" value="1">
+              <label>Repeat Interval (Every N Weeks)</label>
+              <input type="number" class="text-input" min="1" max="52" value="1" aria-label="Repeat Interval (Every N Weeks)">
             </div>
             <div class="form-group">
               <label class="checkbox-label">
@@ -534,7 +534,7 @@
 
           <div id="backfill-options-container" class="backfill-options-grid hidden">
             <div class="form-group">
-              <label for="habit-history-duration" id="label-history-duration">How many days to backfill?</label>
+              <label for="habit-history-duration">How many days to backfill?</label>
               <input name="habit-history-duration" id="habit-history-duration" type="number" class="text-input" min="1" max="3650" value="30" placeholder="e.g. 30">
             </div>
 
@@ -549,7 +549,7 @@
             </div>
 
             <div class="form-group" id="group-history-instances">
-              <label for="habit-history-instances" id="label-history-instances">Daily completion count / instances per active day</label>
+              <label for="habit-history-instances">Daily completion count / instances per active day</label>
               <select name="habit-history-instances" id="habit-history-instances" class="select-input">
                 <option value="1" selected>1 instance per day</option>
                 <option value="2">2 instances per day</option>
@@ -562,7 +562,7 @@
                 <option value="random_multi">Random / Variable (1 to 3 instances)</option>
                 <option value="random_high">Random / Variable (1 to 5 instances)</option>
               </select>
-              <small class="muted-text" id="desc-history-instances">Allows backfilling single or multiple completed check-ins per day.</small>
+              <small class="muted-text">Allows backfilling single or multiple completed check-ins per day.</small>
             </div>
           </div>
         </div>
@@ -580,7 +580,7 @@
   <div id="modal-log" class="modal-backdrop hidden">
     <div class="modal-dialog modal-dialog-sm">
       <div class="modal-header">
-        <h3 id="modal-log-title">Log Activity</h3>
+        <h3>Log Activity</h3>
         <button id="modal-log-close" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -617,7 +617,7 @@
           </select>
         </div>
 
-        <div class="form-group" id="modal-log-count-container">
+        <div class="form-group">
           <label id="modal-log-count-label">Completion Count</label>
           <div class="counter-input-group">
             <button type="button" id="btn-counter-minus" class="btn btn-secondary counter-btn">&minus;</button>
