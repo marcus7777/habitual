@@ -194,7 +194,8 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.setCursorDateKey = function(dateStr) {
-    if (!dateStr || core.cursorDateKey === dateStr) return;
+    if (!dateStr) return;
+    const isNew = core.cursorDateKey !== dateStr;
     core.cursorDateKey = dateStr;
     const year = parseInt(dateStr.split('-')[0], 10);
     if (year && year !== core.state.selectedYear) {
@@ -204,6 +205,9 @@ window.HabitualCore = window.HabitualCore || {};
     }
     if (core.renderAll && core.elements && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.appendChild === 'function') {
       core.renderAll();
+    }
+    if (isNew && core.showCursorTooltip) {
+      core.showCursorTooltip(1200);
     }
   };
 
