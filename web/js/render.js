@@ -184,7 +184,8 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (route.view === 'home') {
       const topLevelHabits = core.state.habits.filter(h => !h.parentId);
-      if (topLevelHabits.length > 1) {
+      const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
+      if (topLevelHabits.length > 1 && habitsInAll.length > 0) {
         const combinedCard = core.buildHeatmapCard(null, core.state.selectedYear);
         core.elements.heatmapsGallery.appendChild(combinedCard);
       }

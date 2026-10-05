@@ -1380,6 +1380,40 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     assertEqual(cellData.activeHabits[0].id, 'h1', 'Included active habit is h1');
   });
 
+  test('renderHeatmapsGallery hides All heatmap card when all habits have hideFromAll set to true', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+    state.habits.push(
+      { id: 'h1', name: 'Habit 1', hideFromAll: true, logs: {} },
+      { id: 'h2', name: 'Habit 2', hideFromAll: true, logs: {} }
+    );
+
+    const appenedCards = [];
+    const originalElements = HabitualCore.elements;
+    HabitualCore.elements = {
+      heatmapsGallery: {
+        innerHTML: '',
+        appendChild(node) {
+          appenedCards.push(node);
+        },
+        querySelectorAll() {
+          return [];
+        },
+        querySelector() {
+          return null;
+        }
+      },
+      yearSelector: { innerHTML: '' }
+    };
+
+    HabitualCore.renderHeatmapsGallery();
+
+    const hasAllCard = appenedCards.some(card => card && card.getAttribute && card.getAttribute('data-habit-id') === 'all');
+    assertEqual(hasAllCard, false, 'All heatmap card is NOT rendered when all habits are hideFromAll');
+
+    HabitualCore.elements = originalElements;
+  });
+
   test('saveState and loadState persist showCount, showDuration, and hideFromAll options', () => {
     HabitualCore.resetState();
     const state = HabitualCore.getState();
@@ -1413,6 +1447,7 @@ describe('Feature 25: 🎯 Focus Habit Name Input when Habit Modal Opens', () =>
     let focusCalled = false;
     const mockHabitName = {
       value: '',
+      addEventListener: () => {},
       focus() {
         focusCalled = true;
       }
@@ -1421,11 +1456,18 @@ describe('Feature 25: 🎯 Focus Habit Name Input when Habit Modal Opens', () =>
     const originalGetElementById = global.document.getElementById;
     global.document.getElementById = (id) => {
       if (id === 'habit-name') return mockHabitName;
-      if (id === 'modal-habit') return { classList: { remove: () => {}, add: () => {}, toggle: () => {} } };
-      if (id === 'form-habit') return { reset: () => {}, querySelectorAll: () => [] };
-      return { value: '', selectedOptions: [{ text: '' }], classList: { add: () => {}, remove: () => {}, toggle: () => {} } };
+      return {
+        value: '',
+        selectedOptions: [{ text: '' }],
+        addEventListener: () => {},
+        reset: () => {},
+        querySelectorAll: () => [],
+        querySelector: () => null,
+        classList: { add: () => {}, remove: () => {}, toggle: () => {} }
+      };
     };
 
+    HabitualCore.initUI();
     HabitualCore.openHabitModal();
 
     assertEqual(focusCalled, true, 'focus() was called on habit-name input when opening habit modal');
