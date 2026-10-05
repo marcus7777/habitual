@@ -514,11 +514,64 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
+    core.elements.heatmapsGallery.querySelectorAll('.drag-handle').forEach(handle => {
+      handle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const container = handle.closest('.drag-handle-container');
+        if (!container) return;
+        const arrows = container.querySelector('.drag-arrows');
+        if (!arrows) return;
+
+        core.elements.heatmapsGallery.querySelectorAll('.drag-arrows').forEach(arr => {
+          if (arr !== arrows) arr.classList.add('hidden');
+        });
+
+        arrows.classList.toggle('hidden');
+      });
+    });
+
+    core.elements.heatmapsGallery.querySelectorAll('.btn-move-up, .btn-move-down').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const habitId = btn.dataset.habitId;
+        const isUp = btn.classList.contains('btn-move-up');
+
+        const habit = core.state.habits.find(h => h.id === habitId);
+        if (!habit) return;
+
+        const siblings = core.state.habits.filter(h => h.parentId === habit.parentId);
+        const siblingIndex = siblings.findIndex(h => h.id === habitId);
+
+        if (isUp && siblingIndex > 0) {
+          const prevSibling = siblings[siblingIndex - 1];
+          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
+          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
+          const newToIndex = core.state.habits.findIndex(h => h.id === prevSibling.id);
+          core.state.habits.splice(newToIndex, 0, movedHabit);
+          if (core.saveState) core.saveState();
+          if (core.renderAll) core.renderAll();
+        } else if (!isUp && siblingIndex < siblings.length - 1) {
+          const nextSibling = siblings[siblingIndex + 1];
+          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
+          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
+          const newToIndex = core.state.habits.findIndex(h => h.id === nextSibling.id);
+          core.state.habits.splice(newToIndex + 1, 0, movedHabit);
+          if (core.saveState) core.saveState();
+          if (core.renderAll) core.renderAll();
+        }
+      });
+    });
+
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.card-context-menu-dropdown') && core.elements.heatmapsGallery) {
         core.elements.heatmapsGallery.querySelectorAll('.card-menu-content').forEach(m => m.classList.add('hidden'));
         core.elements.heatmapsGallery.querySelectorAll('.heatmap-card.menu-open').forEach(c => c.classList.remove('menu-open'));
         core.elements.heatmapsGallery.querySelectorAll('.heatmap-group-wrapper.menu-open').forEach(w => w.classList.remove('menu-open'));
+      }
+      if (!e.target.closest('.drag-handle-container') && core.elements.heatmapsGallery) {
+        core.elements.heatmapsGallery.querySelectorAll('.drag-arrows').forEach(arr => arr.classList.add('hidden'));
       }
     });
 
