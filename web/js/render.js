@@ -120,13 +120,16 @@ window.HabitualCore = window.HabitualCore || {};
     });
   };
 
-  core.renderHabitTree = function(habit, year) {
-    const subhabits = core.state.habits.filter(h => h.parentId === habit.id);
+  core.renderHabitTree = function(habit, year, isHomeView = false) {
+    const subhabits = core.state.habits.filter(h => h.parentId === habit.id && (!isHomeView || !h.hideFromAll));
     const hasSubhabits = subhabits.length > 0;
 
     let target;
     if (hasSubhabits) {
-      const allDescendantIds = core.getAllDescendantIds(habit.id);
+      const allDescendantIds = core.getAllDescendantIds(habit.id).filter(id => {
+        const h = core.state.habits.find(x => x.id === id);
+        return h && (!isHomeView || !h.hideFromAll);
+      });
       target = {
         isGroup: true,
         habit: habit,
@@ -156,7 +159,7 @@ window.HabitualCore = window.HabitualCore || {};
     concertina.setAttribute('data-parent-id', habit.id);
 
     subhabits.forEach(sub => {
-      const subNode = core.renderHabitTree(sub, year);
+      const subNode = core.renderHabitTree(sub, year, isHomeView);
       concertina.appendChild(subNode);
     });
 
@@ -183,17 +186,26 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     if (route.view === 'home') {
-      const topLevelHabits = core.state.habits.filter(h => !h.parentId);
+      const visibleTopLevelHabits = core.state.habits.filter(h => !h.parentId && !h.hideFromAll);
       const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
-      if (topLevelHabits.length > 1 && habitsInAll.length > 0) {
+      if (visibleTopLevelHabits.length > 1 && habitsInAll.length > 0) {
         const combinedCard = core.buildHeatmapCard(null, core.state.selectedYear);
         core.elements.heatmapsGallery.appendChild(combinedCard);
       }
 
-      topLevelHabits.forEach(habit => {
-        const habitNode = core.renderHabitTree(habit, core.state.selectedYear);
+      visibleTopLevelHabits.forEach(habit => {
+        const habitNode = core.renderHabitTree(habit, core.state.selectedYear, true);
         core.elements.heatmapsGallery.appendChild(habitNode);
       });
+
+      if (visibleTopLevelHabits.length === 0 && core.state.habits.length > 0) {
+        const callout = document.createElement('div');
+        callout.className = 'empty-placeholder';
+        callout.innerHTML = `
+          <p>All habits are currently hidden from the 'All' gallery view.</p>
+        `;
+        core.elements.heatmapsGallery.appendChild(callout);
+      }
     } else if (route.view === 'habit') {
       const targetHabit = core.state.habits.find(h => h.id === route.habitId);
 
