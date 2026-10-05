@@ -1603,6 +1603,56 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
 
     HabitualCore.elements = originalElements;
   });
+
+  test('WASD keys navigate cursor date and Enter key clicks quick log on hovered card', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'getCursorDateKey starts on today');
+
+    let keydownListener = null;
+    const prevAddEventListener = global.document.addEventListener;
+    global.document.addEventListener = (event, fn) => {
+      if (event === 'keydown') keydownListener = fn;
+    };
+
+    HabitualCore.initUI();
+    global.document.addEventListener = prevAddEventListener;
+
+    assert(typeof keydownListener === 'function', 'keydown listener was registered');
+
+    // Test 'w' key (up 1 day = -1 day)
+    keydownListener({ key: 'w', preventDefault: () => {} });
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+    assertEqual(HabitualCore.getCursorDateKey(), yesterday, "'w' key moves cursor up 1 day");
+
+    // Test 's' key (down 1 day = +1 day)
+    keydownListener({ key: 's', preventDefault: () => {} });
+    assertEqual(HabitualCore.getCursorDateKey(), today, "'s' key moves cursor down 1 day");
+
+    // Test 'a' key (left 1 week = -7 days)
+    keydownListener({ key: 'a', preventDefault: () => {} });
+    const lastWeek = HabitualCore.getDaysAgoKey(7);
+    assertEqual(HabitualCore.getCursorDateKey(), lastWeek, "'a' key moves cursor left 1 week");
+
+    // Test 'd' key (right 1 week = +7 days)
+    keydownListener({ key: 'd', preventDefault: () => {} });
+    assertEqual(HabitualCore.getCursorDateKey(), today, "'d' key moves cursor right 1 week");
+
+    // Test Enter key on hovered card
+    let clicked = false;
+    const mockCard = {
+      querySelector(sel) {
+        if (sel === '.btn-card-quick-log') {
+          return { click: () => { clicked = true; } };
+        }
+        return null;
+      }
+    };
+    HabitualCore.hoveredCard = mockCard;
+
+    keydownListener({ key: 'Enter', preventDefault: () => {} });
+    assertEqual(clicked, true, 'Enter key triggers click on hovered card quick log button');
+  });
 });
 
 // ============================================================================

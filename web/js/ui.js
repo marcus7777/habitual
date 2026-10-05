@@ -574,6 +574,21 @@ window.HabitualCore = window.HabitualCore || {};
       }
     });
 
+    document.addEventListener('mouseover', (e) => {
+      const card = e.target.closest('.heatmap-card');
+      if (card) {
+        core.hoveredCard = card;
+      }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+      const card = e.target.closest('.heatmap-card');
+      if (card && card === core.hoveredCard) {
+        const relatedCard = e.relatedTarget ? e.relatedTarget.closest('.heatmap-card') : null;
+        core.hoveredCard = relatedCard;
+      }
+    });
+
     document.addEventListener('keydown', (e) => {
       const activeEl = document.activeElement;
       const activeTag = activeEl ? activeEl.tagName.toUpperCase() : '';
@@ -583,20 +598,114 @@ window.HabitualCore = window.HabitualCore || {};
       const openModal = document.querySelector('.modal-backdrop:not(.hidden)');
       if (openModal) return;
 
-      if (e.key === 'ArrowLeft') {
+      const key = e.key;
+      const lowerKey = key ? key.toLowerCase() : '';
+
+      if (key === 'ArrowLeft' || lowerKey === 'a') {
         e.preventDefault();
         if (core.moveCursorDateByDays) core.moveCursorDateByDays(-7);
-      } else if (e.key === 'ArrowRight') {
+      } else if (key === 'ArrowRight' || lowerKey === 'd') {
         e.preventDefault();
         if (core.moveCursorDateByDays) core.moveCursorDateByDays(7);
-      } else if (e.key === 'ArrowUp') {
+      } else if (key === 'ArrowUp' || lowerKey === 'w') {
         e.preventDefault();
         if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
-      } else if (e.key === 'ArrowDown') {
+      } else if (key === 'ArrowDown' || lowerKey === 's') {
         e.preventDefault();
         if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
+      } else if (key === 'Enter') {
+        const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) || core.hoveredCard;
+        if (hoveredCard) {
+          const quickLogBtn = hoveredCard.querySelector('.btn-card-quick-log');
+          if (quickLogBtn) {
+            e.preventDefault();
+            quickLogBtn.click();
+          }
+        }
       }
     });
+  };
+
+  core._cursorTooltipTimer = null;
+
+  core.showTooltipForSquare = function(sq, autoHideMs = 0) {
+    if (!sq || !core.elements || !core.elements.customTooltip) return;
+
+    if (core._cursorTooltipTimer) {
+      clearTimeout(core._cursorTooltipTimer);
+      core._cursorTooltipTimer = null;
+    }
+
+    const dateStr = sq.dataset.date;
+    if (!dateStr) return;
+    const habitId = sq.dataset.habitId || 'all';
+    const count = parseInt(sq.dataset.count, 10) || 0;
+    const isRelapse = sq.dataset.relapse === 'true';
+    const isPaused = sq.dataset.paused === 'true';
+    const note = sq.dataset.note;
+    const habitsDone = sq.dataset.habitsDone;
+    const formattedDate = core.formatPrettyDate(dateStr);
+
+    let text = '';
+    if (isPaused) text = `⏸️ <strong>Paused (Tracking paused)</strong> on ${formattedDate}`;
+    else if (isRelapse) text = `<strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
+    else if (habitId.startsWith('all') || habitId.startsWith('group_')) {
+      if (habitsDone) text = `✨ <strong>Completed (${count}):</strong> ${habitsDone} on ${formattedDate}`;
+      else text = `No check-ins on ${formattedDate}`;
+    } else {
+      const habit = (core.state && core.state.habits) ? core.state.habits.find(h => h.id === habitId) : null;
+      if (habit && habit.type === 'negative') text = count > 0 ? `✨ <strong>Clean Day Success</strong> on ${formattedDate}` : `No data for ${formattedDate}`;
+      else {
+        const dailyTarget = habit ? Math.max(1, habit.dailyTarget || 1) : 1;
+        if (dailyTarget > 1) {
+          const status = count >= dailyTarget ? ' 🎉 Goal Met!' : '';
+          text = `<strong>${count}/${dailyTarget} completed${status}</strong> on ${formattedDate}`;
+        } else text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
+      }
+    }
+    const hasUserNote = sq.dataset.hasNote === 'true';
+    if (hasUserNote && note && note.trim() !== '') {
+      text += `<br><span style="color: var(--accent-amber, #d29922); opacity: 0.95; font-size: 0.88em;">📝 ${core.escapeHTML(note)}</span>`;
+    }
+    core.elements.customTooltip.innerHTML = text;
+    core.elements.customTooltip.classList.remove('hidden');
+
+    const rect = sq.getBoundingClientRect();
+    const tooltipWidth = core.elements.customTooltip.offsetWidth || 150;
+    const tooltipHeight = core.elements.customTooltip.offsetHeight || 40;
+    const viewportWidth = (typeof document !== 'undefined' && document.documentElement) ? document.documentElement.clientWidth || window.innerWidth : 1000;
+    const viewportHeight = (typeof document !== 'undefined' && document.documentElement) ? document.documentElement.clientHeight || window.innerHeight : 800;
+    const padding = 8;
+    let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+    left = Math.max(padding, Math.min(left, viewportWidth - tooltipWidth - padding));
+    const gap = 8;
+    let top = rect.top - tooltipHeight - gap;
+    if (top < padding) top = rect.bottom + gap;
+    top = Math.max(padding, Math.min(top, viewportHeight - tooltipHeight - padding));
+    core.elements.customTooltip.style.left = `${left}px`;
+    core.elements.customTooltip.style.top = `${top}px`;
+
+    if (autoHideMs > 0) {
+      core._cursorTooltipTimer = setTimeout(() => {
+        if (core.elements.customTooltip) {
+          core.elements.customTooltip.classList.add('hidden');
+        }
+        core._cursorTooltipTimer = null;
+      }, autoHideMs);
+    }
+  };
+
+  core.showCursorTooltip = function(autoHideMs = 1200) {
+    if (!core.elements || !core.elements.heatmapsGallery) return;
+    const cursorSq = core.elements.heatmapsGallery.querySelector('.heatmap-card .day-square.cursor-day') || core.elements.heatmapsGallery.querySelector('.day-square.cursor-day');
+    if (cursorSq) {
+      if (typeof cursorSq.scrollIntoView === 'function') {
+        try {
+          cursorSq.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        } catch (err) {}
+      }
+      core.showTooltipForSquare(cursorSq, autoHideMs);
+    }
   };
 
   core.attachHeatmapSquareEvents = function() {
@@ -668,56 +777,18 @@ window.HabitualCore = window.HabitualCore || {};
 
     const squares = core.elements.heatmapsGallery.querySelectorAll('.day-square[data-date]');
     squares.forEach(sq => {
-      sq.addEventListener('mouseenter', (e) => {
-        const dateStr = sq.dataset.date;
-        const habitId = sq.dataset.habitId;
-        const count = parseInt(sq.dataset.count, 10) || 0;
-        const isRelapse = sq.dataset.relapse === 'true';
-        const isPaused = sq.dataset.paused === 'true';
-        const note = sq.dataset.note;
-        const habitsDone = sq.dataset.habitsDone;
-        const formattedDate = core.formatPrettyDate(dateStr);
-
-        let text = '';
-        if (isPaused) text = `⏸️ <strong>Paused (Tracking paused)</strong> on ${formattedDate}`;
-        else if (isRelapse) text = `<strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
-        else if (habitId.startsWith('all') || habitId.startsWith('group_')) {
-          if (habitsDone) text = `✨ <strong>Completed (${count}):</strong> ${habitsDone} on ${formattedDate}`;
-          else text = `No check-ins on ${formattedDate}`;
-        } else {
-          const habit = core.state.habits.find(h => h.id === habitId);
-          if (habit && habit.type === 'negative') text = count > 0 ? `✨ <strong>Clean Day Success</strong> on ${formattedDate}` : `No data for ${formattedDate}`;
-          else {
-            const dailyTarget = habit ? Math.max(1, habit.dailyTarget || 1) : 1;
-            if (dailyTarget > 1) {
-              const status = count >= dailyTarget ? ' 🎉 Goal Met!' : '';
-              text = `<strong>${count}/${dailyTarget} completed${status}</strong> on ${formattedDate}`;
-            } else text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
-          }
-        }
-        const hasUserNote = sq.dataset.hasNote === 'true';
-        if (hasUserNote && note && note.trim() !== '') {
-          text += `<br><span style="color: var(--accent-amber, #d29922); opacity: 0.95; font-size: 0.88em;">📝 ${core.escapeHTML(note)}</span>`;
-        }
-        core.elements.customTooltip.innerHTML = text;
-        core.elements.customTooltip.classList.remove('hidden');
-
-        const rect = sq.getBoundingClientRect();
-        const tooltipWidth = core.elements.customTooltip.offsetWidth;
-        const tooltipHeight = core.elements.customTooltip.offsetHeight;
-        const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-        const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
-        const padding = 8;
-        let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-        left = Math.max(padding, Math.min(left, viewportWidth - tooltipWidth - padding));
-        const gap = 8;
-        let top = rect.top - tooltipHeight - gap;
-        if (top < padding) top = rect.bottom + gap;
-        top = Math.max(padding, Math.min(top, viewportHeight - tooltipHeight - padding));
-        core.elements.customTooltip.style.left = `${left}px`;
-        core.elements.customTooltip.style.top = `${top}px`;
+      sq.addEventListener('mouseenter', () => {
+        core.showTooltipForSquare(sq, 0);
       });
-      sq.addEventListener('mouseleave', () => { core.elements.customTooltip.classList.add('hidden'); });
+      sq.addEventListener('mouseleave', () => {
+        if (core._cursorTooltipTimer) {
+          clearTimeout(core._cursorTooltipTimer);
+          core._cursorTooltipTimer = null;
+        }
+        if (core.elements.customTooltip) {
+          core.elements.customTooltip.classList.add('hidden');
+        }
+      });
     });
 
     const dateInput = core.elements.heatmapsGallery.querySelector('.focused-date-input');
