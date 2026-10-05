@@ -70,6 +70,9 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.initUI = function() {
+    core.mouseX = -1;
+    core.mouseY = -1;
+
     core.elements.yearSelector = document.getElementById('year-selector');
     core.elements.heatmapsGallery = document.getElementById('heatmaps-gallery');
     core.elements.customTooltip = document.getElementById('custom-tooltip');
@@ -77,6 +80,10 @@ window.HabitualCore = window.HabitualCore || {};
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('scroll', () => { if (core.elements.customTooltip && !core.elements.customTooltip.classList.contains('hidden')) core.elements.customTooltip.classList.add('hidden'); }, { passive: true });
       window.addEventListener('resize', () => { if (core.elements.customTooltip && !core.elements.customTooltip.classList.contains('hidden')) core.elements.customTooltip.classList.add('hidden'); }, { passive: true });
+      window.addEventListener('mousemove', (e) => {
+        core.mouseX = e.clientX;
+        core.mouseY = e.clientY;
+      }, { passive: true });
     }
 
     core.elements.modalHabit = document.getElementById('modal-habit');
@@ -697,14 +704,63 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.showCursorTooltip = function(autoHideMs = 1200) {
     if (!core.elements || !core.elements.heatmapsGallery) return;
-    const cursorSq = core.elements.heatmapsGallery.querySelector('.heatmap-card .day-square.cursor-day') || core.elements.heatmapsGallery.querySelector('.day-square.cursor-day');
-    if (cursorSq) {
-      if (typeof cursorSq.scrollIntoView === 'function') {
+
+    const allCursorSquares = Array.from(core.elements.heatmapsGallery.querySelectorAll('.day-square.cursor-day'));
+    if (allCursorSquares.length === 0) return;
+
+    const viewportWidth = (typeof document !== 'undefined' && document.documentElement) ? (document.documentElement.clientWidth || window.innerWidth) : 1000;
+    const viewportHeight = (typeof document !== 'undefined' && document.documentElement) ? (document.documentElement.clientHeight || window.innerHeight) : 800;
+
+    const visibleSquares = allCursorSquares.filter(sq => {
+      const rect = sq.getBoundingClientRect();
+      return rect.bottom >= 0 && rect.top <= viewportHeight && rect.right >= 0 && rect.left <= viewportWidth;
+    });
+
+    const candidateSquares = visibleSquares.length > 0 ? visibleSquares : allCursorSquares;
+
+    let chosenSq = candidateSquares[0];
+
+    if (core.mouseX >= 0 && core.mouseY >= 0) {
+      let minDistance = Infinity;
+      candidateSquares.forEach(sq => {
+        const rect = sq.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const centerY = rect.top + (rect.height / 2);
+        const dist = Math.hypot(centerX - core.mouseX, centerY - core.mouseY);
+        if (dist < minDistance) {
+          minDistance = dist;
+          chosenSq = sq;
+        }
+      });
+    } else if (core.hoveredCard) {
+      const hoveredSq = core.hoveredCard.querySelector('.day-square.cursor-day');
+      if (hoveredSq && candidateSquares.includes(hoveredSq)) {
+        chosenSq = hoveredSq;
+      }
+    } else {
+      const viewportCenterX = viewportWidth / 2;
+      const viewportCenterY = viewportHeight / 2;
+      let minCenterDistance = Infinity;
+
+      candidateSquares.forEach(sq => {
+        const rect = sq.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const centerY = rect.top + (rect.height / 2);
+        const dist = Math.hypot(centerX - viewportCenterX, centerY - viewportCenterY);
+        if (dist < minCenterDistance) {
+          minCenterDistance = dist;
+          chosenSq = sq;
+        }
+      });
+    }
+
+    if (chosenSq) {
+      if (typeof chosenSq.scrollIntoView === 'function') {
         try {
-          cursorSq.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+          chosenSq.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
         } catch (err) {}
       }
-      core.showTooltipForSquare(cursorSq, autoHideMs);
+      core.showTooltipForSquare(chosenSq, autoHideMs);
     }
   };
 
