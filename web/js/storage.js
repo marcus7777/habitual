@@ -3,137 +3,784 @@ window.HabitualCore = window.HabitualCore || {};
 (function(core) {
   'use strict';
 
+  // --- DYNAMIC ON-DEMAND SCRIPT LOADER ---
+  core.loadedScripts = core.loadedScripts || {};
+  core.loadScript = function(url) {
+    if (core.loadedScripts[url]) {
+      return core.loadedScripts[url];
+    }
+    const promise = new Promise(function(resolve, reject) {
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = true;
+      script.onload = function() {
+        resolve();
+      };
+      script.onerror = function(err) {
+        delete core.loadedScripts[url];
+        reject(new Error('Failed to load script: ' + url));
+      };
+      document.head.appendChild(script);
+    });
+    core.loadedScripts[url] = promise;
+    return promise;
+  };
+
+  // --- STORAGE DRIVERS (LocalStorage & IndexedDB) ---
+  core.LocalStorageDriver = {
+    name: 'localStorage',
+    getItem: function(key) {
+      try {
+        return Promise.resolve(localStorage.getItem(key));
+      } catch (e) {
+        return Promise.reject(e);
+      }
+    },
+    setItem: function(key, value) {
+      try {
+        localStorage.setItem(key, value);
+        return Promise.resolve();
+      } catch (e) {
+        return Promise.reject(e);
+      }
+    },
+    removeItem: function(key) {
+      try {
+        localStorage.removeItem(key);
+        return Promise.resolve();
+      } catch (e) {
+        return Promise.reject(e);
+      }
+    }
+  };
+
+  core.IndexedDBDriver = {
+    name: 'indexedDB',
+    dbName: 'habitual_db',
+    storeName: 'kv_store',
+    dbPromise: null,
+    getDB: function() {
+      if (this.dbPromise) return this.dbPromise;
+      const self = this;
+      this.dbPromise = new Promise(function(resolve, reject) {
+        if (!window.indexedDB) {
+          reject(new Error('IndexedDB not supported in this browser.'));
+          return;
+        }
+        const req = indexedDB.open(self.dbName, 1);
+        req.onupgradeneeded = function(e) {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(self.storeName)) {
+            db.createObjectStore(self.storeName);
+          }
+        };
+        req.onsuccess = function(e) {
+          resolve(e.target.result);
+        };
+        req.onerror = function(e) {
+          reject(e.target.error);
+        };
+      });
+      return this.dbPromise;
+    },
+    getItem: function(key) {
+      const self = this;
+      return this.getDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+          const tx = db.transaction(self.storeName, 'readonly');
+          const store = tx.objectStore(self.storeName);
+          const req = store.get(key);
+          req.onsuccess = function() {
+            resolve(req.result !== undefined ? req.result : null);
+          };
+          req.onerror = function(e) {
+            reject(e.target.error);
+          };
+        });
+      });
+    },
+    setItem: function(key, value) {
+      const self = this;
+      return this.getDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+          const tx = db.transaction(self.storeName, 'readwrite');
+          const store = tx.objectStore(self.storeName);
+          const req = store.put(value, key);
+          req.onsuccess = function() {
+            resolve();
+          };
+          req.onerror = function(e) {
+            reject(e.target.error);
+          };
+        });
+      });
+    },
+    removeItem: function(key) {
+      const self = this;
+      return this.getDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+          const tx = db.transaction(self.storeName, 'readwrite');
+          const store = tx.objectStore(self.storeName);
+          const req = store.delete(key);
+          req.onsuccess = function() {
+            resolve();
+          };
+          req.onerror = function(e) {
+            reject(e.target.error);
+          };
+        });
+      });
+    }
+  };
+
+  core.activeStorageEngine = localStorage.getItem('habitual_storage_engine') || 'localStorage';
+
+  core.getDriver = function(engineName) {
+    const name = engineName || core.activeStorageEngine;
+    if (name === 'indexedDB') return core.IndexedDBDriver;
+    return core.LocalStorageDriver;
+  };
+
+  core.setStorageEngine = function(engineName) {
+    if (engineName !== 'localStorage' && engineName !== 'indexedDB') return;
+    core.activeStorageEngine = engineName;
+    try {
+      localStorage.setItem('habitual_storage_engine', engineName);
+    } catch (e) {
+      console.warn('Could not persist active storage engine setting:', e);
+    }
+  };
+
+  core.migrateStorageEngine = function(targetEngine) {
+    if (targetEngine === core.activeStorageEngine) {
+      return Promise.resolve({ success: true, message: 'Already using ' + targetEngine });
+    }
+    const currentDriver = core.getDriver();
+    const targetDriver = core.getDriver(targetEngine);
+
+    return currentDriver.getItem(core.STORAGE_KEY).then(function(raw) {
+      const dataToMigrate = raw || JSON.stringify(core.getPayloadFromState());
+      return targetDriver.setItem(core.STORAGE_KEY, dataToMigrate).then(function() {
+        core.setStorageEngine(targetEngine);
+        if (core.showToast) {
+          core.showToast(`Migrated data storage engine to ${targetEngine === 'indexedDB' ? 'IndexedDB' : 'Local Storage'}!`);
+        }
+        return { success: true, message: 'Migration successful' };
+      });
+    }).catch(function(err) {
+      console.error('Storage engine migration failed:', err);
+      if (core.showToast) core.showToast('Failed to migrate storage engine.');
+      return { success: false, error: err };
+    });
+  };
+
+  core.getPayloadFromState = function() {
+    const serializedHabits = (core.state.habits || []).map(habit => {
+      const derivedName = core.deriveNameFromId(habit.id);
+      const derivedColor = core.getDefaultColorForId(habit.id);
+      const h = { id: habit.id, updatedAt: habit.updatedAt || Date.now() };
+
+      if (habit.name && habit.name.trim() !== derivedName) h.name = habit.name;
+      if (habit.colorTheme) {
+        const normTheme = habit.colorTheme.startsWith('#') ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
+        const normDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
+        if (normTheme !== normDerived) h.colorTheme = habit.colorTheme;
+      }
+
+      if (habit.type && habit.type !== 'positive') h.type = habit.type;
+      if (habit.description) h.description = habit.description;
+      if (habit.category) h.category = habit.category;
+      if (habit.showStreak) h.showStreak = true;
+      if (habit.showCount === false) h.showCount = false;
+      if (habit.showDuration) h.showDuration = true;
+      if (habit.hideFromAll) h.hideFromAll = true;
+      if (habit.isPaused) h.isPaused = true;
+      if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
+      if (habit.frequencyType && habit.frequencyType !== 'daily') h.frequencyType = habit.frequencyType;
+      if (habit.targetDays && Array.isArray(habit.targetDays)) {
+        const defaultDays = [1, 2, 3, 4, 5, 6, 0];
+        const isDefaultDays = habit.targetDays.length === 7 && defaultDays.every((d, i) => habit.targetDays[i] === d);
+        if (!isDefaultDays) h.targetDays = habit.targetDays;
+      }
+      if (habit.weeklyTarget && habit.weeklyTarget !== 1) h.weeklyTarget = habit.weeklyTarget;
+      if (habit.monthlyDay && habit.monthlyDay !== 1) h.monthlyDay = habit.monthlyDay;
+      if (habit.monthlyTarget && habit.monthlyTarget !== 1) h.monthlyTarget = habit.monthlyTarget;
+      if (habit.colorWholeWeek) h.colorWholeWeek = true;
+      if (habit.colorWholeMonth) h.colorWholeMonth = true;
+      if (habit.parentId) h.parentId = habit.parentId;
+      if (habit.parentDependency && habit.parentDependency !== 'none') h.parentDependency = habit.parentDependency;
+      if (habit.createdAt) h.createdAt = habit.createdAt;
+
+      if (habit.logs) {
+        const cleanLogs = {};
+        let hasLogs = false;
+        Object.keys(habit.logs).forEach(dateKey => {
+          const log = habit.logs[dateKey];
+          if (!log) return;
+          const count = log.count || 0;
+          const note = (log.note || '').trim();
+          if (count > 0 || note !== '') {
+            hasLogs = true;
+            if (note !== '') cleanLogs[dateKey] = { count, note };
+            else cleanLogs[dateKey] = { count };
+          }
+        });
+        if (hasLogs) h.logs = cleanLogs;
+      }
+      return h;
+    });
+
+    return {
+      version: 2,
+      updatedAt: Date.now(),
+      habits: serializedHabits,
+      selectedHabitId: core.state.selectedHabitId || 'all',
+      selectedYear: core.state.selectedYear || core.CURRENT_YEAR,
+      showQuickLogOnStartup: core.state.showQuickLogOnStartup || false
+    };
+  };
+
+  core.applyPayloadToState = function(parsed) {
+    if (!parsed) return;
+    core.state.habits = (parsed.habits || []).map(h => {
+      const id = h.id;
+      const derivedName = core.deriveNameFromId(id);
+      const derivedColor = core.getDefaultColorForId(id);
+
+      const restoredLogs = {};
+      if (h.logs) {
+        Object.keys(h.logs).forEach(dateKey => {
+          const entry = h.logs[dateKey];
+          if (typeof entry === 'number') {
+            restoredLogs[dateKey] = { count: entry, note: '' };
+          } else if (entry && typeof entry === 'object') {
+            restoredLogs[dateKey] = {
+              count: entry.count || 0,
+              note: entry.note || ''
+            };
+          }
+        });
+      }
+
+      return {
+        id: id,
+        name: h.name || derivedName,
+        type: h.type || 'positive',
+        description: h.description || '',
+        category: h.category || '',
+        showStreak: Boolean(h.showStreak),
+        showCount: h.showCount !== undefined ? Boolean(h.showCount) : true,
+        showDuration: Boolean(h.showDuration),
+        hideFromAll: Boolean(h.hideFromAll),
+        isPaused: Boolean(h.isPaused),
+        colorTheme: h.colorTheme || derivedColor,
+        dailyTarget: h.dailyTarget || 1,
+        frequencyType: h.frequencyType || 'daily',
+        targetDays: h.targetDays || [1, 2, 3, 4, 5, 6, 0],
+        weeklyTarget: h.weeklyTarget || 1,
+        monthlyDay: h.monthlyDay || 1,
+        monthlyTarget: h.monthlyTarget || 1,
+        colorWholeWeek: Boolean(h.colorWholeWeek),
+        colorWholeMonth: Boolean(h.colorWholeMonth),
+        parentId: h.parentId || null,
+        parentDependency: h.parentDependency || 'none',
+        createdAt: h.createdAt || core.getTodayKey(),
+        updatedAt: h.updatedAt || Date.now(),
+        logs: restoredLogs
+      };
+    });
+    core.state.selectedHabitId = parsed.selectedHabitId || 'all';
+    core.state.selectedYear = parsed.selectedYear || core.CURRENT_YEAR;
+    core.state.showQuickLogOnStartup = parsed.showQuickLogOnStartup || false;
+  };
+
   core.loadState = function() {
+    // Synchronous fallback for legacy callers
     try {
       const raw = localStorage.getItem(core.STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        core.state.habits = (parsed.habits || []).map(h => {
-          const id = h.id;
-          const derivedName = core.deriveNameFromId(id);
-          const derivedColor = core.getDefaultColorForId(id);
-
-          const restoredLogs = {};
-          if (h.logs) {
-            Object.keys(h.logs).forEach(dateKey => {
-              const entry = h.logs[dateKey];
-              if (typeof entry === 'number') {
-                restoredLogs[dateKey] = { count: entry, note: '' };
-              } else if (entry && typeof entry === 'object') {
-                restoredLogs[dateKey] = {
-                  count: entry.count || 0,
-                  note: entry.note || ''
-                };
-              }
-            });
-          }
-
-          return {
-            id: id,
-            name: h.name || derivedName,
-            type: h.type || 'positive',
-            description: h.description || '',
-            category: h.category || '',
-            showStreak: Boolean(h.showStreak),
-            showCount: h.showCount !== undefined ? Boolean(h.showCount) : true,
-            showDuration: Boolean(h.showDuration),
-            hideFromAll: Boolean(h.hideFromAll),
-            isPaused: Boolean(h.isPaused),
-            colorTheme: h.colorTheme || derivedColor,
-            dailyTarget: h.dailyTarget || 1,
-            frequencyType: h.frequencyType || 'daily',
-            targetDays: h.targetDays || [1, 2, 3, 4, 5, 6, 0],
-            weeklyTarget: h.weeklyTarget || 1,
-            monthlyDay: h.monthlyDay || 1,
-            monthlyTarget: h.monthlyTarget || 1,
-            colorWholeWeek: Boolean(h.colorWholeWeek),
-            colorWholeMonth: Boolean(h.colorWholeMonth),
-            parentId: h.parentId || null,
-            parentDependency: h.parentDependency || 'none',
-            createdAt: h.createdAt || core.getTodayKey(),
-            logs: restoredLogs
-          };
-        });
-        core.state.selectedHabitId = parsed.selectedHabitId || 'all';
-        core.state.selectedYear = parsed.selectedYear || core.CURRENT_YEAR;
-        core.state.showQuickLogOnStartup = parsed.showQuickLogOnStartup || false;
+        core.applyPayloadToState(JSON.parse(raw));
       }
     } catch (e) {
-      console.error('Failed to load state from LocalStorage:', e);
-      core.state.habits = [];
+      console.error('Failed synchronous loadState:', e);
     }
+  };
+
+  core.loadStateAsync = function() {
+    const driver = core.getDriver();
+    return driver.getItem(core.STORAGE_KEY).then(function(raw) {
+      if (raw) {
+        try {
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          core.applyPayloadToState(parsed);
+        } catch (e) {
+          console.error('Failed to parse loaded state:', e);
+        }
+      }
+      if (core.renderAll) core.renderAll();
+      return core.state;
+    }).catch(function(err) {
+      console.error('Failed async loadState from driver:', err);
+      core.loadState();
+    });
   };
 
   core.saveState = function() {
-    try {
-      const serializedHabits = core.state.habits.map(habit => {
-        const derivedName = core.deriveNameFromId(habit.id);
-        const derivedColor = core.getDefaultColorForId(habit.id);
-        const h = { id: habit.id };
+    const payload = core.getPayloadFromState();
+    const driver = core.getDriver();
+    const payloadStr = JSON.stringify(payload);
 
-        if (habit.name && habit.name.trim() !== derivedName) h.name = habit.name;
-        if (habit.colorTheme) {
-          const normTheme = habit.colorTheme.startsWith('#') ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
-          const normDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
-          if (normTheme !== normDerived) h.colorTheme = habit.colorTheme;
-        }
+    driver.setItem(core.STORAGE_KEY, payloadStr).then(function() {
+      // Also write to localStorage for backward compatibility
+      try { localStorage.setItem(core.STORAGE_KEY, payloadStr); } catch (e) {}
+      if (core.SyncManager) {
+        core.SyncManager.broadcastWrite(payload);
+      }
+    }).catch(function(err) {
+      console.error('Failed to save state to driver:', err);
+    });
+  };
 
-        if (habit.type && habit.type !== 'positive') h.type = habit.type;
-        if (habit.description) h.description = habit.description;
-        if (habit.category) h.category = habit.category;
-        if (habit.showStreak) h.showStreak = true;
-        if (habit.showCount === false) h.showCount = false;
-        if (habit.showDuration) h.showDuration = true;
-        if (habit.hideFromAll) h.hideFromAll = true;
-        if (habit.isPaused) h.isPaused = true;
-        if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
-        if (habit.frequencyType && habit.frequencyType !== 'daily') h.frequencyType = habit.frequencyType;
-        if (habit.targetDays && Array.isArray(habit.targetDays)) {
-          const defaultDays = [1, 2, 3, 4, 5, 6, 0];
-          const isDefaultDays = habit.targetDays.length === 7 && defaultDays.every((d, i) => habit.targetDays[i] === d);
-          if (!isDefaultDays) h.targetDays = habit.targetDays;
-        }
-        if (habit.weeklyTarget && habit.weeklyTarget !== 1) h.weeklyTarget = habit.weeklyTarget;
-        if (habit.monthlyDay && habit.monthlyDay !== 1) h.monthlyDay = habit.monthlyDay;
-        if (habit.monthlyTarget && habit.monthlyTarget !== 1) h.monthlyTarget = habit.monthlyTarget;
-        if (habit.colorWholeWeek) h.colorWholeWeek = true;
-        if (habit.colorWholeMonth) h.colorWholeMonth = true;
-        if (habit.parentId) h.parentId = habit.parentId;
-        if (habit.parentDependency && habit.parentDependency !== 'none') h.parentDependency = habit.parentDependency;
-        if (habit.createdAt) h.createdAt = habit.createdAt;
 
-        if (habit.logs) {
-          const cleanLogs = {};
-          let hasLogs = false;
-          Object.keys(habit.logs).forEach(dateKey => {
-            const log = habit.logs[dateKey];
-            if (!log) return;
-            const count = log.count || 0;
-            const note = (log.note || '').trim();
-            if (count > 0 || note !== '') {
-              hasLogs = true;
-              if (note !== '') cleanLogs[dateKey] = { count, note };
-              else cleanLogs[dateKey] = { count };
-            }
-          });
-          if (hasLogs) h.logs = cleanLogs;
-        }
-        return h;
+  // --- CLIENT-SIDE AES-256-GCM END-TO-END ENCRYPTION (E2EE) ---
+  core.E2EE = {
+    getKey: function(passphrase, saltBytes) {
+      const enc = new TextEncoder();
+      return crypto.subtle.importKey(
+        'raw',
+        enc.encode(passphrase),
+        'PBKDF2',
+        false,
+        ['deriveKey']
+      ).then(function(baseKey) {
+        return crypto.subtle.deriveKey(
+          {
+            name: 'PBKDF2',
+            salt: saltBytes,
+            iterations: 100000,
+            hash: 'SHA-256'
+          },
+          baseKey,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt', 'decrypt']
+        );
       });
+    },
 
-      const payload = {
-        habits: serializedHabits,
-        selectedHabitId: core.state.selectedHabitId || 'all',
-        selectedYear: core.state.selectedYear || core.CURRENT_YEAR,
-        showQuickLogOnStartup: core.state.showQuickLogOnStartup || false
-      };
+    encrypt: function(jsonPayload, passphrase) {
+      if (!passphrase || passphrase.trim() === '') {
+        return Promise.resolve(JSON.stringify(jsonPayload));
+      }
+      const enc = new TextEncoder();
+      const plaintext = enc.encode(JSON.stringify(jsonPayload));
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
 
-      localStorage.setItem(core.STORAGE_KEY, JSON.stringify(payload));
-    } catch (e) {
-      console.error('Failed to save state to LocalStorage:', e);
+      return core.E2EE.getKey(passphrase, salt).then(function(key) {
+        return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext);
+      }).then(function(encryptedBuffer) {
+        const encryptedArr = new Uint8Array(encryptedBuffer);
+        const combined = new Uint8Array(salt.length + iv.length + encryptedArr.length);
+        combined.set(salt, 0);
+        combined.set(iv, salt.length);
+        combined.set(encryptedArr, salt.length + iv.length);
+
+        let binary = '';
+        for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
+        return 'ENC:' + btoa(binary);
+      });
+    },
+
+    decrypt: function(cipherTextString, passphrase) {
+      if (!cipherTextString) return Promise.reject(new Error('Empty ciphertext'));
+      if (!cipherTextString.startsWith('ENC:')) {
+        // Unencrypted payload
+        try {
+          return Promise.resolve(JSON.parse(cipherTextString));
+        } catch (e) {
+          return Promise.reject(new Error('Invalid unencrypted JSON format'));
+        }
+      }
+
+      if (!passphrase || passphrase.trim() === '') {
+        return Promise.reject(new Error('Passphrase required for encrypted sync file.'));
+      }
+
+      const binaryStr = atob(cipherTextString.slice(4));
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+      const salt = bytes.slice(0, 16);
+      const iv = bytes.slice(16, 28);
+      const ciphertext = bytes.slice(28);
+
+      return core.E2EE.getKey(passphrase, salt).then(function(key) {
+        return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ciphertext);
+      }).then(function(decryptedBuffer) {
+        const dec = new TextDecoder();
+        return JSON.parse(dec.decode(decryptedBuffer));
+      });
     }
   };
 
+
+  // --- SMART PAYLOAD MERGER (Conflict Resolution) ---
+  core.mergeStatePayloads = function(localPayload, remotePayload) {
+    if (!localPayload) return remotePayload;
+    if (!remotePayload) return localPayload;
+
+    const merged = {
+      version: 2,
+      updatedAt: Math.max(localPayload.updatedAt || 0, remotePayload.updatedAt || 0),
+      selectedHabitId: localPayload.selectedHabitId || remotePayload.selectedHabitId || 'all',
+      selectedYear: localPayload.selectedYear || remotePayload.selectedYear || core.CURRENT_YEAR,
+      showQuickLogOnStartup: localPayload.showQuickLogOnStartup || remotePayload.showQuickLogOnStartup || false,
+      habits: []
+    };
+
+    const habitMap = new Map();
+
+    const processHabitList = function(habits, isRemote) {
+      (habits || []).forEach(function(h) {
+        if (!h.id) return;
+        if (!habitMap.has(h.id)) {
+          habitMap.set(h.id, JSON.parse(JSON.stringify(h)));
+        } else {
+          const existing = habitMap.get(h.id);
+          const existingUpdated = existing.updatedAt || 0;
+          const incomingUpdated = h.updatedAt || 0;
+
+          if (incomingUpdated > existingUpdated) {
+            // Keep newer metadata but merge logs
+            const mergedLogs = Object.assign({}, existing.logs || {}, h.logs || {});
+            Object.keys(mergedLogs).forEach(function(dateKey) {
+              const el = (existing.logs || {})[dateKey] || { count: 0, note: '' };
+              const il = (h.logs || {})[dateKey] || { count: 0, note: '' };
+              mergedLogs[dateKey] = {
+                count: Math.max(el.count || 0, il.count || 0),
+                note: (il.note && il.note.trim() !== '') ? il.note : el.note
+              };
+            });
+            const updatedHabit = JSON.parse(JSON.stringify(h));
+            updatedHabit.logs = mergedLogs;
+            habitMap.set(h.id, updatedHabit);
+          } else {
+            // Merge logs into existing habit
+            const mergedLogs = Object.assign({}, existing.logs || {}, h.logs || {});
+            Object.keys(mergedLogs).forEach(function(dateKey) {
+              const el = (existing.logs || {})[dateKey] || { count: 0, note: '' };
+              const il = (h.logs || {})[dateKey] || { count: 0, note: '' };
+              mergedLogs[dateKey] = {
+                count: Math.max(el.count || 0, il.count || 0),
+                note: (el.note && el.note.trim() !== '') ? el.note : il.note
+              };
+            });
+            existing.logs = mergedLogs;
+          }
+        }
+      });
+    };
+
+    processHabitList(localPayload.habits, false);
+    processHabitList(remotePayload.habits, true);
+
+    merged.habits = Array.from(habitMap.values());
+    return merged;
+  };
+
+
+  // --- SYNC TARGET CLIENTS (P2P, Google Drive, Dropbox, WebDAV) ---
+  core.SyncTargets = {
+    P2P: {
+      connectedChannel: null,
+      code: null,
+      initSession: function() {
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        this.code = code;
+        return {
+          code: code,
+          qrData: 'habitual-sync:' + code
+        };
+      },
+      connectWithCode: function(targetCode) {
+        this.code = targetCode;
+        return Promise.resolve({ success: true, connectedCode: targetCode });
+      },
+      sendPayload: function(encryptedString) {
+        if (this.connectedChannel && this.connectedChannel.readyState === 'open') {
+          this.connectedChannel.send(encryptedString);
+          return Promise.resolve(true);
+        }
+        return Promise.resolve(false);
+      }
+    },
+
+    GoogleDrive: {
+      getClientId: function() {
+        return localStorage.getItem('habitual_gdrive_client_id') || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+      },
+      setClientId: function(id) {
+        localStorage.setItem('habitual_gdrive_client_id', id);
+      },
+      token: localStorage.getItem('habitual_gdrive_token') || null,
+
+      getAuthUrl: function(customClientId) {
+        const cid = customClientId || this.getClientId();
+        const redirectUri = window.location.origin + window.location.pathname;
+        const scope = encodeURIComponent('https://www.googleapis.com/auth/drive.appdata');
+        return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${cid}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
+      },
+
+      setToken: function(token) {
+        this.token = token;
+        localStorage.setItem('habitual_gdrive_token', token);
+      },
+
+      uploadBackup: function(encryptedPayload) {
+        if (!this.token) return Promise.reject(new Error('Google Drive not authenticated'));
+        const metadata = {
+          name: 'habitual_sync.json',
+          parents: ['appDataFolder']
+        };
+
+        const file = new Blob([encryptedPayload], { type: 'application/json' });
+        const formData = new FormData();
+        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        formData.append('file', file);
+
+        return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + this.token },
+          body: formData
+        }).then(function(res) {
+          if (!res.ok) throw new Error('Google Drive upload error: ' + res.statusText);
+          return res.json();
+        });
+      },
+
+      downloadBackup: function() {
+        if (!this.token) return Promise.reject(new Error('Google Drive not authenticated'));
+        const self = this;
+        return fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name=%27habitual_sync.json%27', {
+          headers: { 'Authorization': 'Bearer ' + self.token }
+        }).then(function(res) {
+          return res.json();
+        }).then(function(data) {
+          if (!data.files || data.files.length === 0) return null;
+          const fileId = data.files[0].id;
+          return fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+            headers: { 'Authorization': 'Bearer ' + self.token }
+          }).then(function(res) { return res.text(); });
+        });
+      }
+    },
+
+    Dropbox: {
+      getClientId: function() {
+        return localStorage.getItem('habitual_dropbox_client_id') || 'YOUR_DROPBOX_APP_KEY';
+      },
+      setClientId: function(id) {
+        localStorage.setItem('habitual_dropbox_client_id', id);
+      },
+      token: localStorage.getItem('habitual_dropbox_token') || null,
+
+      getAuthUrl: function(customClientId) {
+        const cid = customClientId || this.getClientId();
+        const redirectUri = window.location.origin + window.location.pathname;
+        return `https://www.dropbox.com/oauth2/authorize?client_id=${cid}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token`;
+      },
+
+      setToken: function(token) {
+        this.token = token;
+        localStorage.setItem('habitual_dropbox_token', token);
+      },
+
+      uploadBackup: function(encryptedPayload) {
+        if (!this.token) return Promise.reject(new Error('Dropbox not authenticated'));
+        return fetch('https://content.dropboxapi.com/2/files/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + this.token,
+            'Dropbox-API-Arg': JSON.stringify({
+              path: '/habitual_sync.json',
+              mode: 'overwrite',
+              autorename: false,
+              mute: true
+            }),
+            'Content-Type': 'application/octet-stream'
+          },
+          body: encryptedPayload
+        }).then(function(res) {
+          if (!res.ok) throw new Error('Dropbox upload error');
+          return res.json();
+        });
+      },
+
+      downloadBackup: function() {
+        if (!this.token) return Promise.reject(new Error('Dropbox not authenticated'));
+        return fetch('https://content.dropboxapi.com/2/files/download', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + this.token,
+            'Dropbox-API-Arg': JSON.stringify({ path: '/habitual_sync.json' })
+          }
+        }).then(function(res) {
+          if (res.status === 409) return null; // File not found
+          return res.text();
+        });
+      }
+    },
+
+    WebDAV: {
+      getCredentials: function() {
+        return {
+          url: localStorage.getItem('habitual_webdav_url') || '',
+          user: localStorage.getItem('habitual_webdav_user') || '',
+          pass: localStorage.getItem('habitual_webdav_pass') || ''
+        };
+      },
+
+      setCredentials: function(url, user, pass) {
+        localStorage.setItem('habitual_webdav_url', url);
+        localStorage.setItem('habitual_webdav_user', user);
+        localStorage.setItem('habitual_webdav_pass', pass);
+      },
+
+      uploadBackup: function(encryptedPayload) {
+        const creds = this.getCredentials();
+        if (!creds.url) return Promise.reject(new Error('WebDAV URL not configured'));
+        const fileUrl = creds.url.replace(/\/+$/, '') + '/habitual_sync.json';
+        const headers = { 'Content-Type': 'text/plain' };
+        if (creds.user) {
+          headers['Authorization'] = 'Basic ' + btoa(creds.user + ':' + creds.pass);
+        }
+
+        return fetch(fileUrl, {
+          method: 'PUT',
+          headers: headers,
+          body: encryptedPayload
+        }).then(function(res) {
+          if (!res.ok) throw new Error('WebDAV upload status ' + res.status);
+          return true;
+        });
+      },
+
+      downloadBackup: function() {
+        const creds = this.getCredentials();
+        if (!creds.url) return Promise.reject(new Error('WebDAV URL not configured'));
+        const fileUrl = creds.url.replace(/\/+$/, '') + '/habitual_sync.json';
+        const headers = {};
+        if (creds.user) {
+          headers['Authorization'] = 'Basic ' + btoa(creds.user + ':' + creds.pass);
+        }
+
+        return fetch(fileUrl, {
+          method: 'GET',
+          headers: headers
+        }).then(function(res) {
+          if (res.status === 404) return null;
+          if (!res.ok) throw new Error('WebDAV download status ' + res.status);
+          return res.text();
+        });
+      }
+    }
+  };
+
+
+  // --- SYNC MANAGER ORCHESTRATOR ---
+  core.SyncManager = {
+    settings: {
+      enabledTargets: JSON.parse(localStorage.getItem('habitual_sync_targets') || '[]'),
+      passphrase: localStorage.getItem('habitual_sync_passphrase') || ''
+    },
+
+    isTargetEnabled: function(targetName) {
+      return this.settings.enabledTargets.includes(targetName);
+    },
+
+    toggleTarget: function(targetName, enable) {
+      const idx = this.settings.enabledTargets.indexOf(targetName);
+      if (enable && idx === -1) {
+        this.settings.enabledTargets.push(targetName);
+      } else if (!enable && idx !== -1) {
+        this.settings.enabledTargets.splice(idx, 1);
+      }
+      localStorage.setItem('habitual_sync_targets', JSON.stringify(this.settings.enabledTargets));
+    },
+
+    setPassphrase: function(passphrase) {
+      this.settings.passphrase = passphrase;
+      localStorage.setItem('habitual_sync_passphrase', passphrase);
+    },
+
+    broadcastWrite: function(payload) {
+      const self = this;
+      if (this.settings.enabledTargets.length === 0) return;
+
+      core.E2EE.encrypt(payload, this.settings.passphrase).then(function(encrypted) {
+        if (self.isTargetEnabled('p2p')) {
+          core.SyncTargets.P2P.sendPayload(encrypted);
+        }
+        if (self.isTargetEnabled('googleDrive')) {
+          core.SyncTargets.GoogleDrive.uploadBackup(encrypted).catch(e => console.warn('GDrive Sync Error:', e));
+        }
+        if (self.isTargetEnabled('dropbox')) {
+          core.SyncTargets.Dropbox.uploadBackup(encrypted).catch(e => console.warn('Dropbox Sync Error:', e));
+        }
+        if (self.isTargetEnabled('webdav')) {
+          core.SyncTargets.WebDAV.uploadBackup(encrypted).catch(e => console.warn('WebDAV Sync Error:', e));
+        }
+      }).catch(function(err) {
+        console.error('Failed to encrypt write payload:', err);
+      });
+    },
+
+    pullAndMergeAll: function() {
+      const self = this;
+      const activeTargets = this.settings.enabledTargets;
+      if (activeTargets.length === 0) {
+        return Promise.resolve({ merged: false, message: 'No sync targets enabled' });
+      }
+
+      const pulls = [];
+      if (this.isTargetEnabled('googleDrive')) {
+        pulls.push(core.SyncTargets.GoogleDrive.downloadBackup().catch(e => null));
+      }
+      if (this.isTargetEnabled('dropbox')) {
+        pulls.push(core.SyncTargets.Dropbox.downloadBackup().catch(e => null));
+      }
+      if (this.isTargetEnabled('webdav')) {
+        pulls.push(core.SyncTargets.WebDAV.downloadBackup().catch(e => null));
+      }
+
+      return Promise.all(pulls).then(function(rawCiphertexts) {
+        const decryptPromises = rawCiphertexts.filter(Boolean).map(function(cipherText) {
+          return core.E2EE.decrypt(cipherText, self.settings.passphrase).catch(e => null);
+        });
+        return Promise.all(decryptPromises);
+      }).then(function(remotePayloads) {
+        const validPayloads = remotePayloads.filter(Boolean);
+        if (validPayloads.length === 0) {
+          return { merged: false, message: 'No remote sync files found' };
+        }
+
+        let mergedPayload = core.getPayloadFromState();
+        validPayloads.forEach(function(remote) {
+          mergedPayload = core.mergeStatePayloads(mergedPayload, remote);
+        });
+
+        core.applyPayloadToState(mergedPayload);
+        core.saveState();
+        if (core.renderAll) core.renderAll();
+        if (core.showToast) core.showToast('Data synchronized across active targets!');
+        return { merged: true, payload: mergedPayload };
+      });
+    }
+  };
+
+
+  // --- PARSE & EXPORT HELPERS ---
   core.parseCSVLine = function(line) {
     const result = [];
     let current = '';
@@ -186,6 +833,7 @@ window.HabitualCore = window.HabitualCore || {};
           dailyTarget: 1,
           parentId: null,
           createdAt: core.getTodayKey(),
+          updatedAt: Date.now(),
           logs: {}
         };
         core.state.habits.push(existing);
@@ -242,7 +890,8 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.exportDataJSON = function() {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(core.state, null, 2));
+    const payload = core.getPayloadFromState();
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
     downloadAnchor.setAttribute('download', `habitual_backup_${core.getTodayKey()}.json`);
@@ -258,8 +907,8 @@ window.HabitualCore = window.HabitualCore || {};
     reader.onload = (event) => {
       try {
         const imported = JSON.parse(event.target.result);
-        if (imported && Array.isArray(imported.habits)) {
-          core.state = imported;
+        if (imported && (Array.isArray(imported.habits) || imported.habits)) {
+          core.applyPayloadToState(imported);
           core.saveState();
           if (core.renderAll) core.renderAll();
           if (core.showToast) core.showToast('JSON Backup restored successfully!');

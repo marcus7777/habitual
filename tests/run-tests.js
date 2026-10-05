@@ -1606,6 +1606,56 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
 });
 
 // ============================================================================
+// FEATURE 27: 🔄 MULTI-TARGET SYNC, DYNAMIC SCRIPT LOADER & STORAGE DRIVERS
+// ============================================================================
+describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Drivers', () => {
+  test('LocalStorageDriver and IndexedDBDriver interface compliance', () => {
+    assert(HabitualCore.LocalStorageDriver !== undefined, 'LocalStorageDriver defined');
+    assert(HabitualCore.IndexedDBDriver !== undefined, 'IndexedDBDriver defined');
+    assertEqual(HabitualCore.LocalStorageDriver.name, 'localStorage');
+    assertEqual(HabitualCore.IndexedDBDriver.name, 'indexedDB');
+  });
+
+  test('loadScript dynamic script loader caches loaded promises', () => {
+    assert(typeof HabitualCore.loadScript === 'function', 'loadScript is a function');
+    const url = 'https://example.com/test-script.js';
+    const p1 = HabitualCore.loadScript(url);
+    const p2 = HabitualCore.loadScript(url);
+    assertEqual(p1, p2, 'loadScript returns cached promise for duplicate URL requests');
+  });
+
+  test('E2EE AES-256-GCM encrypt and decrypt roundtrip', async () => {
+    const payload = { habits: [{ id: 'run', name: 'Running' }] };
+    const pass = 'test_passphrase_321';
+    const cipher = await HabitualCore.E2EE.encrypt(payload, pass);
+    assert(cipher.startsWith('ENC:'), 'Ciphertext formatted with ENC: prefix');
+    const dec = await HabitualCore.E2EE.decrypt(cipher, pass);
+    assertEqual(dec.habits[0].name, 'Running');
+  });
+
+  test('mergeStatePayloads merges logs and habits without overwriting data', () => {
+    const local = {
+      updatedAt: 100,
+      habits: [{ id: 'water', name: 'Water', logs: { '2026-10-01': { count: 1 } } }]
+    };
+    const remote = {
+      updatedAt: 200,
+      habits: [{ id: 'water', name: 'Water', logs: { '2026-10-01': { count: 3 }, '2026-10-02': { count: 2 } } }]
+    };
+    const merged = HabitualCore.mergeStatePayloads(local, remote);
+    assertEqual(merged.habits[0].logs['2026-10-01'].count, 3);
+    assertEqual(merged.habits[0].logs['2026-10-02'].count, 2);
+  });
+
+  test('SyncManager target toggles and settings persistence', () => {
+    HabitualCore.SyncManager.toggleTarget('webdav', true);
+    assert(HabitualCore.SyncManager.isTargetEnabled('webdav'), 'WebDAV target enabled');
+    HabitualCore.SyncManager.toggleTarget('webdav', false);
+    assert(!HabitualCore.SyncManager.isTargetEnabled('webdav'), 'WebDAV target disabled');
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);

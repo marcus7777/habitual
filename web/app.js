@@ -21,23 +21,25 @@ window.HabitualCore = window.HabitualCore || {};
   // --- INITIALIZATION ---
   if (typeof document !== 'undefined' && document.addEventListener) {
     document.addEventListener('DOMContentLoaded', () => {
-      if (core.loadState) core.loadState();
-      if (core.initUI) core.initUI();
-      registerServiceWorker();
+      const initPromise = core.loadStateAsync ? core.loadStateAsync() : Promise.resolve(core.loadState ? core.loadState() : null);
+      initPromise.then(() => {
+        if (core.initUI) core.initUI();
+        registerServiceWorker();
 
-      if (typeof window !== 'undefined' && window.addEventListener) {
-        window.addEventListener('hashchange', () => {
-          if (core.renderAll) core.renderAll();
-        });
-      }
-
-      if (core.renderAll) core.renderAll();
-
-      if (core.state && core.state.showQuickLogOnStartup) {
-        if (core.openLogModal && core.getTodayKey) {
-          core.openLogModal(core.getTodayKey());
+        if (typeof window !== 'undefined' && window.addEventListener) {
+          window.addEventListener('hashchange', () => {
+            if (core.renderAll) core.renderAll();
+          });
         }
-      }
+
+        if (core.renderAll) core.renderAll();
+
+        if (core.state && core.state.showQuickLogOnStartup) {
+          if (core.openLogModal && core.getTodayKey) {
+            core.openLogModal(core.getTodayKey());
+          }
+        }
+      });
     });
   }
 

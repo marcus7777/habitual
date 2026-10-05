@@ -646,20 +646,139 @@
     </div>
   </div>
 
-  <!-- MODAL: Data Management (Import / Export / CSV) -->
+  <!-- MODAL: Data Management & Multi-Target Sync -->
   <div id="modal-data" class="modal-backdrop hidden">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-wide">
       <div class="modal-header">
-        <h3>Data Management</h3>
+        <h3>Data Management & Sync</h3>
         <button id="modal-data-close" class="btn-close">&times;</button>
       </div>
+
       <div class="modal-body">
+        <!-- Section 1: Local Storage Engine -->
         <div class="data-option-card highlight-card">
+          <div class="data-option-info">
+            <h4>💾 Local Storage Engine</h4>
+            <p class="muted-text">Choose your local database engine. IndexedDB bypasses browser 5MB storage limits.</p>
+          </div>
+          <div class="engine-selector-group">
+            <select id="select-storage-engine" class="form-control-sm" aria-label="Storage Engine">
+              <option value="localStorage">Local Storage (Fast, 5MB limit)</option>
+              <option value="indexedDB">IndexedDB (Large scale, Unlimited)</option>
+            </select>
+            <button id="btn-migrate-engine" class="btn btn-secondary btn-sm">Migrate Data</button>
+          </div>
+        </div>
+
+        <!-- Section 2: End-to-End Encryption (E2EE) -->
+        <div class="data-option-card">
+          <div class="data-option-info">
+            <h4>🔒 Master Encryption Passphrase (E2EE)</h4>
+            <p class="muted-text">Zero-knowledge encryption key for P2P and Cloud Sync targets (AES-256-GCM).</p>
+          </div>
+          <div class="input-inline-group">
+            <input type="password" id="input-sync-passphrase" class="form-control-sm" placeholder="Enter secret passphrase...">
+            <button id="btn-save-passphrase" class="btn btn-secondary btn-sm">Save Key</button>
+          </div>
+        </div>
+
+        <!-- Section 3: Peer-to-Peer (WebRTC) Real-Time Sync -->
+        <div class="data-option-card">
+          <div class="data-option-info">
+            <h4>⚡ Peer-to-Peer (WebRTC) Sync</h4>
+            <p class="muted-text">Directly sync live updates between two open devices using WebRTC P2P.</p>
+          </div>
+          <div class="p2p-controls">
+            <label class="switch-toggle">
+              <input type="checkbox" id="chk-sync-p2p">
+              <span class="slider round"></span>
+            </label>
+            <button id="btn-p2p-pair" class="btn btn-secondary btn-sm">Generate Pair Code</button>
+          </div>
+        </div>
+
+        <div id="p2p-pairing-box" class="data-subpanel hidden">
+          <h5>📱 Pairing Code: <span id="p2p-code-display" class="badge-code">------</span></h5>
+          <div class="p2p-input-row">
+            <input type="text" id="input-p2p-remote-code" class="form-control-sm" placeholder="Enter 6-digit remote code">
+            <button id="btn-p2p-connect" class="btn btn-primary btn-sm">Connect Peer</button>
+          </div>
+        </div>
+
+        <!-- Section 4: User-Owned Cloud Sync Targets -->
+        <div class="data-option-card">
+          <div class="data-option-info">
+            <h4>☁️ User-Owned Cloud Sync Targets</h4>
+            <p class="muted-text">Sync encrypted backups to your personal cloud account (E2EE).</p>
+          </div>
+          <div class="cloud-targets-grid">
+            <div class="cloud-target-item">
+              <span>Google Drive (App Folder)</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="chk-sync-gdrive">
+                <span class="slider round"></span>
+              </label>
+              <button id="btn-auth-gdrive" class="btn btn-sm btn-secondary">Auth Google</button>
+            </div>
+            <div id="gdrive-config-box" class="webdav-form">
+              <label class="muted-text text-xs">Google OAuth Client ID:</label>
+              <div class="input-inline-group">
+                <input type="text" id="input-gdrive-client-id" class="form-control-sm" placeholder="123456789-abc.apps.googleusercontent.com" aria-label="Google Client ID">
+                <button id="btn-save-gdrive-client-id" class="btn btn-secondary btn-sm">Save Client ID</button>
+              </div>
+            </div>
+
+            <div class="cloud-target-item">
+              <span>Dropbox (App Folder)</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="chk-sync-dropbox">
+                <span class="slider round"></span>
+              </label>
+              <button id="btn-auth-dropbox" class="btn btn-sm btn-secondary">Auth Dropbox</button>
+            </div>
+            <div id="dropbox-config-box" class="webdav-form">
+              <label class="muted-text text-xs">Dropbox App Key:</label>
+              <div class="input-inline-group">
+                <input type="text" id="input-dropbox-client-id" class="form-control-sm" placeholder="Dropbox App Key" aria-label="Dropbox App Key">
+                <button id="btn-save-dropbox-client-id" class="btn btn-secondary btn-sm">Save App Key</button>
+              </div>
+            </div>
+
+            <div class="cloud-target-item full-width-item">
+              <span>Nextcloud / WebDAV</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="chk-sync-webdav">
+                <span class="slider round"></span>
+              </label>
+            </div>
+
+            <div id="webdav-credentials-box" class="webdav-form hidden">
+              <input type="text" id="input-webdav-url" class="form-control-sm" placeholder="https://nextcloud.example.com/remote.php/webdav/">
+              <div class="input-inline-group">
+                <input type="text" id="input-webdav-user" class="form-control-sm" placeholder="Username">
+                <input type="password" id="input-webdav-pass" class="form-control-sm" placeholder="App Password">
+                <button id="btn-save-webdav" class="btn btn-secondary btn-sm">Save WebDAV</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5: Manual Sync Trigger -->
+        <div class="data-option-card">
+          <div class="data-option-info">
+            <h4>🔄 Trigger Multi-Target Sync</h4>
+            <p class="muted-text">Pull and merge latest encrypted data from all active sync targets.</p>
+          </div>
+          <button id="btn-trigger-sync" class="btn btn-primary btn-sm">Sync Now</button>
+        </div>
+
+        <!-- Section 6: CSV & JSON Imports / Exports -->
+        <div class="data-option-card">
           <div class="data-option-info">
             <h4>Import CSV Activity File</h4>
             <p class="muted-text">Upload your own CSV habit activity log file.</p>
           </div>
-          <label class="btn btn-primary btn-file-label">
+          <label class="btn btn-secondary btn-file-label">
             Upload CSV File
             <input type="file" id="input-modal-csv" accept=".csv" class="hidden-file-input">
           </label>
@@ -667,31 +786,24 @@
 
         <div class="data-option-card">
           <div class="data-option-info">
-            <h4>Export JSON Backup</h4>
-            <p class="muted-text">Download all habits and logs as a JSON backup file.</p>
+            <h4>Backup & Restore JSON</h4>
+            <p class="muted-text">Export local backup or restore from JSON file.</p>
           </div>
-          <button id="btn-export-json" class="btn btn-secondary">
-            Export JSON
-          </button>
-        </div>
-
-        <div class="data-option-card">
-          <div class="data-option-info">
-            <h4>Import JSON Backup</h4>
-            <p class="muted-text">Restore habits and logs from a JSON backup file.</p>
+          <div class="btn-group-row">
+            <button id="btn-export-json" class="btn btn-secondary btn-sm">Export JSON</button>
+            <label class="btn btn-secondary btn-sm btn-file-label">
+              Import JSON
+              <input type="file" id="input-import-json" accept=".json" class="hidden-file-input">
+            </label>
           </div>
-          <label class="btn btn-secondary btn-file-label">
-            Import JSON
-            <input type="file" id="input-import-json" accept=".json" class="hidden-file-input">
-          </label>
         </div>
 
         <div class="data-option-card danger-zone">
           <div class="data-option-info">
             <h4 class="text-danger">Reset All Data</h4>
-            <p class="muted-text">Clear all local storage habit data.</p>
+            <p class="muted-text">Clear local habit data.</p>
           </div>
-          <button id="btn-reset-data" class="btn btn-danger">Reset All</button>
+          <button id="btn-reset-data" class="btn btn-danger btn-sm">Reset All</button>
         </div>
       </div>
     </div>
