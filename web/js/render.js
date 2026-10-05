@@ -349,12 +349,12 @@ window.HabitualCore = window.HabitualCore || {};
 
     let bigLogButtonHTML = '';
     if (habit) {
-      const cellData = core.getCellData(todayStr, habit, todayStr);
+      const cellData = core.getCellData(cursorDateStr, habit, todayStr);
       const ratio = Math.min(1.0, Math.max(0, cellData.ratio || 0));
       const isGoalMet = ratio >= 1.0;
       const hexColor = core.getHabitHexColor(habit);
 
-      const log = (habit.logs && habit.logs[todayStr]) ? habit.logs[todayStr] : null;
+      const log = (habit.logs && habit.logs[cursorDateStr]) ? habit.logs[cursorDateStr] : null;
       const count = log ? log.count : 0;
       const target = Math.max(1, habit.dailyTarget || 1);
 
@@ -368,9 +368,11 @@ window.HabitualCore = window.HabitualCore || {};
         bgStyle = `background-color: ${alphaHex}; border-color: ${hexColor}; color: var(--text-main);`;
       }
 
+      const formattedCursorDate = core.formatPrettyDate(cursorDateStr);
+
       const tooltipText = isGoalMet
-        ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}). Click to open log details.`
-        : `${core.escapeHTML(habit.name)}: ${count}/${target} completed. Click to log +1.`;
+        ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to open log details.`
+        : `${core.escapeHTML(habit.name)}: ${count}/${target} completed on ${formattedCursorDate}. Click to log +1.`;
 
       bigLogButtonHTML = `
         <button type="button" class="btn-card-quick-log ${isGoalMet ? 'goal-met' : ''}"

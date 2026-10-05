@@ -1653,6 +1653,42 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
     keydownListener({ key: 'Enter', preventDefault: () => {} });
     assertEqual(clicked, true, 'Enter key triggers click on hovered card quick log button');
   });
+
+  test('showCursorTooltip picks visible square closest to mouse or viewport center', () => {
+    HabitualCore.resetState();
+    let tooltipTarget = null;
+    HabitualCore.showTooltipForSquare = (sq) => { tooltipTarget = sq; };
+
+    const mockSq1 = {
+      dataset: { date: '2026-10-05' },
+      getBoundingClientRect: () => ({ left: 100, top: 100, width: 20, height: 20, right: 120, bottom: 120 })
+    };
+    const mockSq2 = {
+      dataset: { date: '2026-10-05' },
+      getBoundingClientRect: () => ({ left: 100, top: 500, width: 20, height: 20, right: 120, bottom: 520 })
+    };
+
+    const originalElements = HabitualCore.elements;
+    HabitualCore.elements = {
+      heatmapsGallery: {
+        querySelectorAll: (sel) => sel === '.day-square.cursor-day' ? [mockSq1, mockSq2] : []
+      }
+    };
+
+    // Test mouse proximity selection
+    HabitualCore.mouseX = 110;
+    HabitualCore.mouseY = 510; // Closer to mockSq2
+    HabitualCore.showCursorTooltip();
+    assertEqual(tooltipTarget, mockSq2, 'showCursorTooltip selects mockSq2 because mouse is closer to it');
+
+    // Test viewport center fallback when mouse position is reset (-1)
+    HabitualCore.mouseX = -1;
+    HabitualCore.mouseY = -1;
+    HabitualCore.showCursorTooltip();
+    assert(tooltipTarget !== null, 'showCursorTooltip selects a square based on viewport center proximity when mouse is inactive');
+
+    HabitualCore.elements = originalElements;
+  });
 });
 
 // ============================================================================

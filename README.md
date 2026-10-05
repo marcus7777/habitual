@@ -120,10 +120,10 @@ Organize complex habit routines into structured parent-child trees:
 
 ---
 
-### 🎯 15. Arrow & WASD Key Date Cursor Navigation, Glowing Ring & Enter Key Logging
+### 🎯 15. Arrow & WASD Key Date Cursor Navigation, Glowing Ring & Proximity Tooltips
 - **Keyboard Navigation**: Use **Arrow keys** or **WASD keys** (`W` = Up 1 day, `S` = Down 1 day, `A` = Left 1 week, `D` = Right 1 week) to navigate the date cursor across the heatmap grid.
 - **Glowing Gold Cursor Ring**: Every heatmap card highlights the active cursor box across all habits simultaneously with a high-contrast glowing gold outline ring (`#f1e05a`).
-- **Auto-Hiding Position Tooltip**: Moving the date cursor automatically displays an auto-hiding tooltip above the cursor box for ~1.2 seconds, showing the formatted date, completions, and notes.
+- **Mouse & Mobile Proximity Tooltips**: Moving the date cursor automatically displays a 1.2-second tooltip over the cursor square **closest to your mouse pointer** (or closest to the **center of your mobile screen**).
 - **Hover & Enter Key Logging**: Press `Enter` while hovering your mouse over any heatmap card to instantly log +1 check-in for the active cursor date on that habit.
 - **Cursor Date Target Logging**: The Quick Log button (`+`) on every card logs directly to the active cursor date if set to a different day than today.
 
@@ -139,7 +139,7 @@ Organize complex habit routines into structured parent-child trees:
 
 ## 🧪 Automated Testing Suite
 
-Habitual includes a comprehensive automated test suite covering all core features across **74 individual test specifications in 27 test suites** (100% pass rate).
+Habitual includes a comprehensive automated test suite covering all core features across **75 individual test specifications in 27 test suites** (100% pass rate).
 
 ### Running Tests via Terminal (Node.js)
 To execute the automated test suite in command line:
@@ -169,7 +169,7 @@ habitual/
 │       ├── render.js      # Heatmap card rendering, combined grids & concertina drawers
 │       └── ui.js          # Modal controls, date navigation, ICS calendar & CSV importer
 ├── tests/
-│   └── run-tests.js       # Node.js DOM-mocked automated test suite (53 tests)
+│   └── run-tests.js       # Node.js DOM-mocked automated test suite (74 tests)
 ├── assets/                # Application logo assets and artwork
 ├── firebase.json          # Firebase Hosting configuration
 ├── .firebaserc            # Firebase project target definition
