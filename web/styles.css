@@ -476,7 +476,7 @@ body.dark-theme {
 
 .heatmap-card.menu-open,
 .heatmap-card:has(.card-menu-content:not(.hidden)) {
-  z-index: 30;
+  z-index: 1000;
 }
 
 /* Card Header visible by default */
@@ -1487,7 +1487,7 @@ body.dark-theme {
   display: flex;
   flex-direction: column;
   padding: 4px;
-  z-index: 100;
+  z-index: 1001;
   animation: dropdownFadeIn 0.12s ease-out;
 }
 
@@ -1655,6 +1655,13 @@ body.dark-theme {
   display: flex;
   flex-direction: column;
   width: 100%;
+  position: relative;
+}
+
+.heatmap-group-wrapper.menu-open,
+.heatmap-group-wrapper:has(.card-menu-content:not(.hidden)),
+.heatmap-group-wrapper:has(.menu-open) {
+  z-index: 1000;
 }
 
 .subhabits-concertina {
@@ -1677,6 +1684,7 @@ body.dark-theme {
   opacity: 1;
   margin-top: 12px;
   pointer-events: auto;
+  overflow: visible;
 }
 
 .concertina-header {

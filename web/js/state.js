@@ -60,11 +60,9 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.getDefaultColorForId = function(id) {
     if (!id) return 'green';
-    if (typeof Please !== 'undefined') {
-      const col = Please.make_color({ from_hash: id });
-      if (col) {
-        return (typeof col === 'string' && col.startsWith('#')) ? core.normalizeHex(col) : col;
-      }
+    const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global);
+    if (typeof globalScope.colourFromString === 'function') {
+      return globalScope.colourFromString(id);
     }
     return 'green';
   };
@@ -626,14 +624,14 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.generateBackfillLogs = function(daysToBackfill, frequencyVal, instancesVal, dailyTarget = 1, habitType = 'positive', frequencyType = 'daily', targetDays = [1], monthlyDay = '1', monthlyTarget = 1, weeklyTarget = 1) {
-    const logs = {}; const today = new Date();
+    const logs = {}; const today = new Date(); today.setHours(0, 0, 0, 0);
     const days = Math.max(1, Math.min(3650, parseInt(daysToBackfill, 10) || 30));
     let frequencyRatio = 0.8;
     if (frequencyVal === 'daily') frequencyRatio = 1.0;
     else if (frequencyVal === 'frequent') frequencyRatio = 0.8;
     else if (frequencyVal === 'moderate') frequencyRatio = 0.5;
     else if (frequencyVal === 'occasional') frequencyRatio = 0.25;
-    const startDate = new Date(); startDate.setDate(today.getDate() - days);
+    const startDate = new Date(today); startDate.setDate(today.getDate() - days);
 
     function getCountForLog() {
       if (habitType === 'negative') return 1;
