@@ -315,8 +315,6 @@ window.HabitualCore = window.HabitualCore || {};
 
     const btnSaveLog = document.getElementById('btn-save-log');
     if (btnSaveLog) btnSaveLog.addEventListener('click', core.handleSaveLog);
-    const btnClearLog = document.getElementById('btn-clear-log');
-    if (btnClearLog) btnClearLog.addEventListener('click', core.handleClearLog);
 
     if (core.elements.yearSelector) {
       core.elements.yearSelector.addEventListener('change', (e) => {
