@@ -120,9 +120,26 @@ Organize complex habit routines into structured parent-child trees:
 
 ---
 
+### 🎯 15. Arrow & WASD Key Date Cursor Navigation, Glowing Ring & Enter Key Logging
+- **Keyboard Navigation**: Use **Arrow keys** or **WASD keys** (`W` = Up 1 day, `S` = Down 1 day, `A` = Left 1 week, `D` = Right 1 week) to navigate the date cursor across the heatmap grid.
+- **Glowing Gold Cursor Ring**: Every heatmap card highlights the active cursor box across all habits simultaneously with a high-contrast glowing gold outline ring (`#f1e05a`).
+- **Auto-Hiding Position Tooltip**: Moving the date cursor automatically displays an auto-hiding tooltip above the cursor box for ~1.2 seconds, showing the formatted date, completions, and notes.
+- **Hover & Enter Key Logging**: Press `Enter` while hovering your mouse over any heatmap card to instantly log +1 check-in for the active cursor date on that habit.
+- **Cursor Date Target Logging**: The Quick Log button (`+`) on every card logs directly to the active cursor date if set to a different day than today.
+
+---
+
+### ☁️ 16. Multi-Target Cloud Sync, E2EE Encryption & Storage Drivers
+- **Multi-Target Cloud Syncing**: Sync habit data across multiple providers including **Google Drive**, **Dropbox**, **WebDAV**, and Local Storage.
+- **End-to-End Encryption (AES-256-GCM)**: All synced backups are encrypted client-side using Web Crypto API AES-256-GCM prior to transmission.
+- **CRDT-Inspired Non-Destructive Merging**: Pulls and merges updates from all active cloud providers using timestamped, non-destructive state payloads to ensure no data loss.
+- **Multiple Local Storage Engines**: Toggle between `localStorage` and `IndexedDB` storage drivers with automatic data migration.
+
+---
+
 ## 🧪 Automated Testing Suite
 
-Habitual includes a comprehensive automated test suite covering all core features across **62 individual test specifications in 25 test suites** (100% pass rate).
+Habitual includes a comprehensive automated test suite covering all core features across **74 individual test specifications in 27 test suites** (100% pass rate).
 
 ### Running Tests via Terminal (Node.js)
 To execute the automated test suite in command line:
