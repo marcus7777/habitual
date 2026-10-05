@@ -319,6 +319,209 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
+    // --- DATA MANAGEMENT & MULTI-TARGET SYNC UI EVENT LISTENERS ---
+    const selectStorageEngine = document.getElementById('select-storage-engine');
+    if (selectStorageEngine) {
+      selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
+    }
+
+    const btnMigrateEngine = document.getElementById('btn-migrate-engine');
+    if (btnMigrateEngine) {
+      btnMigrateEngine.addEventListener('click', () => {
+        const target = selectStorageEngine ? selectStorageEngine.value : 'localStorage';
+        core.migrateStorageEngine(target);
+      });
+    }
+
+    const inputPassphrase = document.getElementById('input-sync-passphrase');
+    if (inputPassphrase) {
+      inputPassphrase.value = core.SyncManager.settings.passphrase || '';
+    }
+
+    const btnSavePassphrase = document.getElementById('btn-save-passphrase');
+    if (btnSavePassphrase && inputPassphrase) {
+      btnSavePassphrase.addEventListener('click', () => {
+        core.SyncManager.setPassphrase(inputPassphrase.value);
+        if (core.showToast) core.showToast('Master encryption key saved!');
+      });
+    }
+
+    // P2P Controls
+    const chkP2P = document.getElementById('chk-sync-p2p');
+    if (chkP2P) {
+      chkP2P.checked = core.SyncManager.isTargetEnabled('p2p');
+      chkP2P.addEventListener('change', (e) => {
+        core.SyncManager.toggleTarget('p2p', e.target.checked);
+      });
+    }
+
+    const btnP2PPair = document.getElementById('btn-p2p-pair');
+    const p2pBox = document.getElementById('p2p-pairing-box');
+    const p2pCodeDisplay = document.getElementById('p2p-code-display');
+    if (btnP2PPair) {
+      btnP2PPair.addEventListener('click', () => {
+        const session = core.SyncTargets.P2P.initSession();
+        if (p2pCodeDisplay) p2pCodeDisplay.textContent = session.code;
+        if (p2pBox) p2pBox.classList.remove('hidden');
+      });
+    }
+
+    const btnP2PConnect = document.getElementById('btn-p2p-connect');
+    const inputP2PRemote = document.getElementById('input-p2p-remote-code');
+    if (btnP2PConnect && inputP2PRemote) {
+      btnP2PConnect.addEventListener('click', () => {
+        const code = inputP2PRemote.value.trim();
+        if (code.length === 6) {
+          core.SyncTargets.P2P.connectWithCode(code).then(() => {
+            if (core.showToast) core.showToast('P2P Peer paired successfully!');
+          });
+        } else {
+          alert('Please enter a 6-digit pair code.');
+        }
+      });
+    }
+
+    // Google Drive
+    const chkGDrive = document.getElementById('chk-sync-gdrive');
+    if (chkGDrive) {
+      chkGDrive.checked = core.SyncManager.isTargetEnabled('googleDrive');
+      chkGDrive.addEventListener('change', (e) => {
+        core.SyncManager.toggleTarget('googleDrive', e.target.checked);
+      });
+    }
+
+    const inputGDriveClientId = document.getElementById('input-gdrive-client-id');
+    if (inputGDriveClientId) {
+      inputGDriveClientId.value = core.SyncTargets.GoogleDrive.getClientId();
+    }
+
+    const btnSaveGDriveClientId = document.getElementById('btn-save-gdrive-client-id');
+    if (btnSaveGDriveClientId && inputGDriveClientId) {
+      btnSaveGDriveClientId.addEventListener('click', () => {
+        const val = inputGDriveClientId.value.trim();
+        if (val) {
+          core.SyncTargets.GoogleDrive.setClientId(val);
+          if (core.showToast) core.showToast('Google Drive Client ID saved!');
+        }
+      });
+    }
+
+    const btnAuthGDrive = document.getElementById('btn-auth-gdrive');
+    if (btnAuthGDrive) {
+      btnAuthGDrive.addEventListener('click', () => {
+        const cid = inputGDriveClientId ? inputGDriveClientId.value.trim() : null;
+        if (!cid || cid.includes('YOUR_GOOGLE_CLIENT_ID')) {
+          alert('Please enter and save your Google Cloud OAuth Client ID first.');
+          return;
+        }
+        window.location.href = core.SyncTargets.GoogleDrive.getAuthUrl(cid);
+      });
+    }
+
+    // Dropbox
+    const chkDropbox = document.getElementById('chk-sync-dropbox');
+    if (chkDropbox) {
+      chkDropbox.checked = core.SyncManager.isTargetEnabled('dropbox');
+      chkDropbox.addEventListener('change', (e) => {
+        core.SyncManager.toggleTarget('dropbox', e.target.checked);
+      });
+    }
+
+    const inputDropboxClientId = document.getElementById('input-dropbox-client-id');
+    if (inputDropboxClientId) {
+      inputDropboxClientId.value = core.SyncTargets.Dropbox.getClientId();
+    }
+
+    const btnSaveDropboxClientId = document.getElementById('btn-save-dropbox-client-id');
+    if (btnSaveDropboxClientId && inputDropboxClientId) {
+      btnSaveDropboxClientId.addEventListener('click', () => {
+        const val = inputDropboxClientId.value.trim();
+        if (val) {
+          core.SyncTargets.Dropbox.setClientId(val);
+          if (core.showToast) core.showToast('Dropbox App Key saved!');
+        }
+      });
+    }
+
+    const btnAuthDropbox = document.getElementById('btn-auth-dropbox');
+    if (btnAuthDropbox) {
+      btnAuthDropbox.addEventListener('click', () => {
+        const cid = inputDropboxClientId ? inputDropboxClientId.value.trim() : null;
+        if (!cid || cid.includes('YOUR_DROPBOX_APP_KEY')) {
+          alert('Please enter and save your Dropbox App Key first.');
+          return;
+        }
+        window.location.href = core.SyncTargets.Dropbox.getAuthUrl(cid);
+      });
+    }
+
+    // WebDAV
+    const chkWebDAV = document.getElementById('chk-sync-webdav');
+    const webdavBox = document.getElementById('webdav-credentials-box');
+    if (chkWebDAV) {
+      chkWebDAV.checked = core.SyncManager.isTargetEnabled('webdav');
+      if (webdavBox && chkWebDAV.checked) webdavBox.classList.remove('hidden');
+      chkWebDAV.addEventListener('change', (e) => {
+        core.SyncManager.toggleTarget('webdav', e.target.checked);
+        if (webdavBox) {
+          if (e.target.checked) webdavBox.classList.remove('hidden');
+          else webdavBox.classList.add('hidden');
+        }
+      });
+    }
+
+    const inputWebDAVUrl = document.getElementById('input-webdav-url');
+    const inputWebDAVUser = document.getElementById('input-webdav-user');
+    const inputWebDAVPass = document.getElementById('input-webdav-pass');
+    if (inputWebDAVUrl && inputWebDAVUser && inputWebDAVPass) {
+      const creds = core.SyncTargets.WebDAV.getCredentials();
+      inputWebDAVUrl.value = creds.url;
+      inputWebDAVUser.value = creds.user;
+      inputWebDAVPass.value = creds.pass;
+    }
+
+    const btnSaveWebDAV = document.getElementById('btn-save-webdav');
+    if (btnSaveWebDAV && inputWebDAVUrl && inputWebDAVUser && inputWebDAVPass) {
+      btnSaveWebDAV.addEventListener('click', () => {
+        core.SyncTargets.WebDAV.setCredentials(
+          inputWebDAVUrl.value.trim(),
+          inputWebDAVUser.value.trim(),
+          inputWebDAVPass.value.trim()
+        );
+        if (core.showToast) core.showToast('WebDAV credentials saved!');
+      });
+    }
+
+    // Manual Trigger Sync
+    const btnTriggerSync = document.getElementById('btn-trigger-sync');
+    if (btnTriggerSync) {
+      btnTriggerSync.addEventListener('click', () => {
+        core.SyncManager.pullAndMergeAll().then((res) => {
+          if (!res.merged && core.showToast) {
+            core.showToast(res.message || 'Sync complete.');
+          }
+        });
+      });
+    }
+
+    // Check for OAuth hash tokens in URL on load
+    if (window.location.hash && window.location.hash.includes('access_token=')) {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = params.get('access_token');
+      if (accessToken) {
+        if (window.location.hash.includes('google')) {
+          core.SyncTargets.GoogleDrive.setToken(accessToken);
+          core.SyncManager.toggleTarget('googleDrive', true);
+          if (core.showToast) core.showToast('Google Drive authenticated successfully!');
+        } else {
+          core.SyncTargets.Dropbox.setToken(accessToken);
+          core.SyncManager.toggleTarget('dropbox', true);
+          if (core.showToast) core.showToast('Dropbox authenticated successfully!');
+        }
+        window.history.replaceState(null, null, window.location.pathname);
+      }
+    }
+
     const btnExportJson = document.getElementById('btn-export-json');
     if (btnExportJson) btnExportJson.addEventListener('click', core.exportDataJSON);
 
@@ -355,16 +558,16 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-7);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(7);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-7);
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(7);
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
       }
     });
   };

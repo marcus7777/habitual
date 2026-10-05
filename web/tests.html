@@ -314,6 +314,50 @@
         });
       });
 
+      describe('Feature 12: 🔄 Multi-Target Sync & Storage Abstraction', () => {
+        test('LocalStorageDriver and IndexedDBDriver interface compliance', () => {
+          assert(core.LocalStorageDriver !== undefined, 'LocalStorageDriver exists');
+          assert(core.IndexedDBDriver !== undefined, 'IndexedDBDriver exists');
+          assertEqual(core.LocalStorageDriver.name, 'localStorage');
+          assertEqual(core.IndexedDBDriver.name, 'indexedDB');
+        });
+
+        test('E2EE encrypt and decrypt maintains payload integrity', async () => {
+          const samplePayload = { habits: [{ id: 'h1', name: 'Meditation' }] };
+          const passphrase = 'secret_passphrase_123';
+          const encrypted = await core.E2EE.encrypt(samplePayload, passphrase);
+          assert(encrypted.startsWith('ENC:'), 'Ciphertext starts with ENC: prefix');
+          const decrypted = await core.E2EE.decrypt(encrypted, passphrase);
+          assertEqual(decrypted.habits[0].name, 'Meditation');
+        });
+
+        test('mergeStatePayloads deterministically merges overlapping habit logs', () => {
+          const payloadA = {
+            updatedAt: 1000,
+            habits: [{ id: 'h1', name: 'Exercise', logs: { '2026-10-01': { count: 1 } } }]
+          };
+          const payloadB = {
+            updatedAt: 2000,
+            habits: [
+              { id: 'h1', name: 'Exercise', logs: { '2026-10-01': { count: 2 }, '2026-10-02': { count: 1 } } },
+              { id: 'h2', name: 'Reading', logs: { '2026-10-02': { count: 1 } } }
+            ]
+          };
+          const merged = core.mergeStatePayloads(payloadA, payloadB);
+          assertEqual(merged.habits.length, 2);
+          const h1 = merged.habits.find(h => h.id === 'h1');
+          assertEqual(h1.logs['2026-10-01'].count, 2);
+          assertEqual(h1.logs['2026-10-02'].count, 1);
+        });
+
+        test('SyncManager target management', () => {
+          core.SyncManager.toggleTarget('googleDrive', true);
+          assert(core.SyncManager.isTargetEnabled('googleDrive'), 'Google Drive target enabled');
+          core.SyncManager.toggleTarget('googleDrive', false);
+          assert(!core.SyncManager.isTargetEnabled('googleDrive'), 'Google Drive target disabled');
+        });
+      });
+
     })();
   </script>
 </body>
