@@ -319,7 +319,34 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    // --- DATA MANAGEMENT & MULTI-TARGET SYNC UI EVENT LISTENERS ---
+    // --- DATA MANAGEMENT & FEATURE FLAGS ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const isCloudSyncEnabled = urlParams.get('cloudSync') === '1' || urlParams.get('cloudSync') === 'true';
+    const isP2PEnabled = urlParams.get('p2p') === '1' || urlParams.get('P2P') === '1' || urlParams.get('p2p') === 'true';
+
+    const sectionP2P = document.getElementById('section-p2p-sync');
+    if (sectionP2P) {
+      if (isP2PEnabled) sectionP2P.classList.remove('hidden');
+      else sectionP2P.classList.add('hidden');
+    }
+
+    const sectionCloud = document.getElementById('section-cloud-sync');
+    if (sectionCloud) {
+      if (isCloudSyncEnabled) sectionCloud.classList.remove('hidden');
+      else sectionCloud.classList.add('hidden');
+    }
+
+    const sectionE2EE = document.getElementById('section-e2ee-passphrase');
+    const sectionTrigger = document.getElementById('section-trigger-sync');
+    if (sectionE2EE) {
+      if (isCloudSyncEnabled || isP2PEnabled) sectionE2EE.classList.remove('hidden');
+      else sectionE2EE.classList.add('hidden');
+    }
+    if (sectionTrigger) {
+      if (isCloudSyncEnabled || isP2PEnabled) sectionTrigger.classList.remove('hidden');
+      else sectionTrigger.classList.add('hidden');
+    }
+
     const selectStorageEngine = document.getElementById('select-storage-engine');
     if (selectStorageEngine) {
       selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
