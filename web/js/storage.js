@@ -518,7 +518,7 @@ window.HabitualCore = window.HabitualCore || {};
 
     GoogleDrive: {
       getClientId: function() {
-        return localStorage.getItem('habitual_gdrive_client_id') || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+        return localStorage.getItem('habitual_gdrive_client_id') || '1089385392217-c8c5tplfgh4pjso2b15n9knsneh3nn4d.apps.googleusercontent.com';
       },
       setClientId: function(id) {
         localStorage.setItem('habitual_gdrive_client_id', id);
