@@ -616,6 +616,7 @@ body.dark-theme {
   flex-direction: column;
   padding: 4px;
   z-index: 20;
+  outline: none;
 }
 
 .drag-arrows.hidden {

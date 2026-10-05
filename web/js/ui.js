@@ -515,6 +515,14 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     core.elements.heatmapsGallery.querySelectorAll('.drag-handle').forEach(handle => {
+      let arrowsWasOpen = false;
+
+      handle.addEventListener('pointerdown', () => {
+        const container = handle.closest('.drag-handle-container');
+        const arrows = container ? container.querySelector('.drag-arrows') : null;
+        arrowsWasOpen = arrows && !arrows.classList.contains('hidden');
+      });
+
       handle.addEventListener('click', (e) => {
         e.stopPropagation();
         const container = handle.closest('.drag-handle-container');
@@ -526,7 +534,28 @@ window.HabitualCore = window.HabitualCore || {};
           if (arr !== arrows) arr.classList.add('hidden');
         });
 
-        arrows.classList.toggle('hidden');
+        if (arrowsWasOpen) {
+          arrows.classList.add('hidden');
+        } else {
+          arrows.classList.remove('hidden');
+          const firstBtn = arrows.querySelector('button');
+          if (firstBtn) {
+            firstBtn.focus();
+          } else {
+            arrows.focus();
+          }
+        }
+        arrowsWasOpen = false;
+      });
+    });
+
+    core.elements.heatmapsGallery.querySelectorAll('.drag-arrows').forEach(arrows => {
+      arrows.addEventListener('focusout', (e) => {
+        const container = arrows.closest('.drag-handle-container');
+        if (e.relatedTarget && container && container.contains(e.relatedTarget)) {
+          return;
+        }
+        arrows.classList.add('hidden');
       });
     });
 
@@ -896,6 +925,16 @@ window.HabitualCore = window.HabitualCore || {};
     core.updateBackfillWordingUI();
     updateParentDependencyUI();
     if (core.elements.modalHabit) core.elements.modalHabit.classList.remove('hidden');
+
+    const habitNameInput = core.elements.habitName || document.getElementById('habit-name');
+    if (habitNameInput && typeof habitNameInput.focus === 'function') {
+      habitNameInput.focus();
+      setTimeout(() => {
+        if (habitNameInput && typeof habitNameInput.focus === 'function') {
+          habitNameInput.focus();
+        }
+      }, 50);
+    }
   };
 
   core.syncCalendarColorDropdown = function(hex) {
