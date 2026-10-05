@@ -273,9 +273,19 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     let countLabel = '';
+    const shouldShowCount = habit ? habit.showCount !== false : true;
     if (stats.isMonthly) countLabel = `${stats.totalCount} of 12 months met in ${year}`;
     else if (stats.isWeekly) countLabel = `${stats.totalCount} of 52 weeks met in ${year}`;
     else countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} in ${year}`;
+
+    let durationLabel = '';
+    const shouldShowDuration = habit ? habit.showDuration === true : false;
+    if (shouldShowDuration && habit) {
+      const durationDays = core.getHabitDurationDays ? core.getHabitDurationDays(habit) : 0;
+      if (durationDays > 0) {
+        durationLabel = `⏱️ ${durationDays} day${durationDays === 1 ? '' : 's'}`;
+      }
+    }
 
     let frequencyBadgeHTML = '';
     if (habit) {
@@ -404,7 +414,8 @@ window.HabitualCore = window.HabitualCore || {};
           ${frequencyBadgeHTML}
           ${pausedBadgeHTML}
           ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
-          <span class="badge-count">${countLabel}</span>
+          ${shouldShowCount ? `<span class="badge-count">${countLabel}</span>` : ''}
+          ${durationLabel ? `<span class="badge-duration" title="Habit active duration">${durationLabel}</span>` : ''}
           ${bigLogButtonHTML}
         </div>
         ${actionsHTML}
@@ -414,7 +425,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (isCardFocused && core.focusedDayState.dateStr) {
       const focusDateKey = core.focusedDayState.dateStr;
       let actionButtonsHTML = '';
-      const habitsToInclude = isAll ? core.state.habits : (isGroup ? core.state.habits.filter(h => targetOrNull.habitIds.includes(h.id)) : (habit ? [habit] : []));
+      const habitsToInclude = isAll ? core.state.habits.filter(h => !h.hideFromAll) : (isGroup ? core.state.habits.filter(h => targetOrNull.habitIds.includes(h.id)) : (habit ? [habit] : []));
 
       habitsToInclude.forEach(h => {
         const hex = core.getHabitHexColor(h);

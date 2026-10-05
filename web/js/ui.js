@@ -84,6 +84,9 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.modalHabitTitle = document.getElementById('modal-habit-title');
     core.elements.habitParent = document.getElementById('habit-parent');
     core.elements.habitShowStreak = document.getElementById('habit-show-streak');
+    core.elements.habitShowCount = document.getElementById('habit-show-count');
+    core.elements.habitShowDuration = document.getElementById('habit-show-duration');
+    core.elements.habitHideFromAll = document.getElementById('habit-hide-from-all');
     core.elements.habitIsPaused = document.getElementById('habit-is-paused');
     core.elements.habitName = document.getElementById('habit-name');
     core.elements.habitIdPreview = document.getElementById('habit-id-preview');
@@ -726,6 +729,9 @@ window.HabitualCore = window.HabitualCore || {};
       document.getElementById('habit-category').value = habitToEdit.category || 'General';
       document.getElementById('habit-daily-target').value = habitToEdit.dailyTarget || 1;
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = habitToEdit.showStreak === true;
+      if (core.elements.habitShowCount) core.elements.habitShowCount.checked = habitToEdit.showCount !== false;
+      if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = habitToEdit.showDuration === true;
+      if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = habitToEdit.hideFromAll === true;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = habitToEdit.isPaused === true;
       if (parentDepSelect) parentDepSelect.value = habitToEdit.parentDependency || 'none';
 
@@ -789,6 +795,9 @@ window.HabitualCore = window.HabitualCore || {};
       }
       core.syncCalendarColorDropdown('');
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = false;
+      if (core.elements.habitShowCount) core.elements.habitShowCount.checked = true;
+      if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = false;
+      if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = false;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = false;
       if (parentDepSelect) parentDepSelect.value = 'none';
 
@@ -969,6 +978,9 @@ window.HabitualCore = window.HabitualCore || {};
     const parentDepSelect = document.getElementById('habit-parent-dependency');
     const parentDependency = parentId ? (getVal('habit-parent-dependency') || (parentDepSelect ? parentDepSelect.value : 'none')) : 'none';
     const showStreak = core.elements.habitShowStreak ? core.elements.habitShowStreak.checked : hasVal('habit-show-streak');
+    const showCount = core.elements.habitShowCount ? core.elements.habitShowCount.checked : (hasVal('habit-show-count') || true);
+    const showDuration = core.elements.habitShowDuration ? core.elements.habitShowDuration.checked : hasVal('habit-show-duration');
+    const hideFromAll = core.elements.habitHideFromAll ? core.elements.habitHideFromAll.checked : hasVal('habit-hide-from-all');
     const isPaused = core.elements.habitIsPaused ? core.elements.habitIsPaused.checked : hasVal('habit-is-paused');
 
     const freqSelect = document.getElementById('habit-frequency-type');
@@ -1016,7 +1028,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (id) {
       const habit = core.state.habits.find(h => h.id === id);
       if (habit) {
-        habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak;
+        habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll;
         core.setHabitPauseState(habit, isPaused);
         habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.colorTheme = colorTheme; habit.parentId = parentId; habit.parentDependency = parentDependency;
 
@@ -1045,7 +1057,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + core.idFromName(name),
-        name, type, description, category, showStreak, isPaused, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null }] : [],
+        name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null }] : [],
         colorTheme, dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, logs: backfilledLogs
       };
       core.state.habits.push(newHabit);

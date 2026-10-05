@@ -356,9 +356,28 @@ window.HabitualCore = window.HabitualCore || {};
     return new Date(year, month, day);
   };
 
+  core.getHabitDurationDays = function(habit) {
+    if (!habit) return 0;
+    const todayStr = core.getTodayKey();
+    let startStr = habit.createdAt || todayStr;
+    if (habit.logs) {
+      const logKeys = Object.keys(habit.logs).filter(k => habit.logs[k] && habit.logs[k].count > 0);
+      if (logKeys.length > 0) {
+        logKeys.sort();
+        if (logKeys[0] < startStr) {
+          startStr = logKeys[0];
+        }
+      }
+    }
+    const startDate = new Date(startStr + 'T00:00:00');
+    const todayDate = new Date(todayStr + 'T00:00:00');
+    const diffTime = todayDate - startDate;
+    return Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1);
+  };
+
   core.getCellData = function(dateStr, target, todayStr) {
     let habitList = [];
-    if (target === 'all') habitList = core.state.habits;
+    if (target === 'all') habitList = core.state.habits.filter(h => !h.hideFromAll);
     else if (Array.isArray(target)) habitList = target;
     else if (target && target.habitIds) habitList = core.state.habits.filter(h => target.habitIds.includes(h.id));
     else if (target) habitList = [target];
@@ -557,7 +576,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
     const activeDateMap = {};
     let habitList = [];
-    if (target === 'all') habitList = core.state.habits;
+    if (target === 'all') habitList = core.state.habits.filter(h => !h.hideFromAll);
     else if (target && target.habitIds) habitList = core.state.habits.filter(h => target.habitIds.includes(h.id));
     else if (target) habitList = [target];
     habitList.forEach(h => {
@@ -609,7 +628,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
     } else {
       let habitList = [];
-      if (target === 'all') habitList = core.state.habits;
+      if (target === 'all') habitList = core.state.habits.filter(h => !h.hideFromAll);
       else if (target && target.habitIds) habitList = core.state.habits.filter(h => target.habitIds.includes(h.id));
       else if (target) habitList = [target];
       habitList.forEach(h => {

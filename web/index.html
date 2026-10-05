@@ -317,6 +317,30 @@
 
         <div class="form-group">
           <label class="checkbox-label">
+            <input type="checkbox" name="habit-show-count" id="habit-show-count" checked>
+            <span><strong>Show Count above Heatmap</strong> (📊 completions / stats counter)</span>
+          </label>
+          <small class="muted-text">Display total count and completions in the card header.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" name="habit-show-duration" id="habit-show-duration">
+            <span><strong>Show Active Duration above Heatmap</strong> (⏱️ active habit duration counter)</span>
+          </label>
+          <small class="muted-text">Display total active habit duration in the card header.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" name="habit-hide-from-all" id="habit-hide-from-all">
+            <span><strong>Hide from 'All' Heatmap</strong> (🙈 Exclude from global aggregated heatmap)</span>
+          </label>
+          <small class="muted-text">Exclude this habit's activity from the combined 'All' heatmap card.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
             <input type="checkbox" name="habit-is-paused" id="habit-is-paused">
             <span><strong>Pause Habit</strong> (⏸️ Temporarily pause tracking)</span>
           </label>
