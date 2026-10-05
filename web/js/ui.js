@@ -253,7 +253,11 @@ window.HabitualCore = window.HabitualCore || {};
     if (menuAddHabit) menuAddHabit.addEventListener('click', () => { if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden'); core.openHabitModal(); });
 
     const menuQuickLog = document.getElementById('menu-btn-quick-log');
-    if (menuQuickLog) menuQuickLog.addEventListener('click', () => { if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden'); core.openLogModal(core.getTodayKey()); });
+    if (menuQuickLog) menuQuickLog.addEventListener('click', () => {
+      if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
+      const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
+      core.openLogModal(targetDate);
+    });
 
     const menuDataModal = document.getElementById('menu-btn-data-modal');
     if (menuDataModal) menuDataModal.addEventListener('click', () => { if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden'); core.elements.modalData.classList.remove('hidden'); });
@@ -339,6 +343,30 @@ window.HabitualCore = window.HabitualCore || {};
         if (core.renderAll) core.renderAll();
       }
     });
+
+    document.addEventListener('keydown', (e) => {
+      const activeEl = document.activeElement;
+      const activeTag = activeEl ? activeEl.tagName.toUpperCase() : '';
+      const isEditable = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT' || (activeEl && activeEl.isContentEditable);
+      if (isEditable) return;
+
+      const openModal = document.querySelector('.modal-backdrop:not(.hidden)');
+      if (openModal) return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-7);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(7);
+      }
+    });
   };
 
   core.attachHeatmapSquareEvents = function() {
@@ -400,7 +428,11 @@ window.HabitualCore = window.HabitualCore || {};
         const cardHabitId = card.getAttribute('data-habit-id') || 'all';
         let targetHabitId = cardHabitId;
         if (sq && sq.dataset.habitId && sq.dataset.habitId !== 'all' && !sq.dataset.habitId.startsWith('group_')) targetHabitId = sq.dataset.habitId;
-        core.openLogModal(core.getTodayKey(), targetHabitId);
+        const targetDate = sq ? sq.dataset.date : (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
+        if (sq && sq.dataset.date && core.setCursorDateKey) {
+          core.setCursorDateKey(sq.dataset.date);
+        }
+        core.openLogModal(targetDate, targetHabitId);
       });
     });
 
@@ -680,10 +712,12 @@ window.HabitualCore = window.HabitualCore || {};
 
         if (!habitId) return;
 
+        const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
+
         if (isGoalMet) {
-          core.openLogModal(core.getTodayKey(), habitId);
+          core.openLogModal(targetDate, habitId);
         } else {
-          core.toggleHabitForDate(habitId, core.getTodayKey());
+          core.toggleHabitForDate(habitId, targetDate);
         }
       });
     });
@@ -788,6 +822,13 @@ window.HabitualCore = window.HabitualCore || {};
     if (parentSelect) {
       parentSelect.onchange = () => {
         updateParentDependencyUI();
+        if (!habitToEdit) {
+          const selectedPId = parentSelect.value;
+          const parentObj = selectedPId ? core.state.habits.find(h => h.id === selectedPId) : null;
+          if (core.elements.habitShowCount) core.elements.habitShowCount.checked = parentObj ? parentObj.showCount !== false : true;
+          if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = parentObj ? parentObj.showDuration === true : false;
+          if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = parentObj ? parentObj.hideFromAll === true : false;
+        }
         if (core.elements.habitName && core.elements.habitName.value.trim().length > 0) core.handleHabitNameBlur();
       };
     }
@@ -876,10 +917,11 @@ window.HabitualCore = window.HabitualCore || {};
         core.elements.customSwatchPreview.style.backgroundColor = 'transparent';
       }
       core.syncCalendarColorDropdown('');
+      const initialParent = selectedParentId ? core.state.habits.find(h => h.id === selectedParentId) : null;
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = false;
-      if (core.elements.habitShowCount) core.elements.habitShowCount.checked = true;
-      if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = false;
-      if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = false;
+      if (core.elements.habitShowCount) core.elements.habitShowCount.checked = initialParent ? initialParent.showCount !== false : true;
+      if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = initialParent ? initialParent.showDuration === true : false;
+      if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = initialParent ? initialParent.hideFromAll === true : false;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = false;
       if (parentDepSelect) parentDepSelect.value = 'none';
 
@@ -1120,9 +1162,22 @@ window.HabitualCore = window.HabitualCore || {};
     if (id) {
       const habit = core.state.habits.find(h => h.id === id);
       if (habit) {
+        const previousHideFromAll = Boolean(habit.hideFromAll);
         habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll;
         core.setHabitPauseState(habit, isPaused);
         habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.colorTheme = colorTheme; habit.parentId = parentId; habit.parentDependency = parentDependency;
+
+        if (previousHideFromAll !== hideFromAll) {
+          const descendantIds = core.getAllDescendantIds(habit.id);
+          descendantIds.forEach(descId => {
+            if (descId !== habit.id) {
+              const descendant = core.state.habits.find(h => h.id === descId);
+              if (descendant) {
+                descendant.hideFromAll = hideFromAll;
+              }
+            }
+          });
+        }
 
         if (core.elements.habitEnableBackfill && core.elements.habitEnableBackfill.checked) {
           const durationVal = core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30';
@@ -1199,6 +1254,9 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.openLogModal = function(dateStr, preferredHabitId = null) {
+    if (dateStr && core.getCursorDateKey && core.getCursorDateKey() !== dateStr) {
+      if (core.setCursorDateKey) core.setCursorDateKey(dateStr);
+    }
     core.activeLogDateKey = dateStr;
     if (core.state.habits.length === 0) {
       core.pendingQuickLogAfterHabit = true;

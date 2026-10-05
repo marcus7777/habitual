@@ -184,6 +184,37 @@ window.HabitualCore = window.HabitualCore || {};
     return core.formatDateKey(new Date());
   };
 
+  core.cursorDateKey = null;
+
+  core.getCursorDateKey = function() {
+    if (!core.cursorDateKey) {
+      core.cursorDateKey = core.getTodayKey();
+    }
+    return core.cursorDateKey;
+  };
+
+  core.setCursorDateKey = function(dateStr) {
+    if (!dateStr || core.cursorDateKey === dateStr) return;
+    core.cursorDateKey = dateStr;
+    const year = parseInt(dateStr.split('-')[0], 10);
+    if (year && year !== core.state.selectedYear) {
+      if (core.getAvailableYears && core.getAvailableYears().includes(year)) {
+        core.state.selectedYear = year;
+      }
+    }
+    if (core.renderAll && core.elements && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.appendChild === 'function') {
+      core.renderAll();
+    }
+  };
+
+  core.moveCursorDateByDays = function(days) {
+    const currentKey = core.getCursorDateKey();
+    const d = core.parseDateKey(currentKey);
+    d.setDate(d.getDate() + days);
+    const newKey = core.formatDateKey(d);
+    core.setCursorDateKey(newKey);
+  };
+
   core.getDaysAgoKey = function(daysAgo) {
     const d = new Date();
     d.setDate(d.getDate() - daysAgo);

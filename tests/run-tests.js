@@ -100,6 +100,7 @@ require('../web/js/ui.js');
 const HabitualCore = global.window.HabitualCore;
 
 HabitualCore.resetState = function() {
+  HabitualCore.cursorDateKey = null;
   HabitualCore.state = {
     habits: [],
     selectedHabitId: 'all',
@@ -1411,6 +1412,9 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     const hasAllCard = appenedCards.some(card => card && card.getAttribute && card.getAttribute('data-habit-id') === 'all');
     assertEqual(hasAllCard, false, 'All heatmap card is NOT rendered when all habits are hideFromAll');
 
+    const hasH1Card = appenedCards.some(card => card && card.getAttribute && (card.getAttribute('data-habit-id') === 'h1' || card.getAttribute('data-habit-id-raw') === 'h1'));
+    assertEqual(hasH1Card, true, 'Individual habit card h1 IS rendered on homepage gallery');
+
     HabitualCore.elements = originalElements;
   });
 
@@ -1436,6 +1440,72 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     assertEqual(restored.showCount, false, 'showCount false is persisted');
     assertEqual(restored.showDuration, true, 'showDuration true is persisted');
     assertEqual(restored.hideFromAll, true, 'hideFromAll true is persisted');
+  });
+
+  test('updating hideFromAll on parent habit cascades to children while allowing individual updates', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+
+    const parent = { id: 'p1', name: 'Parent', hideFromAll: false, logs: {} };
+    const child = { id: 'c1', name: 'Child', parentId: 'p1', hideFromAll: false, logs: {} };
+    state.habits.push(parent, child);
+
+    // Mock document.getElementById for handleHabitFormSubmit
+    const prevGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'habit-id') return { value: 'p1' };
+      if (id === 'habit-name') return { value: 'Parent' };
+      return prevGetElementById ? prevGetElementById(id) : null;
+    };
+
+    HabitualCore.elements.habitHideFromAll = { checked: true };
+    HabitualCore.handleHabitFormSubmit({ preventDefault: () => {} });
+
+    assertEqual(parent.hideFromAll, true, 'Parent hideFromAll updated to true');
+    assertEqual(child.hideFromAll, true, 'Child inherited hideFromAll true from parent update');
+
+    // Update child individually back to false
+    global.document.getElementById = (id) => {
+      if (id === 'habit-id') return { value: 'c1' };
+      if (id === 'habit-name') return { value: 'Child' };
+      return prevGetElementById ? prevGetElementById(id) : null;
+    };
+
+    HabitualCore.elements.habitHideFromAll = { checked: false };
+    HabitualCore.handleHabitFormSubmit({ preventDefault: () => {} });
+
+    global.document.getElementById = prevGetElementById;
+
+    assertEqual(child.hideFromAll, false, 'Child updated individually back to false');
+    assertEqual(parent.hideFromAll, true, 'Parent remains true when child is individually updated');
+  });
+
+  test('creating a new sub-habit copies preferences from parent habit', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+
+    const parent = { id: 'p_pref', name: 'Parent Prefs', showCount: false, showDuration: true, hideFromAll: true, logs: {} };
+    state.habits.push(parent);
+
+    const prevGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'habit-parent') return { value: 'p_pref', selectedOptions: [{ text: 'Parent Prefs' }] };
+      if (id === 'habit-id') return { value: '' };
+      if (id === 'habit-name') return { value: '' };
+      return prevGetElementById ? prevGetElementById(id) : null;
+    };
+
+    HabitualCore.elements.habitShowCount = { checked: true };
+    HabitualCore.elements.habitShowDuration = { checked: false };
+    HabitualCore.elements.habitHideFromAll = { checked: false };
+
+    HabitualCore.openHabitModal(null, 'p_pref');
+
+    global.document.getElementById = prevGetElementById;
+
+    assertEqual(HabitualCore.elements.habitShowCount.checked, false, 'New sub-habit copied parent showCount false');
+    assertEqual(HabitualCore.elements.habitShowDuration.checked, true, 'New sub-habit copied parent showDuration true');
+    assertEqual(HabitualCore.elements.habitHideFromAll.checked, true, 'New sub-habit copied parent hideFromAll true');
   });
 });
 
@@ -1473,6 +1543,65 @@ describe('Feature 25: 🎯 Focus Habit Name Input when Habit Modal Opens', () =>
     assertEqual(focusCalled, true, 'focus() was called on habit-name input when opening habit modal');
 
     global.document.getElementById = originalGetElementById;
+  });
+});
+
+// ============================================================================
+// FEATURE 26: 🎯 ARROW KEY DATE CURSOR NAVIGATION & CURSOR DAY LOGGING
+// ============================================================================
+describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging', () => {
+  test('getCursorDateKey starts on today and setCursorDateKey/moveCursorDateByDays shifts cursor', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'getCursorDateKey starts on today');
+
+    HabitualCore.moveCursorDateByDays(-1);
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+    assertEqual(HabitualCore.getCursorDateKey(), yesterday, 'moveCursorDateByDays(-1) moves cursor to yesterday');
+
+    HabitualCore.moveCursorDateByDays(1);
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'moveCursorDateByDays(1) returns cursor to today');
+
+    HabitualCore.moveCursorDateByDays(-7);
+    const lastWeek = HabitualCore.getDaysAgoKey(7);
+    assertEqual(HabitualCore.getCursorDateKey(), lastWeek, 'moveCursorDateByDays(-7) moves cursor 7 days back');
+  });
+
+  test('buildHeatmapCard renders cursor-day class on day square matching cursorDateKey', () => {
+    HabitualCore.resetState();
+    const habit = { id: 'water', name: 'Drink Water', type: 'positive', dailyTarget: 1, logs: {} };
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+    HabitualCore.setCursorDateKey(yesterday);
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    const html = card.innerHTML;
+
+    assert(html.includes('cursor-day'), 'HTML contains cursor-day class on day square');
+    assert(html.includes(`data-date="${yesterday}"`), 'HTML includes day square matching yesterday date key');
+  });
+
+  test('toggleHabitForDate adds completion entry to cursorDateKey when cursor is on a different day', () => {
+    HabitualCore.resetState();
+    const originalElements = HabitualCore.elements;
+    HabitualCore.elements = {
+      heatmapsGallery: { innerHTML: '', appendChild: () => {}, querySelectorAll: () => [], querySelector: () => null },
+      yearSelector: { innerHTML: '' }
+    };
+
+    const state = HabitualCore.getState();
+    const habit = { id: 'pushups', name: 'Pushups', type: 'positive', dailyTarget: 1, logs: {} };
+    state.habits.push(habit);
+
+    const pastDate = '2026-05-10';
+    HabitualCore.setCursorDateKey(pastDate);
+
+    const cursorDate = HabitualCore.getCursorDateKey();
+    assertEqual(cursorDate, pastDate, 'Cursor date is set to 2026-05-10');
+
+    HabitualCore.toggleHabitForDate('pushups', cursorDate);
+    assertEqual(habit.logs['2026-05-10'].count, 1, 'Logged +1 to cursor date 2026-05-10');
+
+    HabitualCore.elements = originalElements;
   });
 });
 
