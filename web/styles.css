@@ -44,6 +44,7 @@
   --accent-orange: #f0883e;
   --accent-danger: #f85149;
   --accent-amber: #d29922;
+  --accent-gold: #f1e05a;
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', Consolas, monospace;
@@ -837,6 +838,13 @@ body.dark-theme {
 
 .day-square.today {
   outline: 1.5px solid var(--accent-blue);
+}
+
+.day-square.cursor-day {
+  outline: 2px solid var(--accent-gold, #f1e05a) !important;
+  outline-offset: 1px;
+  box-shadow: 0 0 6px rgba(241, 224, 90, 0.7);
+  z-index: 15;
 }
 
 .day-square.relapse {

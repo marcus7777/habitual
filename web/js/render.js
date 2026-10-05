@@ -120,16 +120,13 @@ window.HabitualCore = window.HabitualCore || {};
     });
   };
 
-  core.renderHabitTree = function(habit, year, isHomeView = false) {
-    const subhabits = core.state.habits.filter(h => h.parentId === habit.id && (!isHomeView || !h.hideFromAll));
+  core.renderHabitTree = function(habit, year) {
+    const subhabits = core.state.habits.filter(h => h.parentId === habit.id);
     const hasSubhabits = subhabits.length > 0;
 
     let target;
     if (hasSubhabits) {
-      const allDescendantIds = core.getAllDescendantIds(habit.id).filter(id => {
-        const h = core.state.habits.find(x => x.id === id);
-        return h && (!isHomeView || !h.hideFromAll);
-      });
+      const allDescendantIds = core.getAllDescendantIds(habit.id);
       target = {
         isGroup: true,
         habit: habit,
@@ -159,7 +156,7 @@ window.HabitualCore = window.HabitualCore || {};
     concertina.setAttribute('data-parent-id', habit.id);
 
     subhabits.forEach(sub => {
-      const subNode = core.renderHabitTree(sub, year, isHomeView);
+      const subNode = core.renderHabitTree(sub, year);
       concertina.appendChild(subNode);
     });
 
@@ -186,26 +183,17 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     if (route.view === 'home') {
-      const visibleTopLevelHabits = core.state.habits.filter(h => !h.parentId && !h.hideFromAll);
+      const topLevelHabits = core.state.habits.filter(h => !h.parentId);
       const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
-      if (visibleTopLevelHabits.length > 1 && habitsInAll.length > 0) {
+      if (topLevelHabits.length > 1 && habitsInAll.length > 0) {
         const combinedCard = core.buildHeatmapCard(null, core.state.selectedYear);
         core.elements.heatmapsGallery.appendChild(combinedCard);
       }
 
-      visibleTopLevelHabits.forEach(habit => {
-        const habitNode = core.renderHabitTree(habit, core.state.selectedYear, true);
+      topLevelHabits.forEach(habit => {
+        const habitNode = core.renderHabitTree(habit, core.state.selectedYear);
         core.elements.heatmapsGallery.appendChild(habitNode);
       });
-
-      if (visibleTopLevelHabits.length === 0 && core.state.habits.length > 0) {
-        const callout = document.createElement('div');
-        callout.className = 'empty-placeholder';
-        callout.innerHTML = `
-          <p>All habits are currently hidden from the 'All' gallery view.</p>
-        `;
-        core.elements.heatmapsGallery.appendChild(callout);
-      }
     } else if (route.view === 'habit') {
       const targetHabit = core.state.habits.find(h => h.id === route.habitId);
 
@@ -241,6 +229,7 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.buildHeatmapCard = function(targetOrNull, year) {
     const todayStr = core.getTodayKey();
+    const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
     const isAll = targetOrNull === null;
     const isGroup = targetOrNull && targetOrNull.isGroup;
     const habit = (!isAll && !isGroup) ? targetOrNull : (isGroup && targetOrNull.habit ? targetOrNull.habit : null);
@@ -529,6 +518,7 @@ window.HabitualCore = window.HabitualCore || {};
 
         const cellData = core.getCellData(dateStr, isAll ? 'all' : (isGroup ? targetOrNull : habit), todayStr);
         const isToday = dateStr === todayStr;
+        const isCursorDay = dateStr === cursorDateStr;
 
         let squareStyle = '';
         let habitsDoneAttr = '';
@@ -563,7 +553,7 @@ window.HabitualCore = window.HabitualCore || {};
         const hasNoteClass = cellData.hasNote ? 'has-note' : '';
 
         gridHTML += `
-          <div class="day-square ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${targetDayClass} ${isPausedDayClass} ${hasNoteClass}"
+          <div class="day-square ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${isCursorDay ? 'cursor-day' : ''} ${targetDayClass} ${isPausedDayClass} ${hasNoteClass}"
                style="${squareStyle}" data-date="${dateStr}" data-habit-id="${cardHabitId}"
                data-count="${cellData.count}" data-ratio="${cellData.ratio || 0}"
                data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
