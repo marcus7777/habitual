@@ -353,19 +353,88 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const selectStorageEngine = document.getElementById('select-storage-engine');
-    if (selectStorageEngine) {
-      selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
-    }
+  function toggleOrbitDBSyncPanel() {
+      if (!orbitdbSyncPanel) return;
+      orbitdbSyncPanel.style.display = (core.activeStorageEngine === 'orbitDB' || (selectStorageEngine && selectStorageEngine.value === 'orbitDB')) ? 'block' : 'none';
+
+      if (orbitdbSyncPanel.style.display === 'block' && core.OrbitDBDriver && orbitdbSyncCodeOutput) {
+          orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Initializing... Please wait.';
+          if (!core.OrbitDBDriver.getSyncCode()) {
+              setTimeout(() => {
+                 if (orbitdbSyncCodeOutput) orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Failed to generate code.';
+              }, 4000);
+          }
+      }
+  }
+
+  if (selectStorageEngine) {
+    selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
+    selectStorageEngine.addEventListener('change', toggleOrbitDBSyncPanel);
+  }
 
     const btnMigrateEngine = document.getElementById('btn-migrate-engine');
-    if (btnMigrateEngine) {
-      btnMigrateEngine.addEventListener('click', () => {
-        const target = selectStorageEngine ? selectStorageEngine.value : 'localStorage';
-        core.migrateStorageEngine(target);
-      });
-    }
 
-    const inputPassphrase = document.getElementById('input-sync-passphrase');
+  // OrbitDB Sync Elements
+  const orbitdbSyncPanel = document.getElementById('orbitdb-sync-panel');
+  const orbitdbSyncCodeOutput = document.getElementById('orbitdb-sync-code-output');
+  const btnCopyOrbitdbCode = document.getElementById('btn-copy-orbitdb-code');
+  const orbitdbSyncCodeInput = document.getElementById('orbitdb-sync-code-input');
+  const btnJoinOrbitdb = document.getElementById('btn-join-orbitdb');
+  if (btnMigrateEngine) {
+    btnMigrateEngine.addEventListener('click', function() {
+      const target = selectStorageEngine ? selectStorageEngine.value : 'localStorage';
+      if (target === core.activeStorageEngine) {
+        if (core.showToast) core.showToast('Already using ' + target + ' engine.', 'info');
+        return;
+      }
+      const originalText = btnMigrateEngine.textContent;
+      btnMigrateEngine.textContent = 'Migrating...';
+      btnMigrateEngine.disabled = true;
+
+      core.migrateStorageEngine(target).then(function(res) {
+        btnMigrateEngine.textContent = originalText;
+        btnMigrateEngine.disabled = false;
+        toggleOrbitDBSyncPanel();
+      });
+    });
+  }
+
+  if (btnCopyOrbitdbCode && orbitdbSyncCodeOutput) {
+     btnCopyOrbitdbCode.addEventListener('click', function() {
+        if (!orbitdbSyncCodeOutput.value || orbitdbSyncCodeOutput.value.includes('Initializing')) {
+           if (core.showToast) core.showToast('Code not ready yet.', 'error');
+           return;
+        }
+        navigator.clipboard.writeText(orbitdbSyncCodeOutput.value).then(() => {
+           if (core.showToast) core.showToast('Sync Code copied to clipboard!', 'success');
+        }).catch(err => {
+           console.error('Failed to copy text: ', err);
+           if (core.showToast) core.showToast('Failed to copy. Select and copy manually.', 'error');
+        });
+     });
+  }
+
+  if (btnJoinOrbitdb && orbitdbSyncCodeInput) {
+     btnJoinOrbitdb.addEventListener('click', function() {
+         const code = orbitdbSyncCodeInput.value.trim();
+         if (!code) {
+             if (core.showToast) core.showToast('Please paste a Sync Code first.', 'error');
+             return;
+         }
+
+         const originalText = btnJoinOrbitdb.textContent;
+         btnJoinOrbitdb.textContent = 'Joining...';
+         btnJoinOrbitdb.disabled = true;
+
+         core.OrbitDBDriver.joinSyncCode(code).then(success => {
+             btnJoinOrbitdb.textContent = originalText;
+             btnJoinOrbitdb.disabled = false;
+             if (success) orbitdbSyncCodeInput.value = '';
+         });
+     });
+  }
+
+  const inputPassphrase = document.getElementById('input-sync-passphrase');
     if (inputPassphrase) {
       inputPassphrase.value = core.SyncManager.settings.passphrase || '';
     }
