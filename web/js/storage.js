@@ -390,16 +390,50 @@ window.HabitualCore = window.HabitualCore || {};
 
           if (core.showToast) core.showToast('Starting IPFS Node...', 'info');
 
-          // Using window.IpfsCore because browser distribution exposes it as IpfsCore
-          self.ipfs = await window.IpfsCore.create({ repo: 'habitual-ipfs-repo' });
+          // Using window.IpfsCore with explicit pubsub and relay config for peer discovery
+          self.ipfs = await window.IpfsCore.create({
+              repo: 'habitual-ipfs-repo',
+              config: {
+                  Addresses: {
+                      Swarm: [
+                          // Connect to public WebRTC-Star signal servers to find browser peers
+                          '/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star',
+                          '/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star'
+                      ]
+                  }
+              },
+              EXPERIMENTAL: { pubsub: true }
+          });
 
           if (core.showToast) core.showToast('Connecting to OrbitDB...', 'info');
           self.orbitdb = await window.OrbitDB.createInstance(self.ipfs);
 
-          // Create Key-Value stores for settings, habits, and logs
-          self.settingsStore = await self.orbitdb.keyvalue('habitual_settings');
-          self.habitsStore = await self.orbitdb.keyvalue('habitual_habits');
-          self.logsStore = await self.orbitdb.keyvalue('habitual_logs');
+          // Retrieve joined addresses from local storage or default to local creation
+          let settingsAddr = localStorage.getItem('orbitdb_settings_addr') || 'habitual_settings';
+          let habitsAddr = localStorage.getItem('orbitdb_habits_addr') || 'habitual_habits';
+          let logsAddr = localStorage.getItem('orbitdb_logs_addr') || 'habitual_logs';
+
+          const dbConfig = { accessController: { write: ['*'] } }; // Allow peers to write
+
+          // Create or connect to Key-Value stores
+          self.settingsStore = await self.orbitdb.keyvalue(settingsAddr, dbConfig);
+          self.habitsStore = await self.orbitdb.keyvalue(habitsAddr, dbConfig);
+          self.logsStore = await self.orbitdb.keyvalue(logsAddr, dbConfig);
+
+          // Save addresses in case they were generated locally just now
+          localStorage.setItem('orbitdb_settings_addr', self.settingsStore.address.toString());
+          localStorage.setItem('orbitdb_habits_addr', self.habitsStore.address.toString());
+          localStorage.setItem('orbitdb_logs_addr', self.logsStore.address.toString());
+
+          // Bind replication events for real-time UI updates
+          const onReplicated = () => {
+              if (core.loadStateAsync && core.renderAll) {
+                  core.loadStateAsync().then(() => core.renderAll());
+              }
+          };
+          self.settingsStore.events.on('replicated', onReplicated);
+          self.habitsStore.events.on('replicated', onReplicated);
+          self.logsStore.events.on('replicated', onReplicated);
 
           // Load local state from disk
           await self.settingsStore.load();
@@ -418,6 +452,50 @@ window.HabitualCore = window.HabitualCore || {};
       });
 
       return this.initPromise;
+    },
+
+    getSyncCode: function() {
+        if (!this.settingsStore || !this.habitsStore || !this.logsStore) return null;
+        const addrs = {
+            s: this.settingsStore.address.toString(),
+            h: this.habitsStore.address.toString(),
+            l: this.logsStore.address.toString()
+        };
+        return btoa(JSON.stringify(addrs));
+    },
+
+    joinSyncCode: async function(codeBase64) {
+        try {
+            const addrs = JSON.parse(atob(codeBase64));
+            if (!addrs.s || !addrs.h || !addrs.l) throw new Error('Invalid code structure');
+
+            localStorage.setItem('orbitdb_settings_addr', addrs.s);
+            localStorage.setItem('orbitdb_habits_addr', addrs.h);
+            localStorage.setItem('orbitdb_logs_addr', addrs.l);
+
+            if (core.showToast) core.showToast('Joining peer database...', 'info');
+
+            // Force re-init to load new addresses
+            if (this.orbitdb) {
+                await this.orbitdb.disconnect();
+            }
+            if (this.ipfs) {
+                await this.ipfs.stop();
+            }
+            this.initPromise = null;
+            await this.init();
+
+            if (core.loadStateAsync && core.renderAll) {
+                await core.loadStateAsync();
+                core.renderAll();
+            }
+            if (core.showToast) core.showToast('Successfully joined peer database!', 'success');
+            return true;
+        } catch (e) {
+            console.error('Failed to join sync code:', e);
+            if (core.showToast) core.showToast('Invalid sync code.', 'error');
+            return false;
+        }
     },
 
     getItem: async function(key) {

@@ -193,7 +193,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.4.0</p>
+      <p>Habitual &bull; v1.5.0</p>
     </footer>
   </div>
 
@@ -667,6 +667,28 @@
               <option value="orbitDB">OrbitDB (Decentralized P2P)</option>
             </select>
             <button id="btn-migrate-engine" class="btn btn-secondary btn-sm">Migrate Data</button>
+          </div>
+        </div>
+
+        <!-- Section 1.5: OrbitDB Peer Sync (Hidden by default) -->
+        <div class="data-option-card highlight-card" id="orbitdb-sync-panel" style="display: none; border-color: var(--accent-color);">
+          <div class="data-option-info">
+            <h4>🌐 Decentralized Peer Sync</h4>
+            <p class="muted-text">Connect another device to your OrbitDB to sync data directly via IPFS without servers.</p>
+          </div>
+
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 6px;">
+            <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.3rem; display: block;">Your Sync Code (Copy to another device)</label>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+              <input type="text" id="orbitdb-sync-code-output" class="form-control-sm" readonly style="flex: 1; font-family: monospace;" placeholder="Loading code...">
+              <button id="btn-copy-orbitdb-code" class="btn-sm btn-secondary">Copy</button>
+            </div>
+
+            <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.3rem; display: block;">Join a Peer</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="text" id="orbitdb-sync-code-input" class="form-control-sm" style="flex: 1; font-family: monospace;" placeholder="Paste peer's Sync Code here...">
+              <button id="btn-join-orbitdb" class="btn-sm btn-primary">Join</button>
+            </div>
           </div>
         </div>
 
