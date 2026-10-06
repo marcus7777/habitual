@@ -272,9 +272,13 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.modalData.classList.remove('hidden');
     core.state.selectedYear = core.CURRENT_YEAR;
     if (core.renderAll) core.renderAll();
+
+    // Explicitly update select and toggle the sync panel when the modal opens
     if (selectStorageEngine) {
-      selectStorageEngine.value = core.activeStorageEngine;
-      toggleOrbitDBSyncPanel();
+      selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
+    }
+    if (typeof toggleOrbitDBSyncPanel === 'function') {
+        toggleOrbitDBSyncPanel();
     }
   });
 
@@ -381,12 +385,14 @@ window.HabitualCore = window.HabitualCore || {};
           } else {
               if (isActive) {
                  orbitdbSyncCodeOutput.value = 'Starting IPFS Node... Please wait.';
-                 // Force initialize if it hasn't started yet but is the active engine
-                 core.OrbitDBDriver.init().then(() => {
-                     orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Failed to generate code.';
-                 }).catch(() => {
-                     orbitdbSyncCodeOutput.value = 'Initialization failed.';
-                 });
+                 // If it's active but no promise exists, force initialization
+                 if (core.OrbitDBDriver && core.OrbitDBDriver.init) {
+                     core.OrbitDBDriver.init().then(() => {
+                         orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Failed to generate code.';
+                     }).catch(() => {
+                         orbitdbSyncCodeOutput.value = 'Initialization failed.';
+                     });
+                 }
               } else {
                  orbitdbSyncCodeOutput.value = 'Click "Migrate Data" to start OrbitDB.';
               }
