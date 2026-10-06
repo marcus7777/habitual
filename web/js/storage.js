@@ -392,12 +392,8 @@ window.HabitualCore = window.HabitualCore || {};
               'https://gun-us.herokuapp.com/gun'
           ]);
 
-          // Retrieve or generate a 6-character room code
-          self.syncCode = localStorage.getItem('gundb_sync_code');
-          if (!self.syncCode) {
-              self.syncCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-              localStorage.setItem('gundb_sync_code', self.syncCode);
-          }
+          // Retrieve or generate a 6-character room code synchronously
+          self.syncCode = self.getSyncCode();
 
           // Listen for incoming peer updates on our specific node
           self.gun.get('habitual_sync_' + self.syncCode).on(function(data, key) {
@@ -475,6 +471,13 @@ window.HabitualCore = window.HabitualCore || {};
     },
 
     getSyncCode: function() {
+        if (!this.syncCode) {
+            this.syncCode = localStorage.getItem('gundb_sync_code');
+            if (!this.syncCode) {
+                this.syncCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                localStorage.setItem('gundb_sync_code', this.syncCode);
+            }
+        }
         return this.syncCode;
     },
 

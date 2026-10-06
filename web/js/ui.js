@@ -373,29 +373,7 @@ window.HabitualCore = window.HabitualCore || {};
       gundbSyncPanel.style.display = (isActive || isSelected) ? 'block' : 'none';
 
       if (gundbSyncPanel.style.display === 'block' && core.GunDBDriver && gundbSyncCodeOutput) {
-          if (core.GunDBDriver.getSyncCode()) {
-              gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode();
-          } else if (core.GunDBDriver.initPromise) {
-              gundbSyncCodeOutput.value = 'Initializing...';
-              core.GunDBDriver.initPromise.then(() => {
-                  gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode() || 'Failed to generate code.';
-              }).catch(() => {
-                  gundbSyncCodeOutput.value = 'Initialization failed.';
-              });
-          } else {
-              if (isActive) {
-                 gundbSyncCodeOutput.value = 'Starting Node...';
-                 if (core.GunDBDriver && core.GunDBDriver.init) {
-                     core.GunDBDriver.init().then(() => {
-                         gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode() || 'Failed to generate code.';
-                     }).catch(() => {
-                         gundbSyncCodeOutput.value = 'Initialization failed.';
-                     });
-                 }
-              } else {
-                 gundbSyncCodeOutput.value = 'Click "Migrate Data" to start GunDB.';
-              }
-          }
+          gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode();
       }
   }
 
