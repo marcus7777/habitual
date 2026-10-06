@@ -442,8 +442,13 @@ window.HabitualCore = window.HabitualCore || {};
 
           if (core.showToast) core.showToast('OrbitDB Ready!', 'success');
 
+          // Force a full UI re-render on initial load now that we have data
+          if (core.loadStateAsync && core.renderAll) {
+             core.loadStateAsync().then(() => core.renderAll());
+          }
+
           // Triggers UI update via a global if the modal is open
-          if (window.onOrbitDBReady) window.onOrbitDBReady();
+          if (typeof window.onOrbitDBReady === 'function') window.onOrbitDBReady();
 
           resolve();
 
