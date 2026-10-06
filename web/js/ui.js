@@ -394,9 +394,11 @@ window.HabitualCore = window.HabitualCore || {};
       }
   }
 
-  // Callback for when OrbitDB finishes starting up
+  // Ensure window-level callback actually gets attached immediately
   window.onOrbitDBReady = function() {
-      toggleOrbitDBSyncPanel();
+      if (core.elements && core.elements.modalData && !core.elements.modalData.classList.contains('hidden')) {
+          toggleOrbitDBSyncPanel();
+      }
   };
 
   if (selectStorageEngine) {
