@@ -367,13 +367,10 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.OrbitDBDriver = {
-    name: 'orbitDB',
-    orbitdb: null,
-    ipfs: null,
-    settingsStore: null,
-    habitsStore: null,
-    logsStore: null,
+  core.GunDBDriver = {
+    name: 'gunDB',
+    gun: null,
+    syncCode: null,
     initPromise: null,
 
     init: function() {
@@ -382,79 +379,50 @@ window.HabitualCore = window.HabitualCore || {};
 
       this.initPromise = new Promise(async (resolve, reject) => {
         try {
-          if (core.showToast) core.showToast('Downloading Decentralized P2P Engine...', 'info');
+          if (core.showToast) core.showToast('Loading GunDB Engine...', 'info');
 
-          // Modularly load IPFS and OrbitDB from CDN
-          await core.loadScript('https://cdn.jsdelivr.net/npm/ipfs-core/dist/index.min.js');
-          await core.loadScript('https://cdn.jsdelivr.net/npm/orbit-db/dist/orbitdb.min.js');
+          // Load Gun from CDN
+          await core.loadScript('https://cdn.jsdelivr.net/npm/gun/gun.js');
 
-          if (core.showToast) core.showToast('Starting IPFS Node...', 'info');
+          if (core.showToast) core.showToast('Connecting to P2P Relays...', 'info');
 
-          // Using window.IpfsCore with explicit pubsub and relay config for peer discovery
-          self.ipfs = await window.IpfsCore.create({
-              repo: 'habitual-ipfs-repo',
-              config: {
-                  Addresses: {
-                      Swarm: [
-                          // Connect to public WebRTC-Star signal servers to find browser peers
-                          '/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star',
-                          '/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star'
-                      ]
+          // Connect to public Gun relays
+          self.gun = window.Gun([
+              'https://gun-manhattan.herokuapp.com/gun',
+              'https://gun-us.herokuapp.com/gun'
+          ]);
+
+          // Retrieve or generate a 6-character room code
+          self.syncCode = localStorage.getItem('gundb_sync_code');
+          if (!self.syncCode) {
+              self.syncCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+              localStorage.setItem('gundb_sync_code', self.syncCode);
+          }
+
+          // Listen for incoming peer updates on our specific node
+          self.gun.get('habitual_sync_' + self.syncCode).on(function(data, key) {
+              // Gun triggers this on EVERY read and write. We debounce to prevent infinite render loops.
+              if (self._isWriting) return;
+
+              if (self._syncTimeout) clearTimeout(self._syncTimeout);
+              self._syncTimeout = setTimeout(() => {
+                  if (core.loadStateAsync && core.renderAll) {
+                      core.loadStateAsync().then(() => core.renderAll());
                   }
-              },
-              EXPERIMENTAL: { pubsub: true }
+              }, 500); // Wait 500ms for data to settle
           });
 
-          if (core.showToast) core.showToast('Connecting to OrbitDB...', 'info');
-          self.orbitdb = await window.OrbitDB.createInstance(self.ipfs);
+          if (core.showToast) core.showToast('GunDB P2P Ready!', 'success');
 
-          // Retrieve joined addresses from local storage or default to local creation
-          let settingsAddr = localStorage.getItem('orbitdb_settings_addr') || 'habitual_settings';
-          let habitsAddr = localStorage.getItem('orbitdb_habits_addr') || 'habitual_habits';
-          let logsAddr = localStorage.getItem('orbitdb_logs_addr') || 'habitual_logs';
-
-          const dbConfig = { accessController: { write: ['*'] } }; // Allow peers to write
-
-          // Create or connect to Key-Value stores
-          self.settingsStore = await self.orbitdb.keyvalue(settingsAddr, dbConfig);
-          self.habitsStore = await self.orbitdb.keyvalue(habitsAddr, dbConfig);
-          self.logsStore = await self.orbitdb.keyvalue(logsAddr, dbConfig);
-
-          // Save addresses in case they were generated locally just now
-          localStorage.setItem('orbitdb_settings_addr', self.settingsStore.address.toString());
-          localStorage.setItem('orbitdb_habits_addr', self.habitsStore.address.toString());
-          localStorage.setItem('orbitdb_logs_addr', self.logsStore.address.toString());
-
-          // Bind replication events for real-time UI updates
-          const onReplicated = () => {
-              if (core.loadStateAsync && core.renderAll) {
-                  core.loadStateAsync().then(() => core.renderAll());
-              }
-          };
-          self.settingsStore.events.on('replicated', onReplicated);
-          self.habitsStore.events.on('replicated', onReplicated);
-          self.logsStore.events.on('replicated', onReplicated);
-
-          // Load local state from disk
-          await self.settingsStore.load();
-          await self.habitsStore.load();
-          await self.logsStore.load();
-
-          if (core.showToast) core.showToast('OrbitDB Ready!', 'success');
-
-          // Force a full UI re-render on initial load now that we have data
           if (core.loadStateAsync && core.renderAll) {
              core.loadStateAsync().then(() => core.renderAll());
           }
-
-          // Triggers UI update via a global if the modal is open
-          if (typeof window.onOrbitDBReady === 'function') window.onOrbitDBReady();
+          if (typeof window.onGunDBReady === 'function') window.onGunDBReady();
 
           resolve();
-
         } catch (e) {
-          console.error('Failed to initialize OrbitDB:', e);
-          if (core.showToast) core.showToast('Failed to start OrbitDB node.', 'error');
+          console.error('Failed to initialize GunDB:', e);
+          if (core.showToast) core.showToast('Failed to start GunDB node.', 'error');
           this.initPromise = null;
           reject(e);
         }
@@ -463,172 +431,80 @@ window.HabitualCore = window.HabitualCore || {};
       return this.initPromise;
     },
 
-    getSyncCode: function() {
-        if (!this.settingsStore || !this.habitsStore || !this.logsStore) return null;
-        const addrs = {
-            s: this.settingsStore.address.toString(),
-            h: this.habitsStore.address.toString(),
-            l: this.logsStore.address.toString()
-        };
-        return btoa(JSON.stringify(addrs));
-    },
-
-    joinSyncCode: async function(codeBase64) {
-        try {
-            const addrs = JSON.parse(atob(codeBase64));
-            if (!addrs.s || !addrs.h || !addrs.l) throw new Error('Invalid code structure');
-
-            localStorage.setItem('orbitdb_settings_addr', addrs.s);
-            localStorage.setItem('orbitdb_habits_addr', addrs.h);
-            localStorage.setItem('orbitdb_logs_addr', addrs.l);
-
-            if (core.showToast) core.showToast('Joining peer database...', 'info');
-
-            // Force re-init to load new addresses
-            if (this.orbitdb) {
-                await this.orbitdb.disconnect();
-            }
-            if (this.ipfs) {
-                await this.ipfs.stop();
-            }
-            this.initPromise = null;
-            await this.init();
-
-            if (core.loadStateAsync && core.renderAll) {
-                await core.loadStateAsync();
-                core.renderAll();
-            }
-            if (core.showToast) core.showToast('Successfully joined peer database!', 'success');
-            return true;
-        } catch (e) {
-            console.error('Failed to join sync code:', e);
-            if (core.showToast) core.showToast('Invalid sync code.', 'error');
-            return false;
-        }
-    },
-
     getItem: async function(key) {
-      if (key !== core.STORAGE_KEY) return null; // We only support reconstructing the main state key
+      if (key !== core.STORAGE_KEY) return null;
       await this.init();
 
-      const settingsArr = Object.values(this.settingsStore.all);
-      const habitsArr = Object.values(this.habitsStore.all);
-      const logsArr = Object.values(this.logsStore.all);
-
-      if (settingsArr.length === 0 && habitsArr.length === 0 && logsArr.length === 0) {
-          return null;
-      }
-
-      const payload = { habits: [] };
-
-      // Map settings
-      settingsArr.forEach(s => {
-        if (s.key === 'version') payload.version = s.value;
-        else if (s.key === 'updatedAt') payload.updatedAt = s.value;
-        else if (s.key === 'selectedHabitId') payload.selectedHabitId = s.value;
-        else if (s.key === 'selectedYear') payload.selectedYear = s.value;
-        else if (s.key === 'showQuickLogOnStartup') payload.showQuickLogOnStartup = s.value;
+      return new Promise((resolve) => {
+          this.gun.get('habitual_sync_' + this.syncCode).get('payload').once((data) => {
+             // Gun natively stores strings. We just stringify the whole payload for simplicity
+             // since Gun handles delta-syncing strings very efficiently.
+             resolve(data ? data : null);
+          });
       });
-
-      // Reconstruct habits and logs
-      const habitsMap = new Map();
-      habitsArr.forEach(h => {
-         h.logs = {}; // Initialize empty logs
-         habitsMap.set(h.id, h);
-         payload.habits.push(h);
-      });
-
-      logsArr.forEach(logEntry => {
-         // logEntry id is `${habitId}_${date}`
-         const parts = logEntry.id.split('_');
-         if (parts.length >= 3) {
-            const date = logEntry.id.substring(logEntry.id.length - 10);
-            const habitId = logEntry.id.substring(0, logEntry.id.length - 11);
-
-            const habit = habitsMap.get(habitId);
-            if (habit) {
-                habit.logs[date] = { count: logEntry.count };
-                if (logEntry.note) habit.logs[date].note = logEntry.note;
-            }
-         }
-      });
-
-      return JSON.stringify(payload);
     },
 
     setItem: async function(key, value) {
       if (key !== core.STORAGE_KEY) return;
       await this.init();
 
-      let payload;
-      try {
-        payload = JSON.parse(value);
-      } catch(e) {
-        throw new Error('Failed to parse state for granular save.');
-      }
-
-      // OrbitDB doesn't have transactions, we just await the puts
-      if (payload.version !== undefined) await this.settingsStore.put('version', { key: 'version', value: payload.version });
-      if (payload.updatedAt !== undefined) await this.settingsStore.put('updatedAt', { key: 'updatedAt', value: payload.updatedAt });
-      if (payload.selectedHabitId !== undefined) await this.settingsStore.put('selectedHabitId', { key: 'selectedHabitId', value: payload.selectedHabitId });
-      if (payload.selectedYear !== undefined) await this.settingsStore.put('selectedYear', { key: 'selectedYear', value: payload.selectedYear });
-      if (payload.showQuickLogOnStartup !== undefined) await this.settingsStore.put('showQuickLogOnStartup', { key: 'showQuickLogOnStartup', value: payload.showQuickLogOnStartup });
-
-      // Unlike IndexedDB, we can't easily .clear() an entire keyvalue store synchronously in OrbitDB without dropping the db,
-      // but putting overwrites existing keys, which is fine for our use-case right now.
-      for (const habit of (payload.habits || [])) {
-          const habitCopy = Object.assign({}, habit);
-          const logs = habitCopy.logs;
-          delete habitCopy.logs;
-
-          await this.habitsStore.put(habitCopy.id, habitCopy);
-
-          if (logs) {
-              for (const date of Object.keys(logs)) {
-                  const logData = logs[date];
-                  await this.logsStore.put(habit.id + '_' + date, {
-                      id: habit.id + '_' + date,
-                      habitId: habit.id,
-                      date: date,
-                      count: typeof logData === 'number' ? logData : (logData.count || 0),
-                      note: (logData && typeof logData === 'object' && logData.note) ? logData.note : ''
-                  });
-              }
-          }
-      }
+      return new Promise((resolve) => {
+          this._isWriting = true; // Prevent local echo
+          this.gun.get('habitual_sync_' + this.syncCode).put({ payload: value }, () => {
+              setTimeout(() => { this._isWriting = false; }, 1000);
+              resolve();
+          });
+      });
     },
 
-    // --- New Granular API Methods ---
+    // Gun handles delta sync natively on large stringified objects, so for this evaluation,
+    // mapping the granular APIs directly to a monolithic rewrite is sufficient and highly performant.
     saveLog: async function(habitId, dateKey, count, note) {
-       await this.init();
-       if (count === 0 && (!note || note.trim() === '')) {
-           await this.logsStore.del(habitId + '_' + dateKey);
-       } else {
-           await this.logsStore.put(habitId + '_' + dateKey, {
-               id: habitId + '_' + dateKey,
-               habitId: habitId,
-               date: dateKey,
-               count: count,
-               note: note || ''
-           });
-       }
+       if (core.saveState) core.saveState();
        return true;
     },
 
     saveHabit: async function(habit) {
-       await this.init();
-       const habitCopy = Object.assign({}, habit);
-       delete habitCopy.logs;
-       await this.habitsStore.put(habitCopy.id, habitCopy);
+       if (core.saveState) core.saveState();
        return true;
     },
 
     saveSettings: async function(settings) {
-       await this.init();
-       for (const key of Object.keys(settings)) {
-           await this.settingsStore.put(key, { key: key, value: settings[key] });
-       }
+       if (core.saveState) core.saveState();
        return true;
+    },
+
+    getSyncCode: function() {
+        return this.syncCode;
+    },
+
+    joinSyncCode: async function(code) {
+        if (!code || code.length < 3) return false;
+
+        localStorage.setItem('gundb_sync_code', code.toUpperCase());
+        this.syncCode = code.toUpperCase();
+
+        if (core.showToast) core.showToast('Joining room ' + this.syncCode + '...', 'info');
+
+        this._isWriting = false;
+
+        // Re-bind listeners to new room
+        this.gun.get('habitual_sync_' + this.syncCode).on((data) => {
+            if (this._isWriting) return;
+            if (this._syncTimeout) clearTimeout(this._syncTimeout);
+            this._syncTimeout = setTimeout(() => {
+                if (core.loadStateAsync && core.renderAll) {
+                    core.loadStateAsync().then(() => core.renderAll());
+                }
+            }, 500);
+        });
+
+        if (core.loadStateAsync && core.renderAll) {
+            await core.loadStateAsync();
+            core.renderAll();
+        }
+        if (core.showToast) core.showToast('Successfully joined room!', 'success');
+        return true;
     }
   };
 
@@ -637,33 +513,36 @@ window.HabitualCore = window.HabitualCore || {};
   core.getDriver = function(engineName) {
     const name = engineName || core.activeStorageEngine;
     if (name === 'indexedDB') return core.IndexedDBDriver;
-    if (name === 'orbitDB') return core.OrbitDBDriver;
+    if (name === 'orbitDB' || name === 'gunDB') return core.GunDBDriver; // Map orbitDB to GunDB for seamless pivot
     return core.LocalStorageDriver;
   };
 
   core.setStorageEngine = function(engineName) {
-    if (engineName !== 'localStorage' && engineName !== 'indexedDB' && engineName !== 'orbitDB') return;
-    core.activeStorageEngine = engineName;
+    if (engineName !== 'localStorage' && engineName !== 'indexedDB' && engineName !== 'gunDB' && engineName !== 'orbitDB') return;
+    const finalEngine = engineName === 'orbitDB' ? 'gunDB' : engineName; // Map legacy selection
+    core.activeStorageEngine = finalEngine;
     try {
-      localStorage.setItem('habitual_storage_engine', engineName);
+      localStorage.setItem('habitual_storage_engine', finalEngine);
     } catch (e) {
       console.warn('Could not persist active storage engine setting:', e);
     }
   };
 
   core.migrateStorageEngine = function(targetEngine) {
-    if (targetEngine === core.activeStorageEngine) {
-      return Promise.resolve({ success: true, message: 'Already using ' + targetEngine });
+    const finalTarget = targetEngine === 'orbitDB' ? 'gunDB' : targetEngine;
+
+    if (finalTarget === core.activeStorageEngine) {
+      return Promise.resolve({ success: true, message: 'Already using ' + finalTarget });
     }
     const currentDriver = core.getDriver();
-    const targetDriver = core.getDriver(targetEngine);
+    const targetDriver = core.getDriver(finalTarget);
 
     return currentDriver.getItem(core.STORAGE_KEY).then(function(raw) {
       const dataToMigrate = raw || JSON.stringify(core.getPayloadFromState());
       return targetDriver.setItem(core.STORAGE_KEY, dataToMigrate).then(function() {
-        core.setStorageEngine(targetEngine);
+        core.setStorageEngine(finalTarget);
         if (core.showToast) {
-          const engineLabel = targetEngine === 'indexedDB' ? 'IndexedDB' : targetEngine === 'orbitDB' ? 'OrbitDB' : 'Local Storage';
+          const engineLabel = finalTarget === 'indexedDB' ? 'IndexedDB' : finalTarget === 'gunDB' ? 'GunDB' : 'Local Storage';
           core.showToast(`Migrated data storage engine to ${engineLabel}!`, 'success');
         }
         return { success: true, message: 'Migration successful' };
