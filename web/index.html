@@ -193,7 +193,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.3.0</p>
+      <p>Habitual &bull; v1.4.0</p>
     </footer>
   </div>
 
@@ -658,12 +658,13 @@
         <div class="data-option-card highlight-card">
           <div class="data-option-info">
             <h4>💾 Local Storage Engine</h4>
-            <p class="muted-text">Choose your local database engine. IndexedDB bypasses browser 5MB storage limits.</p>
+            <p class="muted-text">Choose your local database engine. IndexedDB bypasses browser 5MB storage limits. OrbitDB enables decentralized P2P sync.</p>
           </div>
           <div class="engine-selector-group">
             <select id="select-storage-engine" class="form-control-sm" aria-label="Storage Engine">
               <option value="localStorage">Local Storage (Fast, 5MB limit)</option>
               <option value="indexedDB">IndexedDB (Large scale, Unlimited)</option>
+              <option value="orbitDB">OrbitDB (Decentralized P2P)</option>
             </select>
             <button id="btn-migrate-engine" class="btn btn-secondary btn-sm">Migrate Data</button>
           </div>
