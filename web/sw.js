@@ -1,6 +1,6 @@
 /* Habitual */
 
-const CACHE_NAME = 'habitual-v1.10.3';
+const CACHE_NAME = 'habitual-v1.10.4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
