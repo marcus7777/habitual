@@ -366,60 +366,60 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const selectStorageEngine = document.getElementById('select-storage-engine');
-  function toggleOrbitDBSyncPanel() {
-      if (!orbitdbSyncPanel) return;
-      const isActive = core.activeStorageEngine === 'orbitDB';
-      const isSelected = selectStorageEngine && selectStorageEngine.value === 'orbitDB';
-      orbitdbSyncPanel.style.display = (isActive || isSelected) ? 'block' : 'none';
+  function toggleGunDBSyncPanel() {
+      if (!gundbSyncPanel) return;
+      const isActive = core.activeStorageEngine === 'gunDB';
+      const isSelected = selectStorageEngine && selectStorageEngine.value === 'gunDB';
+      gundbSyncPanel.style.display = (isActive || isSelected) ? 'block' : 'none';
 
-      if (orbitdbSyncPanel.style.display === 'block' && core.OrbitDBDriver && orbitdbSyncCodeOutput) {
-          if (core.OrbitDBDriver.getSyncCode()) {
-              orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode();
-          } else if (core.OrbitDBDriver.initPromise) {
-              orbitdbSyncCodeOutput.value = 'Initializing... Please wait.';
-              core.OrbitDBDriver.initPromise.then(() => {
-                  orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Failed to generate code.';
+      if (gundbSyncPanel.style.display === 'block' && core.GunDBDriver && gundbSyncCodeOutput) {
+          if (core.GunDBDriver.getSyncCode()) {
+              gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode();
+          } else if (core.GunDBDriver.initPromise) {
+              gundbSyncCodeOutput.value = 'Initializing...';
+              core.GunDBDriver.initPromise.then(() => {
+                  gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode() || 'Failed to generate code.';
               }).catch(() => {
-                  orbitdbSyncCodeOutput.value = 'Initialization failed.';
+                  gundbSyncCodeOutput.value = 'Initialization failed.';
               });
           } else {
               if (isActive) {
-                 orbitdbSyncCodeOutput.value = 'Starting IPFS Node... Please wait.';
-                 // If it's active but no promise exists, force initialization
-                 if (core.OrbitDBDriver && core.OrbitDBDriver.init) {
-                     core.OrbitDBDriver.init().then(() => {
-                         orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Failed to generate code.';
+                 gundbSyncCodeOutput.value = 'Starting Node...';
+                 if (core.GunDBDriver && core.GunDBDriver.init) {
+                     core.GunDBDriver.init().then(() => {
+                         gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode() || 'Failed to generate code.';
                      }).catch(() => {
-                         orbitdbSyncCodeOutput.value = 'Initialization failed.';
+                         gundbSyncCodeOutput.value = 'Initialization failed.';
                      });
                  }
               } else {
-                 orbitdbSyncCodeOutput.value = 'Click "Migrate Data" to start OrbitDB.';
+                 gundbSyncCodeOutput.value = 'Click "Migrate Data" to start GunDB.';
               }
           }
       }
   }
 
   // Ensure window-level callback actually gets attached immediately
-  window.onOrbitDBReady = function() {
+  window.onGunDBReady = function() {
       if (core.elements && core.elements.modalData && !core.elements.modalData.classList.contains('hidden')) {
-          toggleOrbitDBSyncPanel();
+          toggleGunDBSyncPanel();
       }
   };
 
   if (selectStorageEngine) {
     selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
-    selectStorageEngine.addEventListener('change', toggleOrbitDBSyncPanel);
+    selectStorageEngine.addEventListener('change', toggleGunDBSyncPanel);
   }
 
     const btnMigrateEngine = document.getElementById('btn-migrate-engine');
 
-  // OrbitDB Sync Elements
-  const orbitdbSyncPanel = document.getElementById('orbitdb-sync-panel');
-  const orbitdbSyncCodeOutput = document.getElementById('orbitdb-sync-code-output');
-  const btnCopyOrbitdbCode = document.getElementById('btn-copy-orbitdb-code');
-  const orbitdbSyncCodeInput = document.getElementById('orbitdb-sync-code-input');
-  const btnJoinOrbitdb = document.getElementById('btn-join-orbitdb');
+  // GunDB Sync Elements
+  const gundbSyncPanel = document.getElementById('gundb-sync-panel');
+  const gundbSyncCodeOutput = document.getElementById('gundb-sync-code-output');
+  const btnCopyGundbCode = document.getElementById('btn-copy-gundb-code');
+  const gundbSyncCodeInput = document.getElementById('gundb-sync-code-input');
+  const btnJoinGundb = document.getElementById('btn-join-gundb');
+
   if (btnMigrateEngine) {
     btnMigrateEngine.addEventListener('click', function() {
       const target = selectStorageEngine ? selectStorageEngine.value : 'localStorage';
@@ -434,7 +434,7 @@ window.HabitualCore = window.HabitualCore || {};
       core.migrateStorageEngine(target).then(function(res) {
         btnMigrateEngine.textContent = originalText;
         btnMigrateEngine.disabled = false;
-        toggleOrbitDBSyncPanel();
+        toggleGunDBSyncPanel();
       }).catch(function(err) {
         btnMigrateEngine.textContent = originalText;
         btnMigrateEngine.disabled = false;
@@ -442,13 +442,13 @@ window.HabitualCore = window.HabitualCore || {};
     });
   }
 
-  if (btnCopyOrbitdbCode && orbitdbSyncCodeOutput) {
-     btnCopyOrbitdbCode.addEventListener('click', function() {
-        if (!orbitdbSyncCodeOutput.value || orbitdbSyncCodeOutput.value.includes('Initializing')) {
+  if (btnCopyGundbCode && gundbSyncCodeOutput) {
+     btnCopyGundbCode.addEventListener('click', function() {
+        if (!gundbSyncCodeOutput.value || gundbSyncCodeOutput.value.includes('Init')) {
            if (core.showToast) core.showToast('Code not ready yet.', 'error');
            return;
         }
-        navigator.clipboard.writeText(orbitdbSyncCodeOutput.value).then(() => {
+        navigator.clipboard.writeText(gundbSyncCodeOutput.value).then(() => {
            if (core.showToast) core.showToast('Sync Code copied to clipboard!', 'success');
         }).catch(err => {
            console.error('Failed to copy text: ', err);
@@ -457,24 +457,24 @@ window.HabitualCore = window.HabitualCore || {};
      });
   }
 
-  if (btnJoinOrbitdb && orbitdbSyncCodeInput) {
-     btnJoinOrbitdb.addEventListener('click', function() {
-         const code = orbitdbSyncCodeInput.value.trim();
+  if (btnJoinGundb && gundbSyncCodeInput) {
+     btnJoinGundb.addEventListener('click', function() {
+         const code = gundbSyncCodeInput.value.trim();
          if (!code) {
-             if (core.showToast) core.showToast('Please paste a Sync Code first.', 'error');
+             if (core.showToast) core.showToast('Please enter a Sync Code first.', 'error');
              return;
          }
 
-         const originalText = btnJoinOrbitdb.textContent;
-         btnJoinOrbitdb.textContent = 'Joining...';
-         btnJoinOrbitdb.disabled = true;
+         const originalText = btnJoinGundb.textContent;
+         btnJoinGundb.textContent = 'Joining...';
+         btnJoinGundb.disabled = true;
 
-         core.OrbitDBDriver.joinSyncCode(code).then(success => {
-             btnJoinOrbitdb.textContent = originalText;
-             btnJoinOrbitdb.disabled = false;
+         core.GunDBDriver.joinSyncCode(code).then(success => {
+             btnJoinGundb.textContent = originalText;
+             btnJoinGundb.disabled = false;
              if (success) {
-                orbitdbSyncCodeInput.value = '';
-                toggleOrbitDBSyncPanel(); // Refresh the sync code field
+                gundbSyncCodeInput.value = '';
+                toggleGunDBSyncPanel(); // Refresh the sync code field
              }
          });
      });
