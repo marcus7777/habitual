@@ -340,7 +340,17 @@ window.HabitualCore = window.HabitualCore || {};
     // --- DATA MANAGEMENT & FEATURE FLAGS ---
     const urlParams = new URLSearchParams(window.location.search);
     const isCloudSyncEnabled = urlParams.get('cloudSync') === '1' || urlParams.get('cloudSync') === 'true';
-    const isP2PEnabled = urlParams.get('p2p') === '1' || urlParams.get('P2P') === '1' || urlParams.get('p2p') === 'true';
+    const isP2PEnabled = urlParams.get('p2p') === '1' || urlParams.get('P2P') === '1' || urlParams.get('p2p') === 'true' || urlParams.get('gundb') === '1';
+
+    const selectStorageEngine = document.getElementById('select-storage-engine');
+    const gunDBOption = selectStorageEngine ? selectStorageEngine.querySelector('option[value="gunDB"]') : null;
+    if (gunDBOption) {
+      if (isP2PEnabled || core.activeStorageEngine === 'gunDB') {
+        gunDBOption.style.display = '';
+      } else {
+        gunDBOption.style.display = 'none';
+      }
+    }
 
     const sectionP2P = document.getElementById('section-p2p-sync');
     if (sectionP2P) {
@@ -370,10 +380,14 @@ window.HabitualCore = window.HabitualCore || {};
       if (!gundbSyncPanel) return;
       const isActive = core.activeStorageEngine === 'gunDB';
       const isSelected = selectStorageEngine && selectStorageEngine.value === 'gunDB';
-      gundbSyncPanel.style.display = (isActive || isSelected) ? 'block' : 'none';
 
-      if (gundbSyncPanel.style.display === 'block' && core.GunDBDriver && gundbSyncCodeOutput) {
-          gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode();
+      if ((isActive || isSelected) && (isP2PEnabled || isActive)) {
+          gundbSyncPanel.style.display = 'block';
+          if (core.GunDBDriver && gundbSyncCodeOutput) {
+              gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode();
+          }
+      } else {
+          gundbSyncPanel.style.display = 'none';
       }
   }
 
