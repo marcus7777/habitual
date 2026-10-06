@@ -387,9 +387,11 @@ window.HabitualCore = window.HabitualCore || {};
 
           if (core.showToast) core.showToast('Connecting to P2P Relays...', 'info');
 
-          // Connect to working active public Gun peers & WebRTC signaling relays
+          // Connect to local GunDB relay first, followed by public Gun relays
           self.gun = window.Gun({
               peers: [
+                  'http://localhost:8765/gun',
+                  'http://127.0.0.1:8765/gun',
                   'https://gun-js.com/gun',
                   'https://peer.wall.org/gun',
                   'https://dweb.me/gun',
