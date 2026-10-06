@@ -381,16 +381,21 @@ window.HabitualCore = window.HabitualCore || {};
         try {
           if (core.showToast) core.showToast('Loading GunDB Engine...', 'info');
 
-          // Load Gun from CDN
+          // Load Gun and Gun WebRTC extension from CDN
           await core.loadScript('https://cdn.jsdelivr.net/npm/gun/gun.js');
+          await core.loadScript('https://cdn.jsdelivr.net/npm/gun/lib/webrtc.js');
 
           if (core.showToast) core.showToast('Connecting to P2P Relays...', 'info');
 
-          // Connect to public Gun relays
-          self.gun = window.Gun([
-              'https://gun-manhattan.herokuapp.com/gun',
-              'https://gun-us.herokuapp.com/gun'
-          ]);
+          // Connect to working active public Gun peers & WebRTC signaling relays
+          self.gun = window.Gun({
+              peers: [
+                  'https://gun-js.com/gun',
+                  'https://peer.wall.org/gun',
+                  'https://dweb.me/gun',
+                  'https://gundb.m1.host/gun'
+              ]
+          });
 
           // Retrieve or generate a 6-character room code synchronously
           self.syncCode = self.getSyncCode();
@@ -432,10 +437,17 @@ window.HabitualCore = window.HabitualCore || {};
       await this.init();
 
       return new Promise((resolve) => {
+          let resolved = false;
+          const timer = setTimeout(() => {
+              if (!resolved) { resolved = true; resolve(null); }
+          }, 2000);
+
           this.gun.get('habitual_sync_' + this.syncCode).get('payload').once((data) => {
-             // Gun natively stores strings. We just stringify the whole payload for simplicity
-             // since Gun handles delta-syncing strings very efficiently.
-             resolve(data ? data : null);
+             if (!resolved) {
+                 resolved = true;
+                 clearTimeout(timer);
+                 resolve(data || null);
+             }
           });
       });
     },
