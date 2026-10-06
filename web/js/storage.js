@@ -367,16 +367,195 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  core.OrbitDBDriver = {
+    name: 'orbitDB',
+    orbitdb: null,
+    ipfs: null,
+    settingsStore: null,
+    habitsStore: null,
+    logsStore: null,
+    initPromise: null,
+
+    init: function() {
+      if (this.initPromise) return this.initPromise;
+      const self = this;
+
+      this.initPromise = new Promise(async (resolve, reject) => {
+        try {
+          if (core.showToast) core.showToast('Downloading Decentralized P2P Engine...', 'info');
+
+          // Modularly load IPFS and OrbitDB from CDN
+          await core.loadScript('https://cdn.jsdelivr.net/npm/ipfs-core/dist/index.min.js');
+          await core.loadScript('https://cdn.jsdelivr.net/npm/orbit-db/dist/orbitdb.min.js');
+
+          if (core.showToast) core.showToast('Starting IPFS Node...', 'info');
+
+          // Using window.IpfsCore because browser distribution exposes it as IpfsCore
+          self.ipfs = await window.IpfsCore.create({ repo: 'habitual-ipfs-repo' });
+
+          if (core.showToast) core.showToast('Connecting to OrbitDB...', 'info');
+          self.orbitdb = await window.OrbitDB.createInstance(self.ipfs);
+
+          // Create Key-Value stores for settings, habits, and logs
+          self.settingsStore = await self.orbitdb.keyvalue('habitual_settings');
+          self.habitsStore = await self.orbitdb.keyvalue('habitual_habits');
+          self.logsStore = await self.orbitdb.keyvalue('habitual_logs');
+
+          // Load local state from disk
+          await self.settingsStore.load();
+          await self.habitsStore.load();
+          await self.logsStore.load();
+
+          if (core.showToast) core.showToast('OrbitDB Ready!', 'success');
+          resolve();
+
+        } catch (e) {
+          console.error('Failed to initialize OrbitDB:', e);
+          if (core.showToast) core.showToast('Failed to start OrbitDB node.', 'error');
+          this.initPromise = null;
+          reject(e);
+        }
+      });
+
+      return this.initPromise;
+    },
+
+    getItem: async function(key) {
+      if (key !== core.STORAGE_KEY) return null; // We only support reconstructing the main state key
+      await this.init();
+
+      const settingsArr = Object.values(this.settingsStore.all);
+      const habitsArr = Object.values(this.habitsStore.all);
+      const logsArr = Object.values(this.logsStore.all);
+
+      if (settingsArr.length === 0 && habitsArr.length === 0 && logsArr.length === 0) {
+          return null;
+      }
+
+      const payload = { habits: [] };
+
+      // Map settings
+      settingsArr.forEach(s => {
+        if (s.key === 'version') payload.version = s.value;
+        else if (s.key === 'updatedAt') payload.updatedAt = s.value;
+        else if (s.key === 'selectedHabitId') payload.selectedHabitId = s.value;
+        else if (s.key === 'selectedYear') payload.selectedYear = s.value;
+        else if (s.key === 'showQuickLogOnStartup') payload.showQuickLogOnStartup = s.value;
+      });
+
+      // Reconstruct habits and logs
+      const habitsMap = new Map();
+      habitsArr.forEach(h => {
+         h.logs = {}; // Initialize empty logs
+         habitsMap.set(h.id, h);
+         payload.habits.push(h);
+      });
+
+      logsArr.forEach(logEntry => {
+         // logEntry id is `${habitId}_${date}`
+         const parts = logEntry.id.split('_');
+         if (parts.length >= 3) {
+            const date = logEntry.id.substring(logEntry.id.length - 10);
+            const habitId = logEntry.id.substring(0, logEntry.id.length - 11);
+
+            const habit = habitsMap.get(habitId);
+            if (habit) {
+                habit.logs[date] = { count: logEntry.count };
+                if (logEntry.note) habit.logs[date].note = logEntry.note;
+            }
+         }
+      });
+
+      return JSON.stringify(payload);
+    },
+
+    setItem: async function(key, value) {
+      if (key !== core.STORAGE_KEY) return;
+      await this.init();
+
+      let payload;
+      try {
+        payload = JSON.parse(value);
+      } catch(e) {
+        throw new Error('Failed to parse state for granular save.');
+      }
+
+      // OrbitDB doesn't have transactions, we just await the puts
+      if (payload.version !== undefined) await this.settingsStore.put('version', { key: 'version', value: payload.version });
+      if (payload.updatedAt !== undefined) await this.settingsStore.put('updatedAt', { key: 'updatedAt', value: payload.updatedAt });
+      if (payload.selectedHabitId !== undefined) await this.settingsStore.put('selectedHabitId', { key: 'selectedHabitId', value: payload.selectedHabitId });
+      if (payload.selectedYear !== undefined) await this.settingsStore.put('selectedYear', { key: 'selectedYear', value: payload.selectedYear });
+      if (payload.showQuickLogOnStartup !== undefined) await this.settingsStore.put('showQuickLogOnStartup', { key: 'showQuickLogOnStartup', value: payload.showQuickLogOnStartup });
+
+      // Unlike IndexedDB, we can't easily .clear() an entire keyvalue store synchronously in OrbitDB without dropping the db,
+      // but putting overwrites existing keys, which is fine for our use-case right now.
+      for (const habit of (payload.habits || [])) {
+          const habitCopy = Object.assign({}, habit);
+          const logs = habitCopy.logs;
+          delete habitCopy.logs;
+
+          await this.habitsStore.put(habitCopy.id, habitCopy);
+
+          if (logs) {
+              for (const date of Object.keys(logs)) {
+                  const logData = logs[date];
+                  await this.logsStore.put(habit.id + '_' + date, {
+                      id: habit.id + '_' + date,
+                      habitId: habit.id,
+                      date: date,
+                      count: typeof logData === 'number' ? logData : (logData.count || 0),
+                      note: (logData && typeof logData === 'object' && logData.note) ? logData.note : ''
+                  });
+              }
+          }
+      }
+    },
+
+    // --- New Granular API Methods ---
+    saveLog: async function(habitId, dateKey, count, note) {
+       await this.init();
+       if (count === 0 && (!note || note.trim() === '')) {
+           await this.logsStore.del(habitId + '_' + dateKey);
+       } else {
+           await this.logsStore.put(habitId + '_' + dateKey, {
+               id: habitId + '_' + dateKey,
+               habitId: habitId,
+               date: dateKey,
+               count: count,
+               note: note || ''
+           });
+       }
+       return true;
+    },
+
+    saveHabit: async function(habit) {
+       await this.init();
+       const habitCopy = Object.assign({}, habit);
+       delete habitCopy.logs;
+       await this.habitsStore.put(habitCopy.id, habitCopy);
+       return true;
+    },
+
+    saveSettings: async function(settings) {
+       await this.init();
+       for (const key of Object.keys(settings)) {
+           await this.settingsStore.put(key, { key: key, value: settings[key] });
+       }
+       return true;
+    }
+  };
+
   core.activeStorageEngine = localStorage.getItem('habitual_storage_engine') || 'localStorage';
 
   core.getDriver = function(engineName) {
     const name = engineName || core.activeStorageEngine;
     if (name === 'indexedDB') return core.IndexedDBDriver;
+    if (name === 'orbitDB') return core.OrbitDBDriver;
     return core.LocalStorageDriver;
   };
 
   core.setStorageEngine = function(engineName) {
-    if (engineName !== 'localStorage' && engineName !== 'indexedDB') return;
+    if (engineName !== 'localStorage' && engineName !== 'indexedDB' && engineName !== 'orbitDB') return;
     core.activeStorageEngine = engineName;
     try {
       localStorage.setItem('habitual_storage_engine', engineName);
@@ -397,13 +576,14 @@ window.HabitualCore = window.HabitualCore || {};
       return targetDriver.setItem(core.STORAGE_KEY, dataToMigrate).then(function() {
         core.setStorageEngine(targetEngine);
         if (core.showToast) {
-          core.showToast(`Migrated data storage engine to ${targetEngine === 'indexedDB' ? 'IndexedDB' : 'Local Storage'}!`);
+          const engineLabel = targetEngine === 'indexedDB' ? 'IndexedDB' : targetEngine === 'orbitDB' ? 'OrbitDB' : 'Local Storage';
+          core.showToast(`Migrated data storage engine to ${engineLabel}!`, 'success');
         }
         return { success: true, message: 'Migration successful' };
       });
     }).catch(function(err) {
       console.error('Storage engine migration failed:', err);
-      if (core.showToast) core.showToast('Failed to migrate storage engine.');
+      if (core.showToast) core.showToast('Failed to migrate storage engine.', 'error');
       return { success: false, error: err };
     });
   };
