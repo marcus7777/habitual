@@ -57,7 +57,7 @@ window.HabitualCore = window.HabitualCore || {};
   core.IndexedDBDriver = {
     name: 'indexedDB',
     dbName: 'habitual_db',
-    storeName: 'kv_store',
+    storeName: 'kv_store', // Legacy
     dbPromise: null,
     getDB: function() {
       if (this.dbPromise) return this.dbPromise;
@@ -67,9 +67,25 @@ window.HabitualCore = window.HabitualCore || {};
           reject(new Error('IndexedDB not supported in this browser.'));
           return;
         }
-        const req = indexedDB.open(self.dbName, 1);
+        // Increment version to 2 for new schema
+        const req = indexedDB.open(self.dbName, 2);
         req.onupgradeneeded = function(e) {
           const db = e.target.result;
+          const oldVersion = e.oldVersion;
+
+          // V1 to V2 migration (or fresh setup)
+          if (!db.objectStoreNames.contains('settings')) {
+            db.createObjectStore('settings', { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains('habits')) {
+            db.createObjectStore('habits', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('logs')) {
+            // Use composite key string `${habitId}_${date}`
+            db.createObjectStore('logs', { keyPath: 'id' });
+          }
+
+          // Keep legacy store for backward compatibility during migration
           if (!db.objectStoreNames.contains(self.storeName)) {
             db.createObjectStore(self.storeName);
           }
@@ -84,32 +100,189 @@ window.HabitualCore = window.HabitualCore || {};
       return this.dbPromise;
     },
     getItem: function(key) {
+      if (key !== core.STORAGE_KEY) {
+        // Fallback for non-core storage keys (though shouldn't be used)
+        const self = this;
+        return this.getDB().then(function(db) {
+          return new Promise(function(resolve, reject) {
+            const tx = db.transaction(self.storeName, 'readonly');
+            const store = tx.objectStore(self.storeName);
+            const req = store.get(key);
+            req.onsuccess = function() {
+              resolve(req.result !== undefined ? req.result : null);
+            };
+            req.onerror = function(e) {
+              reject(e.target.error);
+            };
+          });
+        });
+      }
+
+      // Reconstruct monolithic state from granular stores
       const self = this;
       return this.getDB().then(function(db) {
         return new Promise(function(resolve, reject) {
-          const tx = db.transaction(self.storeName, 'readonly');
-          const store = tx.objectStore(self.storeName);
-          const req = store.get(key);
-          req.onsuccess = function() {
-            resolve(req.result !== undefined ? req.result : null);
+          if (!db.objectStoreNames.contains('settings') || !db.objectStoreNames.contains('habits') || !db.objectStoreNames.contains('logs')) {
+             // Fallback to V1 storage if V2 schema is somehow not present yet
+             const tx = db.transaction(self.storeName, 'readonly');
+             const req = tx.objectStore(self.storeName).get(key);
+             req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+             req.onerror = (e) => reject(e.target.error);
+             return;
+          }
+
+          const tx = db.transaction(['settings', 'habits', 'logs', self.storeName], 'readonly');
+
+          const settingsStore = tx.objectStore('settings');
+          const habitsStore = tx.objectStore('habits');
+          const logsStore = tx.objectStore('logs');
+
+          const settingsReq = settingsStore.getAll();
+          const habitsReq = habitsStore.getAll();
+          const logsReq = logsStore.getAll();
+          const legacyReq = tx.objectStore(self.storeName).get(key); // Fallback data
+
+          tx.oncomplete = function() {
+            const settingsArr = settingsReq.result || [];
+            const habitsArr = habitsReq.result || [];
+            const logsArr = logsReq.result || [];
+            const legacyData = legacyReq.result;
+
+            if (settingsArr.length === 0 && habitsArr.length === 0 && logsArr.length === 0) {
+                // If granular stores are completely empty, try returning legacy JSON string
+                resolve(legacyData !== undefined ? legacyData : null);
+                return;
+            }
+
+            const payload = { habits: [] };
+
+            // Map settings array back to object keys
+            settingsArr.forEach(s => {
+              if (s.key === 'version') payload.version = s.value;
+              else if (s.key === 'updatedAt') payload.updatedAt = s.value;
+              else if (s.key === 'selectedHabitId') payload.selectedHabitId = s.value;
+              else if (s.key === 'selectedYear') payload.selectedYear = s.value;
+              else if (s.key === 'showQuickLogOnStartup') payload.showQuickLogOnStartup = s.value;
+            });
+
+            // Reconstruct habits and logs
+            const habitsMap = new Map();
+            habitsArr.forEach(h => {
+               h.logs = {}; // Initialize empty logs
+               habitsMap.set(h.id, h);
+               payload.habits.push(h);
+            });
+
+            logsArr.forEach(logEntry => {
+               // logEntry id is `${habitId}_${date}`
+               const parts = logEntry.id.split('_');
+               if (parts.length >= 3) {
+                  // habitId usually has an underscore (e.g. habit_123_1), and then we append _date
+                  // We need to carefully split off the date. Date is always 10 chars (YYYY-MM-DD)
+                  const date = logEntry.id.substring(logEntry.id.length - 10);
+                  const habitId = logEntry.id.substring(0, logEntry.id.length - 11);
+
+                  const habit = habitsMap.get(habitId);
+                  if (habit) {
+                      habit.logs[date] = { count: logEntry.count };
+                      if (logEntry.note) habit.logs[date].note = logEntry.note;
+                  }
+               }
+            });
+
+            // Must return as a string since `loadStateAsync` expects a raw string from the driver for parsing
+            resolve(JSON.stringify(payload));
           };
-          req.onerror = function(e) {
+
+          tx.onerror = function(e) {
             reject(e.target.error);
           };
         });
       });
     },
     setItem: function(key, value) {
+      if (key !== core.STORAGE_KEY) {
+        const self = this;
+        return this.getDB().then(function(db) {
+          return new Promise(function(resolve, reject) {
+            const tx = db.transaction(self.storeName, 'readwrite');
+            const store = tx.objectStore(self.storeName);
+            const req = store.put(value, key);
+            req.onsuccess = function() {
+              resolve();
+            };
+            req.onerror = function(e) {
+              reject(e.target.error);
+            };
+          });
+        });
+      }
+
+      // Break down monolithic JSON string into granular stores
       const self = this;
       return this.getDB().then(function(db) {
         return new Promise(function(resolve, reject) {
-          const tx = db.transaction(self.storeName, 'readwrite');
-          const store = tx.objectStore(self.storeName);
-          const req = store.put(value, key);
-          req.onsuccess = function() {
+          let payload;
+          try {
+            payload = JSON.parse(value);
+          } catch(e) {
+            reject(new Error('Failed to parse state for granular save.'));
+            return;
+          }
+
+          if (!db.objectStoreNames.contains('settings') || !db.objectStoreNames.contains('habits') || !db.objectStoreNames.contains('logs')) {
+             // Fallback to V1 storage
+             const tx = db.transaction(self.storeName, 'readwrite');
+             const req = tx.objectStore(self.storeName).put(value, key);
+             req.onsuccess = () => resolve();
+             req.onerror = (e) => reject(e.target.error);
+             return;
+          }
+
+          const tx = db.transaction(['settings', 'habits', 'logs', self.storeName], 'readwrite');
+
+          // Legacy backup
+          tx.objectStore(self.storeName).put(value, key);
+
+          const settingsStore = tx.objectStore('settings');
+          if (payload.version !== undefined) settingsStore.put({ key: 'version', value: payload.version });
+          if (payload.updatedAt !== undefined) settingsStore.put({ key: 'updatedAt', value: payload.updatedAt });
+          if (payload.selectedHabitId !== undefined) settingsStore.put({ key: 'selectedHabitId', value: payload.selectedHabitId });
+          if (payload.selectedYear !== undefined) settingsStore.put({ key: 'selectedYear', value: payload.selectedYear });
+          if (payload.showQuickLogOnStartup !== undefined) settingsStore.put({ key: 'showQuickLogOnStartup', value: payload.showQuickLogOnStartup });
+
+          const habitsStore = tx.objectStore('habits');
+          const logsStore = tx.objectStore('logs');
+
+          // Optional: we might want to clear old habits/logs, but a put/upsert works for existing ones.
+          // However, deleted habits wouldn't be removed this way. Since it's a monolithic rewrite, clear first:
+          habitsStore.clear();
+          logsStore.clear();
+
+          (payload.habits || []).forEach(habit => {
+              const habitCopy = Object.assign({}, habit);
+              const logs = habitCopy.logs;
+              delete habitCopy.logs; // Do not store logs in habit object
+              habitsStore.put(habitCopy);
+
+              if (logs) {
+                  Object.keys(logs).forEach(date => {
+                      const logData = logs[date];
+                      logsStore.put({
+                          id: habit.id + '_' + date, // Composite key
+                          habitId: habit.id,
+                          date: date,
+                          count: typeof logData === 'number' ? logData : (logData.count || 0),
+                          note: (logData && typeof logData === 'object' && logData.note) ? logData.note : ''
+                      });
+                  });
+              }
+          });
+
+          tx.oncomplete = function() {
             resolve();
           };
-          req.onerror = function(e) {
+          tx.onerror = function(e) {
             reject(e.target.error);
           };
         });
@@ -130,6 +303,67 @@ window.HabitualCore = window.HabitualCore || {};
           };
         });
       });
+    },
+
+    // --- New Granular API Methods ---
+    saveLog: function(habitId, dateKey, count, note) {
+       return this.getDB().then(db => {
+           return new Promise((resolve, reject) => {
+               if (!db.objectStoreNames.contains('logs')) return resolve(false);
+               const tx = db.transaction('logs', 'readwrite');
+               const store = tx.objectStore('logs');
+
+               if (count === 0 && (!note || note.trim() === '')) {
+                   // Delete log if count is 0 and no note
+                   store.delete(habitId + '_' + dateKey);
+               } else {
+                   store.put({
+                       id: habitId + '_' + dateKey,
+                       habitId: habitId,
+                       date: dateKey,
+                       count: count,
+                       note: note || ''
+                   });
+               }
+
+               tx.oncomplete = () => resolve(true);
+               tx.onerror = (e) => reject(e.target.error);
+           });
+       });
+    },
+
+    saveHabit: function(habit) {
+       return this.getDB().then(db => {
+           return new Promise((resolve, reject) => {
+               if (!db.objectStoreNames.contains('habits')) return resolve(false);
+               const tx = db.transaction('habits', 'readwrite');
+               const store = tx.objectStore('habits');
+
+               const habitCopy = Object.assign({}, habit);
+               delete habitCopy.logs;
+               store.put(habitCopy);
+
+               tx.oncomplete = () => resolve(true);
+               tx.onerror = (e) => reject(e.target.error);
+           });
+       });
+    },
+
+    saveSettings: function(settings) {
+       return this.getDB().then(db => {
+           return new Promise((resolve, reject) => {
+               if (!db.objectStoreNames.contains('settings')) return resolve(false);
+               const tx = db.transaction('settings', 'readwrite');
+               const store = tx.objectStore('settings');
+
+               Object.keys(settings).forEach(key => {
+                   store.put({ key: key, value: settings[key] });
+               });
+
+               tx.oncomplete = () => resolve(true);
+               tx.onerror = (e) => reject(e.target.error);
+           });
+       });
     }
   };
 

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habitual - Storage Tests</title>
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      padding: 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .test-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+    }
+    .test-stats {
+      display: flex;
+      gap: 1rem;
+    }
+    .stat-badge {
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .stat-total { background: var(--bg-secondary); border: 1px solid var(--border-color); }
+    .stat-pass { background: rgba(57, 211, 83, 0.15); color: #39d353; border: 1px solid #39d353; }
+    .stat-fail { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid #f85149; }
+
+    .suite-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .suite-header {
+      padding: 1rem 1.2rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    .test-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .test-item {
+      padding: 0.8rem 1.2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 0.95rem;
+    }
+    .test-item:last-child {
+      border-bottom: none;
+    }
+    .test-status {
+      font-weight: bold;
+      font-size: 1rem;
+    }
+    .test-pass .test-status { color: #39d353; }
+    .test-fail .test-status { color: #f85149; }
+    .test-error {
+      margin-top: 0.3rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #f85149;
+      background: rgba(248, 81, 73, 0.1);
+      padding: 0.5rem;
+      border-radius: 4px;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 1rem;
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <a href="tests.html" class="back-link">&larr; Back to Main Test Suite</a>
+
+  <header class="test-header">
+    <div>
+      <h1>🧪 Storage Migration Tests</h1>
+      <p class="muted-text">Asynchronous Verification of IndexedDB V1->V2 Granular Migration</p>
+    </div>
+    <div class="test-stats">
+      <span class="stat-badge stat-total" id="stat-total">Total: 0</span>
+      <span class="stat-badge stat-pass" id="stat-pass">Passed: 0</span>
+      <span class="stat-badge stat-fail" id="stat-fail">Failed: 0</span>
+    </div>
+  </header>
+
+  <main id="test-results-container"></main>
+
+  <script src="js/state.js"></script>
+  <script src="js/storage.js"></script>
+  <script>
+    (async function () {
+      const core = window.HabitualCore;
+      let total = 0, passed = 0, failed = 0;
+
+      const container = document.getElementById('test-results-container');
+      let currentSuiteEl = null;
+
+      function describe(name) {
+        const card = document.createElement('div');
+        card.className = 'suite-card';
+        card.innerHTML = `<div class="suite-header">${name}</div><ul class="test-list"></ul>`;
+        container.appendChild(card);
+        currentSuiteEl = card.querySelector('.test-list');
+      }
+
+      function updateStats() {
+        document.getElementById('stat-total').textContent = `Total: ${total}`;
+        document.getElementById('stat-pass').textContent = `Passed: ${passed} ✅`;
+        document.getElementById('stat-fail').textContent = `Failed: ${failed} ❌`;
+      }
+
+      function assert(cond, msg) { if (!cond) throw new Error(msg || 'Assertion failed'); }
+      function assertEqual(act, exp, msg) {
+        if (act !== exp) throw new Error(`${msg || 'Expected match'}: Expected "${exp}", got "${act}"`);
+      }
+
+      // --- DATABASE UTILS ---
+      async function clearDatabase() {
+        if (core.IndexedDBDriver.dbPromise) {
+            const db = await core.IndexedDBDriver.dbPromise;
+            db.close();
+            core.IndexedDBDriver.dbPromise = null;
+        }
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.deleteDatabase(core.IndexedDBDriver.dbName);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+            req.onblocked = () => resolve(); // Ignore blocked deletes in tests
+        });
+      }
+
+      // --- ASYNC TEST RUNNER ---
+      const testsToRun = [];
+      function test(name, fn) {
+          testsToRun.push({ name, fn });
+      }
+
+      async function runTests() {
+          for (const t of testsToRun) {
+              total++;
+              const item = document.createElement('li');
+              item.className = 'test-item';
+
+              try {
+                  await clearDatabase();
+                  await t.fn();
+
+                  passed++;
+                  item.classList.add('test-pass');
+                  item.innerHTML = `<span class="test-status">✅</span> <div><strong>PASS:</strong> ${t.name}</div>`;
+              } catch(err) {
+                  failed++;
+                  item.classList.add('test-fail');
+                  item.innerHTML = `
+                    <span class="test-status">❌</span>
+                    <div>
+                      <strong>FAIL:</strong> ${t.name}
+                      <div class="test-error">${err.message}</div>
+                    </div>
+                  `;
+              }
+              currentSuiteEl.appendChild(item);
+              updateStats();
+          }
+      }
+
+      // --- TEST DEFINITIONS ---
+      describe('IndexedDB Granular Storage Migration');
+
+      test('IndexedDBDriver.setItem() splits monolithic payload into granular object stores', async () => {
+          const payload = {
+              version: 2,
+              updatedAt: 123456,
+              selectedHabitId: 'run',
+              selectedYear: 2026,
+              showQuickLogOnStartup: true,
+              habits: [
+                  {
+                      id: 'run', name: 'Running',
+                      logs: { '2026-10-06': { count: 1, note: 'Good run' } }
+                  }
+              ]
+          };
+
+          const payloadStr = JSON.stringify(payload);
+          await core.IndexedDBDriver.setItem(core.STORAGE_KEY, payloadStr);
+
+          // Direct DB query to verify breakdown
+          const db = await core.IndexedDBDriver.getDB();
+
+          // Verify Settings
+          const settingsTx = db.transaction('settings', 'readonly');
+          const yearReq = settingsTx.objectStore('settings').get('selectedYear');
+          const yearVal = await new Promise(r => { yearReq.onsuccess = () => r(yearReq.result); });
+          assertEqual(yearVal.value, 2026, 'Settings store should contain selectedYear');
+
+          // Verify Habits
+          const habitsTx = db.transaction('habits', 'readonly');
+          const habitReq = habitsTx.objectStore('habits').get('run');
+          const habitVal = await new Promise(r => { habitReq.onsuccess = () => r(habitReq.result); });
+          assertEqual(habitVal.name, 'Running', 'Habits store should contain Running habit');
+          assert(!habitVal.logs, 'Habit object in store should NOT contain embedded logs');
+
+          // Verify Logs
+          const logsTx = db.transaction('logs', 'readonly');
+          const logReq = logsTx.objectStore('logs').get('run_2026-10-06');
+          const logVal = await new Promise(r => { logReq.onsuccess = () => r(logReq.result); });
+          assertEqual(logVal.count, 1, 'Logs store should contain the exact log entry');
+          assertEqual(logVal.note, 'Good run');
+      });
+
+      test('IndexedDBDriver.getItem() flawlessly reconstructs state from granular object stores', async () => {
+          const db = await core.IndexedDBDriver.getDB();
+
+          // Manually seed the granular stores
+          const tx = db.transaction(['settings', 'habits', 'logs'], 'readwrite');
+          tx.objectStore('settings').put({ key: 'selectedHabitId', value: 'read' });
+          tx.objectStore('habits').put({ id: 'read', name: 'Reading' });
+          tx.objectStore('logs').put({ id: 'read_2026-09-01', habitId: 'read', date: '2026-09-01', count: 1 });
+
+          await new Promise((resolve) => tx.oncomplete = resolve);
+
+          // Ask the driver for the monolithic payload
+          const resultStr = await core.IndexedDBDriver.getItem(core.STORAGE_KEY);
+          const result = JSON.parse(resultStr);
+
+          assertEqual(result.selectedHabitId, 'read');
+          assertEqual(result.habits.length, 1);
+          assertEqual(result.habits[0].name, 'Reading');
+          assertEqual(result.habits[0].logs['2026-09-01'].count, 1);
+      });
+
+      test('Granular API: saveLog() successfully inserts/updates a log without modifying other stores', async () => {
+          // Initialize DB structure
+          await core.IndexedDBDriver.getDB();
+
+          // Use new granular API
+          await core.IndexedDBDriver.saveLog('habit_test', '2026-01-01', 5, 'Testing granular API');
+
+          // Direct DB query
+          const db = await core.IndexedDBDriver.getDB();
+          const tx = db.transaction('logs', 'readonly');
+          const req = tx.objectStore('logs').get('habit_test_2026-01-01');
+          const log = await new Promise(r => { req.onsuccess = () => r(req.result); });
+
+          assertEqual(log.count, 5);
+          assertEqual(log.note, 'Testing granular API');
+      });
+
+      test('Granular API: saveLog() with count=0 and empty note deletes the entry', async () => {
+          const db = await core.IndexedDBDriver.getDB();
+          const tx = db.transaction('logs', 'readwrite');
+          tx.objectStore('logs').put({ id: 'delete_me_2026-01-01', habitId: 'delete_me', date: '2026-01-01', count: 1 });
+          await new Promise((resolve) => tx.oncomplete = resolve);
+
+          // Update via granular API with 0 count
+          await core.IndexedDBDriver.saveLog('delete_me', '2026-01-01', 0, '');
+
+          const tx2 = db.transaction('logs', 'readonly');
+          const req = tx2.objectStore('logs').get('delete_me_2026-01-01');
+          const log = await new Promise(r => { req.onsuccess = () => r(req.result); });
+          assert(log === undefined, 'Log should have been deleted from store');
+      });
+
+      // Start the suite
+      await runTests();
+
+    })();
+  </script>
+</body>
+</html>
