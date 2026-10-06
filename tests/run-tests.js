@@ -92,7 +92,7 @@ global.localStorage = mockLocalStorage;
 global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } };
 
 // Load Habitual Core Files
-require('../web/colours.js');
+require('../web/js/colours.js');
 require('../web/js/state.js');
 require('../web/js/storage.js');
 require('../web/js/render.js');
