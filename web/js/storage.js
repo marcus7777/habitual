@@ -441,6 +441,10 @@ window.HabitualCore = window.HabitualCore || {};
           await self.logsStore.load();
 
           if (core.showToast) core.showToast('OrbitDB Ready!', 'success');
+
+          // Triggers UI update via a global if the modal is open
+          if (window.onOrbitDBReady) window.onOrbitDBReady();
+
           resolve();
 
         } catch (e) {

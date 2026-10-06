@@ -267,7 +267,16 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     const menuDataModal = document.getElementById('menu-btn-data-modal');
-    if (menuDataModal) menuDataModal.addEventListener('click', () => { if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden'); core.elements.modalData.classList.remove('hidden'); });
+    if (menuDataModal) menuDataModal.addEventListener('click', () => {
+    if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
+    core.elements.modalData.classList.remove('hidden');
+    core.state.selectedYear = core.CURRENT_YEAR;
+    if (core.renderAll) core.renderAll();
+    if (selectStorageEngine) {
+      selectStorageEngine.value = core.activeStorageEngine;
+      toggleOrbitDBSyncPanel();
+    }
+  });
 
     const modalHabitClose = document.getElementById('modal-habit-close');
     if (modalHabitClose) modalHabitClose.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; core.elements.modalHabit.classList.add('hidden'); });
@@ -355,17 +364,40 @@ window.HabitualCore = window.HabitualCore || {};
     const selectStorageEngine = document.getElementById('select-storage-engine');
   function toggleOrbitDBSyncPanel() {
       if (!orbitdbSyncPanel) return;
-      orbitdbSyncPanel.style.display = (core.activeStorageEngine === 'orbitDB' || (selectStorageEngine && selectStorageEngine.value === 'orbitDB')) ? 'block' : 'none';
+      const isActive = core.activeStorageEngine === 'orbitDB';
+      const isSelected = selectStorageEngine && selectStorageEngine.value === 'orbitDB';
+      orbitdbSyncPanel.style.display = (isActive || isSelected) ? 'block' : 'none';
 
       if (orbitdbSyncPanel.style.display === 'block' && core.OrbitDBDriver && orbitdbSyncCodeOutput) {
-          orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Initializing... Please wait.';
-          if (!core.OrbitDBDriver.getSyncCode()) {
-              setTimeout(() => {
-                 if (orbitdbSyncCodeOutput) orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Failed to generate code.';
-              }, 4000);
+          if (core.OrbitDBDriver.getSyncCode()) {
+              orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode();
+          } else if (core.OrbitDBDriver.initPromise) {
+              orbitdbSyncCodeOutput.value = 'Initializing... Please wait.';
+              core.OrbitDBDriver.initPromise.then(() => {
+                  orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Failed to generate code.';
+              }).catch(() => {
+                  orbitdbSyncCodeOutput.value = 'Initialization failed.';
+              });
+          } else {
+              if (isActive) {
+                 orbitdbSyncCodeOutput.value = 'Starting IPFS Node... Please wait.';
+                 // Force initialize if it hasn't started yet but is the active engine
+                 core.OrbitDBDriver.init().then(() => {
+                     orbitdbSyncCodeOutput.value = core.OrbitDBDriver.getSyncCode() || 'Failed to generate code.';
+                 }).catch(() => {
+                     orbitdbSyncCodeOutput.value = 'Initialization failed.';
+                 });
+              } else {
+                 orbitdbSyncCodeOutput.value = 'Click "Migrate Data" to start OrbitDB.';
+              }
           }
       }
   }
+
+  // Callback for when OrbitDB finishes starting up
+  window.onOrbitDBReady = function() {
+      toggleOrbitDBSyncPanel();
+  };
 
   if (selectStorageEngine) {
     selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
@@ -395,6 +427,9 @@ window.HabitualCore = window.HabitualCore || {};
         btnMigrateEngine.textContent = originalText;
         btnMigrateEngine.disabled = false;
         toggleOrbitDBSyncPanel();
+      }).catch(function(err) {
+        btnMigrateEngine.textContent = originalText;
+        btnMigrateEngine.disabled = false;
       });
     });
   }
@@ -429,7 +464,10 @@ window.HabitualCore = window.HabitualCore || {};
          core.OrbitDBDriver.joinSyncCode(code).then(success => {
              btnJoinOrbitdb.textContent = originalText;
              btnJoinOrbitdb.disabled = false;
-             if (success) orbitdbSyncCodeInput.value = '';
+             if (success) {
+                orbitdbSyncCodeInput.value = '';
+                toggleOrbitDBSyncPanel(); // Refresh the sync code field
+             }
          });
      });
   }
