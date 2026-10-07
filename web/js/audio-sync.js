@@ -82,7 +82,7 @@ window.HabitualCore = window.HabitualCore || {};
       return new Promise(resolve => src.onended = resolve);
     },
 
-    listenForCodeChirp: async function(timeoutMs = 15000) {
+    listenForCodeChirp: async function(timeoutMs = 15000, onMicVolume = null) {
       await this.init();
       const ctx = this.getAudioContext();
 
@@ -96,6 +96,23 @@ window.HabitualCore = window.HabitualCore || {};
       const mediaSrc = ctx.createMediaStreamSource(stream);
       const processor = ctx.createScriptProcessor(1024, 1, 1);
 
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      mediaSrc.connect(analyser);
+
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
+      let meterInterval = null;
+      if (onMicVolume) {
+        meterInterval = setInterval(() => {
+          analyser.getByteFrequencyData(freqData);
+          let sum = 0;
+          for (let i = 0; i < freqData.length; i++) sum += freqData[i];
+          const avg = sum / freqData.length;
+          const vol = Math.min(100, Math.round((avg / 128) * 100));
+          onMicVolume(vol);
+        }, 50);
+      }
+
       return new Promise((resolve, reject) => {
         let isDone = false;
         const timer = setTimeout(() => {
@@ -106,8 +123,11 @@ window.HabitualCore = window.HabitualCore || {};
         function cleanup() {
           if (isDone) return;
           isDone = true;
+          if (meterInterval) clearInterval(meterInterval);
+          if (onMicVolume) onMicVolume(0);
           clearTimeout(timer);
           processor.disconnect();
+          analyser.disconnect();
           mediaSrc.disconnect();
           stream.getTracks().forEach(track => track.stop());
         }
@@ -232,7 +252,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.showToast) core.showToast('✅ Sound Broadcast Complete!', 'success');
     },
 
-    listenForAcousticPayload: async function(onProgress = null, timeoutMs = 45000) {
+    listenForAcousticPayload: async function(onProgress = null, onMicVolume = null, timeoutMs = 45000) {
       await this.init();
       const ctx = this.getAudioContext();
 
@@ -245,6 +265,23 @@ window.HabitualCore = window.HabitualCore || {};
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaSrc = ctx.createMediaStreamSource(stream);
       const processor = ctx.createScriptProcessor(1024, 1, 1);
+
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      mediaSrc.connect(analyser);
+
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
+      let meterInterval = null;
+      if (onMicVolume) {
+        meterInterval = setInterval(() => {
+          analyser.getByteFrequencyData(freqData);
+          let sum = 0;
+          for (let i = 0; i < freqData.length; i++) sum += freqData[i];
+          const avg = sum / freqData.length;
+          const vol = Math.min(100, Math.round((avg / 128) * 100));
+          onMicVolume(vol);
+        }, 50);
+      }
 
       return new Promise((resolve, reject) => {
         let isDone = false;
@@ -259,8 +296,11 @@ window.HabitualCore = window.HabitualCore || {};
         function cleanup() {
           if (isDone) return;
           isDone = true;
+          if (meterInterval) clearInterval(meterInterval);
+          if (onMicVolume) onMicVolume(0);
           clearTimeout(timer);
           processor.disconnect();
+          analyser.disconnect();
           mediaSrc.disconnect();
           stream.getTracks().forEach(track => track.stop());
         }

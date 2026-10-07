@@ -193,7 +193,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.10.13</p>
+      <p>Habitual &bull; v1.10.14</p>
     </footer>
   </div>
 
@@ -742,6 +742,17 @@
               <div style="font-size: 0.8rem; margin-bottom: 0.2rem;" id="acoustic-status-label">Listening for sound data...</div>
               <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
                 <div id="acoustic-progress-bar" style="width: 0%; height: 100%; background: var(--accent-color); transition: width 0.2s;"></div>
+              </div>
+            </div>
+
+            <!-- Mic Input Volume Meter -->
+            <div id="mic-meter-container" class="hidden" style="margin-top: 0.5rem; padding: 0.4rem; background: rgba(0,0,0,0.3); border-radius: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold; margin-bottom: 0.2rem;">
+                <span>🎙️ Mic Level Indicator</span>
+                <span id="mic-volume-percent">0%</span>
+              </div>
+              <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                <div id="mic-volume-level" style="width: 0%; height: 100%; background: #39d353; transition: width 0.05s ease-out;"></div>
               </div>
             </div>
           </div>

@@ -535,6 +535,22 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
+    const micMeterContainer = document.getElementById('mic-meter-container');
+    const micVolumeLevel = document.getElementById('mic-volume-level');
+    const micVolumePercent = document.getElementById('mic-volume-percent');
+
+    const updateMicMeter = (volPercent) => {
+      if (!micMeterContainer) return;
+      if (volPercent > 0 || !micMeterContainer.classList.contains('hidden')) {
+        micMeterContainer.classList.remove('hidden');
+        if (micVolumeLevel) micVolumeLevel.style.width = volPercent + '%';
+        if (micVolumePercent) micVolumePercent.textContent = volPercent + '%';
+        if (volPercent === 0) {
+          setTimeout(() => { if (micMeterContainer) micMeterContainer.classList.add('hidden'); }, 1000);
+        }
+      }
+    };
+
     const btnChirpListen = document.getElementById('btn-p2p-chirp-listen');
     if (btnChirpListen && inputP2PRemote && btnP2PConnect) {
       btnChirpListen.addEventListener('click', () => {
@@ -542,14 +558,16 @@ window.HabitualCore = window.HabitualCore || {};
         btnChirpListen.textContent = '🎙️ Listening...';
         btnChirpListen.disabled = true;
 
-        core.AudioSync.listenForCodeChirp(15000).then(code => {
+        core.AudioSync.listenForCodeChirp(15000, updateMicMeter).then(code => {
           btnChirpListen.textContent = origText;
           btnChirpListen.disabled = false;
           inputP2PRemote.value = code;
+          updateMicMeter(0);
           btnP2PConnect.click(); // Auto-trigger connect
         }).catch(err => {
           btnChirpListen.textContent = origText;
           btnChirpListen.disabled = false;
+          updateMicMeter(0);
           if (core.showToast) core.showToast(err.message, 'error');
         });
       });
@@ -613,12 +631,14 @@ window.HabitualCore = window.HabitualCore || {};
 
         core.AudioSync.listenForAcousticPayload((percent) => {
           updateAcousticProgress(percent, `Receiving Sound Data (${percent}%)...`);
-        }).then(() => {
+        }, updateMicMeter).then(() => {
           btnAcousticReceive.disabled = false;
+          updateMicMeter(0);
           updateAcousticProgress(100, '🎉 Sound Data Received & Applied!');
           setTimeout(() => { if (acousticProgressBox) acousticProgressBox.classList.add('hidden'); }, 3000);
         }).catch(err => {
           btnAcousticReceive.disabled = false;
+          updateMicMeter(0);
           updateAcousticProgress(0, '❌ ' + err.message);
           setTimeout(() => { if (acousticProgressBox) acousticProgressBox.classList.add('hidden'); }, 4000);
         });
