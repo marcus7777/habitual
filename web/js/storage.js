@@ -583,66 +583,67 @@ window.HabitualCore = window.HabitualCore || {};
     });
   };
 
+  core._serializeHabit = function(habit, cutoffKey) {
+    const derivedName = core.deriveNameFromId(habit.id);
+    const derivedColor = core.getDefaultColorForId(habit.id);
+    const h = { id: habit.id, updatedAt: habit.updatedAt || Date.now() };
+
+    if (habit.name && habit.name.trim() !== derivedName) h.name = habit.name;
+    if (habit.colorTheme) {
+      const normTheme = habit.colorTheme.startsWith('#') ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
+      const normDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
+      if (normTheme !== normDerived) h.colorTheme = habit.colorTheme;
+    }
+
+    if (habit.type && habit.type !== 'positive') h.type = habit.type;
+    if (habit.description) h.description = habit.description;
+    if (habit.category) h.category = habit.category;
+    if (habit.showStreak) h.showStreak = true;
+    if (habit.showCount === false) h.showCount = false;
+    if (habit.showDuration) h.showDuration = true;
+    if (habit.hideFromAll) h.hideFromAll = true;
+    if (habit.isPaused) h.isPaused = true;
+    if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
+    if (habit.frequencyType && habit.frequencyType !== 'daily') h.frequencyType = habit.frequencyType;
+    if (habit.targetDays && Array.isArray(habit.targetDays)) {
+      const defaultDays = [1, 2, 3, 4, 5, 6, 0];
+      const isDefaultDays = habit.targetDays.length === 7 && defaultDays.every((d, i) => habit.targetDays[i] === d);
+      if (!isDefaultDays) h.targetDays = habit.targetDays;
+    }
+    if (habit.weeklyTarget && habit.weeklyTarget !== 1) h.weeklyTarget = habit.weeklyTarget;
+    if (habit.monthlyDay && habit.monthlyDay !== 1) h.monthlyDay = habit.monthlyDay;
+    if (habit.monthlyTarget && habit.monthlyTarget !== 1) h.monthlyTarget = habit.monthlyTarget;
+    if (habit.colorWholeWeek) h.colorWholeWeek = true;
+    if (habit.colorWholeMonth) h.colorWholeMonth = true;
+    if (habit.parentId) h.parentId = habit.parentId;
+    if (habit.parentDependency && habit.parentDependency !== 'none') h.parentDependency = habit.parentDependency;
+    if (habit.createdAt) h.createdAt = habit.createdAt;
+
+    if (habit.logs) {
+      const cleanLogs = {};
+      let hasLogs = false;
+      Object.keys(habit.logs).forEach(dateKey => {
+        if (cutoffKey && dateKey < cutoffKey) return;
+        const log = habit.logs[dateKey];
+        if (!log) return;
+        const count = log.count || 0;
+        const note = (log.note || '').trim();
+        if (count > 0 || note !== '') {
+          hasLogs = true;
+          if (note !== '') cleanLogs[dateKey] = { count, note };
+          else cleanLogs[dateKey] = { count };
+        }
+      });
+      if (hasLogs) h.logs = cleanLogs;
+    }
+    return h;
+  };
+
   core.getPayloadFromState = function() {
-    const serializedHabits = (core.state.habits || []).map(habit => {
-      const derivedName = core.deriveNameFromId(habit.id);
-      const derivedColor = core.getDefaultColorForId(habit.id);
-      const h = { id: habit.id, updatedAt: habit.updatedAt || Date.now() };
-
-      if (habit.name && habit.name.trim() !== derivedName) h.name = habit.name;
-      if (habit.colorTheme) {
-        const normTheme = habit.colorTheme.startsWith('#') ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
-        const normDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
-        if (normTheme !== normDerived) h.colorTheme = habit.colorTheme;
-      }
-
-      if (habit.type && habit.type !== 'positive') h.type = habit.type;
-      if (habit.description) h.description = habit.description;
-      if (habit.category) h.category = habit.category;
-      if (habit.showStreak) h.showStreak = true;
-      if (habit.showCount === false) h.showCount = false;
-      if (habit.showDuration) h.showDuration = true;
-      if (habit.hideFromAll) h.hideFromAll = true;
-      if (habit.isPaused) h.isPaused = true;
-      if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
-      if (habit.frequencyType && habit.frequencyType !== 'daily') h.frequencyType = habit.frequencyType;
-      if (habit.targetDays && Array.isArray(habit.targetDays)) {
-        const defaultDays = [1, 2, 3, 4, 5, 6, 0];
-        const isDefaultDays = habit.targetDays.length === 7 && defaultDays.every((d, i) => habit.targetDays[i] === d);
-        if (!isDefaultDays) h.targetDays = habit.targetDays;
-      }
-      if (habit.weeklyTarget && habit.weeklyTarget !== 1) h.weeklyTarget = habit.weeklyTarget;
-      if (habit.monthlyDay && habit.monthlyDay !== 1) h.monthlyDay = habit.monthlyDay;
-      if (habit.monthlyTarget && habit.monthlyTarget !== 1) h.monthlyTarget = habit.monthlyTarget;
-      if (habit.colorWholeWeek) h.colorWholeWeek = true;
-      if (habit.colorWholeMonth) h.colorWholeMonth = true;
-      if (habit.parentId) h.parentId = habit.parentId;
-      if (habit.parentDependency && habit.parentDependency !== 'none') h.parentDependency = habit.parentDependency;
-      if (habit.createdAt) h.createdAt = habit.createdAt;
-
-      if (habit.logs) {
-        const cleanLogs = {};
-        let hasLogs = false;
-        Object.keys(habit.logs).forEach(dateKey => {
-          const log = habit.logs[dateKey];
-          if (!log) return;
-          const count = log.count || 0;
-          const note = (log.note || '').trim();
-          if (count > 0 || note !== '') {
-            hasLogs = true;
-            if (note !== '') cleanLogs[dateKey] = { count, note };
-            else cleanLogs[dateKey] = { count };
-          }
-        });
-        if (hasLogs) h.logs = cleanLogs;
-      }
-      return h;
-    });
-
     return {
       version: 2,
       updatedAt: Date.now(),
-      habits: serializedHabits,
+      habits: (core.state.habits || []).map(h => core._serializeHabit(h)),
       selectedHabitId: core.state.selectedHabitId || 'all',
       selectedYear: core.state.selectedYear || core.CURRENT_YEAR,
       showQuickLogOnStartup: core.state.showQuickLogOnStartup || false
@@ -654,46 +655,11 @@ window.HabitualCore = window.HabitualCore || {};
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
     const cutoffKey = core.formatDateKey ? core.formatDateKey(cutoffDate) : '2020-01-01';
 
-    const serializedHabits = (core.state.habits || []).map(habit => {
-      const derivedName = core.deriveNameFromId(habit.id);
-      const derivedColor = core.getDefaultColorForId(habit.id);
-      const h = { id: habit.id, updatedAt: habit.updatedAt || Date.now() };
-
-      if (habit.name && habit.name.trim() !== derivedName) h.name = habit.name;
-      if (habit.colorTheme) {
-        const normTheme = habit.colorTheme.startsWith('#') ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
-        const normDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
-        if (normTheme !== normDerived) h.colorTheme = habit.colorTheme;
-      }
-
-      if (habit.type && habit.type !== 'positive') h.type = habit.type;
-      if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
-
-      if (habit.logs) {
-        const cleanLogs = {};
-        let hasLogs = false;
-        Object.keys(habit.logs).forEach(dateKey => {
-          if (dateKey < cutoffKey) return; // Skip old logs for Delta
-          const log = habit.logs[dateKey];
-          if (!log) return;
-          const count = log.count || 0;
-          const note = (log.note || '').trim();
-          if (count > 0 || note !== '') {
-            hasLogs = true;
-            if (note !== '') cleanLogs[dateKey] = { count, note };
-            else cleanLogs[dateKey] = { count };
-          }
-        });
-        if (hasLogs) h.logs = cleanLogs;
-      }
-      return h;
-    });
-
     const delta = {
       version: 2,
       updatedAt: Date.now(),
       isDelta: true,
-      habits: serializedHabits
+      habits: (core.state.habits || []).map(h => core._serializeHabit(h, cutoffKey))
     };
 
     if (core.state.selectedHabitId && core.state.selectedHabitId !== 'all') {

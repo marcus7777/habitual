@@ -108,30 +108,33 @@ window.HabitualCore = window.HabitualCore || {};
     return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
   };
 
+  core._rgbToHex = function(r, g, b) {
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  };
+
   core.blendColors = function(rgb1, rgb2, factor) {
     const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * factor);
     const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * factor);
     const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * factor);
-    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    return core._rgbToHex(r, g, b);
   };
 
   core.getCustomThemeLevels = function(hexStr) {
     const baseRgb = { r: 0x16, g: 0x1b, b: 0x22 };
     const targetRgb = core.parseHexColor(hexStr) || { r: 0x39, g: 0xd3, b: 0x53 };
-    const targetHex = `#${((1 << 24) + (targetRgb.r << 16) + (targetRgb.g << 8) + targetRgb.b).toString(16).slice(1)}`;
     return {
       level0: '#161b22',
       level1: core.blendColors(baseRgb, targetRgb, 0.25),
       level2: core.blendColors(baseRgb, targetRgb, 0.50),
       level3: core.blendColors(baseRgb, targetRgb, 0.75),
-      level4: targetHex
+      level4: core._rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b)
     };
   };
 
   core.normalizeHex = function(hexStr) {
     const parsed = core.parseHexColor(hexStr);
     if (!parsed) return '#39d353';
-    return `#${((1 << 24) + (parsed.r << 16) + (parsed.g << 8) + parsed.b).toString(16).slice(1)}`;
+    return core._rgbToHex(parsed.r, parsed.g, parsed.b);
   };
 
   core.getHabitHexWithAlpha = function(habit, ratio) {
@@ -335,32 +338,37 @@ window.HabitualCore = window.HabitualCore || {};
     return { startKey: core.formatDateKey(start), endKey: core.formatDateKey(end), startDate: start, endDate: end };
   };
 
-  core.getWeeklyLogCount = function(habit, startKey, endKey) {
+  core._getHabitListForTarget = function(target) {
+    if (target === 'all') return core.state.habits.filter(h => !h.hideFromAll);
+    if (Array.isArray(target)) return target;
+    if (target && target.habitIds) return core.state.habits.filter(h => target.habitIds.includes(h.id));
+    if (target) return [target];
+    return [];
+  };
+
+  core._aggregateLogRange = function(habit, startKey, endKey, countActiveDaysOnly = false) {
     if (!habit || !habit.logs) return 0;
-    let total = 0;
+    let result = 0;
     const cur = new Date(startKey + 'T00:00:00');
     const end = new Date(endKey + 'T00:00:00');
     while (cur <= end) {
       const key = core.formatDateKey(cur);
       const log = habit.logs[key];
-      if (log && log.count > 0) total += log.count;
+      if (log && log.count > 0) {
+        if (countActiveDaysOnly) result++;
+        else result += log.count;
+      }
       cur.setDate(cur.getDate() + 1);
     }
-    return total;
+    return result;
+  };
+
+  core.getWeeklyLogCount = function(habit, startKey, endKey) {
+    return core._aggregateLogRange(habit, startKey, endKey, false);
   };
 
   core.getWeeklyActiveDaysCount = function(habit, startKey, endKey) {
-    if (!habit || !habit.logs) return 0;
-    let activeDays = 0;
-    const cur = new Date(startKey + 'T00:00:00');
-    const end = new Date(endKey + 'T00:00:00');
-    while (cur <= end) {
-      const key = core.formatDateKey(cur);
-      const log = habit.logs[key];
-      if (log && log.count > 0) activeDays++;
-      cur.setDate(cur.getDate() + 1);
-    }
-    return activeDays;
+    return core._aggregateLogRange(habit, startKey, endKey, true);
   };
 
   core.getMonthRangeForDate = function(dInput) {
@@ -373,17 +381,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.getMonthlyLogCount = function(habit, startKey, endKey) {
-    if (!habit || !habit.logs) return 0;
-    let total = 0;
-    const cur = new Date(startKey + 'T00:00:00');
-    const end = new Date(endKey + 'T00:00:00');
-    while (cur <= end) {
-      const key = core.formatDateKey(cur);
-      const log = habit.logs[key];
-      if (log && log.count > 0) total += log.count;
-      cur.setDate(cur.getDate() + 1);
-    }
-    return total;
+    return core._aggregateLogRange(habit, startKey, endKey, false);
   };
 
   core.getTargetDayOfMonthDate = function(year, month, targetDaySetting) {
@@ -417,11 +415,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.getCellData = function(dateStr, target, todayStr) {
-    let habitList = [];
-    if (target === 'all') habitList = core.state.habits.filter(h => !h.hideFromAll);
-    else if (Array.isArray(target)) habitList = target;
-    else if (target && target.habitIds) habitList = core.state.habits.filter(h => target.habitIds.includes(h.id));
-    else if (target) habitList = [target];
+    const habitList = core._getHabitListForTarget(target);
 
     if (target === 'all' || Array.isArray(target) || (target && target.habitIds)) {
       const activeHabits = [];
@@ -616,10 +610,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
     const activeDateMap = {};
-    let habitList = [];
-    if (target === 'all') habitList = core.state.habits.filter(h => !h.hideFromAll);
-    else if (target && target.habitIds) habitList = core.state.habits.filter(h => target.habitIds.includes(h.id));
-    else if (target) habitList = [target];
+    const habitList = core._getHabitListForTarget(target);
     habitList.forEach(h => {
       if (h.logs) { Object.keys(h.logs).forEach(dateStr => { if (h.logs[dateStr] && h.logs[dateStr].count > 0) activeDateMap[dateStr] = true; }); }
     });
@@ -668,10 +659,7 @@ window.HabitualCore = window.HabitualCore || {};
         cur.setDate(cur.getDate() + 1);
       }
     } else {
-      let habitList = [];
-      if (target === 'all') habitList = core.state.habits.filter(h => !h.hideFromAll);
-      else if (target && target.habitIds) habitList = core.state.habits.filter(h => target.habitIds.includes(h.id));
-      else if (target) habitList = [target];
+      const habitList = core._getHabitListForTarget(target);
       habitList.forEach(h => {
         if (h.logs) {
           Object.entries(h.logs).forEach(([dateStr, log]) => {
