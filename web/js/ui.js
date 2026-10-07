@@ -555,10 +555,17 @@ window.HabitualCore = window.HabitualCore || {};
     if (btnChirpListen && inputP2PRemote && btnP2PConnect) {
       btnChirpListen.addEventListener('click', () => {
         const origText = btnChirpListen.textContent;
-        btnChirpListen.textContent = '🎙️ Listening...';
         btnChirpListen.disabled = true;
 
-        core.AudioSync.listenForCodeChirp(15000, updateMicMeter).then(code => {
+        const handleCountdown = (cd) => {
+          if (cd > 0) {
+            btnChirpListen.textContent = `🎙️ Mic Active! (${cd}s)`;
+          } else {
+            btnChirpListen.textContent = '🎙️ Listening...';
+          }
+        };
+
+        core.AudioSync.listenForCodeChirp(20000, updateMicMeter, handleCountdown).then(code => {
           btnChirpListen.textContent = origText;
           btnChirpListen.disabled = false;
           inputP2PRemote.value = code;
@@ -627,11 +634,18 @@ window.HabitualCore = window.HabitualCore || {};
     if (btnAcousticReceive) {
       btnAcousticReceive.addEventListener('click', () => {
         btnAcousticReceive.disabled = true;
-        updateAcousticProgress(0, '🎙️ Listening for Sound Data...');
+
+        const handleCountdown = (cd) => {
+          if (cd > 0) {
+            updateAcousticProgress(0, `🎙️ Mic Active! Starting in ${cd}s...`);
+          } else {
+            updateAcousticProgress(0, '🎙️ Listening for Sound Data...');
+          }
+        };
 
         core.AudioSync.listenForAcousticPayload((percent) => {
           updateAcousticProgress(percent, `Receiving Sound Data (${percent}%)...`);
-        }, updateMicMeter).then(() => {
+        }, updateMicMeter, 25000, handleCountdown).then(() => {
           btnAcousticReceive.disabled = false;
           updateMicMeter(0);
           updateAcousticProgress(100, '🎉 Sound Data Received & Applied!');
