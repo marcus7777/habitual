@@ -375,7 +375,6 @@ window.HabitualCore = window.HabitualCore || {};
       else sectionTrigger.classList.add('hidden');
     }
 
-    const selectStorageEngine = document.getElementById('select-storage-engine');
   function toggleGunDBSyncPanel() {
       if (!gundbSyncPanel) return;
       const isActive = core.activeStorageEngine === 'gunDB';
@@ -517,6 +516,112 @@ window.HabitualCore = window.HabitualCore || {};
         } else {
           alert('Please enter a 6-digit pair code.');
         }
+      });
+    }
+
+    // --- ACOUSTIC SOUND SYNC HANDLERS ---
+    const btnChirpCode = document.getElementById('btn-p2p-chirp-code');
+    if (btnChirpCode && p2pCodeDisplay) {
+      btnChirpCode.addEventListener('click', () => {
+        const code = p2pCodeDisplay.textContent.trim();
+        if (code && code !== '------') {
+          core.AudioSync.emitCodeChirp(code).catch(err => {
+            console.error('Chirp emit error:', err);
+            alert('Failed to emit sound chirp: ' + err.message);
+          });
+        } else {
+          alert('Please click "Generate Pair Code" first.');
+        }
+      });
+    }
+
+    const btnChirpListen = document.getElementById('btn-p2p-chirp-listen');
+    if (btnChirpListen && inputP2PRemote && btnP2PConnect) {
+      btnChirpListen.addEventListener('click', () => {
+        const origText = btnChirpListen.textContent;
+        btnChirpListen.textContent = '🎙️ Listening...';
+        btnChirpListen.disabled = true;
+
+        core.AudioSync.listenForCodeChirp(15000).then(code => {
+          btnChirpListen.textContent = origText;
+          btnChirpListen.disabled = false;
+          inputP2PRemote.value = code;
+          btnP2PConnect.click(); // Auto-trigger connect
+        }).catch(err => {
+          btnChirpListen.textContent = origText;
+          btnChirpListen.disabled = false;
+          if (core.showToast) core.showToast(err.message, 'error');
+        });
+      });
+    }
+
+    const btnBroadcastDelta = document.getElementById('btn-acoustic-broadcast-delta');
+    const btnBroadcastFull = document.getElementById('btn-acoustic-broadcast-full');
+    const btnAcousticReceive = document.getElementById('btn-acoustic-receive');
+    const acousticProgressBox = document.getElementById('acoustic-progress-bar-container');
+    const acousticStatusLabel = document.getElementById('acoustic-status-label');
+    const acousticProgressBar = document.getElementById('acoustic-progress-bar');
+
+    const updateAcousticProgress = (percent, label) => {
+      if (acousticProgressBox) acousticProgressBox.classList.remove('hidden');
+      if (acousticProgressBar) acousticProgressBar.style.width = percent + '%';
+      if (acousticStatusLabel) acousticStatusLabel.textContent = label || `${percent}%`;
+    };
+
+    if (btnBroadcastDelta) {
+      btnBroadcastDelta.addEventListener('click', () => {
+        btnBroadcastDelta.disabled = true;
+        updateAcousticProgress(0, 'Broadcasting Delta Sound...');
+
+        core.AudioSync.emitAcousticPayload(true, (percent) => {
+          updateAcousticProgress(percent, `Broadcasting Delta Sound (${percent}%)...`);
+        }).then(() => {
+          btnBroadcastDelta.disabled = false;
+          updateAcousticProgress(100, '✅ Delta Broadcast Complete!');
+          setTimeout(() => { if (acousticProgressBox) acousticProgressBox.classList.add('hidden'); }, 3000);
+        }).catch(err => {
+          btnBroadcastDelta.disabled = false;
+          console.error(err);
+          alert('Acoustic Broadcast Error: ' + err.message);
+        });
+      });
+    }
+
+    if (btnBroadcastFull) {
+      btnBroadcastFull.addEventListener('click', () => {
+        btnBroadcastFull.disabled = true;
+        updateAcousticProgress(0, 'Broadcasting Full Sound...');
+
+        core.AudioSync.emitAcousticPayload(false, (percent) => {
+          updateAcousticProgress(percent, `Broadcasting Full Sound (${percent}%)...`);
+        }).then(() => {
+          btnBroadcastFull.disabled = false;
+          updateAcousticProgress(100, '✅ Full Broadcast Complete!');
+          setTimeout(() => { if (acousticProgressBox) acousticProgressBox.classList.add('hidden'); }, 3000);
+        }).catch(err => {
+          btnBroadcastFull.disabled = false;
+          console.error(err);
+          alert('Acoustic Broadcast Error: ' + err.message);
+        });
+      });
+    }
+
+    if (btnAcousticReceive) {
+      btnAcousticReceive.addEventListener('click', () => {
+        btnAcousticReceive.disabled = true;
+        updateAcousticProgress(0, '🎙️ Listening for Sound Data...');
+
+        core.AudioSync.listenForAcousticPayload((percent) => {
+          updateAcousticProgress(percent, `Receiving Sound Data (${percent}%)...`);
+        }).then(() => {
+          btnAcousticReceive.disabled = false;
+          updateAcousticProgress(100, '🎉 Sound Data Received & Applied!');
+          setTimeout(() => { if (acousticProgressBox) acousticProgressBox.classList.add('hidden'); }, 3000);
+        }).catch(err => {
+          btnAcousticReceive.disabled = false;
+          updateAcousticProgress(0, '❌ ' + err.message);
+          setTimeout(() => { if (acousticProgressBox) acousticProgressBox.classList.add('hidden'); }, 4000);
+        });
       });
     }
 
