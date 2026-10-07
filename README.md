@@ -129,17 +129,21 @@ Organize complex habit routines into structured parent-child trees:
 
 ---
 
-### ☁️ 16. Multi-Target Cloud Sync, E2EE Encryption & Storage Drivers
+### ☁️ 16. Multi-Target Cloud Sync, E2EE Encryption & High-Performance Granular Storage Engine
+- **High-Performance Granular Persistence ($O(1)$ Writes)**: Daily check-ins, journal notes, and habit updates save directly to targeted IndexedDB records (`saveLog`, `saveHabit`, `saveSettings`) without stringifying or rewriting the monolithic application state.
+- **Direct Object Payload Deserialization**: Reads structured objects directly from IndexedDB stores on app load, eliminating redundant `JSON.stringify` $\to$ `JSON.parse` roundtrips.
+- **Smart LocalStorage Fallback**: Prevents main-thread UI blocking and `QuotaExceededError` storage limits by executing full string writes only when `localStorage` is the active engine.
+- **Debounced Save Coalescing (`saveStateDebounced`)**: Coalesces rapid sequential flushes into a single debounced disk write.
 - **Multi-Target Cloud Syncing**: Sync habit data across multiple providers including **Google Drive**, **Dropbox**, **WebDAV**, and Local Storage.
 - **End-to-End Encryption (AES-256-GCM)**: All synced backups are encrypted client-side using Web Crypto API AES-256-GCM prior to transmission.
 - **CRDT-Inspired Non-Destructive Merging**: Pulls and merges updates from all active cloud providers using timestamped, non-destructive state payloads to ensure no data loss.
-- **Multiple Local Storage Engines**: Toggle between `localStorage` and `IndexedDB` storage drivers with automatic data migration.
+- **Multiple Local Storage Engines**: Toggle between `localStorage`, `IndexedDB`, and `GunDB` P2P storage drivers with automatic data migration.
 
 ---
 
 ## 🧪 Automated Testing Suite
 
-Habitual includes a comprehensive automated test suite covering all core features across **75 individual test specifications in 27 test suites** (100% pass rate).
+Habitual includes a comprehensive automated test suite covering all core features across **80 individual test specifications in 27 test suites** (100% pass rate).
 
 ### Running Tests via Terminal (Node.js)
 To execute the automated test suite in command line:

@@ -242,6 +242,7 @@ window.HabitualCore = window.HabitualCore || {};
           const reqTarget = parent.type === 'negative' ? 0 : (parent.dailyTarget || 1);
           if (parent.type !== 'negative' && parentCount < reqTarget) {
             parent.logs[dateKey] = { count: reqTarget, note: (parentLog && parentLog.note) ? parentLog.note : '' };
+            if (core.saveLog) core.saveLog(parent.id, dateKey, reqTarget, (parentLog && parentLog.note) ? parentLog.note : '');
             if (core.showToast) core.showToast(`Logged "${habit.name}" & auto-logged parent task "${parent.name}"!`);
           }
         }
@@ -257,6 +258,7 @@ window.HabitualCore = window.HabitualCore || {};
           const subCount = subLog ? subLog.count : 0;
           if (subCount < subTarget) {
             sub.logs[dateKey] = { count: subTarget, note: (subLog && subLog.note) ? subLog.note : '' };
+            if (core.saveLog) core.saveLog(sub.id, dateKey, subTarget, (subLog && subLog.note) ? subLog.note : '');
             if (core.showToast) core.showToast(`Logged "${habit.name}" & auto-completed sub-habit "${sub.name}"!`);
           }
         }
@@ -305,7 +307,11 @@ window.HabitualCore = window.HabitualCore || {};
     let newCount = currentCount + 1;
     habit.logs[dateKey] = { count: newCount, note: currentNote };
     core.applyParentDependencyOnLog(habit, dateKey, newCount);
-    if (core.saveState) core.saveState();
+    if (core.saveLog) {
+      core.saveLog(habitId, dateKey, newCount, currentNote);
+    } else if (core.saveState) {
+      core.saveState();
+    }
     if (core.renderAll) core.renderAll();
   };
 

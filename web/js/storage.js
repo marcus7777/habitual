@@ -51,6 +51,18 @@ window.HabitualCore = window.HabitualCore || {};
       } catch (e) {
         return Promise.reject(e);
       }
+    },
+    saveLog: function(habitId, dateKey, count, note) {
+      if (core.saveState) core.saveState();
+      return Promise.resolve(true);
+    },
+    saveHabit: function(habit) {
+      if (core.saveState) core.saveState();
+      return Promise.resolve(true);
+    },
+    saveSettings: function(settings) {
+      if (core.saveState) core.saveState();
+      return Promise.resolve(true);
     }
   };
 
@@ -190,8 +202,8 @@ window.HabitualCore = window.HabitualCore || {};
                }
             });
 
-            // Must return as a string since `loadStateAsync` expects a raw string from the driver for parsing
-            resolve(JSON.stringify(payload));
+            // Return structured payload object directly to avoid redundant stringify/parse
+            resolve(payload);
           };
 
           tx.onerror = function(e) {
@@ -785,14 +797,82 @@ window.HabitualCore = window.HabitualCore || {};
     const payloadStr = JSON.stringify(payload);
 
     driver.setItem(core.STORAGE_KEY, payloadStr).then(function() {
-      // Also write to localStorage for backward compatibility
-      try { localStorage.setItem(core.STORAGE_KEY, payloadStr); } catch (e) {}
+      if (core.activeStorageEngine === 'localStorage') {
+        try { localStorage.setItem(core.STORAGE_KEY, payloadStr); } catch (e) {}
+      } else {
+        try { localStorage.setItem('habitual_v2_active_engine', core.activeStorageEngine); } catch (e) {}
+      }
       if (core.SyncManager) {
         core.SyncManager.broadcastWrite(payload);
       }
     }).catch(function(err) {
       console.error('Failed to save state to driver:', err);
     });
+  };
+
+  let _saveStateDebounceTimer = null;
+  core.saveStateDebounced = function(delay) {
+    const waitTime = typeof delay === 'number' ? delay : 300;
+    if (_saveStateDebounceTimer) clearTimeout(_saveStateDebounceTimer);
+    _saveStateDebounceTimer = setTimeout(function() {
+      _saveStateDebounceTimer = null;
+      core.saveState();
+    }, waitTime);
+  };
+
+  core.saveLog = function(habitId, dateKey, count, note) {
+    const driver = core.getDriver();
+    if (driver && typeof driver.saveLog === 'function') {
+      return Promise.resolve(driver.saveLog(habitId, dateKey, count, note)).then(function(res) {
+        if (core.activeStorageEngine === 'localStorage') {
+          core.saveState();
+        }
+        if (core.SyncManager) {
+          const delta = typeof core.getDeltaPayloadFromState === 'function' ? core.getDeltaPayloadFromState(1) : core.getPayloadFromState();
+          core.SyncManager.broadcastWrite(delta);
+        }
+        return res;
+      });
+    } else {
+      core.saveState();
+      return Promise.resolve(true);
+    }
+  };
+
+  core.saveHabit = function(habit) {
+    const driver = core.getDriver();
+    if (driver && typeof driver.saveHabit === 'function') {
+      return Promise.resolve(driver.saveHabit(habit)).then(function(res) {
+        if (core.activeStorageEngine === 'localStorage') {
+          core.saveState();
+        }
+        if (core.SyncManager) {
+          core.SyncManager.broadcastWrite(core.getPayloadFromState());
+        }
+        return res;
+      });
+    } else {
+      core.saveState();
+      return Promise.resolve(true);
+    }
+  };
+
+  core.saveSettings = function(settings) {
+    const driver = core.getDriver();
+    if (driver && typeof driver.saveSettings === 'function') {
+      return Promise.resolve(driver.saveSettings(settings)).then(function(res) {
+        if (core.activeStorageEngine === 'localStorage') {
+          core.saveState();
+        }
+        if (core.SyncManager) {
+          core.SyncManager.broadcastWrite(core.getPayloadFromState());
+        }
+        return res;
+      });
+    } else {
+      core.saveState();
+      return Promise.resolve(true);
+    }
   };
 
 
@@ -1138,6 +1218,129 @@ window.HabitualCore = window.HabitualCore || {};
           return res.text();
         });
       }
+    },
+
+    // --- FIRESTORE E2EE CLOUD SYNC ---
+    Firestore: {
+      db: null,
+      unsubscribeListener: null,
+      isListening: false,
+      lastUpdatedServerTime: 0,
+
+      init: function() {
+        if (this.db) return Promise.resolve(this.db);
+        if (typeof firebase !== 'undefined' && firebase.firestore) {
+          if (!firebase.apps.length) {
+            firebase.initializeApp({ projectId: "habitual-log" });
+          }
+          this.db = firebase.firestore();
+          return Promise.resolve(this.db);
+        }
+        return core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js')
+          .then(function() {
+            return core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js');
+          })
+          .then(function() {
+            if (!firebase.apps.length) {
+              firebase.initializeApp({ projectId: "habitual-log" });
+            }
+            core.SyncTargets.Firestore.db = firebase.firestore();
+            return core.SyncTargets.Firestore.db;
+          });
+      },
+
+      getDocId: function(passphrase) {
+        if (!passphrase) return Promise.reject(new Error('Passphrase required for Firestore E2EE'));
+        const encoder = new TextEncoder();
+        const data = encoder.encode(passphrase);
+        return crypto.subtle.digest('SHA-256', data).then(function(hashBuffer) {
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+          return 'sync_' + hashHex.substring(0, 32);
+        });
+      },
+
+      uploadBackup: function(encryptedText) {
+        const self = this;
+        const passphrase = core.SyncManager.settings.passphrase;
+        if (!passphrase) {
+          return Promise.reject(new Error('E2EE Master Passphrase is required for Firestore Cloud Sync'));
+        }
+
+        return this.init().then(function() {
+          return self.getDocId(passphrase);
+        }).then(function(docId) {
+          return self.db.collection('habitual_sync').doc(docId).set({
+            ciphertext: encryptedText,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        });
+      },
+
+      downloadBackup: function() {
+        const self = this;
+        const passphrase = core.SyncManager.settings.passphrase;
+        if (!passphrase) return Promise.resolve(null);
+
+        return this.init().then(function() {
+          return self.getDocId(passphrase);
+        }).then(function(docId) {
+          return self.db.collection('habitual_sync').doc(docId).get();
+        }).then(function(doc) {
+          if (doc && doc.exists && doc.data().ciphertext) {
+            return doc.data().ciphertext;
+          }
+          return null;
+        });
+      },
+
+      startLiveSync: function() {
+        const self = this;
+        const passphrase = core.SyncManager.settings.passphrase;
+        if (!passphrase || this.isListening) return;
+
+        this.init().then(function() {
+          return self.getDocId(passphrase);
+        }).then(function(docId) {
+          self.isListening = true;
+          self.unsubscribeListener = self.db.collection('habitual_sync').doc(docId)
+            .onSnapshot(function(doc) {
+              if (!doc.exists) return;
+              const data = doc.data();
+              if (!data || !data.ciphertext) return;
+
+              if (data.updatedAt && data.updatedAt.toMillis && data.updatedAt.toMillis() <= self.lastUpdatedServerTime) {
+                return;
+              }
+              if (data.updatedAt && data.updatedAt.toMillis) {
+                self.lastUpdatedServerTime = data.updatedAt.toMillis();
+              }
+
+              core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remotePayload) {
+                if (!remotePayload) return;
+                const localPayload = core.getPayloadFromState();
+                const merged = core.mergeStatePayloads(localPayload, remotePayload);
+
+                core.applyPayloadToState(merged);
+                core.saveState();
+                if (core.renderAll) core.renderAll();
+                if (core.showToast) core.showToast('⚡ Encrypted Firestore Live Sync Received!', 'info');
+              }).catch(function(e) {
+                console.warn('Firestore Decrypt Error (wrong key?):', e);
+              });
+            }, function(err) {
+              console.warn('Firestore Live Snapshot Error:', err);
+            });
+        });
+      },
+
+      stopLiveSync: function() {
+        if (this.unsubscribeListener) {
+          this.unsubscribeListener();
+          this.unsubscribeListener = null;
+        }
+        this.isListening = false;
+      }
     }
   };
 
@@ -1161,11 +1364,23 @@ window.HabitualCore = window.HabitualCore || {};
         this.settings.enabledTargets.splice(idx, 1);
       }
       localStorage.setItem('habitual_sync_targets', JSON.stringify(this.settings.enabledTargets));
+
+      if (targetName === 'firestore') {
+        if (enable && this.settings.passphrase) {
+          core.SyncTargets.Firestore.startLiveSync();
+        } else {
+          core.SyncTargets.Firestore.stopLiveSync();
+        }
+      }
     },
 
     setPassphrase: function(passphrase) {
       this.settings.passphrase = passphrase;
       localStorage.setItem('habitual_sync_passphrase', passphrase);
+      if (this.isTargetEnabled('firestore')) {
+        core.SyncTargets.Firestore.stopLiveSync();
+        if (passphrase) core.SyncTargets.Firestore.startLiveSync();
+      }
     },
 
     broadcastWrite: function(payload) {
@@ -1175,6 +1390,9 @@ window.HabitualCore = window.HabitualCore || {};
       core.E2EE.encrypt(payload, this.settings.passphrase).then(function(encrypted) {
         if (self.isTargetEnabled('p2p')) {
           core.SyncTargets.P2P.sendPayload(encrypted);
+        }
+        if (self.isTargetEnabled('firestore')) {
+          core.SyncTargets.Firestore.uploadBackup(encrypted).catch(e => console.warn('Firestore Sync Error:', e));
         }
         if (self.isTargetEnabled('googleDrive')) {
           core.SyncTargets.GoogleDrive.uploadBackup(encrypted).catch(e => console.warn('GDrive Sync Error:', e));
@@ -1198,6 +1416,9 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       const pulls = [];
+      if (this.isTargetEnabled('firestore')) {
+        pulls.push(core.SyncTargets.Firestore.downloadBackup().catch(e => null));
+      }
       if (this.isTargetEnabled('googleDrive')) {
         pulls.push(core.SyncTargets.GoogleDrive.downloadBackup().catch(e => null));
       }
@@ -1376,5 +1597,12 @@ window.HabitualCore = window.HabitualCore || {};
     };
     reader.readAsText(file);
   };
+
+  // Auto-start Firestore Live Sync if enabled and passphrase set
+  setTimeout(function() {
+    if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore') && core.SyncManager.settings.passphrase) {
+      core.SyncTargets.Firestore.startLiveSync();
+    }
+  }, 500);
 
 })(window.HabitualCore);

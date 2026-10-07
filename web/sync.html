@@ -96,15 +96,29 @@
         </div>
       </div>
 
-      <!-- Section 2: End-to-End Encryption (E2EE) (Hidden by default unless Cloud or P2P is active) -->
-      <div id="section-e2ee-passphrase" class="data-option-card hidden">
+      <!-- Section 2: End-to-End Encryption (E2EE) Passphrase -->
+      <div id="section-e2ee-passphrase" class="data-option-card highlight-card">
         <div class="data-option-info">
           <h4>🔒 Master Encryption Passphrase (E2EE)</h4>
-          <p class="muted-text">Zero-knowledge encryption key for P2P and Cloud Sync targets (AES-256-GCM).</p>
+          <p class="muted-text">Zero-knowledge client-side encryption key (AES-256-GCM). Required for Firestore Live Sync.</p>
         </div>
         <div class="input-inline-group">
           <input type="password" id="input-sync-passphrase" class="form-control-sm" placeholder="Enter secret passphrase...">
           <button id="btn-save-passphrase" class="btn btn-secondary btn-sm">Save Key</button>
+        </div>
+      </div>
+
+      <!-- Section 2.5: Firebase Firestore Encrypted Live Sync -->
+      <div class="data-option-card highlight-card">
+        <div class="data-option-info">
+          <h4>🔥 Encrypted Firestore Live Sync</h4>
+          <p class="muted-text">Real-time Zero-Knowledge encrypted cloud synchronization across devices. Disabled by default & requires a Master Passphrase.</p>
+        </div>
+        <div class="p2p-controls">
+          <label class="switch-toggle">
+            <input type="checkbox" id="chk-sync-firestore">
+            <span class="slider round"></span>
+          </label>
         </div>
       </div>
 
