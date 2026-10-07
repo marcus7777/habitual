@@ -15,13 +15,17 @@ window.HabitualCore = window.HabitualCore || {};
 
       this.initPromise = new Promise(async (resolve, reject) => {
         try {
-          if (!window.ggwave) {
+          const getFactory = () => window.ggwave_factory || window.ggwave;
+
+          if (!getFactory()) {
             await core.loadScript('lib/ggwave.js');
           }
-          if (window.ggwave) {
-             self.ggwaveFactory = window.ggwave;
+
+          const factory = getFactory();
+          if (factory) {
+             self.ggwaveFactory = factory;
              // Initialize GGwave WebAssembly module
-             self.ggwave = await window.ggwave();
+             self.ggwave = await factory();
              resolve();
           } else {
              reject(new Error('Failed to load GGwave library.'));
