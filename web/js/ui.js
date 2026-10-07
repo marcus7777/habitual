@@ -202,30 +202,6 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    const swatchBar = document.getElementById('color-swatch-bar');
-    if (swatchBar) {
-      swatchBar.addEventListener('click', (e) => {
-        const btn = e.target.closest('.swatch-btn[data-color]');
-        if (btn) {
-          const color = btn.dataset.color;
-          if (core.elements.customColorHex) core.elements.customColorHex.value = color;
-          if (core.elements.customColorPicker) core.elements.customColorPicker.value = color;
-          if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
-            core.elements.customSwatchPreview.style.backgroundColor = color;
-          }
-          core.syncCalendarColorDropdown(color);
-        }
-      });
-    }
-
-    const btnToggleCustomColor = document.getElementById('btn-toggle-custom-color');
-    const customColorContainer = document.getElementById('custom-color-container');
-    if (btnToggleCustomColor && customColorContainer) {
-      btnToggleCustomColor.addEventListener('click', () => {
-        customColorContainer.classList.toggle('hidden');
-      });
-    }
-
     const modalCalendarClose = document.getElementById('modal-calendar-close');
     if (modalCalendarClose) modalCalendarClose.addEventListener('click', () => core.elements.modalCalendarPicker.classList.add('hidden'));
 
@@ -1682,7 +1658,8 @@ window.HabitualCore = window.HabitualCore || {};
       if (typeRadio) typeRadio.checked = true;
 
       const rawColor = habitToEdit.colorTheme || core.getDefaultColorForId(habitToEdit.id);
-      const normalized = rawColor.startsWith('#') ? core.normalizeHex(rawColor) : (core.PRESET_THEME_HEX[rawColor] || core.getDefaultColorForId(habitToEdit.id));
+      const normalizedDerived = core.updateColorDropdownDefault(habitToEdit.id);
+      const normalized = rawColor.startsWith('#') ? core.normalizeHex(rawColor) : (core.PRESET_THEME_HEX[rawColor] || normalizedDerived);
       if (core.elements.customColorHex) core.elements.customColorHex.value = normalized;
       if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalized;
       if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
@@ -1699,8 +1676,11 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
         core.elements.customSwatchPreview.style.backgroundColor = 'transparent';
       }
-      core.syncCalendarColorDropdown('');
       const initialParent = selectedParentId ? core.state.habits.find(h => h.id === selectedParentId) : null;
+      const normalizedDerived = core.updateColorDropdownDefault(selectedParentId || 'default');
+      if (core.elements.customColorHex) core.elements.customColorHex.value = normalizedDerived;
+      if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalizedDerived;
+      core.syncCalendarColorDropdown(normalizedDerived);
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = false;
       if (core.elements.habitShowCount) core.elements.habitShowCount.checked = initialParent ? initialParent.showCount !== false : true;
       if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = initialParent ? initialParent.showDuration === true : false;
@@ -1763,9 +1743,6 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    const customColorContainer = document.getElementById('custom-color-container');
-    if (customColorContainer) customColorContainer.classList.add('hidden');
-
     const typeRadios = core.elements.formHabit ? core.elements.formHabit.querySelectorAll('input[name="habit-type"]') : [];
     typeRadios.forEach(radio => { radio.onchange = core.updateBackfillWordingUI; });
     core.updateBackfillWordingUI();
@@ -1783,21 +1760,29 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.syncCalendarColorDropdown = function(hex) {
-    const swatchBar = document.getElementById('color-swatch-bar');
-    if (swatchBar) {
-      const swatches = swatchBar.querySelectorAll('.swatch-btn[data-color]');
-      const upperHex = hex ? hex.toUpperCase() : '';
-      swatches.forEach(btn => {
-        const btnColor = btn.dataset.color ? btn.dataset.color.toUpperCase() : '';
-        if (upperHex && btnColor === upperHex) {
-          btn.classList.add('selected');
-        } else {
-          btn.classList.remove('selected');
-        }
-      });
-    }
+  core.updateColorDropdownDefault = function(derivedIdOrName) {
+    const derivedColor = core.getDefaultColorForId(derivedIdOrName || 'default');
+    const normalizedDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
+    const select = document.getElementById('habit-calendar-color-select');
+    if (!select || !select.options) return normalizedDerived;
 
+    const upperDerived = normalizedDerived.toUpperCase();
+
+    Array.from(select.options).forEach(opt => {
+      if (!opt.value) return;
+      let baseText = opt.dataset.baseText || opt.textContent.replace(/\s*\(Default\)/i, '').replace(/\s*\(Auto-Derived Default\)/i, '').trim();
+      opt.dataset.baseText = baseText;
+      if (opt.value.toUpperCase() === upperDerived) {
+        opt.textContent = `${baseText} (Default)`;
+      } else {
+        opt.textContent = baseText;
+      }
+    });
+
+    return normalizedDerived;
+  };
+
+  core.syncCalendarColorDropdown = function(hex) {
     if (!core.elements.calendarColorSelect || !core.elements.calendarColorSelect.options) return;
     if (!hex) {
       core.elements.calendarColorSelect.value = '';
@@ -1823,25 +1808,17 @@ window.HabitualCore = window.HabitualCore || {};
     if (nameVal.length > 0) {
       const parentSelect = document.getElementById('habit-parent');
       const parentIdVal = parentSelect ? parentSelect.value.trim() : '';
-      let derivedId = currentId;
-      if (!isEditMode) derivedId = (parentIdVal ? parentIdVal + '_' : '') + core.idFromName(nameVal);
+      let derivedId = currentId || ((parentIdVal ? parentIdVal + '_' : '') + core.idFromName(nameVal));
 
       if (core.elements.habitIdDisplay) core.elements.habitIdDisplay.textContent = derivedId;
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.remove('hidden');
       if (core.elements.habitFormDetails) core.elements.habitFormDetails.classList.remove('hidden');
 
+      const normalizedDerived = core.updateColorDropdownDefault(derivedId);
       if (!isEditMode) {
-        const derivedColor = core.getDefaultColorForId(derivedId);
-        if (derivedColor && typeof derivedColor === 'string') {
-          const normalized = core.normalizeHex(derivedColor);
-          if (core.elements.radioColorCustom) core.elements.radioColorCustom.checked = true;
-          if (core.elements.customColorHex) core.elements.customColorHex.value = normalized;
-          if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalized;
-          if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
-            core.elements.customSwatchPreview.style.backgroundColor = normalized;
-          }
-          core.syncCalendarColorDropdown(normalized);
-        }
+        if (core.elements.customColorHex) core.elements.customColorHex.value = normalizedDerived;
+        if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalizedDerived;
+        core.syncCalendarColorDropdown(normalizedDerived);
       }
     } else if (!isEditMode) {
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.add('hidden');
@@ -1970,10 +1947,18 @@ window.HabitualCore = window.HabitualCore || {};
     const pickerInput = document.getElementById('habit-custom-color-picker');
     const pickerVal = (pickerInput && pickerInput.value) ? pickerInput.value : (getVal('habit-custom-color-picker') || '');
 
+    const derivedIdKey = id || (parentId ? parentId + '_' : '') + core.idFromName(name) || name || 'default';
+    const derivedDefaultColor = core.getDefaultColorForId(derivedIdKey);
+    const normalizedDerived = derivedDefaultColor.startsWith('#') ? core.normalizeHex(derivedDefaultColor) : derivedDefaultColor;
+
     const chosenColor = calVal || hexVal || pickerVal;
     let colorTheme = (chosenColor && core.parseHexColor(chosenColor))
       ? core.normalizeHex(chosenColor)
-      : core.getDefaultColorForId(id || name || 'default');
+      : normalizedDerived;
+
+    if (colorTheme && colorTheme.toUpperCase() === normalizedDerived.toUpperCase()) {
+      colorTheme = undefined;
+    }
 
     if (!name) return;
 
@@ -1983,7 +1968,12 @@ window.HabitualCore = window.HabitualCore || {};
         const previousHideFromAll = Boolean(habit.hideFromAll);
         habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll;
         core.setHabitPauseState(habit, isPaused);
-        habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.colorTheme = colorTheme; habit.parentId = parentId; habit.parentDependency = parentDependency;
+        habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.parentId = parentId; habit.parentDependency = parentDependency;
+        if (colorTheme) {
+          habit.colorTheme = colorTheme;
+        } else {
+          delete habit.colorTheme;
+        }
 
         if (previousHideFromAll !== hideFromAll) {
           const descendantIds = core.getAllDescendantIds(habit.id);
@@ -2023,8 +2013,11 @@ window.HabitualCore = window.HabitualCore || {};
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + core.idFromName(name),
         name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null }] : [],
-        colorTheme, dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, logs: backfilledLogs
+        dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, logs: backfilledLogs
       };
+      if (colorTheme) {
+        newHabit.colorTheme = colorTheme;
+      }
       core.state.habits.push(newHabit);
       core.state.selectedHabitId = newHabit.id;
     }
