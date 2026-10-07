@@ -82,15 +82,13 @@ window.HabitualCore = window.HabitualCore || {};
       return new Promise(resolve => src.onended = resolve);
     },
 
-    listenForCodeChirp: async function(timeoutMs = 15000, onMicVolume = null) {
+    listenForCodeChirp: async function(timeoutMs = 20000, onMicVolume = null, onCountdown = null) {
       await this.init();
       const ctx = this.getAudioContext();
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Microphone access not supported in this browser.');
       }
-
-      if (core.showToast) core.showToast('🎙️ Listening for Sound Chirp...', 'info');
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaSrc = ctx.createMediaStreamSource(stream);
@@ -113,19 +111,36 @@ window.HabitualCore = window.HabitualCore || {};
         }, 50);
       }
 
+      // 3-Second Warmup & Countdown
+      if (onCountdown) {
+        for (let cd = 3; cd > 0; cd--) {
+          onCountdown(cd);
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        onCountdown(0);
+      }
+
+      if (core.showToast) core.showToast('🎙️ Listening for Sound Chirp...', 'info');
+
       return new Promise((resolve, reject) => {
         let isDone = false;
-        const timer = setTimeout(() => {
-          cleanup();
-          reject(new Error('Chirp listen timed out. Try playing sound again.'));
-        }, timeoutMs);
+        let timer = null;
+
+        const resetTimer = () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('Chirp listen timed out. Try playing sound again.'));
+          }, timeoutMs);
+        };
+        resetTimer();
 
         function cleanup() {
           if (isDone) return;
           isDone = true;
           if (meterInterval) clearInterval(meterInterval);
           if (onMicVolume) onMicVolume(0);
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
           processor.disconnect();
           analyser.disconnect();
           mediaSrc.disconnect();
@@ -136,7 +151,6 @@ window.HabitualCore = window.HabitualCore || {};
           if (isDone) return;
           const inputData = e.inputBuffer.getChannelData(0);
 
-          // Convert Float32Array [-1.0, 1.0] to Int8Array [-128, 127]
           const pcm8 = new Int8Array(inputData.length);
           for (let i = 0; i < inputData.length; i++) {
             pcm8[i] = Math.max(-128, Math.min(127, Math.floor(inputData[i] * 128)));
@@ -144,6 +158,7 @@ window.HabitualCore = window.HabitualCore || {};
 
           const decoded = this.ggwaveModule.decode(this.instance, pcm8);
           if (decoded && decoded.length > 0) {
+            resetTimer(); // Reset timeout on hearing sound
             const str = String.fromCharCode.apply(null, decoded);
             if (str.startsWith('HAB:')) {
               const code = str.substring(4).trim();
@@ -252,15 +267,13 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.showToast) core.showToast('✅ Sound Broadcast Complete!', 'success');
     },
 
-    listenForAcousticPayload: async function(onProgress = null, onMicVolume = null, timeoutMs = 45000) {
+    listenForAcousticPayload: async function(onProgress = null, onMicVolume = null, chunkTimeoutMs = 25000, onCountdown = null) {
       await this.init();
       const ctx = this.getAudioContext();
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Microphone access not supported in this browser.');
       }
-
-      if (core.showToast) core.showToast('🎙️ Listening for Sound Data Stream...', 'info');
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaSrc = ctx.createMediaStreamSource(stream);
@@ -283,22 +296,38 @@ window.HabitualCore = window.HabitualCore || {};
         }, 50);
       }
 
+      // 3-Second Warmup & Countdown
+      if (onCountdown) {
+        for (let cd = 3; cd > 0; cd--) {
+          onCountdown(cd);
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        onCountdown(0);
+      }
+
+      if (core.showToast) core.showToast('🎙️ Listening for Sound Data Stream...', 'info');
+
       return new Promise((resolve, reject) => {
         let isDone = false;
         const chunksMap = new Map();
         let expectedTotal = 0;
+        let timer = null;
 
-        const timer = setTimeout(() => {
-          cleanup();
-          reject(new Error('Sound reception timed out.'));
-        }, timeoutMs);
+        const resetTimer = () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('Sound reception timed out (no audio packet heard for 25s).'));
+          }, chunkTimeoutMs);
+        };
+        resetTimer();
 
         function cleanup() {
           if (isDone) return;
           isDone = true;
           if (meterInterval) clearInterval(meterInterval);
           if (onMicVolume) onMicVolume(0);
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
           processor.disconnect();
           analyser.disconnect();
           mediaSrc.disconnect();
@@ -326,6 +355,7 @@ window.HabitualCore = window.HabitualCore || {};
                 expectedTotal = totalChunks;
 
                 if (!chunksMap.has(chunkIdx)) {
+                  resetTimer(); // Reset the 25-second timeout on every newly received chunk!
                   chunksMap.set(chunkIdx, chunkText);
 
                   if (onProgress) onProgress(Math.round((chunksMap.size / expectedTotal) * 100));
