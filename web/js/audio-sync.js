@@ -186,8 +186,15 @@ window.HabitualCore = window.HabitualCore || {};
 
       const compressedBytes = await this.compressJSON(payload);
 
-      const chunkSize = 18;
-      const totalChunks = Math.ceil(compressedBytes.length / chunkSize);
+      // Convert Uint8Array to Base64 ASCII string so Emscripten never encounters non-ASCII chars
+      let binaryStr = '';
+      for (let j = 0; j < compressedBytes.length; j++) {
+        binaryStr += String.fromCharCode(compressedBytes[j]);
+      }
+      const base64Data = btoa(binaryStr);
+
+      const chunkSize = 20;
+      const totalChunks = Math.ceil(base64Data.length / chunkSize);
 
       if (core.showToast) {
         core.showToast(`🔊 Broadcasting ${isDelta ? 'Delta' : 'Full'} Data (${compressedBytes.length} bytes over ${totalChunks} chirps)...`, 'info');
@@ -197,20 +204,10 @@ window.HabitualCore = window.HabitualCore || {};
 
       for (let i = 0; i < totalChunks; i++) {
         const start = i * chunkSize;
-        const chunk = compressedBytes.slice(start, start + chunkSize);
+        const chunkText = base64Data.substring(start, start + chunkSize);
 
-        // Header: [ 'H', 'D', chunkIndex, totalChunks, ...chunkData ]
-        const packet = new Uint8Array(4 + chunk.length);
-        packet[0] = 72; // 'H'
-        packet[1] = 68; // 'D'
-        packet[2] = i;  // Chunk Index
-        packet[3] = totalChunks;
-        packet.set(chunk, 4);
-
-        let packetStr = '';
-        for (let j = 0; j < packet.length; j++) {
-          packetStr += String.fromCharCode(packet[j]);
-        }
+        // Header format: "HD:chunkIdx:totalChunks:chunkText" (100% ASCII)
+        const packetStr = `HD:${i}:${totalChunks}:${chunkText}`;
 
         const waveform = this.ggwaveModule.encode(this.instance, packetStr, protocol, 10);
         if (waveform && waveform.length > 0) {
@@ -278,46 +275,50 @@ window.HabitualCore = window.HabitualCore || {};
           }
 
           const decoded = this.ggwaveModule.decode(this.instance, pcm8);
-          if (decoded && decoded.length >= 4) {
-            if (decoded[0] === 72 && decoded[1] === 68) {
-              const chunkIdx = decoded[2];
-              const totalChunks = decoded[3];
-              expectedTotal = totalChunks;
+          if (decoded && decoded.length > 0) {
+            const decodedStr = String.fromCharCode.apply(null, decoded);
+            if (decodedStr.startsWith('HD:')) {
+              const parts = decodedStr.split(':');
+              if (parts.length >= 4) {
+                const chunkIdx = parseInt(parts[1], 10);
+                const totalChunks = parseInt(parts[2], 10);
+                const chunkText = parts.slice(3).join(':');
+                expectedTotal = totalChunks;
 
-              if (!chunksMap.has(chunkIdx)) {
-                const chunkData = decoded.slice(4);
-                chunksMap.set(chunkIdx, chunkData);
+                if (!chunksMap.has(chunkIdx)) {
+                  chunksMap.set(chunkIdx, chunkText);
 
-                if (onProgress) onProgress(Math.round((chunksMap.size / expectedTotal) * 100));
+                  if (onProgress) onProgress(Math.round((chunksMap.size / expectedTotal) * 100));
 
-                if (chunksMap.size === expectedTotal) {
-                  cleanup();
-                  let totalLen = 0;
-                  for (let i = 0; i < expectedTotal; i++) {
-                    totalLen += (chunksMap.get(i) || new Uint8Array()).length;
-                  }
-                  const fullBytes = new Uint8Array(totalLen);
-                  let offset = 0;
-                  for (let i = 0; i < expectedTotal; i++) {
-                    const c = chunksMap.get(i) || new Uint8Array();
-                    fullBytes.set(c, offset);
-                    offset += c.length;
-                  }
+                  if (chunksMap.size === expectedTotal) {
+                    cleanup();
 
-                  try {
-                    const receivedPayload = await this.decompressJSON(fullBytes);
+                    let fullBase64 = '';
+                    for (let i = 0; i < expectedTotal; i++) {
+                      fullBase64 += chunksMap.get(i) || '';
+                    }
 
-                    const localPayload = core.getPayloadFromState();
-                    const merged = core.mergeStatePayloads(localPayload, receivedPayload);
-                    core.applyPayloadToState(merged);
-                    core.saveState();
-                    if (core.renderAll) core.renderAll();
+                    try {
+                      const binaryStr = atob(fullBase64);
+                      const fullBytes = new Uint8Array(binaryStr.length);
+                      for (let k = 0; k < binaryStr.length; k++) {
+                        fullBytes[k] = binaryStr.charCodeAt(k);
+                      }
 
-                    if (core.showToast) core.showToast('🎉 Acoustic Data Received & Synced!', 'success');
-                    resolve(merged);
-                  } catch (err) {
-                    console.error('Failed to parse received sound payload:', err);
-                    reject(new Error('Failed to decompress received sound payload.'));
+                      const receivedPayload = await this.decompressJSON(fullBytes);
+
+                      const localPayload = core.getPayloadFromState();
+                      const merged = core.mergeStatePayloads(localPayload, receivedPayload);
+                      core.applyPayloadToState(merged);
+                      core.saveState();
+                      if (core.renderAll) core.renderAll();
+
+                      if (core.showToast) core.showToast('🎉 Acoustic Data Received & Synced!', 'success');
+                      resolve(merged);
+                    } catch (err) {
+                      console.error('Failed to parse received sound payload:', err);
+                      reject(new Error('Failed to decompress received sound payload.'));
+                    }
                   }
                 }
               }
