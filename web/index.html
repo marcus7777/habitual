@@ -193,7 +193,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.10.4</p>
+      <p>Habitual &bull; v1.10.5</p>
     </footer>
   </div>
 
@@ -721,10 +721,28 @@
           </div>
 
           <div id="p2p-pairing-box" class="data-subpanel hidden">
-            <h5>📱 Pairing Code: <span id="p2p-code-display" class="badge-code">------</span></h5>
+            <h5>📱 Pairing Code: <span id="p2p-code-display" class="badge-code">------</span> <button id="btn-p2p-chirp-code" class="btn btn-secondary btn-sm" style="margin-left: 0.5rem;" title="Broadcast Code via Sound">🔊 Chirp Code</button></h5>
             <div class="p2p-input-row">
               <input type="text" id="input-p2p-remote-code" class="form-control-sm" placeholder="Enter 6-digit remote code">
               <button id="btn-p2p-connect" class="btn btn-primary btn-sm">Connect Peer</button>
+              <button id="btn-p2p-chirp-listen" class="btn btn-secondary btn-sm" title="Listen for Code via Microphone">🎙️ Listen Chirp</button>
+            </div>
+          </div>
+
+          <!-- Subpanel: Acoustic Sound Sync Fallback (No WebRTC / Network Needed) -->
+          <div class="data-subpanel" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <h5>📻 Acoustic Sound Sync (Fallback / No Network Needed)</h5>
+            <p class="muted-text text-xs" style="margin-bottom: 0.5rem;">Transmit habits data directly via audio sound waves (speaker & mic).</p>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+              <button id="btn-acoustic-broadcast-delta" class="btn btn-secondary btn-sm">🔊 Broadcast Delta (Past 7 Days)</button>
+              <button id="btn-acoustic-broadcast-full" class="btn btn-secondary btn-sm">🔊 Broadcast Full State</button>
+              <button id="btn-acoustic-receive" class="btn btn-primary btn-sm">🎙️ Receive Sound Data</button>
+            </div>
+            <div id="acoustic-progress-bar-container" class="hidden" style="margin-top: 0.5rem;">
+              <div style="font-size: 0.8rem; margin-bottom: 0.2rem;" id="acoustic-status-label">Listening for sound data...</div>
+              <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+                <div id="acoustic-progress-bar" style="width: 0%; height: 100%; background: var(--accent-color); transition: width 0.2s;"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -837,6 +855,7 @@
   <!-- App Core -->
   <script src="js/state.js" defer></script>
   <script src="js/storage.js" defer></script>
+  <script src="js/audio-sync.js" defer></script>
   <script src="js/render.js" defer></script>
   <script src="js/ui.js" defer></script>
   <script src="app.js" defer></script>

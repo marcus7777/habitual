@@ -637,6 +637,63 @@ window.HabitualCore = window.HabitualCore || {};
     };
   };
 
+  core.getDeltaPayloadFromState = function(daysBack = 7) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    const cutoffKey = core.formatDateKey ? core.formatDateKey(cutoffDate) : '2020-01-01';
+
+    const serializedHabits = (core.state.habits || []).map(habit => {
+      const derivedName = core.deriveNameFromId(habit.id);
+      const derivedColor = core.getDefaultColorForId(habit.id);
+      const h = { id: habit.id, updatedAt: habit.updatedAt || Date.now() };
+
+      if (habit.name && habit.name.trim() !== derivedName) h.name = habit.name;
+      if (habit.colorTheme) {
+        const normTheme = habit.colorTheme.startsWith('#') ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
+        const normDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
+        if (normTheme !== normDerived) h.colorTheme = habit.colorTheme;
+      }
+
+      if (habit.type && habit.type !== 'positive') h.type = habit.type;
+      if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
+
+      if (habit.logs) {
+        const cleanLogs = {};
+        let hasLogs = false;
+        Object.keys(habit.logs).forEach(dateKey => {
+          if (dateKey < cutoffKey) return; // Skip old logs for Delta
+          const log = habit.logs[dateKey];
+          if (!log) return;
+          const count = log.count || 0;
+          const note = (log.note || '').trim();
+          if (count > 0 || note !== '') {
+            hasLogs = true;
+            if (note !== '') cleanLogs[dateKey] = { count, note };
+            else cleanLogs[dateKey] = { count };
+          }
+        });
+        if (hasLogs) h.logs = cleanLogs;
+      }
+      return h;
+    });
+
+    const delta = {
+      version: 2,
+      updatedAt: Date.now(),
+      isDelta: true,
+      habits: serializedHabits
+    };
+
+    if (core.state.selectedHabitId && core.state.selectedHabitId !== 'all') {
+      delta.selectedHabitId = core.state.selectedHabitId;
+    }
+    if (core.state.selectedYear && core.state.selectedYear !== core.CURRENT_YEAR) {
+      delta.selectedYear = core.state.selectedYear;
+    }
+
+    return delta;
+  };
+
   core.applyPayloadToState = function(parsed) {
     if (!parsed) return;
     core.state.habits = (parsed.habits || []).map(h => {
