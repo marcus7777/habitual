@@ -1,6 +1,6 @@
 /* Habitual */
 
-const CACHE_NAME = 'habitual-v1.10.6';
+const CACHE_NAME = 'habitual-v1.10.7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -13,8 +13,10 @@ const ASSETS_TO_CACHE = [
   './js/colours.js',
   './js/state.js',
   './js/storage.js',
+  './js/audio-sync.js',
   './js/render.js',
   './js/ui.js',
+  './lib/ggwave.js',
   './fonts/inter-latin.woff2',
   './fonts/jetbrains-mono-latin.woff2'
 ];
