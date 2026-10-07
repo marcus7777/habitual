@@ -95,6 +95,7 @@ global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } }
 require('../web/js/colours.js');
 require('../web/js/state.js');
 require('../web/js/storage.js');
+require('../web/js/audio-sync.js');
 require('../web/js/render.js');
 require('../web/js/ui.js');
 const HabitualCore = global.window.HabitualCore;
@@ -1748,6 +1749,73 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     const params2 = new URLSearchParams('');
     assertEqual(params2.get('cloudSync'), null, 'cloudSync hidden by default');
     assertEqual(params2.get('p2p'), null, 'p2p hidden by default');
+  });
+
+  test('getDeltaPayloadFromState minimizes payload by omitting default properties and old logs', () => {
+    HabitualCore.state.habits = [
+      {
+        id: 'water_1',
+        name: HabitualCore.deriveNameFromId('water_1'),
+        colorTheme: HabitualCore.getDefaultColorForId('water_1'),
+        dailyTarget: 1,
+        logs: {
+          '2020-01-01': { count: 1 },
+          '2026-10-06': { count: 2, note: 'Fresh water' }
+        }
+      }
+    ];
+
+    const delta = HabitualCore.getDeltaPayloadFromState(7);
+    assert(delta.isDelta === true, 'isDelta flag is set');
+    assert(delta.habits.length === 1, 'Contains 1 habit');
+
+    const h = delta.habits[0];
+    assertEqual(h.id, 'water_1', 'Habit ID preserved');
+    assertEqual(h.name, undefined, 'Derived default name is omitted');
+    assertEqual(h.colorTheme, undefined, 'Derived default color is omitted');
+    assertEqual(h.logs['2020-01-01'], undefined, 'Old log prior to 7-day cutoff is omitted');
+    assertEqual(h.logs['2026-10-06'].count, 2, 'Recent log is preserved');
+  });
+
+  test('AudioSync ggwave encode and decode roundtrip', async () => {
+    if (!global.AudioContext && !global.webkitAudioContext) {
+      global.AudioContext = class {
+        constructor() { this.sampleRate = 48000; this.state = 'running'; }
+        resume() { return Promise.resolve(); }
+        createBuffer() { return { getChannelData: () => new Float32Array(100) }; }
+        createBufferSource() { return { buffer: null, connect: () => {}, start: () => {} }; }
+      };
+    }
+
+    assert(HabitualCore.AudioSync !== undefined, 'AudioSync module defined');
+
+    // Test Gzip Compression & Decompression Roundtrip
+    const testData = { version: 2, habits: [{ id: 'run', name: 'Running' }] };
+    const compressed = await HabitualCore.AudioSync.compressJSON(testData);
+    assert(compressed instanceof Uint8Array, 'Compressed to Uint8Array');
+
+    const decompressed = await HabitualCore.AudioSync.decompressJSON(compressed);
+    assertEqual(decompressed.habits[0].id, 'run', 'Decompressed JSON matches original');
+
+    // Test GGwave WASM initialization & encode roundtrip
+    await HabitualCore.AudioSync.init();
+    assert(HabitualCore.AudioSync.instance !== null, 'GGwave instance initialized');
+
+    const protocol = HabitualCore.AudioSync.ggwaveModule.ProtocolId.GGWAVE_PROTOCOL_AUDIBLE_FAST;
+    const waveform = HabitualCore.AudioSync.ggwaveModule.encode(
+      HabitualCore.AudioSync.instance,
+      'HAB:A1B2C3',
+      protocol,
+      10
+    );
+    assert(waveform && waveform.length > 0, 'GGwave encoded non-empty waveform');
+
+    const decoded = HabitualCore.AudioSync.ggwaveModule.decode(
+      HabitualCore.AudioSync.instance,
+      waveform
+    );
+    const decodedStr = String.fromCharCode.apply(null, decoded);
+    assertEqual(decodedStr, 'HAB:A1B2C3', 'GGwave decoded string matches original audio payload');
   });
 });
 
