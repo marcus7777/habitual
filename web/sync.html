@@ -108,17 +108,28 @@
         </div>
       </div>
 
-      <!-- Section 2.5: Firebase Firestore Encrypted Live Sync -->
-      <div class="data-option-card highlight-card">
+      <!-- Section 2.5: Firebase Firestore Encrypted Live Sync (Collection: habit_data) -->
+      <div id="section-firestore-sync" class="data-option-card highlight-card">
         <div class="data-option-info">
-          <h4>🔥 Encrypted Firestore Live Sync</h4>
-          <p class="muted-text">Real-time Zero-Knowledge encrypted cloud synchronization across devices. Disabled by default & requires a Master Passphrase.</p>
+          <h4>🔥 Encrypted Firestore Cloud Sync (Collection: habit_data)</h4>
+          <p class="muted-text">Real-time Zero-Knowledge client-side encrypted cloud synchronization. Disabled by default & requires a Master Encryption Passphrase.</p>
         </div>
         <div class="p2p-controls">
           <label class="switch-toggle">
             <input type="checkbox" id="chk-sync-firestore">
             <span class="slider round"></span>
           </label>
+        </div>
+
+        <div id="firestore-config-panel" style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 6px;">
+          <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.3rem; display: block;">Your Sync Channel Identifier Code</label>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 0.8rem;">
+            <input type="text" id="input-firestore-sync-code" class="form-control-sm" style="flex: 1; font-family: monospace; font-size: 1.1rem; letter-spacing: 2px; font-weight: bold; text-align: center; text-transform: uppercase;" placeholder="HAB-XXXXXX">
+            <button id="btn-save-firestore-code" class="btn-sm btn-primary">Save Code</button>
+            <button id="btn-gen-firestore-code" class="btn-sm btn-secondary">New Code</button>
+            <button id="btn-copy-firestore-code" class="btn-sm btn-secondary">Copy</button>
+          </div>
+          <p class="muted-text text-xs" style="margin: 0;">Copy this Sync Channel Identifier Code and your Master Passphrase to your other computer or phone so both devices sync to the same encrypted plot of data.</p>
         </div>
       </div>
 
