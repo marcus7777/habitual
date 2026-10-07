@@ -1690,6 +1690,53 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
 
     HabitualCore.elements = originalElements;
   });
+
+  test('Mobile arrow key footer buttons shift cursor date and trigger action', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'getCursorDateKey starts on today');
+
+    const buttonListeners = {};
+    const mockElements = {
+      'btn-arrow-up': { addEventListener: (evt, fn) => buttonListeners['btn-arrow-up'] = fn },
+      'btn-arrow-down': { addEventListener: (evt, fn) => buttonListeners['btn-arrow-down'] = fn },
+      'btn-arrow-left': { addEventListener: (evt, fn) => buttonListeners['btn-arrow-left'] = fn },
+      'btn-arrow-right': { addEventListener: (evt, fn) => buttonListeners['btn-arrow-right'] = fn },
+      'btn-arrow-today': { addEventListener: (evt, fn) => buttonListeners['btn-arrow-today'] = fn },
+      'btn-arrow-action': { addEventListener: (evt, fn) => buttonListeners['btn-arrow-action'] = fn }
+    };
+
+    const prevGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => mockElements[id] || (prevGetElementById ? prevGetElementById.call(global.document, id) : null);
+
+    HabitualCore.setupMobileArrowPad();
+    global.document.getElementById = prevGetElementById;
+
+    const dummyEvent = { preventDefault: () => {}, stopPropagation: () => {} };
+
+    // Test Up button (-1 day)
+    buttonListeners['btn-arrow-up'](dummyEvent);
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+    assertEqual(HabitualCore.getCursorDateKey(), yesterday, 'Mobile Up button moves cursor up 1 day');
+
+    // Test Down button (+1 day)
+    buttonListeners['btn-arrow-down'](dummyEvent);
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Mobile Down button moves cursor down 1 day');
+
+    // Test Left button (-7 days)
+    buttonListeners['btn-arrow-left'](dummyEvent);
+    const lastWeek = HabitualCore.getDaysAgoKey(7);
+    assertEqual(HabitualCore.getCursorDateKey(), lastWeek, 'Mobile Left button moves cursor left 1 week');
+
+    // Test Right button (+7 days)
+    buttonListeners['btn-arrow-right'](dummyEvent);
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Mobile Right button moves cursor right 1 week');
+
+    // Test Today button
+    HabitualCore.setCursorDateKey('2026-01-01');
+    buttonListeners['btn-arrow-today'](dummyEvent);
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Mobile Today button resets cursor to today');
+  });
 });
 
 // ============================================================================

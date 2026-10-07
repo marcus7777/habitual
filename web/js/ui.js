@@ -202,6 +202,30 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
+    const swatchBar = document.getElementById('color-swatch-bar');
+    if (swatchBar) {
+      swatchBar.addEventListener('click', (e) => {
+        const btn = e.target.closest('.swatch-btn[data-color]');
+        if (btn) {
+          const color = btn.dataset.color;
+          if (core.elements.customColorHex) core.elements.customColorHex.value = color;
+          if (core.elements.customColorPicker) core.elements.customColorPicker.value = color;
+          if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
+            core.elements.customSwatchPreview.style.backgroundColor = color;
+          }
+          core.syncCalendarColorDropdown(color);
+        }
+      });
+    }
+
+    const btnToggleCustomColor = document.getElementById('btn-toggle-custom-color');
+    const customColorContainer = document.getElementById('custom-color-container');
+    if (btnToggleCustomColor && customColorContainer) {
+      btnToggleCustomColor.addEventListener('click', () => {
+        customColorContainer.classList.toggle('hidden');
+      });
+    }
+
     const modalCalendarClose = document.getElementById('modal-calendar-close');
     if (modalCalendarClose) modalCalendarClose.addEventListener('click', () => core.elements.modalCalendarPicker.classList.add('hidden'));
 
@@ -940,6 +964,95 @@ window.HabitualCore = window.HabitualCore || {};
         }
       }
     });
+
+    if (core.setupMobileArrowPad) core.setupMobileArrowPad();
+  };
+
+  core.setupMobileArrowPad = function() {
+    const btnUp = document.getElementById('btn-arrow-up');
+    const btnDown = document.getElementById('btn-arrow-down');
+    const btnLeft = document.getElementById('btn-arrow-left');
+    const btnRight = document.getElementById('btn-arrow-right');
+    const btnAction = document.getElementById('btn-arrow-action');
+    const btnToday = document.getElementById('btn-arrow-today');
+
+    const triggerHaptic = () => {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate(10); } catch (_) {}
+      }
+    };
+
+    if (btnUp) {
+      btnUp.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerHaptic();
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
+      });
+    }
+
+    if (btnDown) {
+      btnDown.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerHaptic();
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
+      });
+    }
+
+    if (btnLeft) {
+      btnLeft.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerHaptic();
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-7);
+      });
+    }
+
+    if (btnRight) {
+      btnRight.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerHaptic();
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(7);
+      });
+    }
+
+    if (btnToday) {
+      btnToday.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerHaptic();
+        if (core.setCursorDateKey && core.getTodayKey) {
+          core.setCursorDateKey(core.getTodayKey());
+        }
+      });
+    }
+
+    if (btnAction) {
+      btnAction.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerHaptic();
+        const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : (core.getTodayKey ? core.getTodayKey() : '');
+        const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) || core.hoveredCard || (core.elements && core.elements.heatmapsGallery ? core.elements.heatmapsGallery.querySelector('.heatmap-card') : null);
+        if (hoveredCard) {
+          const quickLogBtn = hoveredCard.querySelector('.btn-card-quick-log');
+          if (quickLogBtn) {
+            quickLogBtn.click();
+          } else {
+            const habitId = hoveredCard.getAttribute('data-habit-id') || hoveredCard.getAttribute('data-habit-id-raw');
+            if (habitId && habitId !== 'all') {
+              core.toggleHabitForDate(habitId, targetDate);
+            } else if (core.openLogModal) {
+              core.openLogModal(targetDate);
+            }
+          }
+        } else if (core.openLogModal) {
+          core.openLogModal(targetDate);
+        }
+      });
+    }
   };
 
   core._cursorTooltipTimer = null;
@@ -1632,6 +1745,27 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitHistoryInstances) core.elements.habitHistoryInstances.value = '1';
     }
 
+    const accordion = document.getElementById('advanced-settings-accordion');
+    if (accordion) {
+      if (habitToEdit) {
+        const hasAdvanced = Boolean(
+          (habitToEdit.description && habitToEdit.description.trim()) ||
+          (habitToEdit.category && habitToEdit.category !== 'General') ||
+          habitToEdit.parentId ||
+          habitToEdit.showStreak ||
+          habitToEdit.showDuration ||
+          habitToEdit.hideFromAll ||
+          habitToEdit.isPaused
+        );
+        accordion.open = hasAdvanced;
+      } else {
+        accordion.open = false;
+      }
+    }
+
+    const customColorContainer = document.getElementById('custom-color-container');
+    if (customColorContainer) customColorContainer.classList.add('hidden');
+
     const typeRadios = core.elements.formHabit ? core.elements.formHabit.querySelectorAll('input[name="habit-type"]') : [];
     typeRadios.forEach(radio => { radio.onchange = core.updateBackfillWordingUI; });
     core.updateBackfillWordingUI();
@@ -1650,6 +1784,20 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.syncCalendarColorDropdown = function(hex) {
+    const swatchBar = document.getElementById('color-swatch-bar');
+    if (swatchBar) {
+      const swatches = swatchBar.querySelectorAll('.swatch-btn[data-color]');
+      const upperHex = hex ? hex.toUpperCase() : '';
+      swatches.forEach(btn => {
+        const btnColor = btn.dataset.color ? btn.dataset.color.toUpperCase() : '';
+        if (upperHex && btnColor === upperHex) {
+          btn.classList.add('selected');
+        } else {
+          btn.classList.remove('selected');
+        }
+      });
+    }
+
     if (!core.elements.calendarColorSelect || !core.elements.calendarColorSelect.options) return;
     if (!hex) {
       core.elements.calendarColorSelect.value = '';
