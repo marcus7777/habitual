@@ -1815,6 +1815,30 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     HabitualCore.saveState = origSaveState;
   });
 
+  test('Firestore E2EE Sync Target and habit_data collection configuration', async () => {
+    assert(typeof HabitualCore.SyncTargets.Firestore === 'object', 'Firestore Sync Target defined');
+
+    // Test Sync Code Generation and Formatting
+    const code = HabitualCore.SyncTargets.Firestore.getSyncCode();
+    assert(code.startsWith('HAB-'), 'Sync Code starts with HAB- prefix');
+    assertEqual(code.length, 10, 'Sync Code is 10 characters long (HAB-XXXXXX)');
+
+    const customCode = HabitualCore.SyncTargets.Firestore.setSyncCode('hab-custom123');
+    assertEqual(customCode, 'HAB-CUSTOM123', 'Sync Code normalized to uppercase');
+    assertEqual(HabitualCore.SyncTargets.Firestore.getSyncCode(), 'HAB-CUSTOM123', 'Custom Sync Code persisted');
+
+    // Test E2EE Encryption with Master Passphrase
+    const testPayload = { habits: [{ id: 'water', logs: { '2026-10-07': { count: 2 } } }] };
+    const passphrase = 'SecretPassphrase123!';
+
+    const encryptedText = await HabitualCore.E2EE.encrypt(testPayload, passphrase);
+    assert(typeof encryptedText === 'string', 'Encrypted payload is string');
+    assert(encryptedText.includes('ciphertext'), 'Contains ciphertext field');
+
+    const decryptedPayload = await HabitualCore.E2EE.decrypt(encryptedText, passphrase);
+    assertEqual(decryptedPayload.habits[0].id, 'water', 'Decrypted habits ID matches');
+  });
+
   test('Conditional localStorage write and direct object payload loading', async () => {
     const origEngine = HabitualCore.activeStorageEngine;
 

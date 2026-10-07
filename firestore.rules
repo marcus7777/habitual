@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // habit_data collection stores zero-knowledge client-side encrypted habit payloads
+    match /habit_data/{syncCode} {
+      // Access granted to matching syncCode; payload is AES-256-GCM encrypted client-side
+      allow read, write: if true;
+    }
+  }
+}

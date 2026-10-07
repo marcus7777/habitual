@@ -130,12 +130,14 @@ Organize complex habit routines into structured parent-child trees:
 ---
 
 ### ☁️ 16. Multi-Target Cloud Sync, E2EE Encryption & High-Performance Granular Storage Engine
+- **🔥 Encrypted Firebase Firestore Live Sync (`habit_data`)**: Real-time Zero-Knowledge client-side encrypted cloud synchronization across devices via Firestore `onSnapshot`. Disabled by default & requires a Master Passphrase.
+- **Sync Channel Identifier Code**: Allows devices to pair and subscribe to the same encrypted document channel (`habit_data/{syncCode}`) without requiring server authentication or user login.
 - **High-Performance Granular Persistence ($O(1)$ Writes)**: Daily check-ins, journal notes, and habit updates save directly to targeted IndexedDB records (`saveLog`, `saveHabit`, `saveSettings`) without stringifying or rewriting the monolithic application state.
 - **Direct Object Payload Deserialization**: Reads structured objects directly from IndexedDB stores on app load, eliminating redundant `JSON.stringify` $\to$ `JSON.parse` roundtrips.
 - **Smart LocalStorage Fallback**: Prevents main-thread UI blocking and `QuotaExceededError` storage limits by executing full string writes only when `localStorage` is the active engine.
 - **Debounced Save Coalescing (`saveStateDebounced`)**: Coalesces rapid sequential flushes into a single debounced disk write.
-- **Multi-Target Cloud Syncing**: Sync habit data across multiple providers including **Google Drive**, **Dropbox**, **WebDAV**, and Local Storage.
-- **End-to-End Encryption (AES-256-GCM)**: All synced backups are encrypted client-side using Web Crypto API AES-256-GCM prior to transmission.
+- **Multi-Target Cloud Syncing**: Sync habit data across multiple providers including **Firebase Firestore**, **Google Drive**, **Dropbox**, **WebDAV**, and Local Storage.
+- **End-to-End Encryption (AES-256-GCM)**: All synced backups are encrypted client-side using Web Crypto API AES-256-GCM prior to transmission. Raw unencrypted data never touches external servers.
 - **CRDT-Inspired Non-Destructive Merging**: Pulls and merges updates from all active cloud providers using timestamped, non-destructive state payloads to ensure no data loss.
 - **Multiple Local Storage Engines**: Toggle between `localStorage`, `IndexedDB`, and `GunDB` P2P storage drivers with automatic data migration.
 

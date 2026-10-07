@@ -1220,12 +1220,37 @@ window.HabitualCore = window.HabitualCore || {};
       }
     },
 
-    // --- FIRESTORE E2EE CLOUD SYNC ---
+    // --- FIRESTORE E2EE CLOUD SYNC (collection: habit_data) ---
     Firestore: {
       db: null,
       unsubscribeListener: null,
       isListening: false,
       lastUpdatedServerTime: 0,
+
+      getSyncCode: function() {
+        let code = localStorage.getItem('habitual_firestore_sync_code');
+        if (!code) {
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+          let rnd = 'HAB-';
+          for (let i = 0; i < 6; i++) {
+            rnd += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          code = rnd;
+          localStorage.setItem('habitual_firestore_sync_code', code);
+        }
+        return code.toUpperCase().trim();
+      },
+
+      setSyncCode: function(newCode) {
+        if (!newCode || !newCode.trim()) return;
+        const formatted = newCode.toUpperCase().trim();
+        localStorage.setItem('habitual_firestore_sync_code', formatted);
+        if (this.isListening) {
+          this.stopLiveSync();
+          this.startLiveSync();
+        }
+        return formatted;
+      },
 
       init: function() {
         if (this.db) return Promise.resolve(this.db);
@@ -1249,28 +1274,16 @@ window.HabitualCore = window.HabitualCore || {};
           });
       },
 
-      getDocId: function(passphrase) {
-        if (!passphrase) return Promise.reject(new Error('Passphrase required for Firestore E2EE'));
-        const encoder = new TextEncoder();
-        const data = encoder.encode(passphrase);
-        return crypto.subtle.digest('SHA-256', data).then(function(hashBuffer) {
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-          return 'sync_' + hashHex.substring(0, 32);
-        });
-      },
-
       uploadBackup: function(encryptedText) {
         const self = this;
         const passphrase = core.SyncManager.settings.passphrase;
         if (!passphrase) {
           return Promise.reject(new Error('E2EE Master Passphrase is required for Firestore Cloud Sync'));
         }
+        const syncCode = this.getSyncCode();
 
         return this.init().then(function() {
-          return self.getDocId(passphrase);
-        }).then(function(docId) {
-          return self.db.collection('habitual_sync').doc(docId).set({
+          return self.db.collection('habit_data').doc(syncCode).set({
             ciphertext: encryptedText,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
@@ -1281,11 +1294,10 @@ window.HabitualCore = window.HabitualCore || {};
         const self = this;
         const passphrase = core.SyncManager.settings.passphrase;
         if (!passphrase) return Promise.resolve(null);
+        const syncCode = this.getSyncCode();
 
         return this.init().then(function() {
-          return self.getDocId(passphrase);
-        }).then(function(docId) {
-          return self.db.collection('habitual_sync').doc(docId).get();
+          return self.db.collection('habit_data').doc(syncCode).get();
         }).then(function(doc) {
           if (doc && doc.exists && doc.data().ciphertext) {
             return doc.data().ciphertext;
@@ -1298,12 +1310,11 @@ window.HabitualCore = window.HabitualCore || {};
         const self = this;
         const passphrase = core.SyncManager.settings.passphrase;
         if (!passphrase || this.isListening) return;
+        const syncCode = this.getSyncCode();
 
         this.init().then(function() {
-          return self.getDocId(passphrase);
-        }).then(function(docId) {
           self.isListening = true;
-          self.unsubscribeListener = self.db.collection('habitual_sync').doc(docId)
+          self.unsubscribeListener = self.db.collection('habit_data').doc(syncCode)
             .onSnapshot(function(doc) {
               if (!doc.exists) return;
               const data = doc.data();
@@ -1326,7 +1337,7 @@ window.HabitualCore = window.HabitualCore || {};
                 if (core.renderAll) core.renderAll();
                 if (core.showToast) core.showToast('⚡ Encrypted Firestore Live Sync Received!', 'info');
               }).catch(function(e) {
-                console.warn('Firestore Decrypt Error (wrong key?):', e);
+                console.warn('Firestore Decrypt Error (wrong passphrase?):', e);
               });
             }, function(err) {
               console.warn('Firestore Live Snapshot Error:', err);
