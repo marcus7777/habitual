@@ -1,9 +1,10 @@
 /* Habitual */
 
-const CACHE_NAME = 'habitual-v1.10.15';
+const CACHE_NAME = 'habitual-v1.10.16';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './sync.html',
   './styles.css',
   './app.js',
   './manifest.json',
