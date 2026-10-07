@@ -4,8 +4,8 @@ window.HabitualCore = window.HabitualCore || {};
   'use strict';
 
   core.AudioSync = {
-    ggwave: null,
-    ggwaveFactory: null,
+    ggwaveModule: null,
+    instance: null,
     audioCtx: null,
     initPromise: null,
 
@@ -23,9 +23,15 @@ window.HabitualCore = window.HabitualCore || {};
 
           const factory = getFactory();
           if (factory) {
-             self.ggwaveFactory = factory;
              // Initialize GGwave WebAssembly module
-             self.ggwave = await factory();
+             self.ggwaveModule = await factory();
+
+             // Initialize GGwave instance handle with sample format settings
+             const params = self.ggwaveModule.getDefaultParameters();
+             params.sampleFormatInp = self.ggwaveModule.SampleFormat.GGWAVE_SAMPLE_FORMAT_I8;
+             params.sampleFormatOut = self.ggwaveModule.SampleFormat.GGWAVE_SAMPLE_FORMAT_I8;
+             self.instance = self.ggwaveModule.init(params);
+
              resolve();
           } else {
              reject(new Error('Failed to load GGwave library.'));
@@ -56,14 +62,16 @@ window.HabitualCore = window.HabitualCore || {};
       await this.init();
       const ctx = this.getAudioContext();
 
-      // Protocol: 1 = Fast, 0 = Normal, 2 = Fastest
-      // ggwave.encode(instance, payload, protocol, volume)
-      const waveform = this.ggwave.encode(this.ggwave, 'HAB:' + code, 1, 10);
-      if (!waveform) throw new Error('Failed to encode audio chirp.');
+      const protocol = this.ggwaveModule.ProtocolId.GGWAVE_PROTOCOL_AUDIBLE_FAST;
+      const waveform = this.ggwaveModule.encode(this.instance, 'HAB:' + code, protocol, 10);
+      if (!waveform || waveform.length === 0) throw new Error('Failed to encode audio chirp.');
 
-      // Play waveform through WebAudio
-      const buf = ctx.createBuffer(1, waveform.length, ctx.sampleRate);
-      buf.getChannelData(0).set(waveform);
+      // Play waveform through WebAudio (Convert Int8 PCM to Float32 [-1.0, 1.0])
+      const buf = ctx.createBuffer(1, waveform.length, 48000);
+      const channel = buf.getChannelData(0);
+      for (let i = 0; i < waveform.length; i++) {
+        channel[i] = waveform[i] / 128.0;
+      }
 
       const src = ctx.createBufferSource();
       src.buffer = buf;
@@ -108,10 +116,14 @@ window.HabitualCore = window.HabitualCore || {};
           if (isDone) return;
           const inputData = e.inputBuffer.getChannelData(0);
 
-          // ggwave.decode(instance, pPCM8) or pass Float32 array
-          const decoded = this.ggwave.decode(this.ggwave, inputData);
+          // Convert Float32Array [-1.0, 1.0] to Int8Array [-128, 127]
+          const pcm8 = new Int8Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            pcm8[i] = Math.max(-128, Math.min(127, Math.floor(inputData[i] * 128)));
+          }
+
+          const decoded = this.ggwaveModule.decode(this.instance, pcm8);
           if (decoded && decoded.length > 0) {
-            // Decoded is Int8Array or Uint8Array of characters
             const str = String.fromCharCode.apply(null, decoded);
             if (str.startsWith('HAB:')) {
               const code = str.substring(4).trim();
@@ -141,7 +153,7 @@ window.HabitualCore = window.HabitualCore || {};
         const buffer = await new Response(cs.readable).arrayBuffer();
         return new Uint8Array(buffer);
       }
-      return rawBytes; // Fallback to raw uncompressed
+      return rawBytes;
     },
 
     decompressJSON: async function(uint8Arr) {
@@ -155,7 +167,6 @@ window.HabitualCore = window.HabitualCore || {};
           const dec = new TextDecoder();
           return JSON.parse(dec.decode(buffer));
         } catch (e) {
-          // Fallback parsing as raw uncompressed
           const dec = new TextDecoder();
           return JSON.parse(dec.decode(uint8Arr));
         }
@@ -175,7 +186,6 @@ window.HabitualCore = window.HabitualCore || {};
 
       const compressedBytes = await this.compressJSON(payload);
 
-      // Chunk compressed bytes into small 20-byte packets
       const chunkSize = 18;
       const totalChunks = Math.ceil(compressedBytes.length / chunkSize);
 
@@ -183,11 +193,13 @@ window.HabitualCore = window.HabitualCore || {};
         core.showToast(`🔊 Broadcasting ${isDelta ? 'Delta' : 'Full'} Data (${compressedBytes.length} bytes over ${totalChunks} chirps)...`, 'info');
       }
 
+      const protocol = this.ggwaveModule.ProtocolId.GGWAVE_PROTOCOL_AUDIBLE_FAST;
+
       for (let i = 0; i < totalChunks; i++) {
         const start = i * chunkSize;
         const chunk = compressedBytes.slice(start, start + chunkSize);
 
-        // Packet Header: [ 'H', 'D', chunkIndex, totalChunks, ...chunkData ]
+        // Header: [ 'H', 'D', chunkIndex, totalChunks, ...chunkData ]
         const packet = new Uint8Array(4 + chunk.length);
         packet[0] = 72; // 'H'
         packet[1] = 68; // 'D'
@@ -195,18 +207,25 @@ window.HabitualCore = window.HabitualCore || {};
         packet[3] = totalChunks;
         packet.set(chunk, 4);
 
-        // Encode and play
-        const waveform = this.ggwave.encode(this.ggwave, packet, 1, 10);
-        if (waveform) {
-          const buf = ctx.createBuffer(1, waveform.length, ctx.sampleRate);
-          buf.getChannelData(0).set(waveform);
+        let packetStr = '';
+        for (let j = 0; j < packet.length; j++) {
+          packetStr += String.fromCharCode(packet[j]);
+        }
+
+        const waveform = this.ggwaveModule.encode(this.instance, packetStr, protocol, 10);
+        if (waveform && waveform.length > 0) {
+          const buf = ctx.createBuffer(1, waveform.length, 48000);
+          const channel = buf.getChannelData(0);
+          for (let k = 0; k < waveform.length; k++) {
+            channel[k] = waveform[k] / 128.0;
+          }
+
           const src = ctx.createBufferSource();
           src.buffer = buf;
           src.connect(ctx.destination);
           src.start();
 
           await new Promise(resolve => src.onended = resolve);
-          // Brief pause between chirps
           await new Promise(resolve => setTimeout(resolve, 200));
         }
 
@@ -253,9 +272,13 @@ window.HabitualCore = window.HabitualCore || {};
           if (isDone) return;
           const inputData = e.inputBuffer.getChannelData(0);
 
-          const decoded = this.ggwave.decode(this.ggwave, inputData);
+          const pcm8 = new Int8Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            pcm8[i] = Math.max(-128, Math.min(127, Math.floor(inputData[i] * 128)));
+          }
+
+          const decoded = this.ggwaveModule.decode(this.instance, pcm8);
           if (decoded && decoded.length >= 4) {
-            // Check Header ('H', 'D')
             if (decoded[0] === 72 && decoded[1] === 68) {
               const chunkIdx = decoded[2];
               const totalChunks = decoded[3];
@@ -269,7 +292,6 @@ window.HabitualCore = window.HabitualCore || {};
 
                 if (chunksMap.size === expectedTotal) {
                   cleanup();
-                  // Reassemble Uint8Array
                   let totalLen = 0;
                   for (let i = 0; i < expectedTotal; i++) {
                     totalLen += (chunksMap.get(i) || new Uint8Array()).length;
@@ -285,7 +307,6 @@ window.HabitualCore = window.HabitualCore || {};
                   try {
                     const receivedPayload = await this.decompressJSON(fullBytes);
 
-                    // Merge payload into current state
                     const localPayload = core.getPayloadFromState();
                     const merged = core.mergeStatePayloads(localPayload, receivedPayload);
                     core.applyPayloadToState(merged);

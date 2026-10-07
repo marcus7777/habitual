@@ -343,7 +343,7 @@ window.HabitualCore = window.HabitualCore || {};
     const isP2PEnabled = urlParams.get('p2p') === '1' || urlParams.get('P2P') === '1' || urlParams.get('p2p') === 'true' || urlParams.get('gundb') === '1';
 
     const selectStorageEngine = document.getElementById('select-storage-engine');
-    const gunDBOption = selectStorageEngine ? selectStorageEngine.querySelector('option[value="gunDB"]') : null;
+    const gunDBOption = (selectStorageEngine && selectStorageEngine.querySelector) ? selectStorageEngine.querySelector('option[value="gunDB"]') : null;
     if (gunDBOption) {
       if (isP2PEnabled || core.activeStorageEngine === 'gunDB') {
         gunDBOption.style.display = '';
