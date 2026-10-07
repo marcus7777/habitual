@@ -1777,6 +1777,81 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     assertEqual(h.logs['2026-10-06'].count, 2, 'Recent log is preserved');
   });
 
+  test('Granular storage APIs saveLog, saveHabit, saveSettings and saveStateDebounced', async () => {
+    assert(typeof HabitualCore.LocalStorageDriver.saveLog === 'function', 'LocalStorageDriver.saveLog defined');
+    assert(typeof HabitualCore.LocalStorageDriver.saveHabit === 'function', 'LocalStorageDriver.saveHabit defined');
+    assert(typeof HabitualCore.LocalStorageDriver.saveSettings === 'function', 'LocalStorageDriver.saveSettings defined');
+
+    assert(typeof HabitualCore.saveLog === 'function', 'core.saveLog function defined');
+    assert(typeof HabitualCore.saveHabit === 'function', 'core.saveHabit function defined');
+    assert(typeof HabitualCore.saveSettings === 'function', 'core.saveSettings function defined');
+    assert(typeof HabitualCore.saveStateDebounced === 'function', 'core.saveStateDebounced function defined');
+
+    // Test saveLog execution
+    HabitualCore.state.habits = [{ id: 'test_habit', name: 'Test Habit', logs: {} }];
+    const logRes = await HabitualCore.saveLog('test_habit', '2026-10-07', 3, 'Granular log test');
+    assert(logRes === true, 'saveLog returned true');
+
+    // Test saveHabit execution
+    const habitRes = await HabitualCore.saveHabit(HabitualCore.state.habits[0]);
+    assert(habitRes === true, 'saveHabit returned true');
+
+    // Test saveSettings execution
+    const settingsRes = await HabitualCore.saveSettings({ selectedYear: 2026 });
+    assert(settingsRes === true, 'saveSettings returned true');
+
+    // Test saveStateDebounced batches call
+    let saveCount = 0;
+    const origSaveState = HabitualCore.saveState;
+    HabitualCore.saveState = function() { saveCount++; };
+
+    HabitualCore.saveStateDebounced(50);
+    HabitualCore.saveStateDebounced(50);
+    HabitualCore.saveStateDebounced(50);
+
+    await new Promise(r => setTimeout(r, 100));
+    assertEqual(saveCount, 1, 'Debounced saveState coalesced 3 calls into 1 save');
+
+    HabitualCore.saveState = origSaveState;
+  });
+
+  test('Conditional localStorage write and direct object payload loading', async () => {
+    const origEngine = HabitualCore.activeStorageEngine;
+
+    // Test localStorage active engine writes full key
+    HabitualCore.setStorageEngine('localStorage');
+    HabitualCore.saveState();
+    assert(localStorage.getItem(HabitualCore.STORAGE_KEY) !== null, 'LocalStorage contains full state payload when localStorage engine is active');
+
+    // Test indexedDB active engine skips full localStorage rewrite
+    HabitualCore.setStorageEngine('indexedDB');
+    localStorage.removeItem(HabitualCore.STORAGE_KEY);
+    HabitualCore.saveState();
+    assertEqual(localStorage.getItem('habitual_v2_active_engine'), 'indexedDB', 'Non-localStorage engine sets lightweight active engine key in localStorage');
+
+    // Restore original engine
+    HabitualCore.setStorageEngine(origEngine);
+  });
+
+  test('toggleHabitForDate invokes targeted saveLog persistence', async () => {
+    let savedLogData = null;
+    const origSaveLog = HabitualCore.saveLog;
+    HabitualCore.saveLog = function(habitId, dateKey, count, note) {
+      savedLogData = { habitId, dateKey, count, note };
+      return Promise.resolve(true);
+    };
+
+    HabitualCore.state.habits = [{ id: 'water_test', name: 'Water Test', logs: {} }];
+    HabitualCore.toggleHabitForDate('water_test', '2026-10-07');
+
+    assert(savedLogData !== null, 'toggleHabitForDate triggered saveLog');
+    assertEqual(savedLogData.habitId, 'water_test', 'saveLog called with habitId');
+    assertEqual(savedLogData.dateKey, '2026-10-07', 'saveLog called with dateKey');
+    assertEqual(savedLogData.count, 1, 'saveLog called with incremented count = 1');
+
+    HabitualCore.saveLog = origSaveLog;
+  });
+
   test('AudioSync ggwave encode and decode roundtrip', async () => {
     if (!global.AudioContext && !global.webkitAudioContext) {
       global.AudioContext = class {

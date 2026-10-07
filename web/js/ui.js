@@ -480,7 +480,33 @@ window.HabitualCore = window.HabitualCore || {};
     if (btnSavePassphrase && inputPassphrase) {
       btnSavePassphrase.addEventListener('click', () => {
         core.SyncManager.setPassphrase(inputPassphrase.value);
-        if (core.showToast) core.showToast('Master encryption key saved!');
+        if (core.showToast) core.showToast('Master encryption key saved!', 'success');
+      });
+    }
+
+    // Firestore Live Sync Toggle (Off by default, requires Master Passphrase)
+    const chkFirestore = document.getElementById('chk-sync-firestore');
+    if (chkFirestore) {
+      chkFirestore.checked = core.SyncManager.isTargetEnabled('firestore');
+      chkFirestore.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          const currentPassphrase = core.SyncManager.settings.passphrase;
+          if (!currentPassphrase || currentPassphrase.trim().length === 0) {
+            e.target.checked = false;
+            if (inputPassphrase) inputPassphrase.focus();
+            if (core.showToast) {
+              core.showToast('⚠️ Please enter and save a Master Passphrase first!', 'error');
+            } else {
+              alert('Please enter and save a Master Encryption Passphrase first!');
+            }
+            return;
+          }
+          core.SyncManager.toggleTarget('firestore', true);
+          if (core.showToast) core.showToast('🔥 Encrypted Firestore Live Sync Enabled!', 'success');
+        } else {
+          core.SyncManager.toggleTarget('firestore', false);
+          if (core.showToast) core.showToast('Firestore Sync Disabled.');
+        }
       });
     }
 
@@ -1276,7 +1302,11 @@ window.HabitualCore = window.HabitualCore || {};
         const habit = core.state.habits.find(h => h.id === btn.dataset.habitId);
         if (habit) {
           core.setHabitPauseState(habit, !habit.isPaused);
-          if (core.saveState) core.saveState();
+          if (core.saveHabit) {
+            core.saveHabit(habit);
+          } else if (core.saveState) {
+            core.saveState();
+          }
           if (core.renderAll) core.renderAll();
         }
       });
@@ -1979,7 +2009,11 @@ window.HabitualCore = window.HabitualCore || {};
     const note = core.elements.modalLogNote.value.trim();
     habit.logs[core.activeLogDateKey] = { count, note };
     core.applyParentDependencyOnLog(habit, core.activeLogDateKey, count);
-    if (core.saveState) core.saveState();
+    if (core.saveLog) {
+      core.saveLog(habitId, core.activeLogDateKey, count, note);
+    } else if (core.saveState) {
+      core.saveState();
+    }
     if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
     if (core.renderAll) core.renderAll();
   };
@@ -1989,7 +2023,11 @@ window.HabitualCore = window.HabitualCore || {};
     const habit = core.state.habits.find(h => h.id === habitId);
     if (habit && habit.logs && habit.logs[core.activeLogDateKey]) {
       delete habit.logs[core.activeLogDateKey];
-      if (core.saveState) core.saveState();
+      if (core.saveLog) {
+        core.saveLog(habitId, core.activeLogDateKey, 0, '');
+      } else if (core.saveState) {
+        core.saveState();
+      }
       if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
       if (core.renderAll) core.renderAll();
     }
