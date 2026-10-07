@@ -214,7 +214,7 @@
           </div>
         </div>
       </div>
-      <p>Habitual &bull; v1.11.2</p>
+      <p>Habitual &bull; v1.11.3</p>
     </footer>
   </div>
 
@@ -424,25 +424,14 @@
 
           <div class="form-group">
             <label>Heatmap Colour Theme</label>
-            <div class="color-swatch-bar" id="color-swatch-bar">
-              <button type="button" class="swatch-btn" data-color="#0B8043" style="background-color: #0B8043;" title="Basil (#0B8043)"></button>
-              <button type="button" class="swatch-btn" data-color="#39d353" style="background-color: #39d353;" title="Green (#39d353)"></button>
-              <button type="button" class="swatch-btn" data-color="#039BE5" style="background-color: #039BE5;" title="Peacock (#039BE5)"></button>
-              <button type="button" class="swatch-btn" data-color="#8E24AA" style="background-color: #8E24AA;" title="Grape (#8E24AA)"></button>
-              <button type="button" class="swatch-btn" data-color="#F4511E" style="background-color: #F4511E;" title="Tangerine (#F4511E)"></button>
-              <button type="button" class="swatch-btn" data-color="#D50000" style="background-color: #D50000;" title="Tomato (#D50000)"></button>
-              <button type="button" class="swatch-btn" data-color="#F6BF26" style="background-color: #F6BF26;" title="Banana (#F6BF26)"></button>
-              <button type="button" class="swatch-btn" data-color="#795548" style="background-color: #795548;" title="Cocoa (#795548)"></button>
-              <button type="button" class="swatch-btn swatch-btn-more" id="btn-toggle-custom-color" title="More Colors / Custom HEX">🎨</button>
-            </div>
-
-            <!-- Custom HEX & Full Select Controls (Collapsible) -->
-            <div class="custom-color-input-container margin-top-sm hidden" id="custom-color-container">
+            <div class="custom-color-input-container">
               <div class="custom-color-picker-row">
                 <input type="color" name="habit-custom-color-picker" id="habit-custom-color-picker" value="#39d353" class="color-picker-input" title="Choose color visually" aria-label="Custom Color Picker">
                 <input type="text" name="habit-custom-color-hex" id="habit-custom-color-hex" class="text-input hex-input" placeholder="#39d353" value="#39d353" maxlength="7" spellcheck="false" aria-label="Custom HEX Code">
                 <span class="hex-label-hint">Custom HEX Code</span>
               </div>
+
+              <!-- Colors Dropdown -->
               <div style="margin-top: 8px;">
                 <select id="habit-calendar-color-select" name="habit-calendar-color-select" class="select-input" style="width: 100%; font-size: 0.88rem; padding: 6px 10px;" aria-label="Select Colour">
                   <option value="" disabled selected>-- 🎨 Select Preset Color --</option>
