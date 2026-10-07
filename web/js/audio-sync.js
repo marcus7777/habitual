@@ -16,7 +16,7 @@ window.HabitualCore = window.HabitualCore || {};
       this.initPromise = new Promise(async (resolve, reject) => {
         try {
           if (!window.ggwave) {
-            await core.loadScript('https://cdn.jsdelivr.net/npm/ggwave@1.3.0/ggwave.js');
+            await core.loadScript('lib/ggwave.js');
           }
           if (window.ggwave) {
              self.ggwaveFactory = window.ggwave;

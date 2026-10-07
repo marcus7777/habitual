@@ -1,10 +1,11 @@
 {
   "name": "habitual",
-  "version": "1.10.6",
+  "version": "1.10.7",
   "description": "Minimalist 100% fluid GitHub-style habit progression visualizer",
   "main": "web/app.js",
   "scripts": {
     "test": "node tests/run-tests.js",
+    "test:android": "node tests/test-android-playwright.js",
     "bump": "node bump-version.js",
     "gundb-server": "node server/index.js"
   },
@@ -23,5 +24,8 @@
   "allowScripts": {
     "re2@1.27.0": true,
     "protobufjs@7.6.6": true
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }
