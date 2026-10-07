@@ -4,288 +4,298 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habitual - Data Management & Sync</title>
+
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="theme-color" content="#0d1117">
+  <meta name="description" content="Data management, zero-knowledge encryption, and sync hub for Habitual">
+
+  <!-- Icons & Web Manifest -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Local Fonts & Stylesheets -->
   <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="styles.css">
-  <style>
-    body {
-      background-color: var(--bg-primary);
-      color: var(--text-primary);
-      font-family: var(--font-main);
-      padding: 2rem 1rem;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-    .sync-page-container {
-      width: 100%;
-    }
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 1.5rem;
-      color: var(--accent-color);
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-    .back-link:hover {
-      text-decoration: underline;
-    }
-    .page-header {
-      margin-bottom: 2rem;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 1rem;
-    }
-    .page-header h1 {
-      margin: 0 0 0.5rem 0;
-      font-size: 1.8rem;
-    }
-    .sync-content-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-  </style>
 </head>
-<body>
-  <div class="sync-page-container">
-    <a href="index.html" class="back-link">&larr; Back to Habitual App</a>
+<body class="dark-theme">
+  <div id="app" class="app-container">
+    <!-- Navigation Header -->
+    <header class="app-header">
+      <a href="index.html" class="header-brand" title="Habitual - Go to Home">
+        <div class="logo-icon" title="Habitual Visualizer">
+          <svg class="logo-svg" width="38" height="38" viewBox="0 0 32 32" aria-hidden="true">
+            <path fill="#352f2f" d="M0,0h32v1h-32zM0,1h32v1h-32zM0,2h32v1h-32zM0,3h4v1h-4zM10,3h3v1h-3zM19,3h3v1h-3zM28,3h4v1h-4zM0,4h3v1h-3zM11,4h1v1h-1zM20,4h1v1h-1zM29,4h3v1h-3zM0,5h3v1h-3zM11,5h1v1h-1zM15,5h3v1h-3zM20,5h1v1h-1zM29,5h3v1h-3zM0,6h3v1h-3zM11,6h1v1h-1zM14,6h1v1h-1zM17,6h1v1h-1zM20,6h1v1h-1zM29,6h3v1h-3zM0,7h3v1h-3zM11,7h1v1h-1zM14,7h1v1h-1zM17,7h1v1h-1zM20,7h1v1h-1zM29,7h3v1h-3zM0,8h3v1h-3zM11,8h1v1h-1zM14,8h4v1h-4zM20,8h1v1h-1zM29,8h3v1h-3zM0,9h3v1h-3zM11,9h1v1h-1zM14,9h1v1h-1zM17,9h1v1h-1zM20,9h1v1h-1zM29,9h3v1h-3zM0,10h4v1h-4zM10,10h3v1h-3zM19,10h3v1h-3zM28,10h4v1h-4zM0,11h32v1h-32zM0,12h4v1h-4zM10,12h3v1h-3zM19,12h3v1h-3zM28,12h4v1h-4zM0,13h3v1h-3zM11,13h1v1h-1zM20,13h1v1h-1zM29,13h3v1h-3zM0,14h3v1h-3zM5,14h3v1h-3zM11,14h1v1h-1zM20,14h1v1h-1zM29,14h3v1h-3zM0,15h3v1h-3zM6,15h1v1h-1zM11,15h1v1h-1zM20,15h1v1h-1zM29,15h3v1h-3zM0,16h3v1h-3zM6,16h1v1h-1zM11,16h1v1h-1zM20,16h1v1h-1zM29,16h3v1h-3zM0,17h3v1h-3zM6,17h1v1h-1zM11,17h1v1h-1zM20,17h1v1h-1zM29,17h3v1h-3zM0,18h3v1h-3zM5,18h3v1h-3zM11,18h1v1h-1zM20,18h1v1h-1zM29,18h3v1h-3zM0,19h4v1h-4zM10,19h3v1h-3zM19,19h3v1h-3zM28,19h4v1h-4zM0,20h32v1h-32zM0,21h4v1h-4zM10,21h3v1h-3zM19,21h3v1h-3zM28,21h4v1h-4zM0,22h3v1h-3zM11,22h1v1h-1zM20,22h1v1h-1zM29,22h3v1h-3zM0,23h3v1h-3zM6,23h3v1h-3zM11,23h1v1h-1zM20,23h1v1h-1zM29,23h3v1h-3zM0,24h3v1h-3zM5,24h1v1h-1zM8,24h1v1h-1zM11,24h1v1h-1zM20,24h1v1h-1zM29,24h3v1h-3zM0,25h3v1h-3zM5,25h1v1h-1zM8,25h1v1h-1zM11,25h1v1h-1zM20,25h1v1h-1zM29,25h3v1h-3zM0,26h3v1h-3zM5,26h4v1h-4zM11,26h1v1h-1zM20,26h1v1h-1zM29,26h3v1h-3zM0,27h3v1h-3zM5,27h1v1h-1zM8,27h1v1h-1zM11,27h1v1h-1zM20,27h1v1h-1zM29,27h3v1h-3zM0,28h4v1h-4zM10,28h3v1h-3zM19,28h3v1h-3zM28,28h4v1h-4zM0,29h32v1h-32zM0,30h32v1h-32zM0,31h32v1h-32z"/>
+            <path fill="#1088ac" d="M4,3h6v1h-6zM3,4h8v1h-8zM3,5h2v1h-2zM6,5h2v1h-2zM9,5h2v1h-2zM3,6h2v1h-2zM6,6h2v1h-2zM9,6h2v1h-2zM3,7h2v1h-2zM9,7h2v1h-2zM3,8h2v1h-2zM6,8h2v1h-2zM9,8h2v1h-2zM3,9h2v1h-2zM6,9h2v1h-2zM9,9h2v1h-2zM4,10h6v1h-6zM22,12h4v1h-4zM21,13h4v1h-4zM21,14h2v1h-2zM21,15h2v1h-2zM21,16h1v1h-1zM4,21h6v1h-6zM13,21h6v1h-6zM3,22h7v1h-7zM12,22h8v1h-8zM3,23h3v1h-3zM12,23h2v1h-2zM15,23h5v1h-5zM3,24h2v1h-2zM6,24h1v1h-1zM12,24h2v1h-2zM15,24h5v1h-5zM3,25h2v1h-2zM12,25h2v1h-2zM15,25h5v1h-5zM3,26h2v1h-2zM12,26h2v1h-2zM15,26h5v1h-5zM3,27h1v1h-1zM12,27h2v1h-2zM18,27h2v1h-2zM13,28h6v1h-6z"/>
+            <path fill="#ffb433" d="M13,3h6v1h-6zM12,4h8v1h-8zM12,5h3v1h-3zM18,5h2v1h-2zM12,6h2v1h-2zM15,6h2v1h-2zM18,6h2v1h-2zM12,7h2v1h-2zM15,7h2v1h-2zM18,7h2v1h-2zM12,8h2v1h-2zM18,8h2v1h-2zM12,9h2v1h-2zM15,9h2v1h-2zM18,9h2v1h-2zM13,10h6v1h-6zM4,12h6v1h-6zM3,13h8v1h-8zM3,14h2v1h-2zM8,14h3v1h-3zM3,15h3v1h-3zM7,15h4v1h-4zM28,15h1v1h-1zM3,16h3v1h-3zM7,16h4v1h-4zM27,16h2v1h-2zM3,17h3v1h-3zM7,17h4v1h-4zM27,17h2v1h-2zM3,18h2v1h-2zM8,18h3v1h-3zM26,18h3v1h-3zM4,19h6v1h-6zM24,19h4v1h-4zM10,22h1v1h-1zM9,23h2v1h-2zM7,24h1v1h-1zM9,24h2v1h-2zM6,25h2v1h-2zM9,25h2v1h-2zM9,26h2v1h-2zM4,27h1v1h-1zM6,27h2v1h-2zM9,27h2v1h-2zM4,28h6v1h-6z"/>
+            <path fill="#cf3525" d="M22,3h6v1h-6zM21,4h8v1h-8zM21,5h2v1h-2zM26,5h3v1h-3zM21,6h2v1h-2zM24,6h2v1h-2zM27,6h2v1h-2zM21,7h2v1h-2zM26,7h3v1h-3zM21,8h2v1h-2zM24,8h2v1h-2zM27,8h2v1h-2zM21,9h2v1h-2zM26,9h3v1h-3zM22,10h6v1h-6zM13,12h6v1h-6zM26,12h2v1h-2zM12,13h8v1h-8zM25,13h4v1h-4zM12,14h1v1h-1zM18,14h2v1h-2zM24,14h2v1h-2zM27,14h2v1h-2zM12,15h3v1h-3zM16,15h4v1h-4zM24,15h2v1h-2zM27,15h1v1h-1zM12,16h3v1h-3zM16,16h4v1h-4zM22,16h1v1h-1zM24,16h2v1h-2zM12,17h3v1h-3zM16,17h4v1h-4zM21,17h2v1h-2zM24,17h2v1h-2zM12,18h3v1h-3zM16,18h4v1h-4zM21,18h3v1h-3zM13,19h6v1h-6zM22,19h2v1h-2z"/>
+            <path fill="#ffffff" d="M5,5h1v1h-1zM8,5h1v1h-1zM23,5h3v1h-3zM5,6h1v1h-1zM8,6h1v1h-1zM23,6h1v1h-1zM26,6h1v1h-1zM5,7h4v1h-4zM23,7h3v1h-3zM5,8h1v1h-1zM8,8h1v1h-1zM23,8h1v1h-1zM26,8h1v1h-1zM5,9h1v1h-1zM8,9h1v1h-1zM23,9h3v1h-3zM13,14h5v1h-5zM23,14h1v1h-1zM26,14h1v1h-1zM15,15h1v1h-1zM23,15h1v1h-1zM26,15h1v1h-1zM15,16h1v1h-1zM23,16h1v1h-1zM26,16h1v1h-1zM15,17h1v1h-1zM23,17h1v1h-1zM26,17h1v1h-1zM15,18h1v1h-1zM24,18h2v1h-2zM14,23h1v1h-1zM14,24h1v1h-1zM14,25h1v1h-1zM14,26h1v1h-1zM14,27h4v1h-4z"/>
+            <path fill="#666666" d="M22,21h6v1h-6zM21,22h8v1h-8zM21,23h8v1h-8zM21,24h8v1h-8zM21,25h8v1h-8zM21,27h8v1h-8zM22,28h6v1h-6z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Habitual</h1>
+          <span class="brand-tagline">Data Management & Sync</span>
+        </div>
+      </a>
 
-    <header class="page-header">
-      <h1>💾 Data Management & Sync</h1>
-      <p class="muted-text">Manage local storage engines, P2P sound sync, E2EE encryption keys, cloud backups, and data imports/exports.</p>
+      <a href="index.html" class="btn btn-secondary flex-row" style="gap: 6px; text-decoration: none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        <span>Back to Heatmaps</span>
+      </a>
     </header>
 
-    <main class="sync-content-grid">
-      <!-- Section 1: Local Storage Engine -->
-      <div class="data-option-card highlight-card">
-        <div class="data-option-info">
-          <h4>💾 Local Storage Engine</h4>
-          <p class="muted-text">Choose your local database engine. IndexedDB bypasses browser 5MB storage limits. GunDB enables decentralized P2P sync.</p>
-        </div>
-        <div class="engine-selector-group">
-          <select id="select-storage-engine" class="form-control-sm" aria-label="Storage Engine">
-            <option value="localStorage">Local Storage (Fast, 5MB limit)</option>
-            <option value="indexedDB">IndexedDB (Large scale, Unlimited)</option>
-            <option value="gunDB">GunDB (Decentralized P2P)</option>
-          </select>
-          <button id="btn-migrate-engine" class="btn btn-secondary btn-sm">Migrate Data</button>
+    <main class="main-content" style="max-width: 960px; margin: 0 auto; width: 100%;">
+      <!-- Hero Banner Card -->
+      <div class="sync-hero-card">
+        <div class="sync-hero-info">
+          <h1>
+            <span>💾 Data Management & Sync</span>
+            <span class="sync-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Encrypted & Local-First
+            </span>
+          </h1>
+          <p class="muted-text">Manage local storage engines, P2P sound sync, E2EE encryption keys, cloud backups, and data imports/exports.</p>
         </div>
       </div>
 
-      <!-- Section 1.5: GunDB Peer Sync (Hidden by default) -->
-      <div class="data-option-card highlight-card" id="gundb-sync-panel" style="display: none; border-color: var(--accent-color);">
-        <div class="data-option-info">
-          <h4>🌐 Decentralized Peer Sync</h4>
-          <p class="muted-text">Connect another device to your GunDB to sync data directly over P2P relays.</p>
-        </div>
-
-        <div style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 6px;">
-          <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.3rem; display: block;">Your Sync Code (Copy to another device)</label>
-          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-            <input type="text" id="gundb-sync-code-output" class="form-control-sm" readonly style="flex: 1; font-family: monospace; font-size: 1.2rem; letter-spacing: 2px; font-weight: bold; text-align: center;" placeholder="Loading code...">
-            <button id="btn-copy-gundb-code" class="btn-sm btn-secondary">Copy</button>
-          </div>
-
-          <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.3rem; display: block;">Join a Peer</label>
-          <div style="display: flex; gap: 0.5rem;">
-            <input type="text" id="gundb-sync-code-input" class="form-control-sm" style="flex: 1; font-family: monospace; font-size: 1.2rem; letter-spacing: 2px; font-weight: bold; text-align: center; text-transform: uppercase;" placeholder="6-CHAR CODE">
-            <button id="btn-join-gundb" class="btn-sm btn-primary">Join</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section 2: End-to-End Encryption (E2EE) Passphrase -->
-      <div id="section-e2ee-passphrase" class="data-option-card highlight-card">
-        <div class="data-option-info">
-          <h4>🔒 Master Encryption Passphrase (E2EE)</h4>
-          <p class="muted-text">Zero-knowledge client-side encryption key (AES-256-GCM). Required for Firestore Live Sync.</p>
-        </div>
-        <div class="input-inline-group">
-          <input type="password" id="input-sync-passphrase" class="form-control-sm" placeholder="Enter secret passphrase...">
-          <button id="btn-save-passphrase" class="btn btn-secondary btn-sm">Save Key</button>
-        </div>
-      </div>
-
-      <!-- Section 2.5: Firebase Firestore Encrypted Live Sync (Collection: habit_data) -->
-      <div id="section-firestore-sync" class="data-option-card highlight-card">
-        <div class="data-option-info">
-          <h4>🔥 Encrypted Firestore Cloud Sync (Collection: habit_data)</h4>
-          <p class="muted-text">Real-time Zero-Knowledge client-side encrypted cloud synchronization. Disabled by default & requires a Master Encryption Passphrase.</p>
-        </div>
-        <div class="p2p-controls">
-          <label class="switch-toggle">
-            <input type="checkbox" id="chk-sync-firestore">
-            <span class="slider round"></span>
-          </label>
-        </div>
-
-        <div id="firestore-config-panel" style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 6px;">
-          <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.3rem; display: block;">Your Sync Channel Identifier Code</label>
-          <div style="display: flex; gap: 0.5rem; margin-bottom: 0.8rem;">
-            <input type="text" id="input-firestore-sync-code" class="form-control-sm" style="flex: 1; font-family: monospace; font-size: 1.1rem; letter-spacing: 2px; font-weight: bold; text-align: center; text-transform: uppercase;" placeholder="HAB-XXXXXX">
-            <button id="btn-save-firestore-code" class="btn-sm btn-primary">Save Code</button>
-            <button id="btn-gen-firestore-code" class="btn-sm btn-secondary">New Code</button>
-            <button id="btn-copy-firestore-code" class="btn-sm btn-secondary">Copy</button>
-          </div>
-          <p class="muted-text text-xs" style="margin: 0;">Copy this Sync Channel Identifier Code and your Master Passphrase to your other computer or phone so both devices sync to the same encrypted plot of data.</p>
-        </div>
-      </div>
-
-      <!-- Section 3: Peer-to-Peer (WebRTC) Real-Time Sync (Flagged via ?p2p=1) -->
-      <div id="section-p2p-sync" class="hidden">
-        <div class="data-option-card">
+      <!-- Sync Content Grid -->
+      <div class="sync-content-grid">
+        <!-- Section 1: Local Storage Engine -->
+        <div class="data-option-card highlight-card">
           <div class="data-option-info">
-            <h4>⚡ Peer-to-Peer (WebRTC) Sync</h4>
-            <p class="muted-text">Directly sync live updates between two open devices using WebRTC P2P.</p>
+            <h4>💾 Local Storage Engine</h4>
+            <p class="muted-text">Choose your local database engine. IndexedDB bypasses browser 5MB storage limits. GunDB enables decentralized P2P sync.</p>
+          </div>
+          <div class="engine-selector-group">
+            <select id="select-storage-engine" class="form-control-sm select-input" aria-label="Storage Engine">
+              <option value="localStorage">Local Storage (Fast, 5MB limit)</option>
+              <option value="indexedDB">IndexedDB (Large scale, Unlimited)</option>
+              <option value="gunDB">GunDB (Decentralized P2P)</option>
+            </select>
+            <button id="btn-migrate-engine" class="btn btn-secondary btn-sm">Migrate Data</button>
+          </div>
+        </div>
+
+        <!-- Section 1.5: GunDB Peer Sync (Hidden by default) -->
+        <div class="data-option-card highlight-card" id="gundb-sync-panel" style="display: none;">
+          <div class="data-option-info">
+            <h4>🌐 Decentralized Peer Sync</h4>
+            <p class="muted-text">Connect another device to your GunDB to sync data directly over P2P relays.</p>
+          </div>
+
+          <div class="data-subpanel">
+            <label class="subpanel-label">Your Sync Code (Copy to another device)</label>
+            <div class="p2p-input-row" style="margin-bottom: 1rem;">
+              <input type="text" id="gundb-sync-code-output" class="form-control-sm code-input" readonly placeholder="Loading code..." aria-label="Your Sync Code">
+              <button id="btn-copy-gundb-code" class="btn btn-secondary btn-sm">Copy</button>
+            </div>
+
+            <label class="subpanel-label">Join a Peer</label>
+            <div class="p2p-input-row">
+              <input type="text" id="gundb-sync-code-input" class="form-control-sm code-input uppercase" placeholder="6-CHAR CODE" aria-label="Join Peer Sync Code">
+              <button id="btn-join-gundb" class="btn btn-primary btn-sm">Join</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: End-to-End Encryption (E2EE) Passphrase -->
+        <div id="section-e2ee-passphrase" class="data-option-card highlight-card">
+          <div class="data-option-info">
+            <h4>🔒 Master Encryption Passphrase (E2EE)</h4>
+            <p class="muted-text">Zero-knowledge client-side encryption key (AES-256-GCM). Required for Firestore Live Sync.</p>
+          </div>
+          <div class="input-inline-group">
+            <input type="password" id="input-sync-passphrase" class="form-control-sm" placeholder="Enter secret passphrase..." aria-label="Master Encryption Passphrase">
+            <button id="btn-save-passphrase" class="btn btn-secondary btn-sm">Save Key</button>
+          </div>
+        </div>
+
+        <!-- Section 2.5: Firebase Firestore Encrypted Live Sync (Collection: habit_data) -->
+        <div id="section-firestore-sync" class="data-option-card highlight-card">
+          <div class="data-option-info">
+            <h4>🔥 Encrypted Firestore Cloud Sync (Collection: habit_data)</h4>
+            <p class="muted-text">Real-time Zero-Knowledge client-side encrypted cloud synchronization. Disabled by default & requires a Master Encryption Passphrase.</p>
           </div>
           <div class="p2p-controls">
-            <label class="switch-toggle">
-              <input type="checkbox" id="chk-sync-p2p">
-              <span class="slider round"></span>
-            </label>
-            <button id="btn-p2p-pair" class="btn btn-secondary btn-sm">Generate Pair Code</button>
-          </div>
-        </div>
-
-        <div id="p2p-pairing-box" class="data-subpanel hidden">
-          <h5>📱 Pairing Code: <span id="p2p-code-display" class="badge-code">------</span> <button id="btn-p2p-chirp-code" class="btn btn-secondary btn-sm" style="margin-left: 0.5rem;" title="Broadcast Code via Sound">🔊 Chirp Code</button></h5>
-          <div class="p2p-input-row">
-            <input type="text" id="input-p2p-remote-code" class="form-control-sm" placeholder="Enter 6-digit remote code">
-            <button id="btn-p2p-connect" class="btn btn-primary btn-sm">Connect Peer</button>
-            <button id="btn-p2p-chirp-listen" class="btn btn-secondary btn-sm" title="Listen for Code via Microphone">🎙️ Listen Chirp</button>
-          </div>
-        </div>
-
-        <!-- Subpanel: Acoustic Sound Sync Fallback (No WebRTC / Network Needed) -->
-        <div class="data-subpanel" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
-          <h5>📻 Acoustic Sound Sync (Fallback / No Network Needed)</h5>
-          <p class="muted-text text-xs" style="margin-bottom: 0.5rem;">Transmit habits data directly via audio sound waves (speaker & mic).</p>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
-            <button id="btn-acoustic-broadcast-delta" class="btn btn-secondary btn-sm">🔊 Broadcast Delta (Past 7 Days)</button>
-            <button id="btn-acoustic-broadcast-full" class="btn btn-secondary btn-sm">🔊 Broadcast Full State</button>
-            <button id="btn-acoustic-receive" class="btn btn-primary btn-sm">🎙️ Receive Sound Data</button>
-          </div>
-          <div id="acoustic-progress-bar-container" class="hidden" style="margin-top: 0.5rem;">
-            <div style="font-size: 0.8rem; margin-bottom: 0.2rem;" id="acoustic-status-label">Listening for sound data...</div>
-            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-              <div id="acoustic-progress-bar" style="width: 0%; height: 100%; background: var(--accent-color); transition: width 0.2s;"></div>
-            </div>
-          </div>
-
-          <!-- Mic Input Volume Meter -->
-          <div id="mic-meter-container" class="hidden" style="margin-top: 0.5rem; padding: 0.4rem; background: rgba(0,0,0,0.3); border-radius: 4px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold; margin-bottom: 0.2rem;">
-              <span>🎙️ Mic Level Indicator</span>
-              <span id="mic-volume-percent">0%</span>
-            </div>
-            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-              <div id="mic-volume-level" style="width: 0%; height: 100%; background: #39d353; transition: width 0.05s ease-out;"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section 4: User-Owned Cloud Sync Targets (Flagged via ?cloudSync=1) -->
-      <div id="section-cloud-sync" class="data-option-card hidden">
-        <div class="data-option-info">
-          <h4>☁️ User-Owned Cloud Sync Targets</h4>
-          <p class="muted-text">Sync encrypted backups to your personal cloud account (E2EE).</p>
-        </div>
-        <div class="cloud-targets-grid">
-          <div class="cloud-target-item">
-            <span>Google Drive (App Folder)</span>
-            <label class="switch-toggle">
-              <input type="checkbox" id="chk-sync-gdrive">
-              <span class="slider round"></span>
-            </label>
-            <button id="btn-auth-gdrive" class="btn btn-sm btn-secondary">Auth Google</button>
-          </div>
-          <div id="gdrive-config-box" class="webdav-form">
-            <label class="muted-text text-xs">Google OAuth Client ID:</label>
-            <div class="input-inline-group">
-              <input type="text" id="input-gdrive-client-id" class="form-control-sm" placeholder="123456789-abc.apps.googleusercontent.com" aria-label="Google Client ID">
-              <button id="btn-save-gdrive-client-id" class="btn btn-secondary btn-sm">Save Client ID</button>
-            </div>
-          </div>
-
-          <div class="cloud-target-item">
-            <span>Dropbox (App Folder)</span>
-            <label class="switch-toggle">
-              <input type="checkbox" id="chk-sync-dropbox">
-              <span class="slider round"></span>
-            </label>
-            <button id="btn-auth-dropbox" class="btn btn-sm btn-secondary">Auth Dropbox</button>
-          </div>
-          <div id="dropbox-config-box" class="webdav-form">
-            <label class="muted-text text-xs">Dropbox App Key:</label>
-            <div class="input-inline-group">
-              <input type="text" id="input-dropbox-client-id" class="form-control-sm" placeholder="Dropbox App Key" aria-label="Dropbox App Key">
-              <button id="btn-save-dropbox-client-id" class="btn btn-secondary btn-sm">Save App Key</button>
-            </div>
-          </div>
-
-          <div class="cloud-target-item full-width-item">
-            <span>Nextcloud / WebDAV</span>
-            <label class="switch-toggle">
-              <input type="checkbox" id="chk-sync-webdav">
+            <label class="switch-toggle" title="Toggle Firestore Sync">
+              <input type="checkbox" id="chk-sync-firestore">
               <span class="slider round"></span>
             </label>
           </div>
 
-          <div id="webdav-credentials-box" class="webdav-form hidden">
-            <input type="text" id="input-webdav-url" class="form-control-sm" placeholder="https://nextcloud.example.com/remote.php/webdav/">
-            <div class="input-inline-group">
-              <input type="text" id="input-webdav-user" class="form-control-sm" placeholder="Username">
-              <input type="password" id="input-webdav-pass" class="form-control-sm" placeholder="App Password">
-              <button id="btn-save-webdav" class="btn btn-secondary btn-sm">Save WebDAV</button>
+          <div id="firestore-config-panel" class="data-subpanel">
+            <label class="subpanel-label">Your Sync Channel Identifier Code</label>
+            <div class="p2p-input-row" style="margin-bottom: 0.8rem;">
+              <input type="text" id="input-firestore-sync-code" class="form-control-sm code-input uppercase" placeholder="HAB-XXXXXX" aria-label="Firestore Sync Channel Code">
+              <button id="btn-save-firestore-code" class="btn btn-primary btn-sm">Save Code</button>
+              <button id="btn-gen-firestore-code" class="btn btn-secondary btn-sm">New Code</button>
+              <button id="btn-copy-firestore-code" class="btn btn-secondary btn-sm">Copy</button>
+            </div>
+            <p class="muted-text text-xs" style="margin: 0;">Copy this Sync Channel Identifier Code and your Master Passphrase to your other computer or phone so both devices sync to the same encrypted plot of data.</p>
+          </div>
+        </div>
+
+        <!-- Section 3: Peer-to-Peer (WebRTC) Real-Time Sync (Flagged via ?p2p=1) -->
+        <div id="section-p2p-sync" class="hidden">
+          <div class="data-option-card">
+            <div class="data-option-info">
+              <h4>⚡ Peer-to-Peer (WebRTC) Sync</h4>
+              <p class="muted-text">Directly sync live updates between two open devices using WebRTC P2P.</p>
+            </div>
+            <div class="p2p-controls">
+              <label class="switch-toggle" title="Toggle P2P Sync">
+                <input type="checkbox" id="chk-sync-p2p">
+                <span class="slider round"></span>
+              </label>
+              <button id="btn-p2p-pair" class="btn btn-secondary btn-sm">Generate Pair Code</button>
+            </div>
+          </div>
+
+          <div id="p2p-pairing-box" class="data-subpanel hidden">
+            <h5 class="subpanel-heading">📱 Pairing Code: <span id="p2p-code-display" class="badge-code">------</span> <button id="btn-p2p-chirp-code" class="btn btn-secondary btn-sm" style="margin-left: 0.5rem;" title="Broadcast Code via Sound">🔊 Chirp Code</button></h5>
+            <div class="p2p-input-row">
+              <input type="text" id="input-p2p-remote-code" class="form-control-sm code-input" placeholder="Enter 6-digit remote code" aria-label="Remote Peer Pairing Code">
+              <button id="btn-p2p-connect" class="btn btn-primary btn-sm">Connect Peer</button>
+              <button id="btn-p2p-chirp-listen" class="btn btn-secondary btn-sm" title="Listen for Code via Microphone">🎙️ Listen Chirp</button>
+            </div>
+          </div>
+
+          <!-- Subpanel: Acoustic Sound Sync Fallback (No WebRTC / Network Needed) -->
+          <div class="data-subpanel" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <h5 class="subpanel-heading">📻 Acoustic Sound Sync (Fallback / No Network Needed)</h5>
+            <p class="muted-text text-xs" style="margin-bottom: 0.5rem;">Transmit habits data directly via audio sound waves (speaker & mic).</p>
+            <div class="btn-group-row" style="margin-bottom: 0.5rem;">
+              <button id="btn-acoustic-broadcast-delta" class="btn btn-secondary btn-sm">🔊 Broadcast Delta (Past 7 Days)</button>
+              <button id="btn-acoustic-broadcast-full" class="btn btn-secondary btn-sm">🔊 Broadcast Full State</button>
+              <button id="btn-acoustic-receive" class="btn btn-primary btn-sm">🎙️ Receive Sound Data</button>
+            </div>
+            <div id="acoustic-progress-bar-container" class="hidden" style="margin-top: 0.5rem;">
+              <div style="font-size: 0.8rem; margin-bottom: 0.2rem;" id="acoustic-status-label">Listening for sound data...</div>
+              <div class="progress-track">
+                <div id="acoustic-progress-bar" class="progress-bar-fill"></div>
+              </div>
+            </div>
+
+            <!-- Mic Input Volume Meter -->
+            <div id="mic-meter-container" class="hidden mic-meter-box">
+              <div class="mic-meter-header">
+                <span>🎙️ Mic Level Indicator</span>
+                <span id="mic-volume-percent">0%</span>
+              </div>
+              <div class="mic-meter-track">
+                <div id="mic-volume-level" class="mic-meter-fill"></div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Section 5: Manual Sync Trigger (Hidden unless Cloud or P2P is active) -->
-      <div id="section-trigger-sync" class="data-option-card hidden">
-        <div class="data-option-info">
-          <h4>🔄 Trigger Multi-Target Sync</h4>
-          <p class="muted-text">Pull and merge latest encrypted data from all active sync targets.</p>
-        </div>
-        <button id="btn-trigger-sync" class="btn btn-primary btn-sm">Sync Now</button>
-      </div>
+        <!-- Section 4: User-Owned Cloud Sync Targets (Flagged via ?cloudSync=1) -->
+        <div id="section-cloud-sync" class="data-option-card hidden">
+          <div class="data-option-info">
+            <h4>☁️ User-Owned Cloud Sync Targets</h4>
+            <p class="muted-text">Sync encrypted backups to your personal cloud account (E2EE).</p>
+          </div>
+          <div class="cloud-targets-grid">
+            <div class="cloud-target-item">
+              <span>Google Drive (App Folder)</span>
+              <div class="flex-row" style="gap: 8px;">
+                <label class="switch-toggle">
+                  <input type="checkbox" id="chk-sync-gdrive">
+                  <span class="slider round"></span>
+                </label>
+                <button id="btn-auth-gdrive" class="btn btn-sm btn-secondary">Auth Google</button>
+              </div>
+            </div>
+            <div id="gdrive-config-box" class="webdav-form">
+              <label class="muted-text text-xs">Google OAuth Client ID:</label>
+              <div class="input-inline-group">
+                <input type="text" id="input-gdrive-client-id" class="form-control-sm" placeholder="123456789-abc.apps.googleusercontent.com" aria-label="Google Client ID">
+                <button id="btn-save-gdrive-client-id" class="btn btn-secondary btn-sm">Save Client ID</button>
+              </div>
+            </div>
 
-      <!-- Section 6: CSV & JSON Imports / Exports -->
-      <div class="data-option-card">
-        <div class="data-option-info">
-          <h4>Import CSV Activity File</h4>
-          <p class="muted-text">Upload your own CSV habit activity log file.</p>
-        </div>
-        <label class="btn btn-secondary btn-file-label">
-          Upload CSV File
-          <input type="file" id="input-modal-csv" accept=".csv" class="hidden-file-input">
-        </label>
-      </div>
+            <div class="cloud-target-item">
+              <span>Dropbox (App Folder)</span>
+              <div class="flex-row" style="gap: 8px;">
+                <label class="switch-toggle">
+                  <input type="checkbox" id="chk-sync-dropbox">
+                  <span class="slider round"></span>
+                </label>
+                <button id="btn-auth-dropbox" class="btn btn-sm btn-secondary">Auth Dropbox</button>
+              </div>
+            </div>
+            <div id="dropbox-config-box" class="webdav-form">
+              <label class="muted-text text-xs">Dropbox App Key:</label>
+              <div class="input-inline-group">
+                <input type="text" id="input-dropbox-client-id" class="form-control-sm" placeholder="Dropbox App Key" aria-label="Dropbox App Key">
+                <button id="btn-save-dropbox-client-id" class="btn btn-secondary btn-sm">Save App Key</button>
+              </div>
+            </div>
 
-      <div class="data-option-card">
-        <div class="data-option-info">
-          <h4>Backup & Restore JSON</h4>
-          <p class="muted-text">Export local backup or restore from JSON file.</p>
+            <div class="cloud-target-item full-width-item">
+              <span>Nextcloud / WebDAV</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="chk-sync-webdav">
+                <span class="slider round"></span>
+              </label>
+            </div>
+
+            <div id="webdav-credentials-box" class="webdav-form hidden">
+              <input type="text" id="input-webdav-url" class="form-control-sm" placeholder="https://nextcloud.example.com/remote.php/webdav/" aria-label="WebDAV Server URL">
+              <div class="input-inline-group">
+                <input type="text" id="input-webdav-user" class="form-control-sm" placeholder="Username" aria-label="WebDAV Username">
+                <input type="password" id="input-webdav-pass" class="form-control-sm" placeholder="App Password" aria-label="WebDAV App Password">
+                <button id="btn-save-webdav" class="btn btn-secondary btn-sm">Save WebDAV</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="btn-group-row">
-          <button id="btn-export-json" class="btn btn-secondary btn-sm">Export JSON</button>
+
+        <!-- Section 5: Manual Sync Trigger (Hidden unless Cloud or P2P is active) -->
+        <div id="section-trigger-sync" class="data-option-card hidden">
+          <div class="data-option-info">
+            <h4>🔄 Trigger Multi-Target Sync</h4>
+            <p class="muted-text">Pull and merge latest encrypted data from all active sync targets.</p>
+          </div>
+          <button id="btn-trigger-sync" class="btn btn-primary btn-sm">Sync Now</button>
+        </div>
+
+        <!-- Section 6: CSV & JSON Imports / Exports -->
+        <div class="data-option-card">
+          <div class="data-option-info">
+            <h4>📊 Import CSV Activity File</h4>
+            <p class="muted-text">Upload your own CSV habit activity log file.</p>
+          </div>
           <label class="btn btn-secondary btn-sm btn-file-label">
-            Import JSON
-            <input type="file" id="input-import-json" accept=".json" class="hidden-file-input">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Upload CSV File
+            <input type="file" id="input-modal-csv" accept=".csv" class="hidden-file-input">
           </label>
         </div>
-      </div>
 
-      <div class="data-option-card danger-zone">
-        <div class="data-option-info">
-          <h4 class="text-danger">Reset All Data</h4>
-          <p class="muted-text">Clear local habit data.</p>
+        <div class="data-option-card">
+          <div class="data-option-info">
+            <h4>📦 Backup & Restore JSON</h4>
+            <p class="muted-text">Export local backup or restore from JSON file.</p>
+          </div>
+          <div class="btn-group-row">
+            <button id="btn-export-json" class="btn btn-secondary btn-sm">Export JSON</button>
+            <label class="btn btn-secondary btn-sm btn-file-label">
+              Import JSON
+              <input type="file" id="input-import-json" accept=".json" class="hidden-file-input">
+            </label>
+          </div>
         </div>
-        <button id="btn-reset-data" class="btn btn-danger btn-sm">Reset All</button>
+
+        <div class="data-option-card danger-zone">
+          <div class="data-option-info">
+            <h4 class="text-danger">⚠️ Reset All Data</h4>
+            <p class="muted-text">Clear all local habit data from storage.</p>
+          </div>
+          <button id="btn-reset-data" class="btn btn-danger btn-sm">Reset All</button>
+        </div>
       </div>
     </main>
   </div>

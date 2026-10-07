@@ -4,108 +4,72 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habitual - Storage Tests</title>
+
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="theme-color" content="#0d1117">
+  <meta name="description" content="Storage migration test suite for Habitual IndexedDB driver">
+
+  <!-- Icons & Web Manifest -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Local Fonts & Stylesheets -->
   <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="styles.css">
-  <style>
-    body {
-      background-color: var(--bg-primary);
-      color: var(--text-primary);
-      font-family: var(--font-main);
-      padding: 2rem;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-    .test-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 1rem;
-    }
-    .test-stats {
-      display: flex;
-      gap: 1rem;
-    }
-    .stat-badge {
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-    .stat-total { background: var(--bg-secondary); border: 1px solid var(--border-color); }
-    .stat-pass { background: rgba(57, 211, 83, 0.15); color: #39d353; border: 1px solid #39d353; }
-    .stat-fail { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid #f85149; }
-
-    .suite-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      margin-bottom: 1.5rem;
-      overflow: hidden;
-    }
-    .suite-header {
-      padding: 1rem 1.2rem;
-      background: rgba(255, 255, 255, 0.02);
-      border-bottom: 1px solid var(--border-color);
-      font-weight: 700;
-      font-size: 1.05rem;
-    }
-    .test-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    .test-item {
-      padding: 0.8rem 1.2rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      font-size: 0.95rem;
-    }
-    .test-item:last-child {
-      border-bottom: none;
-    }
-    .test-status {
-      font-weight: bold;
-      font-size: 1rem;
-    }
-    .test-pass .test-status { color: #39d353; }
-    .test-fail .test-status { color: #f85149; }
-    .test-error {
-      margin-top: 0.3rem;
-      font-family: var(--font-mono);
-      font-size: 0.85rem;
-      color: #f85149;
-      background: rgba(248, 81, 73, 0.1);
-      padding: 0.5rem;
-      border-radius: 4px;
-    }
-    .back-link {
-      display: inline-block;
-      margin-bottom: 1rem;
-      color: var(--accent-color);
-      text-decoration: none;
-    }
-  </style>
 </head>
-<body>
-  <a href="tests.html" class="back-link">&larr; Back to Main Test Suite</a>
+<body class="dark-theme">
+  <div id="app" class="app-container">
+    <!-- Navigation Header -->
+    <header class="app-header">
+      <a href="index.html" class="header-brand" title="Habitual - Go to Home">
+        <div class="logo-icon" title="Habitual Visualizer">
+          <svg class="logo-svg" width="38" height="38" viewBox="0 0 32 32" aria-hidden="true">
+            <path fill="#352f2f" d="M0,0h32v1h-32zM0,1h32v1h-32zM0,2h32v1h-32zM0,3h4v1h-4zM10,3h3v1h-3zM19,3h3v1h-3zM28,3h4v1h-4zM0,4h3v1h-3zM11,4h1v1h-1zM20,4h1v1h-1zM29,4h3v1h-3zM0,5h3v1h-3zM11,5h1v1h-1zM15,5h3v1h-3zM20,5h1v1h-1zM29,5h3v1h-3zM0,6h3v1h-3zM11,6h1v1h-1zM14,6h1v1h-1zM17,6h1v1h-1zM20,6h1v1h-1zM29,6h3v1h-3zM0,7h3v1h-3zM11,7h1v1h-1zM14,7h1v1h-1zM17,7h1v1h-1zM20,7h1v1h-1zM29,7h3v1h-3zM0,8h3v1h-3zM11,8h1v1h-1zM14,8h4v1h-4zM20,8h1v1h-1zM29,8h3v1h-3zM0,9h3v1h-3zM11,9h1v1h-1zM14,9h1v1h-1zM17,9h1v1h-1zM20,9h1v1h-1zM29,9h3v1h-3zM0,10h4v1h-4zM10,10h3v1h-3zM19,10h3v1h-3zM28,10h4v1h-4zM0,11h32v1h-32zM0,12h4v1h-4zM10,12h3v1h-3zM19,12h3v1h-3zM28,12h4v1h-4zM0,13h3v1h-3zM11,13h1v1h-1zM20,13h1v1h-1zM29,13h3v1h-3zM0,14h3v1h-3zM5,14h3v1h-3zM11,14h1v1h-1zM20,14h1v1h-1zM29,14h3v1h-3zM0,15h3v1h-3zM6,15h1v1h-1zM11,15h1v1h-1zM20,15h1v1h-1zM29,15h3v1h-3zM0,16h3v1h-3zM6,16h1v1h-1zM11,16h1v1h-1zM20,16h1v1h-1zM29,16h3v1h-3zM0,17h3v1h-3zM6,17h1v1h-1zM11,17h1v1h-1zM20,17h1v1h-1zM29,17h3v1h-3zM0,18h3v1h-3zM5,18h3v1h-3zM11,18h1v1h-1zM20,18h1v1h-1zM29,18h3v1h-3zM0,19h4v1h-4zM10,19h3v1h-3zM19,19h3v1h-3zM28,19h4v1h-4zM0,20h32v1h-32zM0,21h4v1h-4zM10,21h3v1h-3zM19,21h3v1h-3zM28,21h4v1h-4zM0,22h3v1h-3zM11,22h1v1h-1zM20,22h1v1h-1zM29,22h3v1h-3zM0,23h3v1h-3zM6,23h3v1h-3zM11,23h1v1h-1zM20,23h1v1h-1zM29,23h3v1h-3zM0,24h3v1h-3zM5,24h1v1h-1zM8,24h1v1h-1zM11,24h1v1h-1zM20,24h1v1h-1zM29,24h3v1h-3zM0,25h3v1h-3zM5,25h1v1h-1zM8,25h1v1h-1zM11,25h1v1h-1zM20,25h1v1h-1zM29,25h3v1h-3zM0,26h3v1h-3zM5,26h4v1h-4zM11,26h1v1h-1zM20,26h1v1h-1zM29,26h3v1h-3zM0,27h3v1h-3zM5,27h1v1h-1zM8,27h1v1h-1zM11,27h1v1h-1zM20,27h1v1h-1zM29,27h3v1h-3zM0,28h4v1h-4zM10,28h3v1h-3zM19,28h3v1h-3zM28,28h4v1h-4zM0,29h32v1h-32zM0,30h32v1h-32zM0,31h32v1h-32z"/>
+            <path fill="#1088ac" d="M4,3h6v1h-6zM3,4h8v1h-8zM3,5h2v1h-2zM6,5h2v1h-2zM9,5h2v1h-2zM3,6h2v1h-2zM6,6h2v1h-2zM9,6h2v1h-2zM3,7h2v1h-2zM9,7h2v1h-2zM3,8h2v1h-2zM6,8h2v1h-2zM9,8h2v1h-2zM3,9h2v1h-2zM6,9h2v1h-2zM9,9h2v1h-2zM4,10h6v1h-6zM22,12h4v1h-4zM21,13h4v1h-4zM21,14h2v1h-2zM21,15h2v1h-2zM21,16h1v1h-1zM4,21h6v1h-6zM13,21h6v1h-6zM3,22h7v1h-7zM12,22h8v1h-8zM3,23h3v1h-3zM12,23h2v1h-2zM15,23h5v1h-5zM3,24h2v1h-2zM6,24h1v1h-1zM12,24h2v1h-2zM15,24h5v1h-5zM3,25h2v1h-2zM12,25h2v1h-2zM15,25h5v1h-5zM3,26h2v1h-2zM12,26h2v1h-2zM15,26h5v1h-5zM3,27h1v1h-1zM12,27h2v1h-2zM18,27h2v1h-2zM13,28h6v1h-6z"/>
+            <path fill="#ffb433" d="M13,3h6v1h-6zM12,4h8v1h-8zM12,5h3v1h-3zM18,5h2v1h-2zM12,6h2v1h-2zM15,6h2v1h-2zM18,6h2v1h-2zM12,7h2v1h-2zM15,7h2v1h-2zM18,7h2v1h-2zM12,8h2v1h-2zM18,8h2v1h-2zM12,9h2v1h-2zM15,9h2v1h-2zM18,9h2v1h-2zM13,10h6v1h-6zM4,12h6v1h-6zM3,13h8v1h-8zM3,14h2v1h-2zM8,14h3v1h-3zM3,15h3v1h-3zM7,15h4v1h-4zM28,15h1v1h-1zM3,16h3v1h-3zM7,16h4v1h-4zM27,16h2v1h-2zM3,17h3v1h-3zM7,17h4v1h-4zM27,17h2v1h-2zM3,18h2v1h-2zM8,18h3v1h-3zM26,18h3v1h-3zM4,19h6v1h-6zM24,19h4v1h-4zM10,22h1v1h-1zM9,23h2v1h-2zM7,24h1v1h-1zM9,24h2v1h-2zM6,25h2v1h-2zM9,25h2v1h-2zM9,26h2v1h-2zM4,27h1v1h-1zM6,27h2v1h-2zM9,27h2v1h-2zM4,28h6v1h-6z"/>
+            <path fill="#cf3525" d="M22,3h6v1h-6zM21,4h8v1h-8zM21,5h2v1h-2zM26,5h3v1h-3zM21,6h2v1h-2zM24,6h2v1h-2zM27,6h2v1h-2zM21,7h2v1h-2zM26,7h3v1h-3zM21,8h2v1h-2zM24,8h2v1h-2zM27,8h2v1h-2zM21,9h2v1h-2zM26,9h3v1h-3zM22,10h6v1h-6zM13,12h6v1h-6zM26,12h2v1h-2zM12,13h8v1h-8zM25,13h4v1h-4zM12,14h1v1h-1zM18,14h2v1h-2zM24,14h2v1h-2zM27,14h2v1h-2zM12,15h3v1h-3zM16,15h4v1h-4zM24,15h2v1h-2zM27,15h1v1h-1zM12,16h3v1h-3zM16,16h4v1h-4zM22,16h1v1h-1zM24,16h2v1h-2zM12,17h3v1h-3zM16,17h4v1h-4zM21,17h2v1h-2zM24,17h2v1h-2zM12,18h3v1h-3zM16,18h4v1h-4zM21,18h3v1h-3zM13,19h6v1h-6zM22,19h2v1h-2z"/>
+            <path fill="#ffffff" d="M5,5h1v1h-1zM8,5h1v1h-1zM23,5h3v1h-3zM5,6h1v1h-1zM8,6h1v1h-1zM23,6h1v1h-1zM26,6h1v1h-1zM5,7h4v1h-4zM23,7h3v1h-3zM5,8h1v1h-1zM8,8h1v1h-1zM23,8h1v1h-1zM26,8h1v1h-1zM5,9h1v1h-1zM8,9h1v1h-1zM23,9h3v1h-3zM13,14h5v1h-5zM23,14h1v1h-1zM26,14h1v1h-1zM15,15h1v1h-1zM23,15h1v1h-1zM26,15h1v1h-1zM15,16h1v1h-1zM23,16h1v1h-1zM26,16h1v1h-1zM15,17h1v1h-1zM23,17h1v1h-1zM26,17h1v1h-1zM15,18h1v1h-1zM24,18h2v1h-2zM14,23h1v1h-1zM14,24h1v1h-1zM14,25h1v1h-1zM14,26h1v1h-1zM14,27h4v1h-4z"/>
+            <path fill="#666666" d="M22,21h6v1h-6zM21,22h8v1h-8zM21,23h8v1h-8zM21,24h8v1h-8zM21,25h8v1h-8zM21,26h8v1h-8zM21,27h8v1h-8zM22,28h6v1h-6z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Habitual</h1>
+          <span class="brand-tagline">Storage Engine Tests</span>
+        </div>
+      </a>
 
-  <header class="test-header">
-    <div>
-      <h1>🧪 Storage Migration Tests</h1>
-      <p class="muted-text">Asynchronous Verification of IndexedDB V1->V2 Granular Migration</p>
-    </div>
-    <div class="test-stats">
-      <span class="stat-badge stat-total" id="stat-total">Total: 0</span>
-      <span class="stat-badge stat-pass" id="stat-pass">Passed: 0</span>
-      <span class="stat-badge stat-fail" id="stat-fail">Failed: 0</span>
-    </div>
-  </header>
+      <a href="tests.html" class="btn btn-secondary flex-row" style="gap: 6px; text-decoration: none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        <span>Back to Main Tests</span>
+      </a>
+    </header>
 
-  <main id="test-results-container"></main>
+    <main class="main-content" style="max-width: 960px; margin: 0 auto; width: 100%;">
+      <!-- Hero Banner Card -->
+      <div class="test-hero-card">
+        <div class="test-hero-info">
+          <h1>
+            <span>💾 Storage Migration Tests</span>
+            <span class="sync-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              IndexedDB Granular V2
+            </span>
+          </h1>
+          <p class="muted-text">Asynchronous Verification of IndexedDB V1 &rarr; V2 Granular Storage Migration</p>
+        </div>
+
+        <div class="test-stats-row">
+          <span class="stat-badge stat-total" id="stat-total">Total: 0</span>
+          <span class="stat-badge stat-pass" id="stat-pass">Passed: 0</span>
+          <span class="stat-badge stat-fail" id="stat-fail">Failed: 0</span>
+        </div>
+      </div>
+
+      <!-- Test Results Container -->
+      <div id="test-results-container"></div>
+    </main>
+  </div>
 
   <script src="js/state.js"></script>
   <script src="js/storage.js"></script>
