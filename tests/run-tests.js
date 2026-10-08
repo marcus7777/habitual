@@ -2091,6 +2091,32 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     delete global.firebase;
   });
 
+  test('Firestore UI Initialization: updateFirestoreCodeUIState populates input box with sync code on load', async () => {
+    mockLocalStorage.removeItem('habitual_firestore_sync_code');
+
+    const inputFirestoreCode = createMockElement('input');
+    const btnCopyFirestoreCode = createMockElement('button');
+
+    const elemMap = {
+      'input-firestore-sync-code': inputFirestoreCode,
+      'btn-copy-firestore-code': btnCopyFirestoreCode
+    };
+
+    const origGetById = global.document.getElementById;
+    global.document.getElementById = (id) => elemMap[id] || (origGetById ? origGetById(id) : null);
+
+    // Call updateFirestoreCodeUIState
+    assert(typeof HabitualCore.updateFirestoreCodeUIState === 'function', 'updateFirestoreCodeUIState is exported on HabitualCore');
+    HabitualCore.updateFirestoreCodeUIState();
+
+    // Verify input box value and copy button visibility
+    assert(inputFirestoreCode.value.length > 0, 'Firestore sync code input is populated on UI load even when localStorage was empty');
+    assert(inputFirestoreCode.value.startsWith('HAB-'), 'Populated sync code starts with HAB- prefix');
+    assertEqual(btnCopyFirestoreCode.style.display, 'inline-block', 'Copy button is made visible when sync code is populated');
+
+    global.document.getElementById = origGetById;
+  });
+
   test('Conditional localStorage write and direct object payload loading', async () => {
     const origEngine = HabitualCore.activeStorageEngine;
 
