@@ -1215,6 +1215,9 @@ window.HabitualCore = window.HabitualCore || {};
           this.stopLiveSync();
           this.startLiveSync();
         }
+        if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
+          core.SyncManager.postToFirestoreIfReady();
+        }
         return formatted;
       },
 
@@ -1248,10 +1251,19 @@ window.HabitualCore = window.HabitualCore || {};
         }
         const syncCode = this.getSyncCode();
 
-        return this.init().then(function() {
-          return self.db.collection('habit_data').doc(syncCode).set({
-            ciphertext: encryptedText,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        const encryptPromise = encryptedText
+          ? Promise.resolve(encryptedText)
+          : core.E2EE.encrypt(core.getPayloadFromState(), passphrase);
+
+        return encryptPromise.then(function(cipher) {
+          return self.init().then(function() {
+            const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+              ? firebase.firestore.FieldValue.serverTimestamp()
+              : Date.now();
+            return self.db.collection('habit_data').doc(syncCode).set({
+              ciphertext: cipher,
+              updatedAt: serverTs
+            });
           });
         });
       },
@@ -1333,6 +1345,20 @@ window.HabitualCore = window.HabitualCore || {};
       return this.settings.enabledTargets.includes(targetName);
     },
 
+    postToFirestoreIfReady: function() {
+      if (!this.isTargetEnabled('firestore') || !this.settings.passphrase) {
+        return Promise.resolve(null);
+      }
+      const syncCode = core.SyncTargets.Firestore.getSyncCode();
+      if (!syncCode) {
+        return Promise.resolve(null);
+      }
+      return core.SyncTargets.Firestore.uploadBackup().catch(function(err) {
+        console.warn('Firestore auto-post upload error:', err);
+        return null;
+      });
+    },
+
     toggleTarget: function(targetName, enable) {
       const idx = this.settings.enabledTargets.indexOf(targetName);
       if (enable && idx === -1) {
@@ -1345,6 +1371,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (targetName === 'firestore') {
         if (enable && this.settings.passphrase) {
           core.SyncTargets.Firestore.startLiveSync();
+          this.postToFirestoreIfReady();
         } else {
           core.SyncTargets.Firestore.stopLiveSync();
         }
@@ -1356,7 +1383,10 @@ window.HabitualCore = window.HabitualCore || {};
       localStorage.setItem('habitual_sync_passphrase', passphrase);
       if (this.isTargetEnabled('firestore')) {
         core.SyncTargets.Firestore.stopLiveSync();
-        if (passphrase) core.SyncTargets.Firestore.startLiveSync();
+        if (passphrase) {
+          core.SyncTargets.Firestore.startLiveSync();
+          this.postToFirestoreIfReady();
+        }
       }
     },
 
@@ -1575,10 +1605,11 @@ window.HabitualCore = window.HabitualCore || {};
     reader.readAsText(file);
   };
 
-  // Auto-start Firestore Live Sync if enabled and passphrase set
+  // Auto-start Firestore Live Sync & auto-post encrypted state if enabled and passphrase set
   setTimeout(function() {
     if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore') && core.SyncManager.settings.passphrase) {
       core.SyncTargets.Firestore.startLiveSync();
+      core.SyncManager.postToFirestoreIfReady();
     }
   }, 500);
 

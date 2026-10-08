@@ -1862,10 +1862,10 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     HabitualCore.saveState = origSaveState;
   });
 
-  test('Firestore E2EE Sync Target and habit_data collection configuration', async () => {
+  test('Firestore E2EE Sync Target, auto-post on turn-on, send, retrieve, encrypt and decrypt', async () => {
     assert(typeof HabitualCore.SyncTargets.Firestore === 'object', 'Firestore Sync Target defined');
 
-    // Test Sync Code Generation and Formatting
+    // 1. Test Sync Code Generation and Formatting
     const code = HabitualCore.SyncTargets.Firestore.getSyncCode();
     assert(code.startsWith('HAB-'), 'Sync Code starts with HAB- prefix');
     assertEqual(code.length, 10, 'Sync Code is 10 characters long (HAB-XXXXXX)');
@@ -1874,16 +1874,111 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     assertEqual(customCode, 'HAB-CUSTOM123', 'Sync Code normalized to uppercase');
     assertEqual(HabitualCore.SyncTargets.Firestore.getSyncCode(), 'HAB-CUSTOM123', 'Custom Sync Code persisted');
 
-    // Test E2EE Encryption with Master Passphrase
-    const testPayload = { habits: [{ id: 'water', logs: { '2026-10-07': { count: 2 } } }] };
+    // 2. Setup Mock Firebase / Firestore
+    const store = {};
+    const listeners = {};
+    const mockDb = {
+      collection: function(collName) {
+        if (!store[collName]) store[collName] = {};
+        if (!listeners[collName]) listeners[collName] = {};
+
+        return {
+          doc: function(docId) {
+            return {
+              set: function(data) {
+                store[collName][docId] = Object.assign({}, data, {
+                  updatedAt: data.updatedAt || { toMillis: () => Date.now() }
+                });
+                if (listeners[collName][docId]) {
+                  const snap = {
+                    exists: true,
+                    data: () => store[collName][docId]
+                  };
+                  listeners[collName][docId].forEach(cb => cb(snap));
+                }
+                return Promise.resolve();
+              },
+              get: function() {
+                const docData = store[collName][docId];
+                return Promise.resolve({
+                  exists: !!docData,
+                  data: () => docData
+                });
+              },
+              onSnapshot: function(onNext) {
+                if (!listeners[collName][docId]) listeners[collName][docId] = [];
+                listeners[collName][docId].push(onNext);
+                if (store[collName][docId]) {
+                  onNext({
+                    exists: true,
+                    data: () => store[collName][docId]
+                  });
+                }
+                return function unsubscribe() {
+                  const idx = listeners[collName][docId].indexOf(onNext);
+                  if (idx !== -1) listeners[collName][docId].splice(idx, 1);
+                };
+              }
+            };
+          }
+        };
+      }
+    };
+
+    global.firebase = {
+      apps: [{}],
+      initializeApp: () => {},
+      firestore: () => mockDb
+    };
+    global.firebase.firestore.FieldValue = {
+      serverTimestamp: () => ({ toMillis: () => Date.now() })
+    };
+    HabitualCore.SyncTargets.Firestore.db = mockDb;
+
+    // 3. Test E2EE Encryption and Decryption Roundtrip
+    const testPayload = { habits: [{ id: 'water', name: 'Hydration', logs: { '2026-10-07': { count: 2 } } }] };
     const passphrase = 'SecretPassphrase123!';
 
     const encryptedText = await HabitualCore.E2EE.encrypt(testPayload, passphrase);
     assert(typeof encryptedText === 'string', 'Encrypted payload is string');
-    assert(encryptedText.includes('ciphertext'), 'Contains ciphertext field');
+    assert(encryptedText.startsWith('ENC:'), 'Ciphertext starts with ENC: prefix');
 
     const decryptedPayload = await HabitualCore.E2EE.decrypt(encryptedText, passphrase);
-    assertEqual(decryptedPayload.habits[0].id, 'water', 'Decrypted habits ID matches');
+    assertEqual(decryptedPayload.habits[0].id, 'water', 'Decrypted habit ID matches original');
+    assertEqual(decryptedPayload.habits[0].name, 'Hydration', 'Decrypted habit name matches original');
+
+    // 4. Test Sending (uploadBackup)
+    HabitualCore.SyncManager.setPassphrase(passphrase);
+    await HabitualCore.SyncTargets.Firestore.uploadBackup(encryptedText);
+    const storedDoc = store['habit_data']['HAB-CUSTOM123'];
+    assert(storedDoc !== undefined, 'Document posted to habit_data collection with sync code key');
+    assertEqual(storedDoc.ciphertext, encryptedText, 'Stored ciphertext matches uploaded encrypted text');
+
+    // 5. Test Retrieving (downloadBackup) and Decrypting
+    const retrievedCiphertext = await HabitualCore.SyncTargets.Firestore.downloadBackup();
+    assertEqual(retrievedCiphertext, encryptedText, 'Downloaded ciphertext matches stored text');
+    const retrievedPayload = await HabitualCore.E2EE.decrypt(retrievedCiphertext, passphrase);
+    assertEqual(retrievedPayload.habits[0].name, 'Hydration', 'Retrieved payload decrypts correctly');
+
+    // 6. Test Auto-post to Firestore as soon as turned on and passphrase & identify code are in place
+    HabitualCore.state.habits = [{ id: 'meditation', name: 'Daily Meditation', logs: { '2026-10-07': { count: 1 } } }];
+    HabitualCore.SyncTargets.Firestore.setSyncCode('HAB-AUTOPOST01');
+
+    // Enable firestore sync
+    HabitualCore.SyncManager.toggleTarget('firestore', true);
+    await new Promise(r => setTimeout(r, 50)); // allow async uploadBackup promise to resolve
+
+    const autoPostDoc = store['habit_data']['HAB-AUTOPOST01'];
+    assert(autoPostDoc !== undefined, 'Auto-posted document to Firestore upon turning on sync');
+    assert(autoPostDoc.ciphertext.startsWith('ENC:'), 'Auto-posted ciphertext is encrypted with passphrase');
+
+    const autoDecrypted = await HabitualCore.E2EE.decrypt(autoPostDoc.ciphertext, passphrase);
+    assertEqual(autoDecrypted.habits[0].id, 'meditation', 'Auto-posted ciphertext decrypts to current habit state');
+
+    // Clean up
+    HabitualCore.SyncManager.toggleTarget('firestore', false);
+    delete global.firebase;
+    HabitualCore.SyncTargets.Firestore.db = null;
   });
 
   test('Conditional localStorage write and direct object payload loading', async () => {
