@@ -551,7 +551,9 @@ window.HabitualCore = window.HabitualCore || {};
         if (val) {
           const formatted = core.SyncTargets.Firestore.setSyncCode(val);
           inputFirestoreCode.value = formatted;
-          if (core.showToast) core.showToast('Firestore Sync Channel Code saved!', 'success');
+          core.SyncManager.postToFirestoreIfReady();
+          core.SyncManager.pullAndMergeAll();
+          if (core.showToast) core.showToast('Firestore Sync Code saved & synced!', 'success');
         }
       });
     }
@@ -559,13 +561,12 @@ window.HabitualCore = window.HabitualCore || {};
     if (btnGenFirestoreCode && inputFirestoreCode) {
       btnGenFirestoreCode.addEventListener('click', () => {
         if (!core.SyncManager.isTargetEnabled('firestore')) return;
-        localStorage.removeItem('habitual_firestore_sync_code');
-        const newCode = core.SyncTargets.Firestore.getSyncCode();
+        const newCode = core.SyncTargets.Firestore.generateNewSyncCode();
         inputFirestoreCode.value = newCode;
         if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
           core.SyncManager.postToFirestoreIfReady();
         }
-        if (core.showToast) core.showToast('Generated new Sync Channel Code!', 'info');
+        if (core.showToast) core.showToast('Generated & synced new Sync Code!', 'info');
       });
     }
 

@@ -1960,27 +1960,31 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     const retrievedPayload = await HabitualCore.E2EE.decrypt(retrievedCiphertext, passphrase);
     assertEqual(retrievedPayload.habits[0].name, 'Hydration', 'Retrieved payload decrypts correctly');
 
-    // 6. Test Auto-post to Firestore as soon as turned on and passphrase & identify code are in place
-    HabitualCore.state.habits = [{ id: 'meditation', name: 'Daily Meditation', logs: { '2026-10-07': { count: 1 } } }];
-    HabitualCore.SyncTargets.Firestore.setSyncCode('HAB-AUTOPOST01');
-
-    // Enable firestore sync
-    HabitualCore.SyncManager.toggleTarget('firestore', true);
-    await new Promise(r => setTimeout(r, 50)); // allow async uploadBackup promise to resolve
-
-    const autoPostDoc = store['habit_data']['HAB-AUTOPOST01'];
-    assert(autoPostDoc !== undefined, 'Auto-posted document to Firestore upon turning on sync');
-    assert(autoPostDoc.ciphertext.startsWith('ENC:'), 'Auto-posted ciphertext is encrypted with passphrase');
-
-    const autoDecrypted = await HabitualCore.E2EE.decrypt(autoPostDoc.ciphertext, passphrase);
-    assertEqual(autoDecrypted.habits[0].id, 'meditation', 'Auto-posted ciphertext decrypts to current habit state');
-
-    // 7. Test generating new sync code on demand
+    // 6. Test generateNewSyncCode API method
     const oldCode = HabitualCore.SyncTargets.Firestore.getSyncCode();
-    mockLocalStorage.removeItem('habitual_firestore_sync_code');
-    const brandNewCode = HabitualCore.SyncTargets.Firestore.getSyncCode();
-    assert(brandNewCode.startsWith('HAB-'), 'Generated brand new code with HAB- prefix');
-    assert(brandNewCode !== oldCode, 'Brand new code is distinct from previous code');
+    const brandNewCode = HabitualCore.SyncTargets.Firestore.generateNewSyncCode();
+    assert(brandNewCode.startsWith('HAB-'), 'generateNewSyncCode produces code with HAB- prefix');
+    assertEqual(brandNewCode.length, 10, 'generateNewSyncCode produces 10-char code (HAB-XXXXXX)');
+    assert(brandNewCode !== oldCode, 'generateNewSyncCode produces a fresh new code');
+    assertEqual(HabitualCore.SyncTargets.Firestore.getSyncCode(), brandNewCode, 'generateNewSyncCode persists in storage');
+
+    // 7. Test user pasting custom code & explicit Save & Sync
+    const pastedCode = HabitualCore.SyncTargets.Firestore.setSyncCode('hab-pasted123');
+    assertEqual(pastedCode, 'HAB-PASTED123', 'User typed/pasted code normalized to uppercase');
+    assertEqual(HabitualCore.SyncTargets.Firestore.getSyncCode(), 'HAB-PASTED123', 'Pasted code stored in settings');
+
+    // Enable sync & explicitly push/sync to Firestore
+    HabitualCore.SyncManager.toggleTarget('firestore', true);
+    HabitualCore.state.habits = [{ id: 'yoga', name: 'Morning Yoga', logs: { '2026-10-08': { count: 1 } } }];
+
+    await HabitualCore.SyncManager.postToFirestoreIfReady();
+
+    const syncedDoc = store['habit_data']['HAB-PASTED123'];
+    assert(syncedDoc !== undefined, 'Explicit Save & Sync pushed document under pasted code key');
+    assert(syncedDoc.ciphertext.startsWith('ENC:'), 'Synced payload is encrypted');
+
+    const syncedDecrypted = await HabitualCore.E2EE.decrypt(syncedDoc.ciphertext, passphrase);
+    assertEqual(syncedDecrypted.habits[0].id, 'yoga', 'Synced document decrypts to current habit state');
 
     // Clean up
     HabitualCore.SyncManager.toggleTarget('firestore', false);

@@ -1207,6 +1207,15 @@ window.HabitualCore = window.HabitualCore || {};
         return code.toUpperCase().trim();
       },
 
+      generateNewSyncCode: function() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let rnd = 'HAB-';
+        for (let i = 0; i < 6; i++) {
+          rnd += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return this.setSyncCode(rnd);
+      },
+
       setSyncCode: function(newCode) {
         if (!newCode || !newCode.trim()) return;
         const formatted = newCode.toUpperCase().trim();
@@ -1214,9 +1223,6 @@ window.HabitualCore = window.HabitualCore || {};
         if (this.isListening) {
           this.stopLiveSync();
           this.startLiveSync();
-        }
-        if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
-          core.SyncManager.postToFirestoreIfReady();
         }
         return formatted;
       },
@@ -1371,7 +1377,6 @@ window.HabitualCore = window.HabitualCore || {};
       if (targetName === 'firestore') {
         if (enable && this.settings.passphrase) {
           core.SyncTargets.Firestore.startLiveSync();
-          this.postToFirestoreIfReady();
         } else {
           core.SyncTargets.Firestore.stopLiveSync();
         }
