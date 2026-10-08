@@ -1975,6 +1975,13 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     const autoDecrypted = await HabitualCore.E2EE.decrypt(autoPostDoc.ciphertext, passphrase);
     assertEqual(autoDecrypted.habits[0].id, 'meditation', 'Auto-posted ciphertext decrypts to current habit state');
 
+    // 7. Test generating new sync code on demand
+    const oldCode = HabitualCore.SyncTargets.Firestore.getSyncCode();
+    mockLocalStorage.removeItem('habitual_firestore_sync_code');
+    const brandNewCode = HabitualCore.SyncTargets.Firestore.getSyncCode();
+    assert(brandNewCode.startsWith('HAB-'), 'Generated brand new code with HAB- prefix');
+    assert(brandNewCode !== oldCode, 'Brand new code is distinct from previous code');
+
     // Clean up
     HabitualCore.SyncManager.toggleTarget('firestore', false);
     delete global.firebase;
