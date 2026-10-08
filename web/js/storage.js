@@ -1193,6 +1193,14 @@ window.HabitualCore = window.HabitualCore || {};
       isListening: false,
       lastUpdatedServerTime: 0,
 
+      hasSyncCode: function() {
+        return !!localStorage.getItem('habitual_firestore_sync_code');
+      },
+
+      getExistingSyncCode: function() {
+        return (localStorage.getItem('habitual_firestore_sync_code') || '').toUpperCase().trim();
+      },
+
       getSyncCode: function() {
         let code = localStorage.getItem('habitual_firestore_sync_code');
         if (!code) {

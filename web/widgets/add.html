@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habitual - Quick Add Widget</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body class="dark-theme">
+  <div class="app-container">
+
+    <!-- Widget App Header -->
+    <header class="app-header">
+      <a href="../index.html" class="header-brand" style="text-decoration: none;">
+        <div class="logo-icon">
+          <svg class="logo-svg" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="8" fill="url(#logo-grad-add)"/>
+            <path d="M9 16L14 21L23 11" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="logo-grad-add" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#39d353"/>
+                <stop offset="1" stop-color="#0e4429"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Habitual</h1>
+          <p class="tagline">⚡ Quick Add Widget</p>
+        </div>
+      </a>
+      <div class="header-actions">
+        <span id="widget-date-display" class="badge-count">Today</span>
+        <a href="../index.html" class="btn btn-secondary btn-sm">Open App ↗</a>
+      </div>
+    </header>
+
+    <!-- Main Widget Container -->
+    <main class="widget-preview-card" style="max-width: 600px; margin: 0 auto; width: 100%;">
+      <div class="widget-card-header">
+        <div class="widget-card-title">
+          <span class="widget-icon">⚡</span>
+          <h3>Quick Habit Check-in</h3>
+        </div>
+        <span class="widget-type-badge">1-Click Logger</span>
+      </div>
+      <p class="widget-card-description">
+        Instant 1-click check-ins for active daily habit goals without opening dialogs.
+      </p>
+
+      <div class="widget-card-body">
+        <div class="widget-header-bar">
+          <span class="widget-brand">⚡ Habitual Active Goals</span>
+          <span id="quick-add-today-label" class="widget-date">Loading...</span>
+        </div>
+
+        <div id="widget-add-list" class="widget-quick-add-list">
+          <!-- Populated dynamically by JS -->
+          <div class="widget-empty-notice">Loading active habits...</div>
+        </div>
+      </div>
+
+      <div class="widget-action-buttons">
+        <button id="btn-refresh-add" class="btn btn-secondary btn-sm">🔄 Refresh List</button>
+        <a href="settings.html" class="btn btn-secondary btn-sm">⚙️ Widget Settings</a>
+      </div>
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- App Footer -->
+    <footer class="app-footer">
+      <p>Habitual • Quick Add Widget Page</p>
+    </footer>
+  </div>
+
+  <!-- Core Scripts -->
+  <script src="../js/colours.js" defer></script>
+  <script src="../js/state.js" defer></script>
+  <script src="../js/storage.js" defer></script>
+  <script src="../js/render.js" defer></script>
+  <script src="../js/ui.js" defer></script>
+  <script src="../js/widgets.js" defer></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.HabitualCore) {
+        if (HabitualCore.loadState) HabitualCore.loadState();
+
+        function renderQuickAddWidget() {
+          const payload = HabitualCore.getQuickAddWidgetPayload ? HabitualCore.getQuickAddWidgetPayload() : null;
+          const container = document.getElementById('widget-add-list');
+          const dateLabel = document.getElementById('quick-add-today-label');
+          const headerDate = document.getElementById('widget-date-display');
+
+          if (payload && dateLabel) dateLabel.textContent = payload.dateStr;
+          if (payload && headerDate) headerDate.textContent = payload.dateStr;
+
+          if (!container || !payload) return;
+
+          if (!payload.habits || payload.habits.length === 0) {
+            container.innerHTML = `<div class="widget-empty-notice">No active habits found. Create a habit in Habitual to populate your widget!</div>`;
+            return;
+          }
+
+          container.innerHTML = payload.habits.map(h => `
+            <div class="widget-habit-item">
+              <div class="widget-habit-info">
+                <span class="widget-habit-title" style="color: ${h.color};">${HabitualCore.escapeHTML ? HabitualCore.escapeHTML(h.name) : h.name}</span>
+                <span class="widget-habit-meta">🔥 ${h.streak} day streak • Today: ${h.completedCount}/${h.dailyTarget}</span>
+              </div>
+              <button class="widget-quick-log-btn ${h.isCompleted ? 'completed' : ''}"
+                      data-habit-id="${h.id}"
+                      title="${h.isCompleted ? 'Completed today!' : 'Click to quick log +1'}">
+                ${h.statusIcon}
+              </button>
+            </div>
+          `).join('');
+
+          // Attach log click handlers
+          container.querySelectorAll('.widget-quick-log-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const habitId = btn.getAttribute('data-habit-id');
+              const todayKey = payload.dateKey;
+              if (habitId && HabitualCore.toggleHabitForDate) {
+                HabitualCore.toggleHabitForDate(habitId, todayKey);
+                if (HabitualCore.showToast) HabitualCore.showToast('Logged progress via Quick Add Widget!');
+                renderQuickAddWidget();
+              }
+            });
+          });
+        }
+
+        renderQuickAddWidget();
+
+        const btnRefresh = document.getElementById('btn-refresh-add');
+        if (btnRefresh) {
+          btnRefresh.addEventListener('click', () => {
+            renderQuickAddWidget();
+            if (HabitualCore.showToast) HabitualCore.showToast('Refreshed quick add widget habits!');
+          });
+        }
+      }
+    });
+  </script>
+</body>
+</html>
