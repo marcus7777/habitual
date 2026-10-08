@@ -1359,8 +1359,14 @@ window.HabitualCore = window.HabitualCore || {};
       if (!syncCode) {
         return Promise.resolve(null);
       }
-      return core.SyncTargets.Firestore.uploadBackup().catch(function(err) {
-        console.warn('Firestore auto-post upload error:', err);
+      if (core.showToast) core.showToast('⏳ Syncing data to Firestore cloud...', 'info');
+      return core.SyncTargets.Firestore.uploadBackup().then(function(res) {
+        if (core.showToast) core.showToast('🔥 Firestore Cloud Sync Complete!', 'success');
+        return res;
+      }).catch(function(err) {
+        console.warn('Firestore sync upload error:', err);
+        const errMsg = err && err.message ? err.message : String(err);
+        if (core.showToast) core.showToast('❌ Firestore Sync Error: ' + errMsg, 'error');
         return null;
       });
     },

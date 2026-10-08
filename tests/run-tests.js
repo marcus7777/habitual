@@ -82,6 +82,7 @@ function createMockElement(tagName) {
 }
 
 global.document = {
+  body: createMockElement('body'),
   addEventListener: () => {},
   getElementById: () => null,
   querySelector: () => null,
@@ -1985,6 +1986,22 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
 
     const syncedDecrypted = await HabitualCore.E2EE.decrypt(syncedDoc.ciphertext, passphrase);
     assertEqual(syncedDecrypted.habits[0].id, 'yoga', 'Synced document decrypts to current habit state');
+
+    // 8. Test Toast Feedback during sync operations
+    const emittedToasts = [];
+    const origShowToast = HabitualCore.showToast;
+    HabitualCore.showToast = function(msg, type) {
+      emittedToasts.push({ msg, type });
+      if (origShowToast) origShowToast(msg, type);
+    };
+
+    HabitualCore.state.habits = [{ id: 'pilates', name: 'Pilates Workout', logs: { '2026-10-08': { count: 1 } } }];
+    await HabitualCore.SyncManager.postToFirestoreIfReady();
+
+    assert(emittedToasts.some(t => t.msg.includes('Syncing data to Firestore cloud')), 'Emitted syncing progress toast');
+    assert(emittedToasts.some(t => t.msg.includes('Firestore Cloud Sync Complete') || t.type === 'success'), 'Emitted sync completion toast');
+
+    HabitualCore.showToast = origShowToast;
 
     // Clean up
     HabitualCore.SyncManager.toggleTarget('firestore', false);
