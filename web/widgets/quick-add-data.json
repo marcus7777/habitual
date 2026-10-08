@@ -1,0 +1,25 @@
+{
+  "dateStr": "Today",
+  "habits": [
+    {
+      "id": "sample_habit_1",
+      "name": "Daily Coding",
+      "streak": 5,
+      "completedCount": 1,
+      "dailyTarget": 1,
+      "isCompleted": true,
+      "statusIcon": "✓",
+      "color": "#39d353"
+    },
+    {
+      "id": "sample_habit_2",
+      "name": "Gym Workout",
+      "streak": 3,
+      "completedCount": 0,
+      "dailyTarget": 1,
+      "isCompleted": false,
+      "statusIcon": "+",
+      "color": "#388bfd"
+    }
+  ]
+}

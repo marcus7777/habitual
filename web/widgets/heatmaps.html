@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habitual - Heatmap Grid Widget</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body class="dark-theme">
+  <div class="app-container">
+
+    <!-- Widget App Header -->
+    <header class="app-header">
+      <a href="../index.html" class="header-brand" style="text-decoration: none;">
+        <div class="logo-icon">
+          <svg class="logo-svg" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="8" fill="url(#logo-grad-hm)"/>
+            <path d="M7 23V18M13 23V12M19 23V15M25 23V9" stroke="white" stroke-width="3" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="logo-grad-hm" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#388bfd"/>
+                <stop offset="1" stop-color="#0d3166"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Habitual</h1>
+          <p class="tagline">📊 Heatmap Grid Widget</p>
+        </div>
+      </a>
+      <div class="header-actions">
+        <a href="../index.html" class="btn btn-secondary btn-sm">Open Main Heatmaps ↗</a>
+      </div>
+    </header>
+
+    <!-- Main Heatmap Widget Card -->
+    <main class="widget-preview-card" style="max-width: 720px; margin: 0 auto; width: 100%;">
+      <div class="widget-card-header">
+        <div class="widget-card-title">
+          <span class="widget-icon">📊</span>
+          <h3>Contribution Heatmap Grid</h3>
+        </div>
+        <span class="widget-type-badge">7x12 Matrix Preview</span>
+      </div>
+      <p class="widget-card-description">
+        Visualize consistency trends, continuous transparency shading, and active streak stats.
+      </p>
+
+      <div class="widget-card-body">
+        <!-- Target Habit Selector -->
+        <div class="widget-selector-row">
+          <label for="widget-heatmap-select">Target Habit Goal:</label>
+          <select id="widget-heatmap-select" class="select-input" style="flex: 1;">
+            <option value="all" selected>🌟 Combined All Habits</option>
+          </select>
+        </div>
+
+        <!-- Heatmap Stats Bar -->
+        <div class="widget-heatmap-meta-bar">
+          <div class="widget-stat-pill">
+            <span class="stat-label">Active Streak</span>
+            <span id="stat-streak-val" class="stat-value">🔥 0 d</span>
+          </div>
+          <div class="widget-stat-pill">
+            <span id="stat-year-label" class="stat-label">Annual Total</span>
+            <span id="stat-year-val" class="stat-value">✨ 0</span>
+          </div>
+        </div>
+
+        <!-- 7x12 Mini Heatmap Grid Container -->
+        <div id="widget-heatmap-grid" class="widget-heatmap-grid-preview" style="justify-content: center;">
+          <div class="widget-empty-notice">Loading heatmap grid...</div>
+        </div>
+
+        <!-- Heatmap Legend -->
+        <div class="heatmap-footer" style="margin-top: 6px; padding-top: 6px;">
+          <span>7x12 Mini Grid (Last 12 Weeks)</span>
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="legend-cells">
+              <div class="legend-cell" style="background-color: #161b22;"></div>
+              <div class="legend-cell" style="background-color: rgba(57, 211, 83, 0.25);"></div>
+              <div class="legend-cell" style="background-color: rgba(57, 211, 83, 0.50);"></div>
+              <div class="legend-cell" style="background-color: rgba(57, 211, 83, 0.75);"></div>
+              <div class="legend-cell" style="background-color: #39d353;"></div>
+            </div>
+            <span>More</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="widget-action-buttons">
+        <button id="btn-refresh-heatmap" class="btn btn-secondary btn-sm">🔄 Refresh Grid</button>
+        <a href="settings.html" class="btn btn-secondary btn-sm">⚙️ Widget Settings</a>
+      </div>
+    </main>
+
+    <!-- App Footer -->
+    <footer class="app-footer">
+      <p>Habitual • Heatmap Grid Widget Page</p>
+    </footer>
+  </div>
+
+  <!-- Core Scripts -->
+  <script src="../js/colours.js" defer></script>
+  <script src="../js/state.js" defer></script>
+  <script src="../js/storage.js" defer></script>
+  <script src="../js/render.js" defer></script>
+  <script src="../js/ui.js" defer></script>
+  <script src="../js/widgets.js" defer></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.HabitualCore) {
+        if (HabitualCore.loadState) HabitualCore.loadState();
+
+        const habitSelect = document.getElementById('widget-heatmap-select');
+        const streakVal = document.getElementById('stat-streak-val');
+        const yearLabel = document.getElementById('stat-year-label');
+        const yearVal = document.getElementById('stat-year-val');
+        const gridContainer = document.getElementById('widget-heatmap-grid');
+
+        function populateHabitOptions() {
+          if (!habitSelect) return;
+          const habits = (HabitualCore.state && Array.isArray(HabitualCore.state.habits)) ? HabitualCore.state.habits : [];
+          const selectedId = HabitualCore.activeWidgetHabitId || 'all';
+
+          let optionsHTML = `<option value="all" ${selectedId === 'all' ? 'selected' : ''}>🌟 Combined All Habits</option>`;
+          habits.forEach(h => {
+            optionsHTML += `<option value="${HabitualCore.escapeHTML ? HabitualCore.escapeHTML(h.id) : h.id}" ${selectedId === h.id ? 'selected' : ''}>${HabitualCore.escapeHTML ? HabitualCore.escapeHTML(h.name) : h.name}</option>`;
+          });
+
+          habitSelect.innerHTML = optionsHTML;
+        }
+
+        function renderHeatmapWidget() {
+          const habitId = habitSelect ? habitSelect.value : 'all';
+          const payload = HabitualCore.getHeatmapWidgetPayload ? HabitualCore.getHeatmapWidgetPayload(habitId) : null;
+
+          if (!payload) return;
+
+          if (streakVal) streakVal.textContent = `🔥 ${payload.currentStreak} d`;
+          if (yearLabel) yearLabel.textContent = `${payload.year} Total`;
+          if (yearVal) yearVal.textContent = `✨ ${payload.yearTotal}`;
+
+          if (gridContainer && Array.isArray(payload.miniWeeks)) {
+            let miniGridHTML = '';
+            payload.miniWeeks.forEach(week => {
+              miniGridHTML += `<div class="widget-mini-week">`;
+              week.forEach(day => {
+                miniGridHTML += `<div class="widget-mini-day" style="background-color: ${day.color};" title="${day.dateKey}"></div>`;
+              });
+              miniGridHTML += `</div>`;
+            });
+            gridContainer.innerHTML = miniGridHTML;
+          }
+        }
+
+        populateHabitOptions();
+        renderHeatmapWidget();
+
+        if (habitSelect) {
+          habitSelect.addEventListener('change', (e) => {
+            HabitualCore.activeWidgetHabitId = e.target.value;
+            renderHeatmapWidget();
+          });
+        }
+
+        const btnRefresh = document.getElementById('btn-refresh-heatmap');
+        if (btnRefresh) {
+          btnRefresh.addEventListener('click', () => {
+            if (HabitualCore.loadState) HabitualCore.loadState();
+            populateHabitOptions();
+            renderHeatmapWidget();
+          });
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -28,6 +28,7 @@ function createMockElement(tagName) {
   let innerHTMLVal = '';
   const elem = {
     tagName: tagName.toUpperCase(),
+    style: {},
     get className() { return Array.from(classListSet).join(' '); },
     set className(val) { classListSet.clear(); (val || '').split(' ').filter(Boolean).forEach(c => classListSet.add(c)); },
     children,
@@ -2009,6 +2010,33 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     HabitualCore.SyncTargets.Firestore.db = null;
   });
 
+  test('Firestore Sync Code helpers: hasSyncCode, getExistingSyncCode and auto-enable on paste/new-code', async () => {
+    mockLocalStorage.removeItem('habitual_firestore_sync_code');
+    mockLocalStorage.removeItem('habitual_sync_targets');
+    mockLocalStorage.removeItem('habitual_sync_passphrase');
+    HabitualCore.SyncManager.settings.enabledTargets = [];
+    HabitualCore.SyncManager.settings.passphrase = '';
+
+    // 1. Initial state: no sync code
+    assert(HabitualCore.SyncTargets.Firestore.hasSyncCode() === false, 'hasSyncCode returns false when localStorage is empty');
+    assertEqual(HabitualCore.SyncTargets.Firestore.getExistingSyncCode(), '', 'getExistingSyncCode returns empty string when no code exists');
+
+    // 2. Setting master passphrase
+    HabitualCore.SyncManager.setPassphrase('MyMasterKey123!');
+
+    // 3. User pastes code into input box -> setSyncCode automatically formats and returns code
+    const pasted = HabitualCore.SyncTargets.Firestore.setSyncCode('hab-pasted999');
+    assertEqual(pasted, 'HAB-PASTED999', 'setSyncCode normalizes pasted code to uppercase');
+    assert(HabitualCore.SyncTargets.Firestore.hasSyncCode() === true, 'hasSyncCode returns true after setSyncCode');
+    assertEqual(HabitualCore.SyncTargets.Firestore.getExistingSyncCode(), 'HAB-PASTED999', 'getExistingSyncCode returns stored code');
+
+    // 4. Generating new sync code via generateNewSyncCode
+    const generated = HabitualCore.SyncTargets.Firestore.generateNewSyncCode();
+    assert(generated.startsWith('HAB-'), 'generateNewSyncCode produces code starting with HAB-');
+    assertEqual(generated.length, 10, 'generateNewSyncCode produces 10-character code');
+    assertEqual(HabitualCore.SyncTargets.Firestore.getExistingSyncCode(), generated, 'generateNewSyncCode updates existing code');
+  });
+
   test('Conditional localStorage write and direct object payload loading', async () => {
     const origEngine = HabitualCore.activeStorageEngine;
 
@@ -2085,6 +2113,80 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     );
     const decodedStr = String.fromCharCode.apply(null, decoded);
     assertEqual(decodedStr, 'HAB:A1B2C3', 'GGwave decoded string matches original audio payload');
+  });
+});
+
+// ============================================================================
+// FEATURE 28: 🧩 STANDALONE WIDGET HTML PAGES (ADD, HEATMAPS, SETTINGS)
+// ============================================================================
+describe('Feature 28: 🧩 Standalone Widget HTML Pages (Add, Heatmaps, Settings)', () => {
+  test('web/widgets/add.html exists, has dark theme, links styles.css, core scripts, and widget UI elements', () => {
+    const addHtmlPath = path.join(__dirname, '../web/widgets/add.html');
+    assert(fs.existsSync(addHtmlPath), 'web/widgets/add.html exists');
+    const content = fs.readFileSync(addHtmlPath, 'utf8');
+
+    assert(content.includes('dark-theme'), 'add.html contains dark-theme class');
+    assert(content.includes('styles.css') || content.includes('../styles.css'), 'add.html links styles.css');
+    assert(content.includes('Habitual Quick Add') || content.includes('Quick Add'), 'add.html contains title/brand header');
+    assert(content.includes('widget-quick-add-list') || content.includes('widget-add-list'), 'add.html contains quick add list container');
+    assert(content.includes('state.js') && content.includes('widgets.js'), 'add.html links required JS scripts');
+  });
+
+  test('web/widgets/heatmaps.html exists, has dark theme, links styles.css, core scripts, and heatmap UI elements', () => {
+    const heatmapHtmlPath = path.join(__dirname, '../web/widgets/heatmaps.html');
+    assert(fs.existsSync(heatmapHtmlPath), 'web/widgets/heatmaps.html exists');
+    const content = fs.readFileSync(heatmapHtmlPath, 'utf8');
+
+    assert(content.includes('dark-theme'), 'heatmaps.html contains dark-theme class');
+    assert(content.includes('styles.css') || content.includes('../styles.css'), 'heatmaps.html links styles.css');
+    assert(content.includes('widget-heatmap-select') || content.includes('select'), 'heatmaps.html contains target habit selector');
+    assert(content.includes('widget-heatmap-grid') || content.includes('mini-week') || content.includes('heatmap'), 'heatmaps.html contains heatmap grid container');
+    assert(content.includes('state.js') && content.includes('widgets.js'), 'heatmaps.html links required JS scripts');
+  });
+
+  test('web/widgets/settings.html exists, has dark theme, links styles.css, core scripts, and settings UI elements', () => {
+    const settingsHtmlPath = path.join(__dirname, '../web/widgets/settings.html');
+    assert(fs.existsSync(settingsHtmlPath), 'web/widgets/settings.html exists');
+    const content = fs.readFileSync(settingsHtmlPath, 'utf8');
+
+    assert(content.includes('dark-theme'), 'settings.html contains dark-theme class');
+    assert(content.includes('styles.css') || content.includes('../styles.css'), 'settings.html links styles.css');
+    assert(content.includes('setting-default-habit') || content.includes('setting') || content.includes('select'), 'settings.html contains widget settings controls');
+    assert(content.includes('widget-schema-preview') || content.includes('schema') || content.includes('json') || content.includes('preview'), 'settings.html contains schema/JSON preview box');
+    assert(content.includes('state.js') && content.includes('widgets.js'), 'settings.html links required JS scripts');
+  });
+
+  test('web/js/widgets.js exists and exports core widget payload functions', () => {
+    const widgetsJsPath = path.join(__dirname, '../web/js/widgets.js');
+    assert(fs.existsSync(widgetsJsPath), 'web/js/widgets.js exists');
+
+    // Load widgets.js into global HabitualCore if not already loaded
+    require(widgetsJsPath);
+
+    assert(typeof global.window.HabitualCore.getQuickAddWidgetPayload === 'function', 'getQuickAddWidgetPayload defined');
+    assert(typeof global.window.HabitualCore.getHeatmapWidgetPayload === 'function', 'getHeatmapWidgetPayload defined');
+
+    // Test Quick Add Payload structure
+    HabitualCore.setState({
+      habits: [
+        { id: 'h_test1', name: 'Daily Meditation', type: 'positive', dailyTarget: 1, colorTheme: 'purple', logs: {} }
+      ]
+    });
+    const quickPayload = HabitualCore.getQuickAddWidgetPayload();
+    assert(quickPayload !== null, 'getQuickAddWidgetPayload returns non-null payload');
+    assert(Array.isArray(quickPayload.habits), 'quickPayload.habits is an array');
+    assertEqual(quickPayload.habits.length, 1, 'Contains 1 active habit');
+    assertEqual(quickPayload.habits[0].id, 'h_test1');
+    assertEqual(quickPayload.habits[0].name, 'Daily Meditation');
+    assertEqual(quickPayload.habits[0].statusIcon, '+');
+
+    // Test Heatmap Payload structure
+    const heatmapPayload = HabitualCore.getHeatmapWidgetPayload('h_test1');
+    assert(heatmapPayload !== null, 'getHeatmapWidgetPayload returns non-null payload');
+    assertEqual(heatmapPayload.habitId, 'h_test1');
+    assertEqual(heatmapPayload.habitName, 'Daily Meditation');
+    assert(Array.isArray(heatmapPayload.miniWeeks), 'miniWeeks is an array');
+    assertEqual(heatmapPayload.miniWeeks.length, 12, 'miniWeeks contains 12 week columns');
   });
 });
 

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habitual - Widget Settings</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body class="dark-theme">
+  <div class="app-container">
+
+    <!-- Widget App Header -->
+    <header class="app-header">
+      <a href="../index.html" class="header-brand" style="text-decoration: none;">
+        <div class="logo-icon">
+          <svg class="logo-svg" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="8" fill="url(#logo-grad-set)"/>
+            <path d="M16 8V24M8 16H24" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="logo-grad-set" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#a855f7"/>
+                <stop offset="1" stop-color="#3b185f"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Habitual</h1>
+          <p class="tagline">⚙️ Widget Settings & Adaptive Schema</p>
+        </div>
+      </a>
+      <div class="header-actions">
+        <a href="../index.html" class="btn btn-secondary btn-sm">Return to App ↗</a>
+      </div>
+    </header>
+
+    <!-- Main Widget Settings Content -->
+    <main style="max-width: 720px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 20px;">
+
+      <!-- Preferences Card -->
+      <div class="widget-preview-card">
+        <div class="widget-card-header">
+          <div class="widget-card-title">
+            <span class="widget-icon">⚙️</span>
+            <h3>Widget Preferences</h3>
+          </div>
+          <span class="widget-type-badge">Platform Sync</span>
+        </div>
+
+        <div class="form-group">
+          <label for="setting-default-habit">Default Heatmap Widget Habit:</label>
+          <select id="setting-default-habit" class="select-input">
+            <option value="all" selected>🌟 Combined All Habits</option>
+          </select>
+          <small class="muted-text">Select which habit goal displays by default in home screen heatmap widgets.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="setting-widget-theme">Widget Accent Theme Override:</label>
+          <select id="setting-widget-theme" class="select-input">
+            <option value="auto" selected>Auto (Inherit Habit Theme Color)</option>
+            <option value="green">Emerald Green (#39d353)</option>
+            <option value="blue">GitHub Blue (#388bfd)</option>
+            <option value="purple">Electric Purple (#a855f7)</option>
+            <option value="orange">Fire Orange (#f97316)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
+            <input type="checkbox" id="setting-auto-sync" checked>
+            <span>Auto-Sync PWA Service Worker Widgets on Check-in</span>
+          </label>
+          <small class="muted-text">Pushes fresh check-in payloads to the Service Worker widget cache whenever you log progress.</small>
+        </div>
+
+        <div class="widget-action-buttons">
+          <button id="btn-save-settings" class="btn btn-primary btn-sm">💾 Save Settings</button>
+          <button id="btn-sync-widgets" class="btn btn-secondary btn-sm">🔄 Sync Widgets Now</button>
+        </div>
+      </div>
+
+      <!-- Adaptive Card Schema / JSON Preview Card -->
+      <div class="widget-preview-card">
+        <div class="widget-card-header">
+          <div class="widget-card-title">
+            <span class="widget-icon">📋</span>
+            <h3>Adaptive Card Schema & Live JSON Payload</h3>
+          </div>
+          <span class="widget-type-badge">W3C Manifest / Windows 11</span>
+        </div>
+        <p class="widget-card-description">
+          Copy live JSON payloads or W3C Adaptive Card templates for platform integration in Windows 11 Widgets or Android PWA launchers.
+        </p>
+
+        <div class="form-group">
+          <label for="setting-schema-type">Select Payload Schema Type:</label>
+          <select id="setting-schema-type" class="select-input">
+            <option value="quick-add" selected>⚡ Quick Add Widget Adaptive Card JSON</option>
+            <option value="heatmap">📊 Heatmap Grid Widget Adaptive Card JSON</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="widget-schema-preview">Live Generated Payload JSON:</label>
+          <textarea id="widget-schema-preview" class="textarea-input" rows="12" readonly style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-green); background-color: #090d13;"></textarea>
+        </div>
+
+        <div class="widget-action-buttons">
+          <button id="btn-copy-schema" class="btn btn-primary btn-sm">📋 Copy Schema to Clipboard</button>
+          <a href="add.html" class="btn btn-secondary btn-sm">⚡ Launch Quick Add Widget</a>
+          <a href="heatmaps.html" class="btn btn-secondary btn-sm">📊 Launch Heatmaps Widget</a>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- App Footer -->
+    <footer class="app-footer">
+      <p>Habitual • Widget Settings & Schema Page</p>
+    </footer>
+  </div>
+
+  <!-- Core Scripts -->
+  <script src="../js/colours.js" defer></script>
+  <script src="../js/state.js" defer></script>
+  <script src="../js/storage.js" defer></script>
+  <script src="../js/render.js" defer></script>
+  <script src="../js/ui.js" defer></script>
+  <script src="../js/widgets.js" defer></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.HabitualCore) {
+        if (HabitualCore.loadState) HabitualCore.loadState();
+
+        const habitSelect = document.getElementById('setting-default-habit');
+        const schemaTypeSelect = document.getElementById('setting-schema-type');
+        const schemaPreview = document.getElementById('widget-schema-preview');
+
+        function populateDefaultHabits() {
+          if (!habitSelect) return;
+          const habits = (HabitualCore.state && Array.isArray(HabitualCore.state.habits)) ? HabitualCore.state.habits : [];
+          let optionsHTML = `<option value="all" selected>🌟 Combined All Habits</option>`;
+          habits.forEach(h => {
+            optionsHTML += `<option value="${HabitualCore.escapeHTML ? HabitualCore.escapeHTML(h.id) : h.id}">${HabitualCore.escapeHTML ? HabitualCore.escapeHTML(h.name) : h.name}</option>`;
+          });
+          habitSelect.innerHTML = optionsHTML;
+        }
+
+        function updateSchemaPreview() {
+          if (!schemaPreview || !schemaTypeSelect) return;
+          const type = schemaTypeSelect.value;
+          let payload = null;
+
+          if (type === 'quick-add') {
+            payload = HabitualCore.getQuickAddWidgetPayload ? HabitualCore.getQuickAddWidgetPayload() : {};
+          } else {
+            const defaultHabit = habitSelect ? habitSelect.value : 'all';
+            payload = HabitualCore.getHeatmapWidgetPayload ? HabitualCore.getHeatmapWidgetPayload(defaultHabit) : {};
+          }
+
+          schemaPreview.value = JSON.stringify(payload, null, 2);
+        }
+
+        populateDefaultHabits();
+        updateSchemaPreview();
+
+        if (schemaTypeSelect) schemaTypeSelect.addEventListener('change', updateSchemaPreview);
+        if (habitSelect) habitSelect.addEventListener('change', updateSchemaPreview);
+
+        const btnCopy = document.getElementById('btn-copy-schema');
+        if (btnCopy) {
+          btnCopy.addEventListener('click', () => {
+            if (schemaPreview) {
+              if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                navigator.clipboard.writeText(schemaPreview.value).then(() => {
+                  if (HabitualCore.showToast) HabitualCore.showToast('Copied Widget Schema JSON to clipboard!');
+                });
+              } else {
+                schemaPreview.select();
+                document.execCommand('copy');
+                if (HabitualCore.showToast) HabitualCore.showToast('Copied Widget Schema JSON to clipboard!');
+              }
+            }
+          });
+        }
+
+        const btnSync = document.getElementById('btn-sync-widgets');
+        if (btnSync) {
+          btnSync.addEventListener('click', () => {
+            if (HabitualCore.updatePWAWidgets) HabitualCore.updatePWAWidgets();
+            if (HabitualCore.showToast) HabitualCore.showToast('Widgets synced successfully with Service Worker!');
+          });
+        }
+
+        const btnSave = document.getElementById('btn-save-settings');
+        if (btnSave) {
+          btnSave.addEventListener('click', () => {
+            if (HabitualCore.saveState) HabitualCore.saveState();
+            if (HabitualCore.showToast) HabitualCore.showToast('Widget settings saved!');
+          });
+        }
+      }
+    });
+  </script>
+</body>
+</html>
