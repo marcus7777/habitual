@@ -3,13 +3,39 @@ window.HabitualCore = window.HabitualCore || {};
 (function(core) {
   'use strict';
 
-  core.showToast = function(message) {
+  core.showToast = function(message, type = 'info') {
+    if (!message) return;
+
+    // 1. Banner Toast
     const banner = document.getElementById('toast-banner');
     const msgEl = document.getElementById('toast-message');
     if (banner && msgEl) {
       msgEl.textContent = message;
+      banner.className = 'toast-banner toast-' + type;
       banner.classList.remove('hidden');
-      setTimeout(() => { banner.classList.add('hidden'); }, 4000);
+      if (core._toastTimeout) clearTimeout(core._toastTimeout);
+      core._toastTimeout = setTimeout(() => { banner.classList.add('hidden'); }, 4000);
+    }
+
+    // 2. Floating Pop-up Toast
+    let container = document.getElementById('toast-container');
+    if (!container && document.body) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      container.className = 'toast-container';
+      document.body.appendChild(container);
+    }
+
+    if (container) {
+      const toastItem = document.createElement('div');
+      toastItem.className = 'toast-item toast-' + type;
+      toastItem.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toastItem);
+
+      setTimeout(() => {
+        toastItem.classList.add('toast-fade-out');
+        setTimeout(() => { if (toastItem.parentNode) toastItem.parentNode.removeChild(toastItem); }, 300);
+      }, 3800);
     }
   };
 
@@ -544,6 +570,23 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
+    if (inputFirestoreCode) {
+      // Paste event listener: automatically format and sync immediately when pasting
+      inputFirestoreCode.addEventListener('paste', (e) => {
+        if (!core.SyncManager.isTargetEnabled('firestore')) return;
+        setTimeout(() => {
+          const val = inputFirestoreCode.value.trim();
+          if (val) {
+            const formatted = core.SyncTargets.Firestore.setSyncCode(val);
+            inputFirestoreCode.value = formatted;
+            if (core.showToast) core.showToast('📋 Pasted Sync Code recognized! Syncing with channel ' + formatted + '...', 'info');
+            core.SyncManager.postToFirestoreIfReady();
+            core.SyncManager.pullAndMergeAll();
+          }
+        }, 50);
+      });
+    }
+
     if (btnSaveFirestoreCode && inputFirestoreCode) {
       btnSaveFirestoreCode.addEventListener('click', () => {
         if (!core.SyncManager.isTargetEnabled('firestore')) return;
@@ -551,22 +594,23 @@ window.HabitualCore = window.HabitualCore || {};
         if (val) {
           const formatted = core.SyncTargets.Firestore.setSyncCode(val);
           inputFirestoreCode.value = formatted;
+          if (core.showToast) core.showToast('💾 Code saved! Syncing with channel ' + formatted + '...', 'info');
           core.SyncManager.postToFirestoreIfReady();
           core.SyncManager.pullAndMergeAll();
-          if (core.showToast) core.showToast('Firestore Sync Code saved & synced!', 'success');
         }
       });
     }
 
     if (btnGenFirestoreCode && inputFirestoreCode) {
       btnGenFirestoreCode.addEventListener('click', () => {
-        if (!core.SyncManager.isTargetEnabled('firestore')) return;
+        if (!core.SyncManager.isTargetEnabled('firestore')) {
+          if (core.showToast) core.showToast('⚠️ Please enable Firestore Sync first!', 'warning');
+          return;
+        }
         const newCode = core.SyncTargets.Firestore.generateNewSyncCode();
         inputFirestoreCode.value = newCode;
-        if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
-          core.SyncManager.postToFirestoreIfReady();
-        }
-        if (core.showToast) core.showToast('Generated & synced new Sync Code!', 'info');
+        if (core.showToast) core.showToast('🔑 Generated new Sync Code: ' + newCode + '! Syncing...', 'info');
+        core.SyncManager.postToFirestoreIfReady();
       });
     }
 
