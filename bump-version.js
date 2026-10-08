@@ -121,13 +121,18 @@ async function main() {
   fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
   console.log(` [✓] Updated package.json -> ${newVersion}`);
 
-  // 3. Update web/index.html
-  if (fs.existsSync(htmlPath)) {
-    let htmlContent = fs.readFileSync(htmlPath, 'utf8');
-    const updatedHtml = htmlContent.replace(/v\d+\.\d+\.\d+/g, `v${newVersion}`);
-    fs.writeFileSync(htmlPath, updatedHtml, 'utf8');
-    console.log(` [✓] Updated web/index.html -> v${newVersion}`);
-  }
+  // 3. Update HTML files (web/index.html, web/sync.html)
+  const webDir = path.join(rootDir, 'web');
+  const htmlFiles = ['index.html', 'sync.html'];
+  htmlFiles.forEach((file) => {
+    const filePath = path.join(webDir, file);
+    if (fs.existsSync(filePath)) {
+      let htmlContent = fs.readFileSync(filePath, 'utf8');
+      const updatedHtml = htmlContent.replace(/v\d+\.\d+\.\d+/g, `v${newVersion}`);
+      fs.writeFileSync(filePath, updatedHtml, 'utf8');
+      console.log(` [✓] Updated web/${file} -> v${newVersion}`);
+    }
+  });
 
   // 4. Update web/sw.js
   if (fs.existsSync(swPath)) {
