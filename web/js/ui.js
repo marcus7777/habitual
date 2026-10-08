@@ -485,15 +485,42 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    // Firestore Live Sync Toggle (Off by default, requires Master Passphrase)
+    // Firestore Live Sync & Code Controls
     const chkFirestore = document.getElementById('chk-sync-firestore');
+    const inputFirestoreCode = document.getElementById('input-firestore-sync-code');
+    const btnSaveFirestoreCode = document.getElementById('btn-save-firestore-code');
+    const btnGenFirestoreCode = document.getElementById('btn-gen-firestore-code');
+    const btnCopyFirestoreCode = document.getElementById('btn-copy-firestore-code');
+
+    function updateFirestoreCodeUIState(isSyncEnabled) {
+      if (inputFirestoreCode) {
+        inputFirestoreCode.disabled = !isSyncEnabled;
+        if (!isSyncEnabled) {
+          inputFirestoreCode.placeholder = 'Enable Firestore Sync first...';
+          inputFirestoreCode.value = (core.SyncTargets && core.SyncTargets.Firestore) ? core.SyncTargets.Firestore.getSyncCode() : '';
+        } else {
+          inputFirestoreCode.placeholder = 'HAB-XXXXXX';
+          if (core.SyncTargets && core.SyncTargets.Firestore) {
+            inputFirestoreCode.value = core.SyncTargets.Firestore.getSyncCode();
+          }
+        }
+      }
+      if (btnSaveFirestoreCode) btnSaveFirestoreCode.disabled = !isSyncEnabled;
+      if (btnGenFirestoreCode) btnGenFirestoreCode.disabled = !isSyncEnabled;
+      if (btnCopyFirestoreCode) btnCopyFirestoreCode.disabled = !isSyncEnabled;
+    }
+
+    const initialFirestoreEnabled = core.SyncManager.isTargetEnabled('firestore');
+    updateFirestoreCodeUIState(initialFirestoreEnabled);
+
     if (chkFirestore) {
-      chkFirestore.checked = core.SyncManager.isTargetEnabled('firestore');
+      chkFirestore.checked = initialFirestoreEnabled;
       chkFirestore.addEventListener('change', (e) => {
         if (e.target.checked) {
           const currentPassphrase = core.SyncManager.settings.passphrase;
           if (!currentPassphrase || currentPassphrase.trim().length === 0) {
             e.target.checked = false;
+            updateFirestoreCodeUIState(false);
             if (inputPassphrase) inputPassphrase.focus();
             if (core.showToast) {
               core.showToast('⚠️ Please enter and save a Master Passphrase first!', 'error');
@@ -503,26 +530,23 @@ window.HabitualCore = window.HabitualCore || {};
             return;
           }
           core.SyncManager.toggleTarget('firestore', true);
+          if (core.SyncTargets && core.SyncTargets.Firestore) {
+            const syncCode = core.SyncTargets.Firestore.getSyncCode();
+            if (inputFirestoreCode) inputFirestoreCode.value = syncCode;
+          }
+          updateFirestoreCodeUIState(true);
           if (core.showToast) core.showToast('🔥 Encrypted Firestore Live Sync Enabled!', 'success');
         } else {
           core.SyncManager.toggleTarget('firestore', false);
+          updateFirestoreCodeUIState(false);
           if (core.showToast) core.showToast('Firestore Sync Disabled.');
         }
       });
     }
 
-    // Firestore Sync Channel Identifier Code
-    const inputFirestoreCode = document.getElementById('input-firestore-sync-code');
-    const btnSaveFirestoreCode = document.getElementById('btn-save-firestore-code');
-    const btnGenFirestoreCode = document.getElementById('btn-gen-firestore-code');
-    const btnCopyFirestoreCode = document.getElementById('btn-copy-firestore-code');
-
-    if (inputFirestoreCode && core.SyncTargets && core.SyncTargets.Firestore) {
-      inputFirestoreCode.value = core.SyncTargets.Firestore.getSyncCode();
-    }
-
     if (btnSaveFirestoreCode && inputFirestoreCode) {
       btnSaveFirestoreCode.addEventListener('click', () => {
+        if (!core.SyncManager.isTargetEnabled('firestore')) return;
         const val = inputFirestoreCode.value.trim();
         if (val) {
           const formatted = core.SyncTargets.Firestore.setSyncCode(val);
@@ -534,6 +558,7 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (btnGenFirestoreCode && inputFirestoreCode) {
       btnGenFirestoreCode.addEventListener('click', () => {
+        if (!core.SyncManager.isTargetEnabled('firestore')) return;
         localStorage.removeItem('habitual_firestore_sync_code');
         const newCode = core.SyncTargets.Firestore.getSyncCode();
         inputFirestoreCode.value = newCode;
@@ -546,6 +571,7 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (btnCopyFirestoreCode && inputFirestoreCode) {
       btnCopyFirestoreCode.addEventListener('click', () => {
+        if (!inputFirestoreCode.value) return;
         navigator.clipboard.writeText(inputFirestoreCode.value).then(() => {
           if (core.showToast) core.showToast('Sync Code copied to clipboard!', 'success');
         });

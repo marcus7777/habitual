@@ -1668,6 +1668,14 @@ body.dark-theme {
   font-weight: 600;
 }
 
+input:disabled, button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+  background-color: var(--bg-tertiary, rgba(200, 200, 200, 0.15)) !important;
+  border-color: var(--border-color, #30363d) !important;
+  pointer-events: none;
+}
+
 .form-control-sm.uppercase {
   text-transform: uppercase;
 }
