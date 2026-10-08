@@ -537,6 +537,9 @@ window.HabitualCore = window.HabitualCore || {};
         localStorage.removeItem('habitual_firestore_sync_code');
         const newCode = core.SyncTargets.Firestore.getSyncCode();
         inputFirestoreCode.value = newCode;
+        if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
+          core.SyncManager.postToFirestoreIfReady();
+        }
         if (core.showToast) core.showToast('Generated new Sync Channel Code!', 'info');
       });
     }
