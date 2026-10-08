@@ -525,21 +525,25 @@ window.HabitualCore = window.HabitualCore || {};
     const btnCopyFirestoreCode = document.getElementById('btn-copy-firestore-code');
 
     function updateFirestoreCopyBtnVisibility() {
-      if (btnCopyFirestoreCode && btnCopyFirestoreCode.style && inputFirestoreCode) {
-        const hasCode = inputFirestoreCode.value && inputFirestoreCode.value.trim().length > 0;
-        btnCopyFirestoreCode.style.display = hasCode ? 'inline-block' : 'none';
+      const inputEl = document.getElementById('input-firestore-sync-code') || inputFirestoreCode;
+      const copyBtnEl = document.getElementById('btn-copy-firestore-code') || btnCopyFirestoreCode;
+      if (copyBtnEl && copyBtnEl.style && inputEl) {
+        const hasCode = inputEl.value && inputEl.value.trim().length > 0;
+        copyBtnEl.style.display = hasCode ? 'inline-block' : 'none';
       }
     }
 
     function updateFirestoreCodeUIState() {
-      if (inputFirestoreCode && core.SyncTargets && core.SyncTargets.Firestore) {
-        const existingCode = core.SyncTargets.Firestore.getExistingSyncCode();
-        if (existingCode) {
-          inputFirestoreCode.value = existingCode;
+      const inputEl = document.getElementById('input-firestore-sync-code') || inputFirestoreCode;
+      if (inputEl && core.SyncTargets && core.SyncTargets.Firestore) {
+        const syncCode = core.SyncTargets.Firestore.getSyncCode();
+        if (syncCode) {
+          inputEl.value = syncCode;
         }
       }
       updateFirestoreCopyBtnVisibility();
     }
+    core.updateFirestoreCodeUIState = updateFirestoreCodeUIState;
 
     const initialFirestoreEnabled = core.SyncManager.isTargetEnabled('firestore');
     if (chkFirestore) {
