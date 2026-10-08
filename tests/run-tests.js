@@ -25,10 +25,21 @@ function createMockElement(tagName) {
   const children = [];
   const attributes = {};
   const classListSet = new Set();
+  const eventListeners = {};
   let innerHTMLVal = '';
   const elem = {
     tagName: tagName.toUpperCase(),
+    value: '',
     style: {},
+    addEventListener: (event, fn) => {
+      if (!eventListeners[event]) eventListeners[event] = [];
+      eventListeners[event].push(fn);
+    },
+    click: function() {
+      if (eventListeners['click']) {
+        eventListeners['click'].forEach(fn => fn({ target: elem }));
+      }
+    },
     get className() { return Array.from(classListSet).join(' '); },
     set className(val) { classListSet.clear(); (val || '').split(' ').filter(Boolean).forEach(c => classListSet.add(c)); },
     children,
@@ -687,6 +698,10 @@ describe('Feature 11: 📱 PWA & Offline Support', () => {
     assert(swContent.includes('app.js'), 'Caches app.js');
     assert(swContent.includes('styles.css'), 'Caches styles.css');
     assert(swContent.includes('manifest.json'), 'Caches manifest.json');
+    assert(swContent.includes('js/widgets.js'), 'Caches js/widgets.js');
+    assert(swContent.includes('widgets/add.html'), 'Caches widgets/add.html');
+    assert(swContent.includes('widgets/heatmaps.html'), 'Caches widgets/heatmaps.html');
+    assert(swContent.includes('widgets/settings.html'), 'Caches widgets/settings.html');
   });
 
   test('Web Manifest manifest.json specifies required PWA fields', () => {
@@ -1886,39 +1901,41 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
 
         return {
           doc: function(docId) {
+            const actualDocId = docId || ('auto_doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
             return {
+              id: actualDocId,
               set: function(data) {
-                store[collName][docId] = Object.assign({}, data, {
+                store[collName][actualDocId] = Object.assign({}, data, {
                   updatedAt: data.updatedAt || { toMillis: () => Date.now() }
                 });
-                if (listeners[collName][docId]) {
+                if (listeners[collName][actualDocId]) {
                   const snap = {
                     exists: true,
-                    data: () => store[collName][docId]
+                    data: () => store[collName][actualDocId]
                   };
-                  listeners[collName][docId].forEach(cb => cb(snap));
+                  listeners[collName][actualDocId].forEach(cb => cb(snap));
                 }
                 return Promise.resolve();
               },
               get: function() {
-                const docData = store[collName][docId];
+                const docData = store[collName][actualDocId];
                 return Promise.resolve({
                   exists: !!docData,
                   data: () => docData
                 });
               },
               onSnapshot: function(onNext) {
-                if (!listeners[collName][docId]) listeners[collName][docId] = [];
-                listeners[collName][docId].push(onNext);
-                if (store[collName][docId]) {
+                if (!listeners[collName][actualDocId]) listeners[collName][actualDocId] = [];
+                listeners[collName][actualDocId].push(onNext);
+                if (store[collName][actualDocId]) {
                   onNext({
                     exists: true,
-                    data: () => store[collName][docId]
+                    data: () => store[collName][actualDocId]
                   });
                 }
                 return function unsubscribe() {
-                  const idx = listeners[collName][docId].indexOf(onNext);
-                  if (idx !== -1) listeners[collName][docId].splice(idx, 1);
+                  const idx = listeners[collName][actualDocId].indexOf(onNext);
+                  if (idx !== -1) listeners[collName][actualDocId].splice(idx, 1);
                 };
               }
             };
@@ -1962,13 +1979,12 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     const retrievedPayload = await HabitualCore.E2EE.decrypt(retrievedCiphertext, passphrase);
     assertEqual(retrievedPayload.habits[0].name, 'Hydration', 'Retrieved payload decrypts correctly');
 
-    // 6. Test generateNewSyncCode API method
+    // 6. Test generateNewSyncCode API method using Firebase automatic auto-ID
     const oldCode = HabitualCore.SyncTargets.Firestore.getSyncCode();
     const brandNewCode = HabitualCore.SyncTargets.Firestore.generateNewSyncCode();
-    assert(brandNewCode.startsWith('HAB-'), 'generateNewSyncCode produces code with HAB- prefix');
-    assertEqual(brandNewCode.length, 10, 'generateNewSyncCode produces 10-char code (HAB-XXXXXX)');
-    assert(brandNewCode !== oldCode, 'generateNewSyncCode produces a fresh new code');
-    assertEqual(HabitualCore.SyncTargets.Firestore.getSyncCode(), brandNewCode, 'generateNewSyncCode persists in storage');
+    assert(typeof brandNewCode === 'string' && brandNewCode.length > 5, 'generateNewSyncCode produces valid auto-ID string');
+    assert(brandNewCode !== oldCode, 'generateNewSyncCode produces a fresh auto-generated code');
+    assertEqual(HabitualCore.SyncTargets.Firestore.getExistingSyncCode(), brandNewCode, 'generateNewSyncCode persists in storage');
 
     // 7. Test user pasting custom code & explicit Save & Sync
     const pastedCode = HabitualCore.SyncTargets.Firestore.setSyncCode('hab-pasted123');
@@ -2032,9 +2048,47 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
 
     // 4. Generating new sync code via generateNewSyncCode
     const generated = HabitualCore.SyncTargets.Firestore.generateNewSyncCode();
-    assert(generated.startsWith('HAB-'), 'generateNewSyncCode produces code starting with HAB-');
-    assertEqual(generated.length, 10, 'generateNewSyncCode produces 10-character code');
+    assert(typeof generated === 'string' && generated.length > 5, 'generateNewSyncCode produces valid auto-ID string');
     assertEqual(HabitualCore.SyncTargets.Firestore.getExistingSyncCode(), generated, 'generateNewSyncCode updates existing code');
+  });
+
+  test('UI Button Click: New Code button generates Firebase auto-ID and displays it in code box', async () => {
+    // Mock Firebase for auto-ID generation
+    global.firebase = {
+      apps: [{}],
+      initializeApp: () => {},
+      firestore: () => ({
+        collection: () => ({
+          doc: () => ({ id: 'fb_auto_id_998877665544' })
+        })
+      })
+    };
+
+    const inputFirestoreCode = createMockElement('input');
+    const btnGenFirestoreCode = createMockElement('button');
+    const btnCopyFirestoreCode = createMockElement('button');
+
+    // Wire event handler (simulating ui.js listener)
+    btnGenFirestoreCode.addEventListener('click', () => {
+      const newCode = HabitualCore.SyncTargets.Firestore.generateNewSyncCode();
+      inputFirestoreCode.value = newCode;
+      if (btnCopyFirestoreCode && btnCopyFirestoreCode.style) {
+        btnCopyFirestoreCode.style.display = newCode ? 'inline-block' : 'none';
+      }
+    });
+
+    // Initial state
+    inputFirestoreCode.value = '';
+    btnCopyFirestoreCode.style.display = 'none';
+
+    // Click "New Code" button
+    btnGenFirestoreCode.click();
+
+    // Verify code box is populated with Firebase auto-ID and Copy button is visible
+    assertEqual(inputFirestoreCode.value, 'fb_auto_id_998877665544', 'Code box displays Firebase auto-generated document ID');
+    assertEqual(btnCopyFirestoreCode.style.display, 'inline-block', 'Copy button displays once code is generated');
+
+    delete global.firebase;
   });
 
   test('Conditional localStorage write and direct object payload loading', async () => {

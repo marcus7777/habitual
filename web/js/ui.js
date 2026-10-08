@@ -292,6 +292,12 @@ window.HabitualCore = window.HabitualCore || {};
       core.openLogModal(targetDate);
     });
 
+    const menuWidgets = document.getElementById('menu-btn-open-widgets');
+    if (menuWidgets) menuWidgets.addEventListener('click', () => {
+      if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
+      core.openWidgetsModal();
+    });
+
     const menuDataModal = document.getElementById('menu-btn-data-modal');
     if (menuDataModal) menuDataModal.addEventListener('click', () => {
     if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
@@ -1058,6 +1064,9 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     if (core.setupMobileArrowPad) core.setupMobileArrowPad();
+
+    core.elements.modalWidgets = document.getElementById('modal-widgets');
+    if (core.initWidgetsUI) core.initWidgetsUI();
   };
 
   core.setupMobileArrowPad = function() {

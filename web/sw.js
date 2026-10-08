@@ -1,11 +1,12 @@
-/* Habitual */
+/* Habitual Service Worker */
 
-const CACHE_NAME = 'habitual-v1.13.0';
+const CACHE_NAME = 'habitual-v1.13.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './sync.html',
   './styles.css',
+  './fonts.css',
   './app.js',
   './manifest.json',
   './favicon.svg',
@@ -17,6 +18,14 @@ const ASSETS_TO_CACHE = [
   './js/audio-sync.js',
   './js/render.js',
   './js/ui.js',
+  './js/widgets.js',
+  './widgets/add.html',
+  './widgets/heatmaps.html',
+  './widgets/settings.html',
+  './widgets/heatmap-data.json',
+  './widgets/heatmap-template.json',
+  './widgets/quick-add-data.json',
+  './widgets/quick-add-template.json',
   './lib/ggwave.js',
   './fonts/inter-latin.woff2',
   './fonts/jetbrains-mono-latin.woff2'
@@ -26,7 +35,7 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Pre-caching offline PWA assets');
+      console.log('[Service Worker] Pre-caching offline PWA assets & widgets');
       return cache.addAll(ASSETS_TO_CACHE);
     }).then(() => self.skipWaiting())
   );

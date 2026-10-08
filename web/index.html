@@ -142,6 +142,9 @@
 
       <!-- Header Actions Dropdown Menu -->
       <div class="header-actions">
+        <button id="btn-open-widgets" class="btn btn-secondary header-btn" title="Widgets Gallery">
+          🧩 Widgets
+        </button>
         <div class="header-menu-dropdown">
           <button id="btn-header-menu" class="btn btn-secondary dropdown-toggle" aria-expanded="false" title="Menu Options">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
@@ -156,6 +159,10 @@
             <button id="menu-btn-quick-log" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               Quick Check-in Today
+            </button>
+            <button id="menu-btn-open-widgets" class="dropdown-item">
+              <span>🧩</span>
+              Widgets Gallery
             </button>
             <div class="dropdown-divider"></div>
             <div class="dropdown-item-group">
@@ -214,7 +221,7 @@
           </div>
         </div>
       </div>
-      <p>Habitual &bull; v1.13.0</p>
+      <p>Habitual &bull; v1.13.1</p>
     </footer>
   </div>
 
@@ -650,6 +657,19 @@
       </div>
       <div class="modal-footer">
         <button type="button" id="btn-save-log" class="btn btn-primary">Save Entry</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PWA & Platform Widgets Gallery -->
+  <div id="modal-widgets" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-dialog-lg">
+      <div class="modal-header">
+        <h3>🧩 Habitual Widgets Gallery</h3>
+        <button id="btn-close-widgets" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body" id="widget-gallery-content">
+        <!-- Rendered dynamically by JS -->
       </div>
     </div>
   </div>

@@ -1216,17 +1216,31 @@ window.HabitualCore = window.HabitualCore || {};
       },
 
       generateNewSyncCode: function() {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let rnd = 'HAB-';
-        for (let i = 0; i < 6; i++) {
-          rnd += chars.charAt(Math.floor(Math.random() * chars.length));
+        let autoId = null;
+        try {
+          if (this.db) {
+            autoId = this.db.collection('habit_data').doc().id;
+          } else if (typeof firebase !== 'undefined' && firebase.firestore) {
+            autoId = firebase.firestore().collection('habit_data').doc().id;
+          }
+        } catch (e) {
+          console.warn('Firebase auto-ID generation note:', e);
         }
-        return this.setSyncCode(rnd);
+
+        if (!autoId) {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+          autoId = '';
+          for (let i = 0; i < 20; i++) {
+            autoId += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+        }
+
+        return this.setSyncCode(autoId);
       },
 
       setSyncCode: function(newCode) {
         if (!newCode || !newCode.trim()) return;
-        const formatted = newCode.toUpperCase().trim();
+        const formatted = newCode.trim();
         localStorage.setItem('habitual_firestore_sync_code', formatted);
         if (this.isListening) {
           this.stopLiveSync();
