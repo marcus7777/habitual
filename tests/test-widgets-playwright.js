@@ -183,15 +183,26 @@ async function runWidgetsPlaywrightTests() {
     }
 
     // ------------------------------------------------------------------------
-    // TEST 4: In-App Widgets Gallery Modal (index.html)
+    // TEST 4: In-App Widgets Gallery Modal & Feature Flag Hiding (index.html)
     // ------------------------------------------------------------------------
-    console.log('\n📋 Running Test 4: In-App Widgets Gallery Modal (index.html)');
+    console.log('\n📋 Running Test 4: In-App Widgets Gallery Modal & Feature Flag Hiding (index.html)');
     await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(500);
 
-    const openWidgetsBtn = page.locator('#btn-open-widgets');
-    if (await openWidgetsBtn.isVisible()) {
-      await openWidgetsBtn.click();
+    const openWidgetsBtnHidden = page.locator('#btn-open-widgets');
+    const isHiddenByDefault = !(await openWidgetsBtnHidden.isVisible());
+    logResult('index.html Widgets Button Hidden By Default Without Feature Flag', isHiddenByDefault);
+
+    // Open index.html with feature flag enabled (?widgets=1)
+    await page.goto(`http://127.0.0.1:${PORT}/index.html?widgets=1`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+
+    const openWidgetsBtnVisible = page.locator('#btn-open-widgets');
+    const isVisibleWithFlag = await openWidgetsBtnVisible.isVisible();
+    logResult('index.html Widgets Button Visible With ?widgets=1 Feature Flag', isVisibleWithFlag);
+
+    if (isVisibleWithFlag) {
+      await openWidgetsBtnVisible.click();
       await page.waitForTimeout(500);
 
       const modalWidgets = page.locator('#modal-widgets');
