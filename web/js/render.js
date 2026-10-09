@@ -182,17 +182,21 @@ window.HabitualCore = window.HabitualCore || {};
       return;
     }
 
+    const fragment = (typeof document !== 'undefined' && typeof document.createDocumentFragment === 'function')
+      ? document.createDocumentFragment()
+      : document.createElement('div');
+
     if (route.view === 'home') {
       const topLevelHabits = core.state.habits.filter(h => !h.parentId);
       const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
       if (topLevelHabits.length > 1 && habitsInAll.length > 0) {
         const combinedCard = core.buildHeatmapCard(null, core.state.selectedYear);
-        core.elements.heatmapsGallery.appendChild(combinedCard);
+        fragment.appendChild(combinedCard);
       }
 
       topLevelHabits.forEach(habit => {
         const habitNode = core.renderHabitTree(habit, core.state.selectedYear);
-        core.elements.heatmapsGallery.appendChild(habitNode);
+        fragment.appendChild(habitNode);
       });
     } else if (route.view === 'habit') {
       const targetHabit = core.state.habits.find(h => h.id === route.habitId);
@@ -208,14 +212,14 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       const habitNode = core.renderHabitTree(targetHabit, core.state.selectedYear);
-      core.elements.heatmapsGallery.appendChild(habitNode);
+      fragment.appendChild(habitNode);
 
       const subhabits = core.state.habits.filter(h => h.parentId === targetHabit.id);
       if (subhabits.length === 0) {
         const callout = document.createElement('div');
         callout.className = 'subhabit-callout';
         callout.innerHTML = `<button type="button" class="btn btn-secondary btn-sm btn-add-sub-callout">+ Add Sub-habit</button>`;
-        core.elements.heatmapsGallery.appendChild(callout);
+        fragment.appendChild(callout);
 
         callout.querySelector('.btn-add-sub-callout').addEventListener('click', () => {
           if (core.openHabitModal) core.openHabitModal(null, targetHabit.id);
@@ -223,8 +227,44 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
+    core.elements.heatmapsGallery.appendChild(fragment);
+
     if (core.attachHeatmapSquareEvents) core.attachHeatmapSquareEvents();
     if (core.attachCardDragAndDropHandlers) core.attachCardDragAndDropHandlers();
+  };
+
+  core.updateHabitCard = function(habitId) {
+    if (!core.elements || !core.elements.heatmapsGallery) return false;
+    const habit = core.state.habits.find(h => h.id === habitId);
+    if (!habit) return false;
+
+    let topParent = habit;
+    while (topParent.parentId) {
+      const parent = core.state.habits.find(h => h.id === topParent.parentId);
+      if (!parent) break;
+      topParent = parent;
+    }
+
+    const selector = `.heatmap-group-wrapper[data-habit-id="${topParent.id}"], .heatmap-card[data-habit-id="${topParent.id}"]`;
+    const existingNode = core.elements.heatmapsGallery.querySelector(selector);
+
+    const combinedCard = core.elements.heatmapsGallery.querySelector('.heatmap-card[data-habit-id="all"]');
+    if (combinedCard) {
+      const newCombined = core.buildHeatmapCard(null, core.state.selectedYear);
+      combinedCard.replaceWith(newCombined);
+    }
+
+    if (existingNode) {
+      const newNode = core.renderHabitTree(topParent, core.state.selectedYear);
+      existingNode.replaceWith(newNode);
+
+      if (core.attachHeatmapSquareEvents) core.attachHeatmapSquareEvents();
+      if (core.attachCardDragAndDropHandlers) core.attachCardDragAndDropHandlers();
+      return true;
+    }
+
+    if (core.renderAll) core.renderAll();
+    return true;
   };
 
   core.buildHeatmapCard = function(targetOrNull, year) {

@@ -99,7 +99,8 @@ global.document = {
   getElementById: () => null,
   querySelector: () => null,
   querySelectorAll: () => [],
-  createElement: createMockElement
+  createElement: createMockElement,
+  createDocumentFragment: () => createMockElement('fragment')
 };
 global.localStorage = mockLocalStorage;
 global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } };
@@ -1413,7 +1414,12 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
       heatmapsGallery: {
         innerHTML: '',
         appendChild(node) {
-          appenedCards.push(node);
+          if (node && (node.tagName === 'FRAGMENT' || (node.tagName && node.tagName.toLowerCase() === 'fragment') || node.nodeType === 11)) {
+            const list = Array.from(node.children || node.childNodes || []);
+            list.forEach(c => appenedCards.push(c));
+          } else {
+            appenedCards.push(node);
+          }
         },
         querySelectorAll() {
           return [];
