@@ -39,6 +39,18 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  core.vibrate = function(pattern = 15) {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(pattern); } catch (e) {}
+    }
+  };
+
+  core.toggleModalScrollLock = function(isLocked) {
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.style.overflow = isLocked ? 'hidden' : '';
+    }
+  };
+
   core.parseHash = function() {
     const hash = window.location.hash.trim();
     if (hash.startsWith('#/habit/')) {
@@ -126,7 +138,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.habitIdDisplay = document.getElementById('habit-id-display');
     core.elements.habitFormDetails = document.getElementById('habit-form-details');
 
-    if (core.elements.habitName) {
+    if (core.elements.habitName && typeof core.elements.habitName.addEventListener === 'function') {
       core.elements.habitName.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); core.elements.habitName.blur(); } });
       core.elements.habitName.addEventListener('blur', () => core.handleHabitNameBlur());
     }
@@ -315,16 +327,16 @@ window.HabitualCore = window.HabitualCore || {};
   });
 
     const modalHabitClose = document.getElementById('modal-habit-close');
-    if (modalHabitClose) modalHabitClose.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; core.elements.modalHabit.classList.add('hidden'); });
+    if (modalHabitClose) modalHabitClose.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; core.toggleModalScrollLock(false); core.elements.modalHabit.classList.add('hidden'); });
 
     const btnCancelHabit = document.getElementById('btn-cancel-habit');
-    if (btnCancelHabit) btnCancelHabit.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; core.elements.modalHabit.classList.add('hidden'); });
+    if (btnCancelHabit) btnCancelHabit.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; core.toggleModalScrollLock(false); core.elements.modalHabit.classList.add('hidden'); });
 
     const modalLogClose = document.getElementById('modal-log-close');
-    if (modalLogClose) modalLogClose.addEventListener('click', () => core.elements.modalLog.classList.add('hidden'));
+    if (modalLogClose) modalLogClose.addEventListener('click', () => { core.toggleModalScrollLock(false); core.elements.modalLog.classList.add('hidden'); });
 
     const modalDataClose = document.getElementById('modal-data-close');
-    if (modalDataClose) modalDataClose.addEventListener('click', () => core.elements.modalData.classList.add('hidden'));
+    if (modalDataClose) modalDataClose.addEventListener('click', () => { core.toggleModalScrollLock(false); core.elements.modalData.classList.add('hidden'); });
 
     const toastCloseBtn = document.getElementById('toast-close');
     if (toastCloseBtn) toastCloseBtn.addEventListener('click', () => document.getElementById('toast-banner').classList.add('hidden'));
@@ -1210,42 +1222,59 @@ window.HabitualCore = window.HabitualCore || {};
   core.attachHeatmapSquareEvents = function() {
     const cards = core.elements.heatmapsGallery.querySelectorAll('.heatmap-card');
     cards.forEach(card => {
-      const squares = card.querySelectorAll('.day-square[data-date]');
-      squares.forEach(sq => {
-        let longPressTimer = null, startX = 0, startY = 0;
-        const cancelLongPress = () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
-        const startLongPress = (e) => {
-          if (e.button !== undefined && e.button !== 0) return;
-          cancelLongPress(); sq._isLongPressTriggered = false;
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-          startX = clientX; startY = clientY;
-          longPressTimer = setTimeout(() => {
-            sq._isLongPressTriggered = true; longPressTimer = null;
-            if (typeof navigator !== 'undefined' && navigator.vibrate) { try { navigator.vibrate(40); } catch (err) {} }
-            if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
-            const dateStr = sq.dataset.date;
-            let targetHabitId = sq.dataset.habitId;
-            if (!targetHabitId || targetHabitId === 'all' || targetHabitId.startsWith('group_')) targetHabitId = card.getAttribute('data-habit-id') || 'all';
-            core.openLogModal(dateStr, targetHabitId);
-          }, 500);
-        };
-        const moveLongPress = (e) => {
-          if (!longPressTimer) return;
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-          if (Math.hypot(clientX - startX, clientY - startY) > 10) cancelLongPress();
-        };
+      let longPressTimer = null, startX = 0, startY = 0;
 
-        if (typeof window !== 'undefined' && window.PointerEvent) {
-          sq.addEventListener('pointerdown', startLongPress); sq.addEventListener('pointermove', moveLongPress);
-          sq.addEventListener('pointerup', cancelLongPress); sq.addEventListener('pointercancel', cancelLongPress);
-        } else {
-          sq.addEventListener('mousedown', startLongPress); sq.addEventListener('mousemove', moveLongPress);
-          sq.addEventListener('mouseup', cancelLongPress); sq.addEventListener('touchstart', startLongPress, { passive: true });
-          sq.addEventListener('touchmove', moveLongPress, { passive: true }); sq.addEventListener('touchend', cancelLongPress); sq.addEventListener('touchcancel', cancelLongPress);
+      const cancelLongPress = () => {
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      };
+
+      const handlePointerDown = (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        const sq = e.target.closest('.day-square[data-date]');
+        if (!sq) return;
+        cancelLongPress();
+        sq._isLongPressTriggered = false;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        startX = clientX; startY = clientY;
+
+        longPressTimer = setTimeout(() => {
+          sq._isLongPressTriggered = true;
+          longPressTimer = null;
+          if (core.vibrate) core.vibrate(40);
+          if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
+          const dateStr = sq.dataset.date;
+          let targetHabitId = sq.dataset.habitId;
+          if (!targetHabitId || targetHabitId === 'all' || targetHabitId.startsWith('group_')) {
+            targetHabitId = card.getAttribute('data-habit-id') || 'all';
+          }
+          core.openLogModal(dateStr, targetHabitId);
+        }, 500);
+      };
+
+      const handlePointerMove = (e) => {
+        if (!longPressTimer) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        if (Math.hypot(clientX - startX, clientY - startY) > 10) cancelLongPress();
+      };
+
+      card.addEventListener('pointerdown', handlePointerDown);
+      card.addEventListener('pointermove', handlePointerMove);
+      card.addEventListener('pointerup', cancelLongPress);
+      card.addEventListener('pointercancel', cancelLongPress);
+
+      card.addEventListener('mouseover', (e) => {
+        const sq = e.target.closest('.day-square[data-date]');
+        if (sq) core.showTooltipForSquare(sq, 0);
+      });
+
+      card.addEventListener('mouseout', (e) => {
+        const sq = e.target.closest('.day-square[data-date]');
+        if (sq) {
+          if (core._cursorTooltipTimer) { clearTimeout(core._cursorTooltipTimer); core._cursorTooltipTimer = null; }
+          if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
         }
-        sq.addEventListener('contextmenu', (e) => { if (sq._isLongPressTriggered) e.preventDefault(); });
       });
 
       card.addEventListener('click', (e) => {
@@ -1271,22 +1300,6 @@ window.HabitualCore = window.HabitualCore || {};
           core.setCursorDateKey(sq.dataset.date);
         }
         core.openLogModal(targetDate, targetHabitId);
-      });
-    });
-
-    const squares = core.elements.heatmapsGallery.querySelectorAll('.day-square[data-date]');
-    squares.forEach(sq => {
-      sq.addEventListener('mouseenter', () => {
-        core.showTooltipForSquare(sq, 0);
-      });
-      sq.addEventListener('mouseleave', () => {
-        if (core._cursorTooltipTimer) {
-          clearTimeout(core._cursorTooltipTimer);
-          core._cursorTooltipTimer = null;
-        }
-        if (core.elements.customTooltip) {
-          core.elements.customTooltip.classList.add('hidden');
-        }
       });
     });
 
@@ -1747,11 +1760,13 @@ window.HabitualCore = window.HabitualCore || {};
       const mColorChk = document.getElementById('habit-color-whole-month');
       if (mColorChk) mColorChk.checked = true;
 
-      const checkboxes = core.elements.formHabit.querySelectorAll('input[name="target-days"]');
-      checkboxes.forEach(chk => {
-        const val = parseInt(chk.value, 10);
-        chk.checked = (val === 1 || val === 3 || val === 5);
-      });
+      if (core.elements.formHabit && typeof core.elements.formHabit.querySelectorAll === 'function') {
+        const checkboxes = core.elements.formHabit.querySelectorAll('input[name="target-days"]');
+        checkboxes.forEach(chk => {
+          const val = parseInt(chk.value, 10);
+          chk.checked = (val === 1 || val === 3 || val === 5);
+        });
+      }
       const specColorChk = document.getElementById('habit-specific-color-whole-week');
       if (specColorChk) specColorChk.checked = true;
 
@@ -1792,7 +1807,10 @@ window.HabitualCore = window.HabitualCore || {};
     typeRadios.forEach(radio => { radio.onchange = core.updateBackfillWordingUI; });
     core.updateBackfillWordingUI();
     updateParentDependencyUI();
-    if (core.elements.modalHabit) core.elements.modalHabit.classList.remove('hidden');
+    if (core.elements.modalHabit) {
+      core.toggleModalScrollLock(true);
+      core.elements.modalHabit.classList.remove('hidden');
+    }
 
     const habitNameInput = core.elements.habitName || document.getElementById('habit-name');
     if (habitNameInput && typeof habitNameInput.focus === 'function') {
@@ -2146,7 +2164,10 @@ window.HabitualCore = window.HabitualCore || {};
     }
     core.loadLogModalValues();
     if (core.elements.modalLogShowOnStartup) core.elements.modalLogShowOnStartup.checked = !!core.state.showQuickLogOnStartup;
-    if (core.elements.modalLog) core.elements.modalLog.classList.remove('hidden');
+    if (core.elements.modalLog) {
+      core.toggleModalScrollLock(true);
+      core.elements.modalLog.classList.remove('hidden');
+    }
   };
 
   core.shiftModalLogDate = function(days) {

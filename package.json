@@ -1,12 +1,13 @@
 {
   "name": "habitual",
-  "version": "1.13.15",
+  "version": "1.13.16",
   "description": "Minimalist 100% fluid GitHub-style habit progression visualizer",
   "main": "web/app.js",
   "scripts": {
     "test": "node tests/run-tests.js",
     "test:widgets": "node tests/test-widgets-playwright.js",
     "test:android": "node tests/test-android-playwright.js",
+    "benchmark": "node tests/benchmark-playwright.js",
     "bump": "node bump-version.js",
     "gundb-server": "node server/index.js"
   },

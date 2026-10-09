@@ -334,7 +334,11 @@ window.HabitualCore = window.HabitualCore || {};
     } else if (core.saveState) {
       core.saveState();
     }
-    if (core.renderAll) core.renderAll();
+    if (core.updateHabitCard && core.updateHabitCard(habitId)) {
+      // Surgical update completed
+    } else if (core.renderAll) {
+      core.renderAll();
+    }
   };
 
   core.getOrdinalSuffix = function(i) {

@@ -519,9 +519,11 @@ body.dark-theme {
   flex-direction: column;
   gap: 8px;
   width: 100%;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
   cursor: pointer;
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: 150px;
 }
 
 .heatmap-card.menu-open,
@@ -1068,6 +1070,7 @@ body.dark-theme {
   justify-content: center;
   z-index: 1000;
   padding: 16px;
+  overscroll-behavior: contain;
 }
 
 .modal-dialog {
@@ -1125,6 +1128,7 @@ body.dark-theme {
   gap: 14px;
   max-height: 80vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal-footer {
