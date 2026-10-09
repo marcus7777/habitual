@@ -792,7 +792,7 @@ window.HabitualCore = window.HabitualCore || {};
         }
         if (core.SyncManager) {
           const delta = typeof core.getDeltaPayloadFromState === 'function' ? core.getDeltaPayloadFromState(1) : core.getPayloadFromState();
-          core.SyncManager.broadcastWrite(delta);
+          core.SyncManager.broadcastWriteDebounced(delta, 600);
         }
         return res;
       });
@@ -800,7 +800,7 @@ window.HabitualCore = window.HabitualCore || {};
       core.saveState();
       if (core.SyncManager) {
         const delta = typeof core.getDeltaPayloadFromState === 'function' ? core.getDeltaPayloadFromState(1) : core.getPayloadFromState();
-        core.SyncManager.broadcastWrite(delta);
+        core.SyncManager.broadcastWriteDebounced(delta, 600);
       }
       return Promise.resolve(true);
     }
@@ -814,14 +814,14 @@ window.HabitualCore = window.HabitualCore || {};
           core.saveState();
         }
         if (core.SyncManager) {
-          core.SyncManager.broadcastWrite(core.getPayloadFromState());
+          core.SyncManager.broadcastWriteDebounced(core.getPayloadFromState(), 600);
         }
         return res;
       });
     } else {
       core.saveState();
       if (core.SyncManager) {
-        core.SyncManager.broadcastWrite(core.getPayloadFromState());
+        core.SyncManager.broadcastWriteDebounced(core.getPayloadFromState(), 600);
       }
       return Promise.resolve(true);
     }
@@ -846,9 +846,28 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
 
-  // --- CLIENT-SIDE AES-256-GCM END-TO-END ENCRYPTION (E2EE) ---
+  // --- CLIENT-SIDE AES-256-GCM END-TO-END ENCRYPTION (E2EE) WITH KEY CACHING ---
   core.E2EE = {
+    _keyCache: new Map(),
+
+    _getSaltHex: function(saltBytes) {
+      if (!saltBytes) return '';
+      let hex = '';
+      for (let i = 0; i < saltBytes.length; i++) {
+        hex += saltBytes[i].toString(16).padStart(2, '0');
+      }
+      return hex;
+    },
+
     getKey: function(passphrase, saltBytes) {
+      const self = this;
+      const saltHex = this._getSaltHex(saltBytes);
+      const cacheKey = passphrase + '_' + saltHex;
+
+      if (this._keyCache.has(cacheKey)) {
+        return Promise.resolve(this._keyCache.get(cacheKey));
+      }
+
       const enc = new TextEncoder();
       return crypto.subtle.importKey(
         'raw',
@@ -869,6 +888,13 @@ window.HabitualCore = window.HabitualCore || {};
           false,
           ['encrypt', 'decrypt']
         );
+      }).then(function(derivedKey) {
+        self._keyCache.set(cacheKey, derivedKey);
+        if (self._keyCache.size > 50) {
+          const firstKey = self._keyCache.keys().next().value;
+          self._keyCache.delete(firstKey);
+        }
+        return derivedKey;
       });
     },
 
@@ -992,6 +1018,22 @@ window.HabitualCore = window.HabitualCore || {};
     merged.habits = Array.from(habitMap.values());
     return merged;
   };
+
+  // Sync Page Identification Helper
+  core.isSyncPage = function() {
+    if (typeof window === 'undefined' || !window.location) return false;
+    const path = window.location.pathname || '';
+    const href = window.location.href || '';
+    return path.endsWith('sync.html') || href.includes('sync.html');
+  };
+
+  // Unique Client Instance Identifier for Self-Write Echo Suppression
+  core.CLIENT_ID = (function() {
+    if (typeof window !== 'undefined' && window.HabitualCore && window.HabitualCore.CLIENT_ID) {
+      return window.HabitualCore.CLIENT_ID;
+    }
+    return 'cli_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  })();
 
 
   // --- SYNC TARGET CLIENTS (P2P, Google Drive, Dropbox, WebDAV) ---
@@ -1190,14 +1232,6 @@ window.HabitualCore = window.HabitualCore || {};
       }
     },
 
-    // Unique Client Instance Identifier for Self-Write Echo Suppression
-    CLIENT_ID: (function() {
-      if (typeof window !== 'undefined' && window.HabitualCore && window.HabitualCore.CLIENT_ID) {
-        return window.HabitualCore.CLIENT_ID;
-      }
-      return 'cli_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    })(),
-
     // --- FIRESTORE E2EE CLOUD SYNC (collection: habit_data) ---
     Firestore: {
       db: null,
@@ -1288,6 +1322,8 @@ window.HabitualCore = window.HabitualCore || {};
           });
       },
 
+      lastUploadedPayloadStr: null,
+
       uploadBackup: function(encryptedText) {
         const self = this;
         const passphrase = core.SyncManager.settings.passphrase;
@@ -1295,6 +1331,16 @@ window.HabitualCore = window.HabitualCore || {};
           return Promise.reject(new Error('E2EE Master Passphrase is required for Firestore Cloud Sync'));
         }
         const syncCode = this.getSyncCode();
+
+        // Check if payload content matches last uploaded payload
+        if (!encryptedText) {
+          const currentPayload = core.getPayloadFromState();
+          const currentStr = JSON.stringify(currentPayload.habits || []);
+          if (self.lastUploadedPayloadStr && self.lastUploadedPayloadStr === currentStr) {
+            return Promise.resolve(null);
+          }
+          self.lastUploadedPayloadStr = currentStr;
+        }
 
         const encryptPromise = encryptedText
           ? Promise.resolve(encryptedText)
@@ -1332,12 +1378,13 @@ window.HabitualCore = window.HabitualCore || {};
       },
 
       startLiveSync: function() {
+        if (core.isSyncPage()) return Promise.resolve(null);
         const self = this;
         const passphrase = core.SyncManager.settings.passphrase;
-        if (!passphrase || this.isListening) return;
+        if (!passphrase || this.isListening) return Promise.resolve(null);
         const syncCode = this.getSyncCode();
 
-        this.init().then(function() {
+        return this.init().then(function() {
           self.isListening = true;
           self.unsubscribeListener = self.db.collection('habit_data').doc(syncCode)
             .onSnapshot(function(doc) {
@@ -1462,7 +1509,9 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (targetName === 'firestore') {
         if (enable && this.settings.passphrase) {
-          core.SyncTargets.Firestore.startLiveSync();
+          if (!core.isSyncPage()) {
+            core.SyncTargets.Firestore.startLiveSync();
+          }
           this.postToFirestoreIfReady();
         } else {
           core.SyncTargets.Firestore.stopLiveSync();
@@ -1476,10 +1525,24 @@ window.HabitualCore = window.HabitualCore || {};
       if (this.isTargetEnabled('firestore')) {
         core.SyncTargets.Firestore.stopLiveSync();
         if (passphrase) {
-          core.SyncTargets.Firestore.startLiveSync();
+          if (!core.isSyncPage()) {
+            core.SyncTargets.Firestore.startLiveSync();
+          }
           this.postToFirestoreIfReady();
         }
       }
+    },
+
+    _broadcastTimer: null,
+
+    broadcastWriteDebounced: function(payload, delay) {
+      const self = this;
+      const waitTime = typeof delay === 'number' ? delay : 600;
+      if (this._broadcastTimer) clearTimeout(this._broadcastTimer);
+      this._broadcastTimer = setTimeout(function() {
+        self._broadcastTimer = null;
+        self.broadcastWrite(payload || core.getPayloadFromState());
+      }, waitTime);
     },
 
     broadcastWrite: function(payload) {
@@ -1719,9 +1782,24 @@ window.HabitualCore = window.HabitualCore || {};
     reader.readAsText(file);
   };
 
-  // Auto-start Firestore Live Sync if enabled and passphrase set
+  // Page Visibility Gating: Pause live sync when page is hidden
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        if (core.SyncTargets && core.SyncTargets.Firestore) {
+          core.SyncTargets.Firestore.stopLiveSync();
+        }
+      } else {
+        if (!core.isSyncPage() && core.SyncManager && core.SyncManager.isTargetEnabled('firestore') && core.SyncManager.settings.passphrase) {
+          core.SyncTargets.Firestore.startLiveSync();
+        }
+      }
+    });
+  }
+
+  // Auto-start Firestore Live Sync if enabled, passphrase set, and not on sync.html page
   setTimeout(function() {
-    if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore') && core.SyncManager.settings.passphrase) {
+    if (!core.isSyncPage() && core.SyncManager && core.SyncManager.isTargetEnabled('firestore') && core.SyncManager.settings.passphrase) {
       core.SyncTargets.Firestore.startLiveSync();
     }
   }, 500);
