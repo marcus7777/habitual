@@ -768,9 +768,6 @@ window.HabitualCore = window.HabitualCore || {};
       } else {
         try { localStorage.setItem('habitual_v2_active_engine', core.activeStorageEngine); } catch (e) {}
       }
-      if (core.SyncManager) {
-        core.SyncManager.broadcastWrite(payload);
-      }
     }).catch(function(err) {
       console.error('Failed to save state to driver:', err);
     });
@@ -801,6 +798,10 @@ window.HabitualCore = window.HabitualCore || {};
       });
     } else {
       core.saveState();
+      if (core.SyncManager) {
+        const delta = typeof core.getDeltaPayloadFromState === 'function' ? core.getDeltaPayloadFromState(1) : core.getPayloadFromState();
+        core.SyncManager.broadcastWrite(delta);
+      }
       return Promise.resolve(true);
     }
   };
@@ -819,6 +820,9 @@ window.HabitualCore = window.HabitualCore || {};
       });
     } else {
       core.saveState();
+      if (core.SyncManager) {
+        core.SyncManager.broadcastWrite(core.getPayloadFromState());
+      }
       return Promise.resolve(true);
     }
   };
@@ -1459,6 +1463,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (targetName === 'firestore') {
         if (enable && this.settings.passphrase) {
           core.SyncTargets.Firestore.startLiveSync();
+          this.postToFirestoreIfReady();
         } else {
           core.SyncTargets.Firestore.stopLiveSync();
         }
@@ -1714,11 +1719,10 @@ window.HabitualCore = window.HabitualCore || {};
     reader.readAsText(file);
   };
 
-  // Auto-start Firestore Live Sync & auto-post encrypted state if enabled and passphrase set
+  // Auto-start Firestore Live Sync if enabled and passphrase set
   setTimeout(function() {
     if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore') && core.SyncManager.settings.passphrase) {
       core.SyncTargets.Firestore.startLiveSync();
-      core.SyncManager.postToFirestoreIfReady();
     }
   }, 500);
 
