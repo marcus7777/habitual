@@ -2035,6 +2035,97 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     HabitualCore.SyncTargets.Firestore.db = null;
   });
 
+  test('Firestore Live Sync suppresses self-write echoes and rate-limits snapshot processing', async () => {
+    mockLocalStorage.setItem('habitual_sync_passphrase', 'TestPassphrase123');
+    HabitualCore.SyncManager.settings.passphrase = 'TestPassphrase123';
+
+    let uploadedDoc = null;
+    let snapshotCallback = null;
+
+    const mockDb = {
+      collection: () => ({
+        doc: () => ({
+          set: (data) => {
+            uploadedDoc = data;
+            return Promise.resolve();
+          },
+          onSnapshot: (cb) => {
+            snapshotCallback = cb;
+            return () => {};
+          }
+        })
+      })
+    };
+
+    HabitualCore.SyncTargets.Firestore.db = mockDb;
+    HabitualCore.SyncTargets.Firestore.minSyncInterval = 50; // shorten throttle delay for test speed
+
+    // 1. Verify uploadBackup includes writerId matching CLIENT_ID
+    const initialPayload = { habits: [{ id: 'run', name: 'Daily Running', logs: {} }] };
+    const encrypted = await HabitualCore.E2EE.encrypt(initialPayload, 'TestPassphrase123');
+    await HabitualCore.SyncTargets.Firestore.uploadBackup(encrypted);
+
+    assert(uploadedDoc !== null, 'uploadBackup writes document to Firestore');
+    assertEqual(uploadedDoc.writerId, HabitualCore.CLIENT_ID, 'Uploaded document contains writerId matching HabitualCore.CLIENT_ID');
+    assertEqual(HabitualCore.SyncTargets.Firestore.lastSentCiphertext, encrypted, 'lastSentCiphertext recorded on Firestore target');
+
+    // 2. Test startLiveSync and self-write echo suppression
+    HabitualCore.SyncTargets.Firestore.startLiveSync();
+    assert(typeof snapshotCallback === 'function', 'onSnapshot listener attached');
+
+    let toastEmitted = false;
+    const origShowToast = HabitualCore.showToast;
+    HabitualCore.showToast = function(msg) {
+      toastEmitted = true;
+      if (origShowToast) origShowToast(msg);
+    };
+
+    // Simulate self-write snapshot event with hasPendingWrites = true
+    snapshotCallback({
+      exists: true,
+      metadata: { hasPendingWrites: true },
+      data: () => uploadedDoc
+    });
+
+    assert(HabitualCore.SyncTargets.Firestore.pendingSnapshotData === null, 'Snapshot with hasPendingWrites=true is skipped immediately');
+
+    // Simulate self-write snapshot event with writerId matching CLIENT_ID
+    snapshotCallback({
+      exists: true,
+      metadata: { hasPendingWrites: false },
+      data: () => ({ ciphertext: encrypted, writerId: HabitualCore.CLIENT_ID })
+    });
+
+    assert(HabitualCore.SyncTargets.Firestore.pendingSnapshotData === null, 'Snapshot with writerId matching CLIENT_ID is skipped (self-write echo suppressed)');
+
+    // 3. Test remote snapshot processing & rate limiting throttle
+    const remoteState = { habits: [{ id: 'swim', name: 'Morning Swim', logs: { '2026-10-09': { count: 1 } } }] };
+    const remoteEncrypted = await HabitualCore.E2EE.encrypt(remoteState, 'TestPassphrase123');
+
+    // Dispatch remote snapshot event (different writerId)
+    snapshotCallback({
+      exists: true,
+      metadata: { hasPendingWrites: false },
+      data: () => ({ ciphertext: remoteEncrypted, writerId: 'cli_remote_999' })
+    });
+
+    assert(HabitualCore.SyncTargets.Firestore.pendingSnapshotData !== null, 'Remote snapshot data is queued for throttled processing');
+
+    // Wait for throttle delay to elapse
+    await new Promise(r => setTimeout(r, 80));
+
+    assert(HabitualCore.SyncTargets.Firestore.pendingSnapshotData === null, 'Pending snapshot cleared after processing');
+    const stateHabits = HabitualCore.getState().habits;
+    assert(stateHabits.some(h => h.id === 'swim'), 'Remote habit "swim" merged into state via throttled live sync');
+    assert(toastEmitted === true, 'Toast emitted for valid remote state update');
+
+    // Clean up
+    HabitualCore.showToast = origShowToast;
+    HabitualCore.SyncTargets.Firestore.stopLiveSync();
+    HabitualCore.SyncTargets.Firestore.db = null;
+    HabitualCore.SyncTargets.Firestore.minSyncInterval = 1500;
+  });
+
   test('Firestore Sync Code helpers: hasSyncCode, getExistingSyncCode and auto-enable on paste/new-code', async () => {
     mockLocalStorage.removeItem('habitual_firestore_sync_code');
     mockLocalStorage.removeItem('habitual_sync_targets');
