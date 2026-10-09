@@ -1806,13 +1806,22 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
   });
 
   test('Feature flags URL query parameter parsing', () => {
-    const params1 = new URLSearchParams('cloudSync=1&p2p=1');
+    const params1 = new URLSearchParams('cloudSync=1&p2p=1&widgets=1');
     assertEqual(params1.get('cloudSync'), '1', 'cloudSync=1 recognized');
     assertEqual(params1.get('p2p'), '1', 'p2p=1 recognized');
+    assertEqual(params1.get('widgets'), '1', 'widgets=1 recognized');
 
     const params2 = new URLSearchParams('');
     assertEqual(params2.get('cloudSync'), null, 'cloudSync hidden by default');
     assertEqual(params2.get('p2p'), null, 'p2p hidden by default');
+    assertEqual(params2.get('widgets'), null, 'widgets hidden by default');
+
+    assert(typeof HabitualCore.isWidgetsEnabled === 'function', 'isWidgetsEnabled helper function exists');
+    HabitualCore.state.enableWidgets = false;
+    assertEqual(HabitualCore.isWidgetsEnabled(), false, 'isWidgetsEnabled returns false by default');
+    HabitualCore.state.enableWidgets = true;
+    assertEqual(HabitualCore.isWidgetsEnabled(), true, 'isWidgetsEnabled returns true when state.enableWidgets is true');
+    HabitualCore.state.enableWidgets = false;
   });
 
   test('getDeltaPayloadFromState minimizes payload by omitting default properties and old logs', () => {

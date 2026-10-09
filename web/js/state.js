@@ -25,7 +25,26 @@ window.HabitualCore = window.HabitualCore || {};
     selectedHabitId: 'all',
     selectedYear: core.CURRENT_YEAR,
     showQuickLogOnStartup: false,
+    enableWidgets: false,
     expandedHabitIds: new Set()
+  };
+
+  core.isWidgetsEnabled = function() {
+    if (typeof window !== 'undefined' && window.location && window.location.search) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const param = urlParams.get('widgets') || urlParams.get('showWidgets') || urlParams.get('widget');
+      if (param === '0' || param === 'false') return false;
+      if (param === '1' || param === 'true') return true;
+    }
+    if (core.state && typeof core.state.enableWidgets !== 'undefined' && core.state.enableWidgets !== false) {
+      return !!core.state.enableWidgets;
+    }
+    if (typeof localStorage !== 'undefined') {
+      const localFlag = localStorage.getItem('habitual_feature_widgets');
+      if (localFlag === 'true' || localFlag === '1') return true;
+      if (localFlag === 'false' || localFlag === '0') return false;
+    }
+    return false;
   };
 
   core.activeCalendarHabit = null;

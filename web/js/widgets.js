@@ -130,6 +130,10 @@ window.HabitualCore = window.HabitualCore || {};
   // --- IN-APP WIDGET GALLERY & MODAL RENDERER ---
 
   core.openWidgetsModal = function() {
+    if (core.isWidgetsEnabled && !core.isWidgetsEnabled()) {
+      console.warn('Widgets feature is disabled via feature flag.');
+      return;
+    }
     if (core.elements && core.elements.modalWidgets) {
       core.elements.modalWidgets.classList.remove('hidden');
       core.renderWidgetsGallery();
@@ -331,11 +335,31 @@ window.HabitualCore = window.HabitualCore || {};
   // --- UI INITIALIZATION ---
 
   core.initWidgetsUI = function() {
+    const isWidgetsEnabled = core.isWidgetsEnabled ? core.isWidgetsEnabled() : false;
+
     const btnOpen = document.getElementById('btn-open-widgets');
     if (btnOpen) {
+      if (isWidgetsEnabled) {
+        btnOpen.classList.remove('hidden');
+        if (btnOpen.style) btnOpen.style.display = '';
+      } else {
+        btnOpen.classList.add('hidden');
+        if (btnOpen.style) btnOpen.style.display = 'none';
+      }
       btnOpen.addEventListener('click', () => {
         core.openWidgetsModal();
       });
+    }
+
+    const menuWidgets = document.getElementById('menu-btn-open-widgets');
+    if (menuWidgets) {
+      if (isWidgetsEnabled) {
+        menuWidgets.classList.remove('hidden');
+        if (menuWidgets.style) menuWidgets.style.display = '';
+      } else {
+        menuWidgets.classList.add('hidden');
+        if (menuWidgets.style) menuWidgets.style.display = 'none';
+      }
     }
 
     const btnClose = document.getElementById('btn-close-widgets');

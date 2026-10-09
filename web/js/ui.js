@@ -374,6 +374,28 @@ window.HabitualCore = window.HabitualCore || {};
     const isFirestoreEnabled = urlParams.get('firestore') === '1' || urlParams.get('firestore') === 'true';
     const isCloudSyncEnabled = urlParams.get('cloudSync') === '1' || urlParams.get('cloudSync') === 'true' || isFirestoreEnabled;
     const isP2PEnabled = urlParams.get('p2p') === '1' || urlParams.get('P2P') === '1' || urlParams.get('p2p') === 'true' || urlParams.get('gundb') === '1';
+    const isWidgetsEnabled = core.isWidgetsEnabled ? core.isWidgetsEnabled() : (urlParams.get('widgets') === '1' || urlParams.get('widgets') === 'true');
+
+    const btnOpenWidgets = document.getElementById('btn-open-widgets');
+    const menuWidgetsItem = document.getElementById('menu-btn-open-widgets');
+    if (btnOpenWidgets) {
+      if (isWidgetsEnabled) {
+        btnOpenWidgets.classList.remove('hidden');
+        if (btnOpenWidgets.style) btnOpenWidgets.style.display = '';
+      } else {
+        btnOpenWidgets.classList.add('hidden');
+        if (btnOpenWidgets.style) btnOpenWidgets.style.display = 'none';
+      }
+    }
+    if (menuWidgetsItem) {
+      if (isWidgetsEnabled) {
+        menuWidgetsItem.classList.remove('hidden');
+        if (menuWidgetsItem.style) menuWidgetsItem.style.display = '';
+      } else {
+        menuWidgetsItem.classList.add('hidden');
+        if (menuWidgetsItem.style) menuWidgetsItem.style.display = 'none';
+      }
+    }
 
     const selectStorageEngine = document.getElementById('select-storage-engine');
     const gunDBOption = (selectStorageEngine && selectStorageEngine.querySelector) ? selectStorageEngine.querySelector('option[value="gunDB"]') : null;
