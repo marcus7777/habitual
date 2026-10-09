@@ -2280,6 +2280,171 @@ describe('Feature 28: 🧩 Standalone Widget HTML Pages (Add, Heatmaps, Settings
 });
 
 // ============================================================================
+describe('Feature 29: 📦 Sync Page JSON Export & Mobile Backup Engine', () => {
+  test('web/sync.html exists, contains Backup & Restore JSON section and #btn-export-json button', () => {
+    const syncHtmlPath = path.join(__dirname, '../web/sync.html');
+    assert(fs.existsSync(syncHtmlPath), 'web/sync.html exists');
+    const content = fs.readFileSync(syncHtmlPath, 'utf8');
+
+    assert(content.includes('dark-theme'), 'sync.html contains dark-theme class');
+    assert(content.includes('Backup & Restore JSON'), 'sync.html contains Backup & Restore JSON heading');
+    assert(content.includes('id="btn-export-json"'), 'sync.html contains #btn-export-json button');
+    assert(content.includes('id="input-import-json"'), 'sync.html contains #input-import-json file input');
+    assert(content.includes('js/storage.js') && content.includes('js/ui.js'), 'sync.html links storage.js and ui.js');
+  });
+
+  test('core.exportDataJSON creates a download link with formatted backup JSON payload', () => {
+    // Populate sample state
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [
+        {
+          id: 'export_test_1',
+          name: 'Export Test Habit',
+          type: 'positive',
+          dailyTarget: 1,
+          colorTheme: 'blue',
+          logs: { '2026-10-09': { count: 1, note: 'Export test note' } }
+        }
+      ]
+    });
+
+    let clickedAnchor = null;
+    let appendedChild = null;
+
+    // Spy on document.createElement('a') and document.body.appendChild
+    const originalCreateElement = global.document.createElement;
+    const originalAppendChild = global.document.body.appendChild;
+
+    global.document.createElement = function(tagName) {
+      const elem = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === 'a') {
+        elem.click = function() {
+          clickedAnchor = elem;
+        };
+      }
+      return elem;
+    };
+
+    global.document.body.appendChild = function(child) {
+      appendedChild = child;
+      return originalAppendChild ? originalAppendChild(child) : child;
+    };
+
+    try {
+      HabitualCore.exportDataJSON();
+
+      assert(clickedAnchor !== null, 'exportDataJSON clicked the dynamic download anchor element');
+      const downloadAttr = clickedAnchor.getAttribute('download');
+      assert(downloadAttr !== null && downloadAttr.startsWith('habitual_backup_') && downloadAttr.endsWith('.json'), `Download attribute set correctly (${downloadAttr})`);
+
+      const href = clickedAnchor.getAttribute('href');
+      assert(href !== null, 'Href attribute is set on download anchor');
+
+      // Verify payload in href (either data URL or Blob URL)
+      if (href.startsWith('data:text/json;charset=utf-8,')) {
+        const jsonStr = decodeURIComponent(href.replace('data:text/json;charset=utf-8,', ''));
+        const payload = JSON.parse(jsonStr);
+        assert(Array.isArray(payload.habits), 'Exported payload contains habits array');
+        assertEqual(payload.habits[0].id, 'export_test_1', 'Exported habit ID matches state');
+        assertEqual(payload.habits[0].name, 'Export Test Habit', 'Exported habit name matches state');
+      } else {
+        assert(href.length > 0, 'Blob URL generated for download anchor');
+      }
+    } finally {
+      global.document.createElement = originalCreateElement;
+      global.document.body.appendChild = originalAppendChild;
+    }
+  });
+
+  test('core.importDataJSON successfully restores habits and logs state from JSON event', (done) => {
+    const backupPayload = {
+      version: '1.13.5',
+      timestamp: Date.now(),
+      habits: [
+        {
+          id: 'imported_habit_99',
+          name: 'Restored Habit',
+          type: 'positive',
+          dailyTarget: 2,
+          colorTheme: 'green',
+          logs: { '2026-10-09': { count: 2, note: 'Restored log note' } }
+        }
+      ]
+    };
+
+    const mockEvent = {
+      target: {
+        files: [
+          { name: 'habitual_backup.json' }
+        ]
+      }
+    };
+
+    // Mock FileReader
+    const originalFileReader = global.FileReader;
+    global.FileReader = class MockFileReader {
+      readAsText() {
+        setTimeout(() => {
+          if (this.onload) {
+            this.onload({
+              target: { result: JSON.stringify(backupPayload) }
+            });
+
+            const state = HabitualCore.getState();
+            assertEqual(state.habits.length, 1, 'Restored 1 habit into state');
+            assertEqual(state.habits[0].id, 'imported_habit_99', 'Restored habit ID matches');
+            assertEqual(state.habits[0].name, 'Restored Habit', 'Restored habit name matches');
+            global.FileReader = originalFileReader;
+          }
+        }, 10);
+      }
+    };
+
+    HabitualCore.importDataJSON(mockEvent);
+  });
+
+  test('Full Backup Export-to-Import Roundtrip: Exports state to JSON and restores it completely', () => {
+    // 1. Setup initial state with custom habit and log entries
+    const initialHabit = {
+      id: 'roundtrip_habit_101',
+      name: 'Full Roundtrip Habit',
+      type: 'positive',
+      dailyTarget: 3,
+      colorTheme: '#ff8800',
+      logs: { '2026-10-09': { count: 3, note: 'Roundtrip test note' } }
+    };
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [initialHabit]
+    });
+
+    // 2. Export payload via core.getPayloadFromState()
+    const exportedPayload = HabitualCore.getPayloadFromState();
+    assert(exportedPayload !== null, 'Exported payload is not null');
+    assert(Array.isArray(exportedPayload.habits), 'Exported payload contains habits array');
+
+    // 3. Clear state (simulating fresh app or reset data)
+    HabitualCore.resetState();
+    assertEqual(HabitualCore.getState().habits.length, 0, 'In-memory state reset before import');
+
+    // 4. Import the exported payload back using core.applyPayloadToState()
+    HabitualCore.applyPayloadToState(exportedPayload);
+
+    // 5. Verify state matches original habit and log data
+    const restoredHabits = HabitualCore.getState().habits;
+    assertEqual(restoredHabits.length, 1, 'Restored 1 habit from exported payload');
+    assertEqual(restoredHabits[0].id, 'roundtrip_habit_101', 'Restored habit ID matches');
+    assertEqual(restoredHabits[0].name, 'Full Roundtrip Habit', 'Restored habit name matches');
+    assertEqual(restoredHabits[0].dailyTarget, 3, 'Restored daily target matches');
+    assertEqual(restoredHabits[0].logs['2026-10-09'].count, 3, 'Restored log count matches');
+    assertEqual(restoredHabits[0].logs['2026-10-09'].note, 'Roundtrip test note', 'Restored log note matches');
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);
