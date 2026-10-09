@@ -207,52 +207,8 @@
           </div>
         </div>
 
-        <!-- Section 4: User-Owned Cloud Sync Targets (Flagged via ?cloudSync=1) -->
-        <div id="section-cloud-sync" class="data-option-card hidden">
-          <div class="data-option-info">
-            <h4>☁️ User-Owned Cloud Sync Targets</h4>
-            <p class="muted-text">Sync encrypted backups to your personal cloud account (E2EE).</p>
-          </div>
-          <div class="cloud-targets-grid">
-            <div class="cloud-target-item">
-              <span>Dropbox (App Folder)</span>
-              <div class="flex-row" style="gap: 8px;">
-                <label class="switch-toggle">
-                  <input type="checkbox" id="chk-sync-dropbox">
-                  <span class="slider round"></span>
-                </label>
-                <button id="btn-auth-dropbox" class="btn btn-sm btn-secondary">Auth Dropbox</button>
-              </div>
-            </div>
-            <div id="dropbox-config-box" class="webdav-form">
-              <label class="muted-text text-xs">Dropbox App Key:</label>
-              <div class="input-inline-group">
-                <input type="text" id="input-dropbox-client-id" class="form-control-sm" placeholder="Dropbox App Key" aria-label="Dropbox App Key">
-                <button id="btn-save-dropbox-client-id" class="btn btn-secondary btn-sm">Save App Key</button>
-              </div>
-            </div>
-
-            <div class="cloud-target-item full-width-item">
-              <span>Nextcloud / WebDAV</span>
-              <label class="switch-toggle">
-                <input type="checkbox" id="chk-sync-webdav">
-                <span class="slider round"></span>
-              </label>
-            </div>
-
-            <div id="webdav-credentials-box" class="webdav-form">
-              <input type="text" id="input-webdav-url" class="form-control-sm" placeholder="https://nextcloud.example.com/remote.php/webdav/" aria-label="WebDAV Server URL">
-              <div class="input-inline-group">
-                <input type="text" id="input-webdav-user" class="form-control-sm" placeholder="Username" aria-label="WebDAV Username">
-                <input type="password" id="input-webdav-pass" class="form-control-sm" placeholder="App Password" aria-label="WebDAV App Password">
-                <button id="btn-save-webdav" class="btn btn-secondary btn-sm">Save WebDAV</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 5: Manual Sync Trigger (Hidden unless Cloud or P2P is active) -->
-        <div id="section-trigger-sync" class="data-option-card hidden">
+        <!-- Section 5: Manual Sync Trigger -->
+        <div id="section-trigger-sync" class="data-option-card">
           <div class="data-option-info">
             <h4>🔄 Trigger Multi-Target Sync</h4>
             <p class="muted-text">Pull and merge latest encrypted data from all active sync targets.</p>
@@ -309,7 +265,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.13.14</p>
+      <p>Habitual &bull; v1.13.15</p>
     </footer>
   </div>
 

@@ -1799,20 +1799,20 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
   });
 
   test('SyncManager target toggles and settings persistence', () => {
-    HabitualCore.SyncManager.toggleTarget('webdav', true);
-    assert(HabitualCore.SyncManager.isTargetEnabled('webdav'), 'WebDAV target enabled');
-    HabitualCore.SyncManager.toggleTarget('webdav', false);
-    assert(!HabitualCore.SyncManager.isTargetEnabled('webdav'), 'WebDAV target disabled');
+    HabitualCore.SyncManager.toggleTarget('firestore', true);
+    assert(HabitualCore.SyncManager.isTargetEnabled('firestore'), 'Firestore target enabled');
+    HabitualCore.SyncManager.toggleTarget('firestore', false);
+    assert(!HabitualCore.SyncManager.isTargetEnabled('firestore'), 'Firestore target disabled');
   });
 
   test('Feature flags URL query parameter parsing', () => {
-    const params1 = new URLSearchParams('cloudSync=1&p2p=1&widgets=1');
-    assertEqual(params1.get('cloudSync'), '1', 'cloudSync=1 recognized');
+    const params1 = new URLSearchParams('firestore=1&p2p=1&widgets=1');
+    assertEqual(params1.get('firestore'), '1', 'firestore=1 recognized');
     assertEqual(params1.get('p2p'), '1', 'p2p=1 recognized');
     assertEqual(params1.get('widgets'), '1', 'widgets=1 recognized');
 
     const params2 = new URLSearchParams('');
-    assertEqual(params2.get('cloudSync'), null, 'cloudSync hidden by default');
+    assertEqual(params2.get('firestore'), null, 'firestore hidden by default');
     assertEqual(params2.get('p2p'), null, 'p2p hidden by default');
     assertEqual(params2.get('widgets'), null, 'widgets hidden by default');
 

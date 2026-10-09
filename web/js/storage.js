@@ -1062,116 +1062,6 @@ window.HabitualCore = window.HabitualCore || {};
       }
     },
 
-    Dropbox: {
-      getClientId: function() {
-        return localStorage.getItem('habitual_dropbox_client_id') || 'YOUR_DROPBOX_APP_KEY';
-      },
-      setClientId: function(id) {
-        localStorage.setItem('habitual_dropbox_client_id', id);
-      },
-      token: localStorage.getItem('habitual_dropbox_token') || null,
-
-      getAuthUrl: function(customClientId) {
-        const cid = customClientId || this.getClientId();
-        const redirectUri = window.location.origin + window.location.pathname;
-        return `https://www.dropbox.com/oauth2/authorize?client_id=${cid}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token`;
-      },
-
-      setToken: function(token) {
-        this.token = token;
-        localStorage.setItem('habitual_dropbox_token', token);
-      },
-
-      uploadBackup: function(encryptedPayload) {
-        if (!this.token) return Promise.reject(new Error('Dropbox not authenticated'));
-        return fetch('https://content.dropboxapi.com/2/files/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + this.token,
-            'Dropbox-API-Arg': JSON.stringify({
-              path: '/habitual_sync.json',
-              mode: 'overwrite',
-              autorename: false,
-              mute: true
-            }),
-            'Content-Type': 'application/octet-stream'
-          },
-          body: encryptedPayload
-        }).then(function(res) {
-          if (!res.ok) throw new Error('Dropbox upload error');
-          return res.json();
-        });
-      },
-
-      downloadBackup: function() {
-        if (!this.token) return Promise.reject(new Error('Dropbox not authenticated'));
-        return fetch('https://content.dropboxapi.com/2/files/download', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + this.token,
-            'Dropbox-API-Arg': JSON.stringify({ path: '/habitual_sync.json' })
-          }
-        }).then(function(res) {
-          if (res.status === 409) return null; // File not found
-          return res.text();
-        });
-      }
-    },
-
-    WebDAV: {
-      getCredentials: function() {
-        return {
-          url: localStorage.getItem('habitual_webdav_url') || '',
-          user: localStorage.getItem('habitual_webdav_user') || '',
-          pass: localStorage.getItem('habitual_webdav_pass') || ''
-        };
-      },
-
-      setCredentials: function(url, user, pass) {
-        localStorage.setItem('habitual_webdav_url', url);
-        localStorage.setItem('habitual_webdav_user', user);
-        localStorage.setItem('habitual_webdav_pass', pass);
-      },
-
-      uploadBackup: function(encryptedPayload) {
-        const creds = this.getCredentials();
-        if (!creds.url) return Promise.reject(new Error('WebDAV URL not configured'));
-        const fileUrl = creds.url.replace(/\/+$/, '') + '/habitual_sync.json';
-        const headers = { 'Content-Type': 'text/plain' };
-        if (creds.user) {
-          headers['Authorization'] = 'Basic ' + btoa(creds.user + ':' + creds.pass);
-        }
-
-        return fetch(fileUrl, {
-          method: 'PUT',
-          headers: headers,
-          body: encryptedPayload
-        }).then(function(res) {
-          if (!res.ok) throw new Error('WebDAV upload status ' + res.status);
-          return true;
-        });
-      },
-
-      downloadBackup: function() {
-        const creds = this.getCredentials();
-        if (!creds.url) return Promise.reject(new Error('WebDAV URL not configured'));
-        const fileUrl = creds.url.replace(/\/+$/, '') + '/habitual_sync.json';
-        const headers = {};
-        if (creds.user) {
-          headers['Authorization'] = 'Basic ' + btoa(creds.user + ':' + creds.pass);
-        }
-
-        return fetch(fileUrl, {
-          method: 'GET',
-          headers: headers
-        }).then(function(res) {
-          if (res.status === 404) return null;
-          if (!res.ok) throw new Error('WebDAV download status ' + res.status);
-          return res.text();
-        });
-      }
-    },
-
     // --- FIRESTORE E2EE CLOUD SYNC (collection: habit_data) ---
     Firestore: {
       db: null,
@@ -1496,12 +1386,6 @@ window.HabitualCore = window.HabitualCore || {};
         if (self.isTargetEnabled('firestore')) {
           core.SyncTargets.Firestore.uploadBackup(encrypted).catch(e => console.warn('Firestore Sync Error:', e));
         }
-        if (self.isTargetEnabled('dropbox')) {
-          core.SyncTargets.Dropbox.uploadBackup(encrypted).catch(e => console.warn('Dropbox Sync Error:', e));
-        }
-        if (self.isTargetEnabled('webdav')) {
-          core.SyncTargets.WebDAV.uploadBackup(encrypted).catch(e => console.warn('WebDAV Sync Error:', e));
-        }
       }).catch(function(err) {
         console.error('Failed to encrypt write payload:', err);
       });
@@ -1517,12 +1401,6 @@ window.HabitualCore = window.HabitualCore || {};
       const pulls = [];
       if (this.isTargetEnabled('firestore')) {
         pulls.push(core.SyncTargets.Firestore.downloadBackup().catch(e => null));
-      }
-      if (this.isTargetEnabled('dropbox')) {
-        pulls.push(core.SyncTargets.Dropbox.downloadBackup().catch(e => null));
-      }
-      if (this.isTargetEnabled('webdav')) {
-        pulls.push(core.SyncTargets.WebDAV.downloadBackup().catch(e => null));
       }
 
       return Promise.all(pulls).then(function(rawCiphertexts) {
