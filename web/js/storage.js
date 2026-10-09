@@ -1062,66 +1062,6 @@ window.HabitualCore = window.HabitualCore || {};
       }
     },
 
-    GoogleDrive: {
-      getClientId: function() {
-        return localStorage.getItem('habitual_gdrive_client_id') || '1089385392217-c8c5tplfgh4pjso2b15n9knsneh3nn4d.apps.googleusercontent.com';
-      },
-      setClientId: function(id) {
-        localStorage.setItem('habitual_gdrive_client_id', id);
-      },
-      token: localStorage.getItem('habitual_gdrive_token') || null,
-
-      getAuthUrl: function(customClientId) {
-        const cid = customClientId || this.getClientId();
-        const redirectUri = window.location.origin + window.location.pathname;
-        const scope = encodeURIComponent('https://www.googleapis.com/auth/drive.appdata');
-        return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${cid}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
-      },
-
-      setToken: function(token) {
-        this.token = token;
-        localStorage.setItem('habitual_gdrive_token', token);
-      },
-
-      uploadBackup: function(encryptedPayload) {
-        if (!this.token) return Promise.reject(new Error('Google Drive not authenticated'));
-        const metadata = {
-          name: 'habitual_sync.json',
-          parents: ['appDataFolder']
-        };
-
-        const file = new Blob([encryptedPayload], { type: 'application/json' });
-        const formData = new FormData();
-        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        formData.append('file', file);
-
-        return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + this.token },
-          body: formData
-        }).then(function(res) {
-          if (!res.ok) throw new Error('Google Drive upload error: ' + res.statusText);
-          return res.json();
-        });
-      },
-
-      downloadBackup: function() {
-        if (!this.token) return Promise.reject(new Error('Google Drive not authenticated'));
-        const self = this;
-        return fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name=%27habitual_sync.json%27', {
-          headers: { 'Authorization': 'Bearer ' + self.token }
-        }).then(function(res) {
-          return res.json();
-        }).then(function(data) {
-          if (!data.files || data.files.length === 0) return null;
-          const fileId = data.files[0].id;
-          return fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-            headers: { 'Authorization': 'Bearer ' + self.token }
-          }).then(function(res) { return res.text(); });
-        });
-      }
-    },
-
     Dropbox: {
       getClientId: function() {
         return localStorage.getItem('habitual_dropbox_client_id') || 'YOUR_DROPBOX_APP_KEY';
@@ -1556,9 +1496,6 @@ window.HabitualCore = window.HabitualCore || {};
         if (self.isTargetEnabled('firestore')) {
           core.SyncTargets.Firestore.uploadBackup(encrypted).catch(e => console.warn('Firestore Sync Error:', e));
         }
-        if (self.isTargetEnabled('googleDrive')) {
-          core.SyncTargets.GoogleDrive.uploadBackup(encrypted).catch(e => console.warn('GDrive Sync Error:', e));
-        }
         if (self.isTargetEnabled('dropbox')) {
           core.SyncTargets.Dropbox.uploadBackup(encrypted).catch(e => console.warn('Dropbox Sync Error:', e));
         }
@@ -1580,9 +1517,6 @@ window.HabitualCore = window.HabitualCore || {};
       const pulls = [];
       if (this.isTargetEnabled('firestore')) {
         pulls.push(core.SyncTargets.Firestore.downloadBackup().catch(e => null));
-      }
-      if (this.isTargetEnabled('googleDrive')) {
-        pulls.push(core.SyncTargets.GoogleDrive.downloadBackup().catch(e => null));
       }
       if (this.isTargetEnabled('dropbox')) {
         pulls.push(core.SyncTargets.Dropbox.downloadBackup().catch(e => null));
