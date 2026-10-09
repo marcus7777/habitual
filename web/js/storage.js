@@ -1606,13 +1606,35 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.exportDataJSON = function() {
     const payload = core.getPayloadFromState();
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `habitual_backup_${core.getTodayKey()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    const jsonStr = JSON.stringify(payload, null, 2);
+    const fileName = `habitual_backup_${core.getTodayKey()}.json`;
+
+    if (typeof Blob !== 'undefined' && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', url);
+      downloadAnchor.setAttribute('download', fileName);
+      downloadAnchor.style.display = 'none';
+      (document.body || document.documentElement).appendChild(downloadAnchor);
+      downloadAnchor.click();
+      setTimeout(function() {
+        if (downloadAnchor.parentNode) {
+          downloadAnchor.parentNode.removeChild(downloadAnchor);
+        }
+        URL.revokeObjectURL(url);
+      }, 500);
+    } else {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(jsonStr);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', fileName);
+      (document.body || document.documentElement).appendChild(downloadAnchor);
+      downloadAnchor.click();
+      if (downloadAnchor.parentNode) {
+        downloadAnchor.parentNode.removeChild(downloadAnchor);
+      }
+    }
   };
 
   core.importDataJSON = function(e) {
@@ -1627,7 +1649,7 @@ window.HabitualCore = window.HabitualCore || {};
           core.saveState();
           if (core.renderAll) core.renderAll();
           if (core.showToast) core.showToast('JSON Backup restored successfully!');
-          if (core.elements.modalData) core.elements.modalData.classList.add('hidden');
+          if (core.elements && core.elements.modalData) core.elements.modalData.classList.add('hidden');
         } else {
           alert('Invalid backup file format.');
         }
