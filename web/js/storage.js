@@ -1186,12 +1186,25 @@ window.HabitualCore = window.HabitualCore || {};
       }
     },
 
+    // Unique Client Instance Identifier for Self-Write Echo Suppression
+    CLIENT_ID: (function() {
+      if (typeof window !== 'undefined' && window.HabitualCore && window.HabitualCore.CLIENT_ID) {
+        return window.HabitualCore.CLIENT_ID;
+      }
+      return 'cli_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    })(),
+
     // --- FIRESTORE E2EE CLOUD SYNC (collection: habit_data) ---
     Firestore: {
       db: null,
       unsubscribeListener: null,
       isListening: false,
       lastUpdatedServerTime: 0,
+      lastSentCiphertext: null,
+      pendingSnapshotData: null,
+      syncThrottleTimer: null,
+      minSyncInterval: 1500,
+      lastProcessedTime: 0,
 
       hasSyncCode: function() {
         return !!localStorage.getItem('habitual_firestore_sync_code');
@@ -1284,13 +1297,15 @@ window.HabitualCore = window.HabitualCore || {};
           : core.E2EE.encrypt(core.getPayloadFromState(), passphrase);
 
         return encryptPromise.then(function(cipher) {
+          self.lastSentCiphertext = cipher;
           return self.init().then(function() {
             const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
               ? firebase.firestore.FieldValue.serverTimestamp()
               : Date.now();
             return self.db.collection('habit_data').doc(syncCode).set({
               ciphertext: cipher,
-              updatedAt: serverTs
+              updatedAt: serverTs,
+              writerId: core.CLIENT_ID
             });
           });
         });
@@ -1323,8 +1338,14 @@ window.HabitualCore = window.HabitualCore || {};
           self.unsubscribeListener = self.db.collection('habit_data').doc(syncCode)
             .onSnapshot(function(doc) {
               if (!doc.exists) return;
+              if (doc.metadata && doc.metadata.hasPendingWrites) return;
+
               const data = doc.data();
               if (!data || !data.ciphertext) return;
+
+              // Echo Suppression: Skip processing if update originated from this client instance
+              if (data.writerId && data.writerId === core.CLIENT_ID) return;
+              if (data.ciphertext === self.lastSentCiphertext) return;
 
               if (data.updatedAt && data.updatedAt.toMillis && data.updatedAt.toMillis() <= self.lastUpdatedServerTime) {
                 return;
@@ -1333,22 +1354,50 @@ window.HabitualCore = window.HabitualCore || {};
                 self.lastUpdatedServerTime = data.updatedAt.toMillis();
               }
 
-              core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remotePayload) {
-                if (!remotePayload) return;
-                const localPayload = core.getPayloadFromState();
-                const merged = core.mergeStatePayloads(localPayload, remotePayload);
-
-                core.applyPayloadToState(merged);
-                core.saveState();
-                if (core.renderAll) core.renderAll();
-                if (core.showToast) core.showToast('⚡ Encrypted Firestore Live Sync Received!', 'info');
-              }).catch(function(e) {
-                console.warn('Firestore Decrypt Error (wrong passphrase?):', e);
-              });
+              // Queue snapshot for rate-limited / throttled processing
+              self.pendingSnapshotData = data;
+              self._scheduleThrottledSync(passphrase);
             }, function(err) {
               console.warn('Firestore Live Snapshot Error:', err);
             });
         });
+      },
+
+      _scheduleThrottledSync: function(passphrase) {
+        const self = this;
+        if (this.syncThrottleTimer) return;
+
+        const now = Date.now();
+        const elapsed = now - this.lastProcessedTime;
+        const delay = Math.max(0, this.minSyncInterval - elapsed);
+
+        this.syncThrottleTimer = setTimeout(function() {
+          self.syncThrottleTimer = null;
+          self.lastProcessedTime = Date.now();
+
+          const data = self.pendingSnapshotData;
+          self.pendingSnapshotData = null;
+          if (!data || !data.ciphertext) return;
+
+          core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remotePayload) {
+            if (!remotePayload) return;
+            const localPayload = core.getPayloadFromState();
+            const merged = core.mergeStatePayloads(localPayload, remotePayload);
+
+            const currentStr = JSON.stringify(localPayload.habits || []);
+            const mergedStr = JSON.stringify(merged.habits || []);
+
+            core.applyPayloadToState(merged);
+            core.saveState();
+            if (core.renderAll) core.renderAll();
+
+            if (currentStr !== mergedStr && core.showToast) {
+              core.showToast('⚡ Encrypted Firestore Live Sync Received!', 'info');
+            }
+          }).catch(function(e) {
+            console.warn('Firestore Decrypt Error (wrong passphrase?):', e);
+          });
+        }, delay);
       },
 
       stopLiveSync: function() {
@@ -1356,6 +1405,11 @@ window.HabitualCore = window.HabitualCore || {};
           this.unsubscribeListener();
           this.unsubscribeListener = null;
         }
+        if (this.syncThrottleTimer) {
+          clearTimeout(this.syncThrottleTimer);
+          this.syncThrottleTimer = null;
+        }
+        this.pendingSnapshotData = null;
         this.isListening = false;
       }
     }
