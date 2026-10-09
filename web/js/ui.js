@@ -371,8 +371,6 @@ window.HabitualCore = window.HabitualCore || {};
 
     // --- DATA MANAGEMENT & FEATURE FLAGS ---
     const urlParams = new URLSearchParams(window.location.search);
-    const isFirestoreEnabled = urlParams.get('firestore') === '1' || urlParams.get('firestore') === 'true';
-    const isCloudSyncEnabled = urlParams.get('cloudSync') === '1' || urlParams.get('cloudSync') === 'true' || isFirestoreEnabled;
     const isP2PEnabled = urlParams.get('p2p') === '1' || urlParams.get('P2P') === '1' || urlParams.get('p2p') === 'true' || urlParams.get('gundb') === '1';
     const isWidgetsEnabled = core.isWidgetsEnabled ? core.isWidgetsEnabled() : (urlParams.get('widgets') === '1' || urlParams.get('widgets') === 'true');
 
@@ -413,22 +411,10 @@ window.HabitualCore = window.HabitualCore || {};
       else sectionP2P.classList.add('hidden');
     }
 
-    const sectionCloud = document.getElementById('section-cloud-sync');
-    if (sectionCloud) {
-      if (isCloudSyncEnabled) sectionCloud.classList.remove('hidden');
-      else sectionCloud.classList.add('hidden');
-    }
-
     const sectionE2EE = document.getElementById('section-e2ee-passphrase');
     const sectionTrigger = document.getElementById('section-trigger-sync');
-    if (sectionE2EE) {
-      if (isCloudSyncEnabled || isP2PEnabled) sectionE2EE.classList.remove('hidden');
-      else sectionE2EE.classList.add('hidden');
-    }
-    if (sectionTrigger) {
-      if (isCloudSyncEnabled || isP2PEnabled) sectionTrigger.classList.remove('hidden');
-      else sectionTrigger.classList.add('hidden');
-    }
+    if (sectionE2EE) sectionE2EE.classList.remove('hidden');
+    if (sectionTrigger) sectionTrigger.classList.remove('hidden');
 
   function toggleGunDBSyncPanel() {
       if (!gundbSyncPanel) return;
@@ -895,79 +881,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    // Dropbox
-    const chkDropbox = document.getElementById('chk-sync-dropbox');
-    if (chkDropbox) {
-      chkDropbox.checked = core.SyncManager.isTargetEnabled('dropbox');
-      chkDropbox.addEventListener('change', (e) => {
-        core.SyncManager.toggleTarget('dropbox', e.target.checked);
-      });
-    }
 
-    const inputDropboxClientId = document.getElementById('input-dropbox-client-id');
-    if (inputDropboxClientId) {
-      inputDropboxClientId.value = core.SyncTargets.Dropbox.getClientId();
-    }
-
-    const btnSaveDropboxClientId = document.getElementById('btn-save-dropbox-client-id');
-    if (btnSaveDropboxClientId && inputDropboxClientId) {
-      btnSaveDropboxClientId.addEventListener('click', () => {
-        const val = inputDropboxClientId.value.trim();
-        if (val) {
-          core.SyncTargets.Dropbox.setClientId(val);
-          if (core.showToast) core.showToast('Dropbox App Key saved!');
-        }
-      });
-    }
-
-    const btnAuthDropbox = document.getElementById('btn-auth-dropbox');
-    if (btnAuthDropbox) {
-      btnAuthDropbox.addEventListener('click', () => {
-        const cid = inputDropboxClientId ? inputDropboxClientId.value.trim() : null;
-        if (!cid || cid.includes('YOUR_DROPBOX_APP_KEY')) {
-          alert('Please enter and save your Dropbox App Key first.');
-          return;
-        }
-        window.location.href = core.SyncTargets.Dropbox.getAuthUrl(cid);
-      });
-    }
-
-    // WebDAV
-    const chkWebDAV = document.getElementById('chk-sync-webdav');
-    const webdavBox = document.getElementById('webdav-credentials-box');
-    if (chkWebDAV) {
-      chkWebDAV.checked = core.SyncManager.isTargetEnabled('webdav');
-      if (webdavBox && chkWebDAV.checked) webdavBox.classList.remove('hidden');
-      chkWebDAV.addEventListener('change', (e) => {
-        core.SyncManager.toggleTarget('webdav', e.target.checked);
-        if (webdavBox) {
-          if (e.target.checked) webdavBox.classList.remove('hidden');
-          else webdavBox.classList.add('hidden');
-        }
-      });
-    }
-
-    const inputWebDAVUrl = document.getElementById('input-webdav-url');
-    const inputWebDAVUser = document.getElementById('input-webdav-user');
-    const inputWebDAVPass = document.getElementById('input-webdav-pass');
-    if (inputWebDAVUrl && inputWebDAVUser && inputWebDAVPass) {
-      const creds = core.SyncTargets.WebDAV.getCredentials();
-      inputWebDAVUrl.value = creds.url;
-      inputWebDAVUser.value = creds.user;
-      inputWebDAVPass.value = creds.pass;
-    }
-
-    const btnSaveWebDAV = document.getElementById('btn-save-webdav');
-    if (btnSaveWebDAV && inputWebDAVUrl && inputWebDAVUser && inputWebDAVPass) {
-      btnSaveWebDAV.addEventListener('click', () => {
-        core.SyncTargets.WebDAV.setCredentials(
-          inputWebDAVUrl.value.trim(),
-          inputWebDAVUser.value.trim(),
-          inputWebDAVPass.value.trim()
-        );
-        if (core.showToast) core.showToast('WebDAV credentials saved!');
-      });
-    }
 
     // Manual Trigger Sync
     const btnTriggerSync = document.getElementById('btn-trigger-sync');

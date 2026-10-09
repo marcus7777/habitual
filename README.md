@@ -58,7 +58,7 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 ### ☁️ Storage Engines, Cloud Sync & E2EE
 - **Granular Storage ($O(1)$ Writes)**: High-performance IndexedDB persistence with debounced coalescing. Switchable storage engines (`localStorage`, `IndexedDB`, `GunDB`).
 - **End-to-End Encryption**: Zero-Knowledge AES-256-GCM encryption client-side using Web Crypto API.
-- **Multi-Target Live Sync**: Live sync across devices using Firestore, Google Drive, Dropbox, WebDAV, or P2P GunDB.
+- **Multi-Target Live Sync**: Live sync across devices using Encrypted Firestore Cloud Sync or P2P GunDB.
 
 ---
 
@@ -68,11 +68,10 @@ Advanced cloud and peer-to-peer sync features can be unlocked via URL query para
 
 | Feature Flag | URL Parameter | Description |
 | :--- | :--- | :--- |
-| **Multi-Target Cloud Sync** | `?cloudSync=1` | Enables Google Drive, Dropbox, and WebDAV sync panels in Data Management. |
 | **Encrypted Firestore Live Sync** | `?firestore=1` | Enables real-time encrypted Firebase Firestore live sync (`habit_data` channel). |
 | **P2P GunDB Sync** | `?p2p=1` or `?gundb=1` | Enables GunDB peer-to-peer live sync and unlocks the GunDB storage engine option. |
 
-*Example:* `http://localhost:8080/?cloudSync=1&firestore=1`
+*Example:* `http://localhost:8080/?firestore=1`
 
 ---
 
