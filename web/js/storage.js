@@ -1172,13 +1172,25 @@ window.HabitualCore = window.HabitualCore || {};
           self.lastUploadedPayloadStr = currentStr;
         }
 
-        const encryptPromise = encryptedText
-          ? Promise.resolve(encryptedText)
-          : core.E2EE.encrypt(core.getPayloadFromState(), passphrase);
+        return self.init().then(function() {
+          return self.db.collection('habit_data').doc(syncCode).get();
+        }).then(function(doc) {
+          if (doc && doc.exists && doc.data() && doc.data().ciphertext) {
+            // Verify existing data can be decrypted with current passphrase
+            return core.E2EE.decrypt(doc.data().ciphertext, passphrase).catch(function(e) {
+              const errMsg = '❌ Cannot decrypt existing Firebase data: Passwords do not match!';
+              if (core.showToast) core.showToast(errMsg, 'error');
+              return Promise.reject(new Error(errMsg));
+            });
+          }
+          return Promise.resolve(null);
+        }).then(function() {
+          const encryptPromise = encryptedText
+            ? Promise.resolve(encryptedText)
+            : core.E2EE.encrypt(core.getPayloadFromState(), passphrase);
 
-        return encryptPromise.then(function(cipher) {
-          self.lastSentCiphertext = cipher;
-          return self.init().then(function() {
+          return encryptPromise.then(function(cipher) {
+            self.lastSentCiphertext = cipher;
             const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
               ? firebase.firestore.FieldValue.serverTimestamp()
               : Date.now();
@@ -1277,6 +1289,9 @@ window.HabitualCore = window.HabitualCore || {};
             }
           }).catch(function(e) {
             console.warn('Firestore Decrypt Error (wrong passphrase?):', e);
+            if (core.showToast) {
+              core.showToast('❌ Unable to decrypt Firebase data: Passwords do not match.', 'error');
+            }
           });
         }, delay);
       },
@@ -1399,17 +1414,39 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       const pulls = [];
+      let firestoreIdx = -1;
       if (this.isTargetEnabled('firestore')) {
+        firestoreIdx = pulls.length;
         pulls.push(core.SyncTargets.Firestore.downloadBackup().catch(e => null));
       }
 
       return Promise.all(pulls).then(function(rawCiphertexts) {
-        const decryptPromises = rawCiphertexts.filter(Boolean).map(function(cipherText) {
-          return core.E2EE.decrypt(cipherText, self.settings.passphrase).catch(e => null);
+        let firestoreDecryptFailed = false;
+        const decryptPromises = rawCiphertexts.map(function(cipherText, idx) {
+          if (!cipherText) return Promise.resolve(null);
+          return core.E2EE.decrypt(cipherText, self.settings.passphrase).catch(function(err) {
+            if (idx === firestoreIdx) {
+              firestoreDecryptFailed = true;
+            }
+            return null;
+          });
         });
-        return Promise.all(decryptPromises);
-      }).then(function(remotePayloads) {
-        const validPayloads = remotePayloads.filter(Boolean);
+
+        return Promise.all(decryptPromises).then(function(remotePayloads) {
+          return {
+            remotePayloads: remotePayloads,
+            firestoreDecryptFailed: firestoreDecryptFailed,
+            firestoreHadData: firestoreIdx !== -1 && !!rawCiphertexts[firestoreIdx]
+          };
+        });
+      }).then(function(res) {
+        if (res.firestoreDecryptFailed) {
+          const errMsg = '❌ Unable to decrypt Firebase data: Passwords do not match.';
+          if (core.showToast) core.showToast(errMsg, 'error');
+          return { merged: false, error: 'DECRYPT_FAILED', message: errMsg };
+        }
+
+        const validPayloads = res.remotePayloads.filter(Boolean);
         if (validPayloads.length === 0) {
           return { merged: false, message: 'No remote sync files found' };
         }
