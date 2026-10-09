@@ -527,14 +527,37 @@ window.HabitualCore = window.HabitualCore || {};
   }
 
   const inputPassphrase = document.getElementById('input-sync-passphrase');
-    if (inputPassphrase) {
-      inputPassphrase.value = core.SyncManager.settings.passphrase || '';
+    const badgePassphraseStatus = document.getElementById('passphrase-status-badge');
+    const btnToggleShowPassphrase = document.getElementById('btn-toggle-show-passphrase');
+    const eyeIconShow = document.getElementById('eye-icon-show');
+    const eyeIconHide = document.getElementById('eye-icon-hide');
+
+    function updatePassphraseStatusUI() {
+      const savedKey = core.SyncManager && core.SyncManager.settings ? core.SyncManager.settings.passphrase : '';
+      if (inputPassphrase) {
+        inputPassphrase.value = savedKey || '';
+      }
+      if (badgePassphraseStatus && badgePassphraseStatus.style) {
+        badgePassphraseStatus.style.display = (savedKey && savedKey.trim().length > 0) ? 'flex' : 'none';
+      }
+    }
+
+    updatePassphraseStatusUI();
+
+    if (btnToggleShowPassphrase && inputPassphrase) {
+      btnToggleShowPassphrase.addEventListener('click', () => {
+        const isPassword = inputPassphrase.type === 'password';
+        inputPassphrase.type = isPassword ? 'text' : 'password';
+        if (eyeIconShow && eyeIconShow.style) eyeIconShow.style.display = isPassword ? 'none' : 'block';
+        if (eyeIconHide && eyeIconHide.style) eyeIconHide.style.display = isPassword ? 'block' : 'none';
+      });
     }
 
     const btnSavePassphrase = document.getElementById('btn-save-passphrase');
     if (btnSavePassphrase && inputPassphrase) {
       btnSavePassphrase.addEventListener('click', () => {
         core.SyncManager.setPassphrase(inputPassphrase.value);
+        updatePassphraseStatusUI();
         if (core.showToast) core.showToast('Master encryption key saved!', 'success');
       });
     }
@@ -872,43 +895,6 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    // Google Drive
-    const chkGDrive = document.getElementById('chk-sync-gdrive');
-    if (chkGDrive) {
-      chkGDrive.checked = core.SyncManager.isTargetEnabled('googleDrive');
-      chkGDrive.addEventListener('change', (e) => {
-        core.SyncManager.toggleTarget('googleDrive', e.target.checked);
-      });
-    }
-
-    const inputGDriveClientId = document.getElementById('input-gdrive-client-id');
-    if (inputGDriveClientId) {
-      inputGDriveClientId.value = core.SyncTargets.GoogleDrive.getClientId();
-    }
-
-    const btnSaveGDriveClientId = document.getElementById('btn-save-gdrive-client-id');
-    if (btnSaveGDriveClientId && inputGDriveClientId) {
-      btnSaveGDriveClientId.addEventListener('click', () => {
-        const val = inputGDriveClientId.value.trim();
-        if (val) {
-          core.SyncTargets.GoogleDrive.setClientId(val);
-          if (core.showToast) core.showToast('Google Drive Client ID saved!');
-        }
-      });
-    }
-
-    const btnAuthGDrive = document.getElementById('btn-auth-gdrive');
-    if (btnAuthGDrive) {
-      btnAuthGDrive.addEventListener('click', () => {
-        const cid = inputGDriveClientId ? inputGDriveClientId.value.trim() : null;
-        if (!cid || cid.includes('YOUR_GOOGLE_CLIENT_ID')) {
-          alert('Please enter and save your Google Cloud OAuth Client ID first.');
-          return;
-        }
-        window.location.href = core.SyncTargets.GoogleDrive.getAuthUrl(cid);
-      });
-    }
-
     // Dropbox
     const chkDropbox = document.getElementById('chk-sync-dropbox');
     if (chkDropbox) {
@@ -1000,15 +986,9 @@ window.HabitualCore = window.HabitualCore || {};
       const params = new URLSearchParams(window.location.hash.slice(1));
       const accessToken = params.get('access_token');
       if (accessToken) {
-        if (window.location.hash.includes('google')) {
-          core.SyncTargets.GoogleDrive.setToken(accessToken);
-          core.SyncManager.toggleTarget('googleDrive', true);
-          if (core.showToast) core.showToast('Google Drive authenticated successfully!');
-        } else {
-          core.SyncTargets.Dropbox.setToken(accessToken);
-          core.SyncManager.toggleTarget('dropbox', true);
-          if (core.showToast) core.showToast('Dropbox authenticated successfully!');
-        }
+        core.SyncTargets.Dropbox.setToken(accessToken);
+        core.SyncManager.toggleTarget('dropbox', true);
+        if (core.showToast) core.showToast('Dropbox authenticated successfully!');
         window.history.replaceState(null, null, window.location.pathname);
       }
     }
@@ -1694,11 +1674,11 @@ window.HabitualCore = window.HabitualCore || {};
     const specificOpts = document.getElementById('freq-specific-options');
     const customOpts = document.getElementById('freq-custom-options');
 
-    if (dailyOpts) dailyOpts.classList.toggle('hidden', val !== 'daily');
-    if (weeklyOpts) weeklyOpts.classList.toggle('hidden', val !== 'weekly');
-    if (monthlyOpts) monthlyOpts.classList.toggle('hidden', val !== 'monthly');
-    if (specificOpts) specificOpts.classList.toggle('hidden', val !== 'specific_days');
-    if (customOpts) customOpts.classList.toggle('hidden', val !== 'custom_interval');
+    if (dailyOpts && dailyOpts.classList && typeof dailyOpts.classList.toggle === 'function') dailyOpts.classList.toggle('hidden', val !== 'daily');
+    if (weeklyOpts && weeklyOpts.classList && typeof weeklyOpts.classList.toggle === 'function') weeklyOpts.classList.toggle('hidden', val !== 'weekly');
+    if (monthlyOpts && monthlyOpts.classList && typeof monthlyOpts.classList.toggle === 'function') monthlyOpts.classList.toggle('hidden', val !== 'monthly');
+    if (specificOpts && specificOpts.classList && typeof specificOpts.classList.toggle === 'function') specificOpts.classList.toggle('hidden', val !== 'specific_days');
+    if (customOpts && customOpts.classList && typeof customOpts.classList.toggle === 'function') customOpts.classList.toggle('hidden', val !== 'custom_interval');
   };
 
   core.openHabitModal = function(habitToEdit = null, defaultParentId = null) {

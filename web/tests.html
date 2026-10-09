@@ -271,10 +271,10 @@
           });
 
           test('SyncManager target management', () => {
-            core.SyncManager.toggleTarget('googleDrive', true);
-            assert(core.SyncManager.isTargetEnabled('googleDrive'), 'Google Drive target enabled');
-            core.SyncManager.toggleTarget('googleDrive', false);
-            assert(!core.SyncManager.isTargetEnabled('googleDrive'), 'Google Drive target disabled');
+            core.SyncManager.toggleTarget('dropbox', true);
+            assert(core.SyncManager.isTargetEnabled('dropbox'), 'Dropbox target enabled');
+            core.SyncManager.toggleTarget('dropbox', false);
+            assert(!core.SyncManager.isTargetEnabled('dropbox'), 'Dropbox target disabled');
           });
         });
       }

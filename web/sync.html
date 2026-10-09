@@ -112,9 +112,19 @@
             <h4>🔒 Master Encryption Passphrase (E2EE)</h4>
             <p class="muted-text">Zero-knowledge client-side encryption key (AES-256-GCM). Required for Firestore Live Sync.</p>
           </div>
-          <div class="input-inline-group">
-            <input type="password" id="input-sync-passphrase" class="form-control-sm" placeholder="Enter secret passphrase..." aria-label="Master Encryption Passphrase">
-            <button id="btn-save-passphrase" class="btn btn-secondary btn-sm">Save Key</button>
+          <div class="input-inline-group" style="align-items: center;">
+            <div style="position: relative; flex: 1; display: flex; align-items: center;">
+              <input type="password" id="input-sync-passphrase" class="form-control-sm" placeholder="Enter secret master passphrase..." aria-label="Master Encryption Passphrase" style="width: 100%; padding-right: 38px;">
+              <button type="button" id="btn-toggle-show-passphrase" title="Show or hide passphrase" aria-label="Toggle passphrase visibility" style="position: absolute; right: 8px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: flex; align-items: center;">
+                <svg id="eye-icon-show" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg id="eye-icon-hide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+            <button id="btn-save-passphrase" class="btn btn-primary btn-sm">Save Key</button>
+          </div>
+          <div id="passphrase-status-badge" style="margin-top: 8px; font-size: 0.85rem; color: var(--accent-green); display: none; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="passphrase-status-text">Master Passphrase active</span>
           </div>
         </div>
 
@@ -204,24 +214,6 @@
             <p class="muted-text">Sync encrypted backups to your personal cloud account (E2EE).</p>
           </div>
           <div class="cloud-targets-grid">
-            <div class="cloud-target-item">
-              <span>Google Drive (App Folder)</span>
-              <div class="flex-row" style="gap: 8px;">
-                <label class="switch-toggle">
-                  <input type="checkbox" id="chk-sync-gdrive">
-                  <span class="slider round"></span>
-                </label>
-                <button id="btn-auth-gdrive" class="btn btn-sm btn-secondary">Auth Google</button>
-              </div>
-            </div>
-            <div id="gdrive-config-box" class="webdav-form">
-              <label class="muted-text text-xs">Google OAuth Client ID:</label>
-              <div class="input-inline-group">
-                <input type="text" id="input-gdrive-client-id" class="form-control-sm" placeholder="123456789-abc.apps.googleusercontent.com" aria-label="Google Client ID">
-                <button id="btn-save-gdrive-client-id" class="btn btn-secondary btn-sm">Save Client ID</button>
-              </div>
-            </div>
-
             <div class="cloud-target-item">
               <span>Dropbox (App Folder)</span>
               <div class="flex-row" style="gap: 8px;">
@@ -317,7 +309,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.13.12</p>
+      <p>Habitual &bull; v1.13.13</p>
     </footer>
   </div>
 
