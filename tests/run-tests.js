@@ -2126,6 +2126,109 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     HabitualCore.SyncTargets.Firestore.minSyncInterval = 1500;
   });
 
+  test('core.isSyncPage helper detects sync.html and startLiveSync suppresses listener on sync page', async () => {
+    // 1. Mock window.location for index.html
+    const origLocation = global.window.location;
+    global.window.location = { pathname: '/index.html', href: 'http://localhost/index.html' };
+
+    assertEqual(HabitualCore.isSyncPage(), false, 'isSyncPage returns false when on index.html');
+
+    let listenerAttachedOnIndex = false;
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: () => ({
+        doc: () => ({
+          onSnapshot: () => { listenerAttachedOnIndex = true; return () => {}; }
+        })
+      })
+    };
+    HabitualCore.SyncTargets.Firestore.isListening = false;
+    HabitualCore.SyncManager.settings.passphrase = 'TestPassKey';
+
+    await HabitualCore.SyncTargets.Firestore.startLiveSync();
+    assert(listenerAttachedOnIndex === true, 'startLiveSync attaches snapshot listener when on index.html');
+
+    HabitualCore.SyncTargets.Firestore.stopLiveSync();
+
+    // 2. Mock window.location for sync.html
+    global.window.location = { pathname: '/sync.html', href: 'http://localhost/sync.html' };
+
+    assertEqual(HabitualCore.isSyncPage(), true, 'isSyncPage returns true when on sync.html');
+
+    let listenerAttachedOnSync = false;
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: () => ({
+        doc: () => ({
+          onSnapshot: () => { listenerAttachedOnSync = true; return () => {}; }
+        })
+      })
+    };
+    HabitualCore.SyncTargets.Firestore.isListening = false;
+
+    await HabitualCore.SyncTargets.Firestore.startLiveSync();
+    assert(listenerAttachedOnSync === false, 'startLiveSync suppresses snapshot listener when on sync.html page');
+
+    // Restore location and clean up
+    global.window.location = origLocation;
+    HabitualCore.SyncTargets.Firestore.stopLiveSync();
+    HabitualCore.SyncTargets.Firestore.db = null;
+  });
+
+  test('E2EE Key Caching, Outbound Write Debouncing & Duplicate Upload Suppression', async () => {
+    // 1. E2EE WebCrypto Key Caching Test
+    const passphrase = 'KeyCachePassphrase123!';
+    const saltBytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+
+    HabitualCore.E2EE._keyCache.clear();
+    const key1 = await HabitualCore.E2EE.getKey(passphrase, saltBytes);
+    assert(key1 !== null, 'getKey returned WebCrypto key');
+    assert(HabitualCore.E2EE._keyCache.size === 1, '_keyCache size is 1 after initial derivation');
+
+    const key2 = await HabitualCore.E2EE.getKey(passphrase, saltBytes);
+    assertEqual(key1, key2, 'getKey returns cached WebCrypto key on subsequent call');
+
+    // 2. Outbound Sync Write Debouncing Test
+    let writeCount = 0;
+    const origBroadcastWrite = HabitualCore.SyncManager.broadcastWrite;
+    HabitualCore.SyncManager.broadcastWrite = function() {
+      writeCount++;
+    };
+
+    HabitualCore.SyncManager.broadcastWriteDebounced({ test: 1 }, 50);
+    HabitualCore.SyncManager.broadcastWriteDebounced({ test: 2 }, 50);
+    HabitualCore.SyncManager.broadcastWriteDebounced({ test: 3 }, 50);
+
+    assertEqual(writeCount, 0, 'Immediate write count is 0 before debounce timer elapses');
+
+    await new Promise(r => setTimeout(r, 80));
+    assertEqual(writeCount, 1, 'Debounced broadcastWrite batched 3 rapid calls into 1 single execution');
+
+    HabitualCore.SyncManager.broadcastWrite = origBroadcastWrite;
+
+    // 3. Duplicate Upload Suppression Test
+    let setCallCount = 0;
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: () => ({
+        doc: () => ({
+          set: () => { setCallCount++; return Promise.resolve(); }
+        })
+      })
+    };
+    HabitualCore.SyncManager.settings.passphrase = passphrase;
+    HabitualCore.SyncTargets.Firestore.lastUploadedPayloadStr = null;
+
+    HabitualCore.setState({ habits: [{ id: 'dedup1', name: 'Dedup Habit', logs: {} }] });
+
+    await HabitualCore.SyncTargets.Firestore.uploadBackup();
+    assertEqual(setCallCount, 1, 'Initial uploadBackup calls Firestore set()');
+
+    // Calling uploadBackup again with identical payload
+    await HabitualCore.SyncTargets.Firestore.uploadBackup();
+    assertEqual(setCallCount, 1, 'Duplicate uploadBackup skipped redundant upload when payload was unchanged');
+
+    HabitualCore.SyncTargets.Firestore.db = null;
+    HabitualCore.SyncTargets.Firestore.lastUploadedPayloadStr = null;
+  });
+
   test('Firestore Sync Code helpers: hasSyncCode, getExistingSyncCode and auto-enable on paste/new-code', async () => {
     mockLocalStorage.removeItem('habitual_firestore_sync_code');
     mockLocalStorage.removeItem('habitual_sync_targets');
