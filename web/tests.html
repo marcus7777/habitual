@@ -251,6 +251,31 @@
             assertEqual(decrypted.habits[0].name, 'Meditation');
           });
 
+          test('E2EE decrypt rejects with mismatched passphrase', async () => {
+            const samplePayload = { habits: [{ id: 'h1', name: 'Meditation' }] };
+            const encrypted = await core.E2EE.encrypt(samplePayload, 'passphrase_A');
+            let errorCaught = false;
+            try {
+              await core.E2EE.decrypt(encrypted, 'wrong_passphrase_B');
+            } catch (e) {
+              errorCaught = true;
+            }
+            assert(errorCaught, 'Decryption rejected when passphrases do not match');
+          });
+
+          test('pullAndMergeAll reports failure when Firestore decryption fails', async () => {
+            const samplePayload = { habits: [{ id: 'h1', name: 'Yoga' }] };
+            const encrypted = await core.E2EE.encrypt(samplePayload, 'correct_pass');
+            core.SyncManager.settings.passphrase = 'wrong_pass';
+            core.SyncManager.toggleTarget('firestore', true);
+            core.SyncTargets.Firestore.downloadBackup = () => Promise.resolve(encrypted);
+
+            const result = await core.SyncManager.pullAndMergeAll();
+            assertEqual(result.merged, false, 'Merge reported false on decrypt failure');
+            assertEqual(result.error, 'DECRYPT_FAILED', 'Result error code is DECRYPT_FAILED');
+            core.SyncManager.toggleTarget('firestore', false);
+          });
+
           test('mergeStatePayloads deterministically merges overlapping habit logs', () => {
             const payloadA = {
               updatedAt: 1000,
