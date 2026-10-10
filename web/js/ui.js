@@ -2729,21 +2729,6 @@ window.HabitualCore = window.HabitualCore || {};
           const subInfo = hasRemoteChildren ? ` & ${payload.children.length} sub-habits` : '';
           if (core.showToast) core.showToast(`👥 Joined shared habit "${habitName}" (${totalLogs} past check-ins${subInfo} synced)!`, 'success');
           closeModal();
-              if (!existing.logs) existing.logs = {};
-              Object.assign(existing.logs, payload.logs);
-            }
-          }
-
-          core.saveState();
-          if (core.renderAll) core.renderAll();
-
-          if (core.SyncTargets && core.SyncTargets.Firestore) {
-            core.SyncTargets.Firestore.startPerHabitLiveSync(existing);
-          }
-
-          const totalLogs = Object.keys(existing.logs || {}).length;
-          if (core.showToast) core.showToast(`👥 Joined shared habit "${habitName}" (${totalLogs} past check-ins synced)!`, 'success');
-          closeModal();
         };
       }
     } catch (e) {
