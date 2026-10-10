@@ -526,6 +526,12 @@ body.dark-theme {
   contain-intrinsic-size: 150px;
 }
 
+.heatmap-card.minimal-checkbox-card {
+  padding: 10px 14px;
+  gap: 0;
+  contain-intrinsic-size: 56px;
+}
+
 .heatmap-card.menu-open,
 .heatmap-card:has(.card-menu-content:not(.hidden)) {
   z-index: 1000;

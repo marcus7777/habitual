@@ -632,6 +632,14 @@ window.HabitualCore = window.HabitualCore || {};
     });
     gridHTML += '</div>';
 
+    const shouldHideHeatmap = habit && (habit.hideHeatmap === true || (habit.isPaused && habit.hideHeatmapWhenPaused === true));
+
+    if (shouldHideHeatmap) {
+      card.classList.add('minimal-checkbox-card');
+      card.innerHTML = headerHTML + focusedToolbarHTML;
+      return card;
+    }
+
     card.innerHTML = headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>`;
     return card;
   };
