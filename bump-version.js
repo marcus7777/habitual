@@ -3,6 +3,7 @@
  *
  * Usage:
  *   node bump-version.js          -> Prompts user to select bump type
+ *   node bump-version.js show     -> Displays current version
  *   node bump-version.js bugfix   -> Bumps bugfix version (1.0.35 -> 1.0.36)
  *   node bump-version.js minor    -> Bumps minor version  (1.0.35 -> 1.1.0)
  *   node bump-version.js major    -> Bumps major version  (1.0.35 -> 2.0.0)
@@ -18,9 +19,16 @@ const packageJsonPath = path.join(rootDir, 'package.json');
 const htmlPath = path.join(rootDir, 'web', 'index.html');
 const swPath = path.join(rootDir, 'web', 'sw.js');
 
-// 1. Read current version from package.json
-const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const currentVersion = pkg.version;
+function getCurrentVersion() {
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  return pkg.version;
+}
+
+function showCurrentVersion() {
+  const version = getCurrentVersion();
+  console.log(`Current version: ${version}`);
+  return version;
+}
 
 function parseVersion(vStr) {
   const parts = vStr.split('.').map(Number);
@@ -80,16 +88,26 @@ function promptUser(currentVersion, { major, minor, bugfix }) {
 async function main() {
   const arg = (process.argv[2] || '').toLowerCase().trim();
 
+  if (['show', 'current', 'version', '-v', '--version', 'get', 'v'].includes(arg)) {
+    showCurrentVersion();
+    process.exit(0);
+  }
+
   if (arg === '-h' || arg === '--help') {
+    const currentVersion = getCurrentVersion();
     console.log(`Current version: ${currentVersion}\n`);
-    console.log('Usage: node bump-version.js [<type|version>]\n');
+    console.log('Usage: node bump-version.js [<type|version|show>]\n');
     console.log('  (no args)             Interactive prompt to choose bump type');
+    console.log('  show | current | -v   Show current version without bumping');
     console.log('  bugfix | patch | fix  Bump bugfix version (M.m.b+1)');
     console.log('  minor                 Bump minor version  (M.m+1.0)');
     console.log('  major                 Bump major version  (M+1.0.0)');
     console.log('  <M.m.b>               Set explicit version (e.g. 1.2.0)');
     process.exit(0);
   }
+
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  const currentVersion = pkg.version;
 
   const { major, minor, bugfix } = parseVersion(currentVersion);
   let bumpChoice = arg;
@@ -110,7 +128,7 @@ async function main() {
     newVersion = bumpChoice;
   } else {
     console.error(`Error: Unknown bump type or invalid version format "${bumpChoice}"`);
-    console.error('Expected: bugfix, minor, major, or a specific version like 1.2.3');
+    console.error('Expected: bugfix, minor, major, show, or a specific version like 1.2.3');
     process.exit(1);
   }
 
@@ -148,7 +166,16 @@ async function main() {
   console.log(`\nSuccessfully bumped version to ${newVersion}!`);
 }
 
-main().catch((err) => {
-  console.error('Error running bump-version script:', err);
-  process.exit(1);
-});
+module.exports = {
+  getCurrentVersion,
+  showCurrentVersion,
+  parseVersion,
+};
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Error running bump-version script:', err);
+    process.exit(1);
+  });
+}
+
