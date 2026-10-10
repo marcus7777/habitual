@@ -72,37 +72,14 @@
         <div class="data-option-card highlight-card">
           <div class="data-option-info">
             <h4>💾 Local Storage Engine</h4>
-            <p class="muted-text">Choose your local database engine. IndexedDB bypasses browser 5MB storage limits. GunDB enables decentralized P2P sync.</p>
+            <p class="muted-text">Choose your local database engine. IndexedDB bypasses browser 5MB storage limits.</p>
           </div>
           <div class="engine-selector-group">
             <select id="select-storage-engine" class="form-control-sm select-input" aria-label="Storage Engine">
               <option value="localStorage">Local Storage (Fast, 5MB limit)</option>
               <option value="indexedDB">IndexedDB (Large scale, Unlimited)</option>
-              <option value="gunDB">GunDB (Decentralized P2P)</option>
             </select>
             <button id="btn-migrate-engine" class="btn btn-secondary btn-sm">Migrate Data</button>
-          </div>
-        </div>
-
-        <!-- Section 1.5: GunDB Peer Sync (Hidden by default) -->
-        <div class="data-option-card highlight-card" id="gundb-sync-panel">
-          <div class="data-option-info">
-            <h4>🌐 Decentralized Peer Sync - work in progress</h4>
-            <p class="muted-text">Connect another device to your GunDB to sync data directly over P2P relays.</p>
-          </div>
-
-          <div class="data-subpanel">
-            <label class="subpanel-label">Your Sync Code (Copy to another device)</label>
-            <div class="p2p-input-row" style="margin-bottom: 1rem;">
-              <input type="text" id="gundb-sync-code-output" class="form-control-sm code-input" readonly placeholder="Loading code..." aria-label="Your Sync Code">
-              <button id="btn-copy-gundb-code" class="btn btn-secondary btn-sm">Copy</button>
-            </div>
-
-            <label class="subpanel-label">Join a Peer</label>
-            <div class="p2p-input-row">
-              <input type="text" id="gundb-sync-code-input" class="form-control-sm code-input uppercase" placeholder="6-CHAR CODE" aria-label="Join Peer Sync Code">
-              <button id="btn-join-gundb" class="btn btn-primary btn-sm">Join</button>
-            </div>
           </div>
         </div>
 
@@ -153,8 +130,8 @@
           </div>
         </div>
 
-        <!-- Section 3: Peer-to-Peer (WebRTC) Real-Time Sync (Flagged via ?p2p=1) -->
-        <div id="section-p2p-sync" class="hidden">
+        <!-- Section 3: Peer-to-Peer (WebRTC) Real-Time Sync -->
+        <div id="section-p2p-sync">
           <div class="data-option-card">
             <div class="data-option-info">
               <h4>⚡ Peer-to-Peer (WebRTC) Sync</h4>
@@ -253,6 +230,19 @@
           </div>
         </div>
 
+        <!-- Section 6: PWA & Platform Widgets -->
+        <div class="data-option-card">
+          <div class="data-option-info">
+            <h4>🧩 Platform Widgets & Launcher</h4>
+            <p class="muted-text">Standalone Quick Add, Heatmap Grid widgets, and Adaptive Card settings.</p>
+          </div>
+          <div class="btn-group-row">
+            <a href="widgets/add.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">⚡ Quick Add Widget</a>
+            <a href="widgets/heatmaps.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">📊 Heatmap Grid Widget</a>
+            <a href="widgets/settings.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">⚙️ Widget Settings</a>
+          </div>
+        </div>
+
         <div class="data-option-card danger-zone">
           <div class="data-option-info">
             <h4 class="text-danger">⚠️ Reset All Data</h4>
@@ -265,7 +255,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.13.17</p>
+      <p>Habitual &bull; v1.14.0</p>
     </footer>
   </div>
 
