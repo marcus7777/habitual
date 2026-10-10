@@ -386,6 +386,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     let pausedBadgeHTML = (habit && habit.isPaused) ? '<span class="badge-paused" title="This habit is currently paused">⏸️ Paused</span>' : '';
+    let sharedBadgeHTML = (habit && habit.sharing && habit.sharing.enabled) ? `<span class="badge-shared" title="Shared Habit (Collection: ${core.escapeHTML(habit.sharing.collection || '')})">👥 Shared</span>` : '';
 
     let bigLogButtonHTML = '';
     if (habit) {
@@ -475,6 +476,7 @@ window.HabitualCore = window.HabitualCore || {};
           ${dependencyBadgeHTML}
           ${frequencyBadgeHTML}
           ${pausedBadgeHTML}
+          ${sharedBadgeHTML}
           ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
           ${shouldShowCount ? `<span class="badge-count">${countLabel}</span>` : ''}
           ${durationLabel ? `<span class="badge-duration" title="Habit active duration">${durationLabel}</span>` : ''}

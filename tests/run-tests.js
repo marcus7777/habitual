@@ -107,6 +107,7 @@ global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } }
 
 // Load Habitual Core Files
 require('../web/js/colours.js');
+require('../web/js/qr.js');
 require('../web/js/state.js');
 require('../web/js/storage.js');
 require('../web/js/audio-sync.js');
@@ -2622,6 +2623,69 @@ describe('Feature 29: 📦 Sync Page JSON Export & Mobile Backup Engine', () => 
     assertEqual(restoredHabits[0].dailyTarget, 3, 'Restored daily target matches');
     assertEqual(restoredHabits[0].logs['2026-10-09'].count, 3, 'Restored log count matches');
     assertEqual(restoredHabits[0].logs['2026-10-09'].note, 'Roundtrip test note', 'Restored log note matches');
+  });
+});
+
+// ============================================================================
+describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () => {
+  test('core.generateQRCodeSVG generates valid SVG QR code string', () => {
+    assert(typeof HabitualCore.generateQRCodeSVG === 'function', 'core.generateQRCodeSVG function exists');
+    const svg = HabitualCore.generateQRCodeSVG('http://localhost:8000/#share?col=shared_123&pwd=sec_456&name=Bin%20Day', 180);
+    assert(svg.includes('<svg'), 'Generated output contains <svg tag');
+    assert(svg.includes('viewBox="0 0 100 100"'), 'SVG contains valid viewBox attribute');
+    assert(svg.includes('<rect'), 'SVG contains QR code rect modules');
+  });
+
+  test('Habit object supports sharing configuration property', () => {
+    const habit = {
+      id: 'shared_bin_day',
+      name: 'Bins Out',
+      type: 'positive',
+      dailyTarget: 1,
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_bins123',
+        password: 'secret_passphrase_789'
+      },
+      logs: {}
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [habit]
+    });
+
+    const storedState = HabitualCore.getState();
+    assertEqual(storedState.habits[0].sharing.enabled, true, 'Habit sharing enabled flag is true');
+    assertEqual(storedState.habits[0].sharing.collection, 'shared_hb_bins123', 'Habit collection matches');
+    assertEqual(storedState.habits[0].sharing.password, 'secret_passphrase_789', 'Habit password matches');
+  });
+
+  test('buildHeatmapCard renders badge-shared for shared habits', () => {
+    const sharedHabit = {
+      id: 'shared_habit_test',
+      name: 'Shared Family Habit',
+      type: 'positive',
+      dailyTarget: 1,
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_family',
+        password: 'fam_pass'
+      },
+      logs: {}
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [sharedHabit]
+    });
+
+    const cardElem = HabitualCore.buildHeatmapCard(sharedHabit, 2026);
+    const htmlStr = cardElem.outerHTML || cardElem.innerHTML || '';
+    assert(htmlStr.includes('badge-shared'), 'Heatmap card includes badge-shared class');
+    assert(htmlStr.includes('👥 Shared'), 'Heatmap card displays shared icon and badge text');
   });
 });
 

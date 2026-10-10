@@ -52,7 +52,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.parseHash = function() {
-    const hash = window.location.hash.trim();
+    const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';
     if (hash.startsWith('#/habit/')) {
       const habitId = hash.replace('#/habit/', '').trim();
       if (habitId) return { view: 'habit', habitId };
@@ -376,8 +376,8 @@ window.HabitualCore = window.HabitualCore || {};
     if (core.elements.yearSelector) {
       core.elements.yearSelector.addEventListener('change', (e) => {
         core.state.selectedYear = parseInt(e.target.value, 10);
-        if (core.saveState) core.saveState();
         if (core.renderAll) core.renderAll();
+        if (core.saveState) core.saveState();
       });
     }
 
@@ -1309,16 +1309,16 @@ window.HabitualCore = window.HabitualCore || {};
           const [movedHabit] = core.state.habits.splice(fromIndex, 1);
           const newToIndex = core.state.habits.findIndex(h => h.id === prevSibling.id);
           core.state.habits.splice(newToIndex, 0, movedHabit);
-          if (core.saveState) core.saveState();
           if (core.renderAll) core.renderAll();
+          if (core.saveState) core.saveState();
         } else if (!isUp && siblingIndex < siblings.length - 1) {
           const nextSibling = siblings[siblingIndex + 1];
           const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
           const [movedHabit] = core.state.habits.splice(fromIndex, 1);
           const newToIndex = core.state.habits.findIndex(h => h.id === nextSibling.id);
           core.state.habits.splice(newToIndex + 1, 0, movedHabit);
-          if (core.saveState) core.saveState();
           if (core.renderAll) core.renderAll();
+          if (core.saveState) core.saveState();
         }
       });
     });
@@ -1373,12 +1373,12 @@ window.HabitualCore = window.HabitualCore || {};
         const habit = core.state.habits.find(h => h.id === btn.dataset.habitId);
         if (habit) {
           core.setHabitPauseState(habit, !habit.isPaused);
+          if (core.renderAll) core.renderAll();
           if (core.saveHabit) {
             core.saveHabit(habit);
           } else if (core.saveState) {
             core.saveState();
           }
-          if (core.renderAll) core.renderAll();
         }
       });
     });
@@ -1466,8 +1466,8 @@ window.HabitualCore = window.HabitualCore || {};
             if (fromIndex !== -1 && toIndex !== -1) {
               const [movedHabit] = core.state.habits.splice(fromIndex, 1);
               core.state.habits.splice(toIndex, 0, movedHabit);
-              if (core.saveState) core.saveState();
               if (core.renderAll) core.renderAll();
+              if (core.saveState) core.saveState();
               core.showToast(`Reordered "${movedHabit.name}"`);
             }
           }
@@ -1670,6 +1670,26 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitHistoryInstances) core.elements.habitHistoryInstances.value = '1';
     }
 
+    const chkSharing = document.getElementById('habit-enable-sharing');
+    const inputShareCol = document.getElementById('habit-share-collection');
+    const inputSharePwd = document.getElementById('habit-share-password');
+    const sharePanel = document.getElementById('share-habit-panel');
+    const btnToggleShare = document.getElementById('btn-toggle-share-habit-panel');
+
+    const sharingData = (habitToEdit && habitToEdit.sharing && habitToEdit.sharing.enabled) ? habitToEdit.sharing : null;
+    if (chkSharing) chkSharing.checked = Boolean(sharingData);
+    if (inputShareCol) inputShareCol.value = sharingData ? sharingData.collection || '' : '';
+    if (inputSharePwd) inputSharePwd.value = sharingData ? sharingData.password || '' : '';
+
+    if (sharingData && sharePanel) {
+      sharePanel.classList.remove('hidden');
+      if (btnToggleShare) btnToggleShare.classList.remove('hidden');
+    } else {
+      if (sharePanel) sharePanel.classList.add('hidden');
+      if (btnToggleShare) btnToggleShare.classList.add('hidden');
+    }
+    if (core.updateShareLinkAndQR) core.updateShareLinkAndQR();
+
     const accordion = document.getElementById('advanced-settings-accordion');
     if (accordion) {
       if (habitToEdit) {
@@ -1680,7 +1700,8 @@ window.HabitualCore = window.HabitualCore || {};
           habitToEdit.showStreak ||
           habitToEdit.showDuration ||
           habitToEdit.hideFromAll ||
-          habitToEdit.isPaused
+          habitToEdit.isPaused ||
+          (habitToEdit.sharing && habitToEdit.sharing.enabled)
         );
         accordion.open = hasAdvanced;
       } else {
@@ -1908,11 +1929,26 @@ window.HabitualCore = window.HabitualCore || {};
       colorTheme = undefined;
     }
 
+    const chkSharing = document.getElementById('habit-enable-sharing');
+    const inputShareCol = document.getElementById('habit-share-collection');
+    const inputSharePwd = document.getElementById('habit-share-password');
+    const enableSharing = chkSharing ? chkSharing.checked : false;
+    const shareCol = inputShareCol ? inputShareCol.value.trim() : '';
+    const sharePwd = inputSharePwd ? inputSharePwd.value.trim() : '';
+    const sharingConfig = (enableSharing && shareCol && sharePwd) ? {
+      enabled: true,
+      collection: shareCol,
+      password: sharePwd
+    } : null;
+
     if (!name) return;
+
+    let savedTargetHabit = null;
 
     if (id) {
       const habit = core.state.habits.find(h => h.id === id);
       if (habit) {
+        savedTargetHabit = habit;
         const previousHideFromAll = Boolean(habit.hideFromAll);
         habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll;
         core.setHabitPauseState(habit, isPaused);
@@ -1921,6 +1957,15 @@ window.HabitualCore = window.HabitualCore || {};
           habit.colorTheme = colorTheme;
         } else {
           delete habit.colorTheme;
+        }
+
+        if (sharingConfig) {
+          habit.sharing = sharingConfig;
+        } else {
+          if (habit.sharing) habit.sharing.enabled = false;
+          if (core.SyncTargets && core.SyncTargets.Firestore) {
+            core.SyncTargets.Firestore.stopPerHabitLiveSync(habit.id);
+          }
         }
 
         if (previousHideFromAll !== hideFromAll) {
@@ -1966,13 +2011,22 @@ window.HabitualCore = window.HabitualCore || {};
       if (colorTheme) {
         newHabit.colorTheme = colorTheme;
       }
+      if (sharingConfig) {
+        newHabit.sharing = sharingConfig;
+      }
+      savedTargetHabit = newHabit;
       core.state.habits.push(newHabit);
       core.state.selectedHabitId = newHabit.id;
     }
 
-    if (core.saveState) core.saveState();
     if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden');
     if (core.renderAll) core.renderAll();
+    if (core.saveState) core.saveState();
+
+    if (savedTargetHabit && savedTargetHabit.sharing && savedTargetHabit.sharing.enabled && core.SyncTargets && core.SyncTargets.Firestore) {
+      core.SyncTargets.Firestore.startPerHabitLiveSync(savedTargetHabit);
+      core.SyncTargets.Firestore.uploadPerHabitBackup(savedTargetHabit);
+    }
 
     if (core.pendingQuickLogAfterHabit) {
       core.pendingQuickLogAfterHabit = false;
@@ -1994,7 +2048,6 @@ window.HabitualCore = window.HabitualCore || {};
     if (confirm(msg)) {
       core.state.habits = core.state.habits.filter(h => h.id !== habitId);
       subHabits.forEach(sub => { sub.parentId = habit.parentId || null; });
-      if (core.saveState) core.saveState();
 
       const route = core.parseHash ? core.parseHash() : { view: 'home' };
       if (route.view === 'habit' && route.habitId === habitId) {
@@ -2003,6 +2056,7 @@ window.HabitualCore = window.HabitualCore || {};
       } else {
         if (core.renderAll) core.renderAll();
       }
+      if (core.saveState) core.saveState();
       core.showToast(`Deleted "${habit.name}"`);
     }
   };
@@ -2140,13 +2194,13 @@ window.HabitualCore = window.HabitualCore || {};
     const note = core.elements.modalLogNote.value.trim();
     habit.logs[core.activeLogDateKey] = { count, note };
     core.applyParentDependencyOnLog(habit, core.activeLogDateKey, count);
+    if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
+    if (core.renderAll) core.renderAll();
     if (core.saveLog) {
       core.saveLog(habitId, core.activeLogDateKey, count, note);
     } else if (core.saveState) {
       core.saveState();
     }
-    if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
-    if (core.renderAll) core.renderAll();
   };
 
   core.handleClearLog = function() {
@@ -2154,13 +2208,203 @@ window.HabitualCore = window.HabitualCore || {};
     const habit = core.state.habits.find(h => h.id === habitId);
     if (habit && habit.logs && habit.logs[core.activeLogDateKey]) {
       delete habit.logs[core.activeLogDateKey];
+      if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
+      if (core.renderAll) core.renderAll();
       if (core.saveLog) {
         core.saveLog(habitId, core.activeLogDateKey, 0, '');
       } else if (core.saveState) {
         core.saveState();
       }
-      if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
-      if (core.renderAll) core.renderAll();
+    }
+  };
+
+  // --- SHARE HABIT HELPERS & EVENT LISTENERS ---
+  core.generateRandomKey = function(prefix, len) {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let res = prefix || '';
+    for (let i = 0; i < (len || 10); i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return res;
+  };
+
+  core.updateShareLinkAndQR = function() {
+    const inputCol = document.getElementById('habit-share-collection');
+    const inputPwd = document.getElementById('habit-share-password');
+    const inputName = document.getElementById('habit-name');
+    const qrDisplay = document.getElementById('qr-code-display');
+
+    const col = inputCol ? inputCol.value.trim() : '';
+    const pwd = inputPwd ? inputPwd.value.trim() : '';
+    const name = inputName ? inputName.value.trim() : 'Habit Goal';
+
+    if (!col || !pwd) {
+      if (qrDisplay) qrDisplay.innerHTML = '<small class="muted-text">Fill collection & password to generate QR code</small>';
+      return '';
+    }
+
+    const baseUrl = window.location.origin + window.location.pathname;
+    const shareUrl = `${baseUrl}#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&name=${encodeURIComponent(name)}`;
+
+    if (qrDisplay && core.generateQRCodeSVG) {
+      qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, 180);
+    }
+
+    return shareUrl;
+  };
+
+  // Wire up event listeners for Share Habit controls
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('DOMContentLoaded', function() {
+      const chkSharing = document.getElementById('habit-enable-sharing');
+      const inputShareCol = document.getElementById('habit-share-collection');
+      const inputSharePwd = document.getElementById('habit-share-password');
+      const inputHabitName = document.getElementById('habit-name');
+      const sharePanel = document.getElementById('share-habit-panel');
+      const btnToggleShare = document.getElementById('btn-toggle-share-habit-panel');
+      const btnCopyShareLink = document.getElementById('btn-copy-share-link');
+      const btnRegenShareCreds = document.getElementById('btn-regen-share-creds');
+
+      if (chkSharing) {
+        chkSharing.addEventListener('change', function() {
+          if (chkSharing.checked) {
+            if (sharePanel) sharePanel.classList.remove('hidden');
+            if (btnToggleShare) btnToggleShare.classList.remove('hidden');
+            if (inputShareCol && !inputShareCol.value.trim()) {
+              inputShareCol.value = core.generateRandomKey('shared_hb_', 8);
+            }
+            if (inputSharePwd && !inputSharePwd.value.trim()) {
+              inputSharePwd.value = core.generateRandomKey('sec_', 12);
+            }
+            core.updateShareLinkAndQR();
+          } else {
+            if (sharePanel) sharePanel.classList.add('hidden');
+            if (btnToggleShare) btnToggleShare.classList.add('hidden');
+          }
+        });
+      }
+
+      if (btnToggleShare) {
+        btnToggleShare.addEventListener('click', function() {
+          if (sharePanel) sharePanel.classList.toggle('hidden');
+        });
+      }
+
+      if (btnRegenShareCreds) {
+        btnRegenShareCreds.addEventListener('click', function() {
+          if (inputShareCol) inputShareCol.value = core.generateRandomKey('shared_hb_', 8);
+          if (inputSharePwd) inputSharePwd.value = core.generateRandomKey('sec_', 12);
+          core.updateShareLinkAndQR();
+          if (core.showToast) core.showToast('🔄 Shared keys regenerated!', 'info');
+        });
+      }
+
+      if (btnCopyShareLink) {
+        btnCopyShareLink.addEventListener('click', function() {
+          const link = core.updateShareLinkAndQR();
+          if (link && navigator.clipboard) {
+            navigator.clipboard.writeText(link).then(function() {
+              if (core.showToast) core.showToast('📋 Share link copied to clipboard!', 'success');
+            }).catch(function() {
+              alert('Share link: ' + link);
+            });
+          } else if (link) {
+            alert('Share link: ' + link);
+          }
+        });
+      }
+
+      [inputShareCol, inputSharePwd, inputHabitName].forEach(el => {
+        if (el) el.addEventListener('input', () => core.updateShareLinkAndQR());
+      });
+
+      // Check URL Hash for shared habit invitation on load
+      core.checkURLHashForSharedHabit();
+    });
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('hashchange', function() {
+        if (core.checkURLHashForSharedHabit) core.checkURLHashForSharedHabit();
+      });
+    }
+  }
+
+  core.checkURLHashForSharedHabit = function() {
+    const hash = window.location.hash || '';
+    if (!hash.includes('share?') && !hash.includes('col=')) return;
+
+    try {
+      const queryStr = hash.substring(hash.indexOf('?') + 1);
+      const params = new URLSearchParams(queryStr);
+      const col = params.get('col');
+      const pwd = params.get('pwd');
+      const name = params.get('name') || 'Shared Habit';
+
+      if (!col || !pwd) return;
+
+      const modalImport = document.getElementById('modal-import-shared-habit');
+      const nameEl = document.getElementById('import-shared-habit-name');
+      const colEl = document.getElementById('import-shared-habit-collection');
+      const btnConfirm = document.getElementById('btn-confirm-import-shared');
+      const btnCancel = document.getElementById('btn-cancel-import-shared');
+      const btnClose = document.getElementById('modal-import-close');
+
+      if (!modalImport) return;
+
+      if (nameEl) nameEl.textContent = name;
+      if (colEl) colEl.textContent = col;
+
+      modalImport.classList.remove('hidden');
+
+      function closeModal() {
+        modalImport.classList.add('hidden');
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname);
+        } else {
+          window.location.hash = '';
+        }
+      }
+
+      if (btnCancel) btnCancel.onclick = closeModal;
+      if (btnClose) btnClose.onclick = closeModal;
+
+      if (btnConfirm) {
+        btnConfirm.onclick = function() {
+          let existing = core.state.habits.find(h => h.sharing && h.sharing.collection === col);
+          if (!existing) {
+            existing = {
+              id: 'shared_' + core.idFromName(name) + '_' + Date.now().toString(36),
+              name: name,
+              type: 'positive',
+              dailyTarget: 1,
+              frequencyType: 'daily',
+              createdAt: core.getTodayKey(),
+              sharing: {
+                enabled: true,
+                collection: col,
+                password: pwd
+              },
+              logs: {}
+            };
+            core.state.habits.push(existing);
+            core.state.selectedHabitId = existing.id;
+          } else {
+            existing.sharing = { enabled: true, collection: col, password: pwd };
+          }
+
+          core.saveState();
+          if (core.renderAll) core.renderAll();
+
+          if (core.SyncTargets && core.SyncTargets.Firestore) {
+            core.SyncTargets.Firestore.startPerHabitLiveSync(existing);
+          }
+
+          if (core.showToast) core.showToast(`👥 Joined shared habit "${name}"!`, 'success');
+          closeModal();
+        };
+      }
+    } catch (e) {
+      console.warn('Error handling share URL hash:', e);
     }
   };
 

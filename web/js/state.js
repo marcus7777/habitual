@@ -53,7 +53,8 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.idFromName = function(name) {
-    return name.trim().replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
+    if (!name) return 'habit_' + Math.random().toString(36).substring(2, 8);
+    return String(name).trim().replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
       return index == 0 ? word.toLowerCase() : word.toUpperCase();
     }).replace(/\s+/g, '');
   };
@@ -97,7 +98,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.parseHexColor = function(hexStr) {
-    if (!hexStr) return null;
+    if (!hexStr || typeof hexStr !== 'string') return null;
     hexStr = hexStr.trim().replace(/^#/, '');
     if (hexStr.length === 3) {
       hexStr = hexStr.split('').map(c => c + c).join('');
@@ -160,7 +161,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.parseFlexibleDate = function(str) {
-    if (!str) return null;
+    if (!str || typeof str !== 'string') return null;
     str = str.trim();
     if (str.includes('/')) {
       const parts = str.split('/');
@@ -310,15 +311,17 @@ window.HabitualCore = window.HabitualCore || {};
     let newCount = currentCount + 1;
     habit.logs[dateKey] = { count: newCount, note: currentNote };
     core.applyParentDependencyOnLog(habit, dateKey, newCount);
-    if (core.saveLog) {
-      core.saveLog(habitId, dateKey, newCount, currentNote);
-    } else if (core.saveState) {
-      core.saveState();
-    }
+    // 1. Optimistically update UI first
     if (core.updateHabitCard && core.updateHabitCard(habitId)) {
       // Surgical update completed
     } else if (core.renderAll) {
       core.renderAll();
+    }
+    // 2. Persist to storage asynchronously
+    if (core.saveLog) {
+      core.saveLog(habitId, dateKey, newCount, currentNote);
+    } else if (core.saveState) {
+      core.saveState();
     }
   };
 
@@ -469,14 +472,14 @@ window.HabitualCore = window.HabitualCore || {};
       });
       const allPaused = (habitList.length > 0) && habitList.every(h => core.isHabitPausedOnDate(h, dateStr));
       const avgRatio = habitList.length > 0 ? (totalRatios / habitList.length) : 0;
-      const hasNote = habitList.some(h => h.logs && h.logs[dateStr] && h.logs[dateStr].note && h.logs[dateStr].note.trim() !== '');
+      const hasNote = habitList.some(h => h.logs && h.logs[dateStr] && h.logs[dateStr].note && String(h.logs[dateStr].note).trim() !== '');
       return { count: activeCount, ratio: avgRatio, activeHabits, isRelapse: false, isPaused: allPaused, note: allPaused ? '⏸️ Paused' : '', isTargetDay: false, hasNote };
     }
 
     const habit = target;
     const log = (habit.logs && habit.logs[dateStr]) ? habit.logs[dateStr] : null;
     const isPaused = core.isHabitPausedOnDate(habit, dateStr);
-    const hasNote = Boolean(log && log.note && log.note.trim() !== '');
+    const hasNote = Boolean(log && log.note && String(log.note).trim() !== '');
 
     if (isPaused && (!log || log.count === 0)) {
       return { count: 0, ratio: 0, isRelapse: false, isPaused: true, note: (log && log.note) ? log.note : '⏸️ Paused (Tracking paused)', isTargetDay: false, hasNote };
