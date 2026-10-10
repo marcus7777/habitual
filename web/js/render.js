@@ -188,16 +188,28 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (route.view === 'home') {
       const topLevelHabits = core.state.habits.filter(h => !h.parentId);
+      const visibleTopLevelHabits = topLevelHabits.filter(h => !(h.isPaused && h.hideHeatmapWhenPaused));
       const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
       if (topLevelHabits.length > 1 && habitsInAll.length > 0) {
         const combinedCard = core.buildHeatmapCard(null, core.state.selectedYear);
         fragment.appendChild(combinedCard);
       }
 
-      topLevelHabits.forEach(habit => {
+      visibleTopLevelHabits.forEach(habit => {
         const habitNode = core.renderHabitTree(habit, core.state.selectedYear);
         fragment.appendChild(habitNode);
       });
+
+      const hiddenPausedCount = topLevelHabits.length - visibleTopLevelHabits.length;
+      if (hiddenPausedCount > 0) {
+        const hiddenInfo = document.createElement('div');
+        hiddenInfo.className = 'paused-hidden-info muted-text margin-top-sm';
+        hiddenInfo.style.textAlign = 'center';
+        hiddenInfo.style.padding = '8px';
+        hiddenInfo.style.fontSize = '0.9em';
+        hiddenInfo.innerHTML = `🙈 ${hiddenPausedCount} paused habit heatmap${hiddenPausedCount === 1 ? '' : 's'} hidden.`;
+        fragment.appendChild(hiddenInfo);
+      }
     } else if (route.view === 'habit') {
       const targetHabit = core.state.habits.find(h => h.id === route.habitId);
 
