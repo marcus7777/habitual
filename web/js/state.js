@@ -270,18 +270,68 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.setHabitPauseState = function(habit, newIsPaused, dateStr = core.getTodayKey()) {
+  core.setHabitPauseState = function(habit, newIsPaused, dateStr = core.getTodayKey(), options = {}) {
     if (!habit) return;
     const wasPaused = Boolean(habit.isPaused);
     habit.isPaused = Boolean(newIsPaused);
+
+    const pauseStart = options.startDate || dateStr;
+    const pauseResume = options.endDate || options.resumeDate || null;
+    const pauseNote = options.note || '';
+    const hideHeatmap = options.hideHeatmap !== undefined ? Boolean(options.hideHeatmap) : Boolean(habit.hideHeatmapWhenPaused);
+
+    if (newIsPaused) {
+      habit.hideHeatmapWhenPaused = hideHeatmap;
+    }
+
     if (!Array.isArray(habit.pauseHistory)) habit.pauseHistory = [];
-    if (newIsPaused && !wasPaused) {
-      habit.pauseHistory.push({ startDate: dateStr, endDate: null });
+    if (!habit.logs) habit.logs = {};
+
+    if (newIsPaused) {
+      habit.pauseHistory.push({
+        startDate: pauseStart,
+        endDate: pauseResume,
+        note: pauseNote,
+        hideHeatmap: hideHeatmap
+      });
+
+      // Log Pause event on start date
+      const pauseNoteText = pauseNote ? `Paused: ${pauseNote}` : 'Habit Paused';
+      habit.logs[pauseStart] = {
+        count: 0,
+        isPauseEvent: true,
+        eventType: 'pause',
+        note: pauseNoteText,
+        resumeDate: pauseResume
+      };
+      if (core.saveLog) core.saveLog(habit.id, pauseStart, 0, pauseNoteText);
+
+      // If an expected resume date was given, log Resume event on that date
+      if (pauseResume) {
+        const resumeNoteText = `Resumes: Scheduled to resume (Paused ${pauseStart})`;
+        habit.logs[pauseResume] = {
+          count: 0,
+          isPauseEvent: true,
+          eventType: 'resume',
+          note: resumeNoteText,
+          startDate: pauseStart
+        };
+        if (core.saveLog) core.saveLog(habit.id, pauseResume, 0, resumeNoteText);
+      }
     } else if (!newIsPaused && wasPaused) {
       if (habit.pauseHistory.length > 0) {
         const lastEntry = habit.pauseHistory[habit.pauseHistory.length - 1];
         if (!lastEntry.endDate) lastEntry.endDate = dateStr;
       }
+      // Log Resume event on resume date
+      const resumeNoteText = 'Resumed: Habit Resumed';
+      habit.logs[dateStr] = {
+        count: 0,
+        isPauseEvent: true,
+        eventType: 'resume',
+        note: resumeNoteText
+      };
+      if (core.saveLog) core.saveLog(habit.id, dateStr, 0, resumeNoteText);
     }
   };
 
@@ -295,6 +345,12 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
     if (habit.isPaused) {
+      if (Array.isArray(habit.pauseHistory) && habit.pauseHistory.length > 0) {
+        const lastEntry = habit.pauseHistory[habit.pauseHistory.length - 1];
+        if (lastEntry && lastEntry.endDate && dateStr > lastEntry.endDate) {
+          return false;
+        }
+      }
       const createdAt = habit.createdAt || core.getTodayKey();
       if (dateStr >= createdAt || dateStr === core.getTodayKey()) return true;
     }

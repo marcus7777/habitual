@@ -42,7 +42,8 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 - **Calendar Reminders**: One-click Google Calendar links and downloadable `.ics` iCalendar reminder files.
 
 ### ⏸️ Pausing, History & Backfilling
-- **Habit Pausing**: Pause habits with `pauseHistory` records so paused periods do not penalize streaks.
+- **Habit Pausing & Scheduled Resumes**: Pause habits with custom pause start dates, expected resume dates, and notes explaining the break. Pauses record explicit **Pause** and **Resume** event logs in the calendar and history.
+- **Hide Heatmap Option**: Option to *"Hide heatmap for now"* when pausing a habit to keep your home dashboard clean while taking a break without penalty to streaks.
 - **Backfill Engine**: Pre-fill past history up to 3,650 days (~10 years) with configurable completion density (100%, 80%, 50%, 25%). Context-aware for clean days vs. completions.
 
 ### 🔥 Analytics, CSV Import & Privacy

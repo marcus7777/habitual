@@ -133,6 +133,19 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.habitShowDuration = document.getElementById('habit-show-duration');
     core.elements.habitHideFromAll = document.getElementById('habit-hide-from-all');
     core.elements.habitIsPaused = document.getElementById('habit-is-paused');
+    core.elements.habitHideHeatmapWhenPaused = document.getElementById('habit-hide-heatmap-when-paused');
+
+    core.elements.modalPauseHabit = document.getElementById('modal-pause-habit');
+    core.elements.modalPauseHabitTitle = document.getElementById('modal-pause-habit-title');
+    core.elements.pauseHabitId = document.getElementById('pause-habit-id');
+    core.elements.modalPauseHabitBadge = document.getElementById('modal-pause-habit-badge');
+    core.elements.pauseStartDate = document.getElementById('pause-start-date');
+    core.elements.pauseResumeDate = document.getElementById('pause-resume-date');
+    core.elements.pauseNote = document.getElementById('pause-note');
+    core.elements.pauseHideHeatmap = document.getElementById('pause-hide-heatmap');
+    core.elements.btnConfirmPause = document.getElementById('btn-confirm-pause');
+    core.elements.btnCancelPause = document.getElementById('btn-cancel-pause');
+    core.elements.modalPauseClose = document.getElementById('modal-pause-close');
     core.elements.habitName = document.getElementById('habit-name');
     core.elements.habitIdPreview = document.getElementById('habit-id-preview');
     core.elements.habitIdDisplay = document.getElementById('habit-id-display');
@@ -331,6 +344,18 @@ window.HabitualCore = window.HabitualCore || {};
 
     const btnCancelHabit = document.getElementById('btn-cancel-habit');
     if (btnCancelHabit) btnCancelHabit.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; core.toggleModalScrollLock(false); core.elements.modalHabit.classList.add('hidden'); });
+
+    if (core.elements.modalPauseClose) core.elements.modalPauseClose.addEventListener('click', () => core.closePauseModal());
+    if (core.elements.btnCancelPause) core.elements.btnCancelPause.addEventListener('click', () => core.closePauseModal());
+    if (core.elements.btnConfirmPause) core.elements.btnConfirmPause.addEventListener('click', () => core.handleConfirmPause());
+
+    const formPause = document.getElementById('form-pause-habit');
+    if (formPause) {
+      formPause.addEventListener('submit', (e) => {
+        e.preventDefault();
+        core.handleConfirmPause();
+      });
+    }
 
     const modalLogClose = document.getElementById('modal-log-close');
     if (modalLogClose) modalLogClose.addEventListener('click', () => { core.toggleModalScrollLock(false); core.elements.modalLog.classList.add('hidden'); });
@@ -1372,12 +1397,17 @@ window.HabitualCore = window.HabitualCore || {};
         if (parentWrapper) parentWrapper.classList.remove('menu-open');
         const habit = core.state.habits.find(h => h.id === btn.dataset.habitId);
         if (habit) {
-          core.setHabitPauseState(habit, !habit.isPaused);
-          if (core.renderAll) core.renderAll();
-          if (core.saveHabit) {
-            core.saveHabit(habit);
-          } else if (core.saveState) {
-            core.saveState();
+          if (!habit.isPaused) {
+            core.openPauseModal(habit);
+          } else {
+            core.setHabitPauseState(habit, false);
+            if (core.renderAll) core.renderAll();
+            if (core.saveHabit) {
+              core.saveHabit(habit);
+            } else if (core.saveState) {
+              core.saveState();
+            }
+            if (core.showToast) core.showToast(`Resumed "${habit.name}"`);
           }
         }
       });
@@ -1493,6 +1523,59 @@ window.HabitualCore = window.HabitualCore || {};
     if (customOpts && customOpts.classList && typeof customOpts.classList.toggle === 'function') customOpts.classList.toggle('hidden', val !== 'custom_interval');
   };
 
+  core.openPauseModal = function(habit) {
+    if (!habit || !core.elements.modalPauseHabit) return;
+    if (core.elements.pauseHabitId) core.elements.pauseHabitId.value = habit.id;
+    if (core.elements.modalPauseHabitBadge) core.elements.modalPauseHabitBadge.textContent = habit.name;
+
+    const todayStr = core.getTodayKey();
+    if (core.elements.pauseStartDate) core.elements.pauseStartDate.value = todayStr;
+    if (core.elements.pauseResumeDate) core.elements.pauseResumeDate.value = '';
+    if (core.elements.pauseNote) core.elements.pauseNote.value = '';
+    if (core.elements.pauseHideHeatmap) core.elements.pauseHideHeatmap.checked = habit.hideHeatmapWhenPaused === true;
+
+    core.toggleModalScrollLock(true);
+    core.elements.modalPauseHabit.classList.remove('hidden');
+  };
+
+  core.closePauseModal = function() {
+    if (core.elements.modalPauseHabit) {
+      core.elements.modalPauseHabit.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+    }
+  };
+
+  core.handleConfirmPause = function() {
+    if (!core.elements.pauseHabitId) return;
+    const habitId = core.elements.pauseHabitId.value;
+    const habit = core.state.habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    const startDate = (core.elements.pauseStartDate && core.elements.pauseStartDate.value) ? core.elements.pauseStartDate.value : core.getTodayKey();
+    const resumeDate = (core.elements.pauseResumeDate && core.elements.pauseResumeDate.value) ? core.elements.pauseResumeDate.value : null;
+    const note = core.elements.pauseNote ? core.elements.pauseNote.value.trim() : '';
+    const hideHeatmap = core.elements.pauseHideHeatmap ? core.elements.pauseHideHeatmap.checked : false;
+
+    core.setHabitPauseState(habit, true, startDate, {
+      startDate: startDate,
+      resumeDate: resumeDate,
+      note: note,
+      hideHeatmap: hideHeatmap
+    });
+
+    core.closePauseModal();
+    if (core.renderAll) core.renderAll();
+    if (core.saveHabit) {
+      core.saveHabit(habit);
+    } else if (core.saveState) {
+      core.saveState();
+    }
+    if (core.showToast) {
+      const msg = resumeDate ? `Paused "${habit.name}" until ${resumeDate}` : `Paused "${habit.name}"`;
+      core.showToast(msg);
+    }
+  };
+
   core.openHabitModal = function(habitToEdit = null, defaultParentId = null) {
     if (core.elements.formHabit) core.elements.formHabit.reset();
     const selectedParentId = habitToEdit ? (habitToEdit.parentId || '') : (defaultParentId || '');
@@ -1558,6 +1641,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = habitToEdit.showDuration === true;
       if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = habitToEdit.hideFromAll === true;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = habitToEdit.isPaused === true;
+      if (core.elements.habitHideHeatmapWhenPaused) core.elements.habitHideHeatmapWhenPaused.checked = habitToEdit.hideHeatmapWhenPaused === true;
       if (parentDepSelect) parentDepSelect.value = habitToEdit.parentDependency || 'none';
 
       const freqType = habitToEdit.frequencyType || 'daily';
@@ -1629,6 +1713,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = initialParent ? initialParent.showDuration === true : false;
       if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = initialParent ? initialParent.hideFromAll === true : false;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = false;
+      if (core.elements.habitHideHeatmapWhenPaused) core.elements.habitHideHeatmapWhenPaused.checked = false;
       if (parentDepSelect) parentDepSelect.value = 'none';
 
       const daySelect = document.getElementById('habit-weekly-day');
@@ -1880,6 +1965,7 @@ window.HabitualCore = window.HabitualCore || {};
     const showDuration = core.elements.habitShowDuration ? core.elements.habitShowDuration.checked : hasVal('habit-show-duration');
     const hideFromAll = core.elements.habitHideFromAll ? core.elements.habitHideFromAll.checked : hasVal('habit-hide-from-all');
     const isPaused = core.elements.habitIsPaused ? core.elements.habitIsPaused.checked : hasVal('habit-is-paused');
+    const hideHeatmapWhenPaused = core.elements.habitHideHeatmapWhenPaused ? core.elements.habitHideHeatmapWhenPaused.checked : hasVal('habit-hide-heatmap-when-paused');
 
     const freqSelect = document.getElementById('habit-frequency-type');
     const freqType = getVal('habit-frequency-type') || (freqSelect ? freqSelect.value : 'daily');
@@ -1950,8 +2036,8 @@ window.HabitualCore = window.HabitualCore || {};
       if (habit) {
         savedTargetHabit = habit;
         const previousHideFromAll = Boolean(habit.hideFromAll);
-        habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll;
-        core.setHabitPauseState(habit, isPaused);
+        habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused;
+        core.setHabitPauseState(habit, isPaused, core.getTodayKey(), { hideHeatmap: hideHeatmapWhenPaused });
         habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.parentId = parentId; habit.parentDependency = parentDependency;
         if (colorTheme) {
           habit.colorTheme = colorTheme;
@@ -2005,7 +2091,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + core.idFromName(name),
-        name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null }] : [],
+        name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, logs: backfilledLogs
       };
       if (colorTheme) {

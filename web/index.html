@@ -214,7 +214,7 @@
           </div>
         </div>
       </div>
-      <p>Habitual &bull; v1.15.1</p>
+      <p>Habitual &bull; v1.15.2</p>
     </footer>
   </div>
 
@@ -255,6 +255,52 @@
     </div>
   </div>
 
+  <!-- MODAL: Pause Habit -->
+  <div id="modal-pause-habit" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-dialog-sm">
+      <div class="modal-header">
+        <h3 id="modal-pause-habit-title">Pause Habit ⏸️</h3>
+        <button id="modal-pause-close" class="btn-close">&times;</button>
+      </div>
+      <form id="form-pause-habit" class="modal-body">
+        <input type="hidden" id="pause-habit-id">
+
+        <div>
+          <span id="modal-pause-habit-badge" class="badge-count">Habit Name</span>
+          <p class="muted-text">Set a pause period and optional reason for taking a break.</p>
+        </div>
+
+        <div class="form-row-2col margin-top-sm">
+          <div class="form-group">
+            <label for="pause-start-date">Pause Start Date <span class="required">*</span></label>
+            <input type="date" id="pause-start-date" class="text-input" required>
+          </div>
+          <div class="form-group">
+            <label for="pause-resume-date">Expected Resume Date (Optional)</label>
+            <input type="date" id="pause-resume-date" class="text-input">
+            <small class="muted-text">Habit will automatically resume after this date.</small>
+          </div>
+        </div>
+
+        <div class="form-group margin-top-sm">
+          <label for="pause-note">Note / Reason for Pausing (Optional)</label>
+          <textarea id="pause-note" class="textarea-input" rows="2" placeholder="e.g. Vacation, injury recovery, taking a short break..."></textarea>
+        </div>
+
+        <div class="form-group margin-top-sm">
+          <label class="checkbox-label" title="Hide this habit's heatmap card while paused">
+            <input type="checkbox" id="pause-hide-heatmap">
+            <span>Hide heatmap for now 🙈</span>
+          </label>
+        </div>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-pause" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="btn-confirm-pause" class="btn btn-primary">Confirm Pause ⏸️</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: Add / Edit Habit -->
   <div id="modal-habit" class="modal-backdrop hidden">
     <div class="modal-dialog">
@@ -267,7 +313,7 @@
 
         <div class="form-group">
           <label for="habit-name">Habit Name <span class="required">*</span></label>
-          <input type="text" name="habit-name" id="habit-name" class="text-input" placeholder="e.g. Daily Coding, Gym, Days since Caffeine" required>
+          <input type="text" name="habit-name" id="habit-name" class="text-input" placeholder="e.g. Daily IFS, Gym, Days since Caffeine" required>
           <div id="habit-id-preview" class="habit-id-preview hidden">
             <small class="muted-text">Habit ID: <code id="habit-id-display"></code></small>
           </div>
@@ -527,6 +573,10 @@
                   <label class="checkbox-label" title="Paused habits display a Paused badge and freeze streak">
                     <input type="checkbox" name="habit-is-paused" id="habit-is-paused">
                     <span>Pause Habit ⏸️</span>
+                  </label>
+                  <label class="checkbox-label" title="Hide this habit's heatmap card while paused">
+                    <input type="checkbox" name="habit-hide-heatmap-when-paused" id="habit-hide-heatmap-when-paused">
+                    <span>Hide Heatmap When Paused 🙈</span>
                   </label>
                 </div>
               </div>
