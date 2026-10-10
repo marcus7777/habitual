@@ -2232,19 +2232,22 @@ window.HabitualCore = window.HabitualCore || {};
     const inputCol = document.getElementById('habit-share-collection');
     const inputPwd = document.getElementById('habit-share-password');
     const inputName = document.getElementById('habit-name');
+    const inputColorHex = document.getElementById('habit-custom-color-hex');
+    const inputColorSelect = document.getElementById('habit-calendar-color-select');
     const qrDisplay = document.getElementById('qr-code-display');
 
     const col = inputCol ? inputCol.value.trim() : '';
     const pwd = inputPwd ? inputPwd.value.trim() : '';
     const name = inputName ? inputName.value.trim() : 'Habit Goal';
+    const color = (inputColorSelect && inputColorSelect.value) ? inputColorSelect.value : (inputColorHex ? inputColorHex.value.trim() : '');
 
     if (!col || !pwd) {
       if (qrDisplay) qrDisplay.innerHTML = '<small class="muted-text">Fill collection & password to generate QR code</small>';
       return '';
     }
 
-    const baseUrl = window.location.origin + window.location.pathname;
-    const shareUrl = `${baseUrl}#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&name=${encodeURIComponent(name)}`;
+    const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
+    const shareUrl = `${baseUrl}#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&name=${encodeURIComponent(name)}${color ? '&color=' + encodeURIComponent(color) : ''}`;
 
     if (qrDisplay && core.generateQRCodeSVG) {
       qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, 180);
@@ -2330,7 +2333,7 @@ window.HabitualCore = window.HabitualCore || {};
   }
 
   core.checkURLHashForSharedHabit = function() {
-    const hash = window.location.hash || '';
+    const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';
     if (!hash.includes('share?') && !hash.includes('col=')) return;
 
     try {
@@ -2339,12 +2342,15 @@ window.HabitualCore = window.HabitualCore || {};
       const col = params.get('col');
       const pwd = params.get('pwd');
       const name = params.get('name') || 'Shared Habit';
+      const colorParam = params.get('color') || '';
 
       if (!col || !pwd) return;
 
       const modalImport = document.getElementById('modal-import-shared-habit');
       const nameEl = document.getElementById('import-shared-habit-name');
       const colEl = document.getElementById('import-shared-habit-collection');
+      const pillEl = document.getElementById('import-shared-habit-color-pill');
+      const logsInfoEl = document.getElementById('import-shared-habit-logs-info');
       const btnConfirm = document.getElementById('btn-confirm-import-shared');
       const btnCancel = document.getElementById('btn-cancel-import-shared');
       const btnClose = document.getElementById('modal-import-close');
@@ -2353,14 +2359,43 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (nameEl) nameEl.textContent = name;
       if (colEl) colEl.textContent = col;
+      if (logsInfoEl) logsInfoEl.innerHTML = '<span>⏳ Fetching cloud habit history...</span>';
+
+      const hexColor = (colorParam && core.parseHexColor && core.parseHexColor(colorParam)) ? core.normalizeHex(colorParam) : core.getDefaultColorForId(col);
+      if (pillEl) pillEl.style.backgroundColor = hexColor;
 
       modalImport.classList.remove('hidden');
 
+      let fetchedRemotePayload = null;
+
+      if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.downloadPerHabitBackup) {
+        core.SyncTargets.Firestore.downloadPerHabitBackup(col, pwd).then(function(remoteData) {
+          if (remoteData) {
+            fetchedRemotePayload = remoteData;
+            const logEntries = remoteData.logs ? Object.keys(remoteData.logs).filter(k => (remoteData.logs[k].count > 0 || remoteData.logs[k].note)) : [];
+            const logCount = logEntries.length;
+            if (nameEl && remoteData.name) nameEl.textContent = remoteData.name;
+            if (pillEl && remoteData.colorTheme && core.normalizeHex) {
+              pillEl.style.backgroundColor = core.normalizeHex(remoteData.colorTheme);
+            }
+            if (logsInfoEl) {
+              logsInfoEl.innerHTML = `<span>📅 ${logCount} past check-in log${logCount === 1 ? '' : 's'} included in cloud history!</span>`;
+            }
+          } else if (logsInfoEl) {
+            logsInfoEl.innerHTML = `<span>📅 Ready to start tracking new shared activity!</span>`;
+          }
+        }).catch(function(err) {
+          if (logsInfoEl) logsInfoEl.innerHTML = `<span>📅 Ready to sync shared activity!</span>`;
+        });
+      } else if (logsInfoEl) {
+        logsInfoEl.innerHTML = `<span>📅 Ready to sync shared activity!</span>`;
+      }
+
       function closeModal() {
         modalImport.classList.add('hidden');
-        if (window.history && window.history.replaceState) {
+        if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
           window.history.replaceState(null, '', window.location.pathname);
-        } else {
+        } else if (typeof window !== 'undefined' && window.location) {
           window.location.hash = '';
         }
       }
@@ -2370,26 +2405,48 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (btnConfirm) {
         btnConfirm.onclick = function() {
+          const payload = fetchedRemotePayload || {};
+          const habitName = payload.name || name;
+          const habitColor = payload.colorTheme || (colorParam ? (core.normalizeHex ? core.normalizeHex(colorParam) : colorParam) : undefined);
+
           let existing = core.state.habits.find(h => h.sharing && h.sharing.collection === col);
           if (!existing) {
             existing = {
-              id: 'shared_' + core.idFromName(name) + '_' + Date.now().toString(36),
-              name: name,
-              type: 'positive',
-              dailyTarget: 1,
-              frequencyType: 'daily',
-              createdAt: core.getTodayKey(),
+              id: 'shared_' + core.idFromName(habitName) + '_' + Date.now().toString(36),
+              name: habitName,
+              type: payload.type || 'positive',
+              description: payload.description || '',
+              category: payload.category || 'General',
+              dailyTarget: payload.dailyTarget || 1,
+              frequencyType: payload.frequencyType || 'daily',
+              targetDays: payload.targetDays || [1],
+              weeklyTarget: payload.weeklyTarget || 1,
+              monthlyDay: payload.monthlyDay || '1',
+              monthlyTarget: payload.monthlyTarget || 1,
+              colorWholeWeek: payload.colorWholeWeek !== false,
+              colorWholeMonth: payload.colorWholeMonth !== false,
+              customTarget: payload.customTarget || 1,
+              customInterval: payload.customInterval || 3,
+              customUnit: payload.customUnit || 'days',
+              colorTheme: habitColor,
+              createdAt: payload.createdAt || core.getTodayKey(),
               sharing: {
                 enabled: true,
                 collection: col,
                 password: pwd
               },
-              logs: {}
+              logs: payload.logs || {}
             };
             core.state.habits.push(existing);
             core.state.selectedHabitId = existing.id;
           } else {
+            existing.name = habitName;
+            if (habitColor) existing.colorTheme = habitColor;
             existing.sharing = { enabled: true, collection: col, password: pwd };
+            if (payload.logs) {
+              if (!existing.logs) existing.logs = {};
+              Object.assign(existing.logs, payload.logs);
+            }
           }
 
           core.saveState();
@@ -2399,7 +2456,8 @@ window.HabitualCore = window.HabitualCore || {};
             core.SyncTargets.Firestore.startPerHabitLiveSync(existing);
           }
 
-          if (core.showToast) core.showToast(`👥 Joined shared habit "${name}"!`, 'success');
+          const totalLogs = Object.keys(existing.logs || {}).length;
+          if (core.showToast) core.showToast(`👥 Joined shared habit "${habitName}" (${totalLogs} past check-ins synced)!`, 'success');
           closeModal();
         };
       }

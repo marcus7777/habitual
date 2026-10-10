@@ -606,6 +606,9 @@ window.HabitualCore = window.HabitualCore || {};
       } else {
         try { localStorage.setItem('habitual_v2_active_engine', core.activeStorageEngine); } catch (e) {}
       }
+      if (core.SyncTargets && core.SyncTargets.Firestore && typeof core.SyncTargets.Firestore.syncAllSharedHabits === 'function') {
+        core.SyncTargets.Firestore.syncAllSharedHabits();
+      }
     }).catch(function(err) {
       console.error('Failed to save state to driver:', err);
     });
@@ -1215,9 +1218,21 @@ window.HabitualCore = window.HabitualCore || {};
           habitId: habit.id,
           name: habit.name,
           type: habit.type,
-          dailyTarget: habit.dailyTarget,
-          frequencyType: habit.frequencyType,
-          targetDays: habit.targetDays,
+          description: habit.description || '',
+          category: habit.category || 'General',
+          dailyTarget: habit.dailyTarget || 1,
+          frequencyType: habit.frequencyType || 'daily',
+          targetDays: habit.targetDays || [1],
+          weeklyTarget: habit.weeklyTarget || 1,
+          monthlyDay: habit.monthlyDay || '1',
+          monthlyTarget: habit.monthlyTarget || 1,
+          colorWholeWeek: habit.colorWholeWeek !== false,
+          colorWholeMonth: habit.colorWholeMonth !== false,
+          customTarget: habit.customTarget || 1,
+          customInterval: habit.customInterval || 3,
+          customUnit: habit.customUnit || 'days',
+          colorTheme: habit.colorTheme || undefined,
+          createdAt: habit.createdAt || core.getTodayKey(),
           logs: habit.logs || {}
         };
 
@@ -1234,6 +1249,23 @@ window.HabitualCore = window.HabitualCore || {};
           });
         }).catch(function(e) {
           console.warn('Upload per-habit backup error:', e);
+        });
+      },
+
+      downloadPerHabitBackup: function(collectionId, passphrase) {
+        if (!collectionId || !passphrase) return Promise.resolve(null);
+        const self = this;
+        const col = String(collectionId).trim();
+        const pwd = String(passphrase).trim();
+
+        return self.init().then(function() {
+          return self.db.collection(col).doc('shared_data').get();
+        }).then(function(doc) {
+          if (!doc || !doc.exists || !doc.data() || !doc.data().ciphertext) return null;
+          return core.E2EE.decrypt(doc.data().ciphertext, pwd);
+        }).catch(function(err) {
+          console.warn('Error downloading per-habit backup:', err);
+          return null;
         });
       },
 
