@@ -141,6 +141,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.habitHideFromAll = document.getElementById('habit-hide-from-all');
     core.elements.habitIsPaused = document.getElementById('habit-is-paused');
     core.elements.habitHideHeatmapWhenPaused = document.getElementById('habit-hide-heatmap-when-paused');
+    core.elements.habitHideHeatmap = document.getElementById('habit-hide-heatmap');
 
     core.elements.modalPauseHabit = document.getElementById('modal-pause-habit');
     core.elements.modalPauseHabitTitle = document.getElementById('modal-pause-habit-title');
@@ -1669,6 +1670,7 @@ window.HabitualCore = window.HabitualCore || {};
           if (core.elements.habitShowCount) core.elements.habitShowCount.checked = parentObj ? parentObj.showCount !== false : true;
           if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = parentObj ? parentObj.showDuration === true : false;
           if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = parentObj ? parentObj.hideFromAll === true : false;
+          if (core.elements.habitHideHeatmap) core.elements.habitHideHeatmap.checked = parentObj ? parentObj.hideHeatmap === true : false;
         }
         if (core.elements.habitName && core.elements.habitName.value.trim().length > 0) core.handleHabitNameBlur();
       };
@@ -1698,6 +1700,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = habitToEdit.hideFromAll === true;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = habitToEdit.isPaused === true;
       if (core.elements.habitHideHeatmapWhenPaused) core.elements.habitHideHeatmapWhenPaused.checked = habitToEdit.hideHeatmapWhenPaused === true;
+      if (core.elements.habitHideHeatmap) core.elements.habitHideHeatmap.checked = habitToEdit.hideHeatmap === true;
       if (parentDepSelect) parentDepSelect.value = habitToEdit.parentDependency || 'none';
 
       const freqType = habitToEdit.frequencyType || 'daily';
@@ -1768,6 +1771,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitShowCount) core.elements.habitShowCount.checked = initialParent ? initialParent.showCount !== false : true;
       if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = initialParent ? initialParent.showDuration === true : false;
       if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = initialParent ? initialParent.hideFromAll === true : false;
+      if (core.elements.habitHideHeatmap) core.elements.habitHideHeatmap.checked = initialParent ? initialParent.hideHeatmap === true : false;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = false;
       if (core.elements.habitHideHeatmapWhenPaused) core.elements.habitHideHeatmapWhenPaused.checked = false;
       if (parentDepSelect) parentDepSelect.value = 'none';
@@ -2061,6 +2065,7 @@ window.HabitualCore = window.HabitualCore || {};
     const hideFromAll = core.elements.habitHideFromAll ? core.elements.habitHideFromAll.checked : hasVal('habit-hide-from-all');
     const isPaused = core.elements.habitIsPaused ? core.elements.habitIsPaused.checked : hasVal('habit-is-paused');
     const hideHeatmapWhenPaused = core.elements.habitHideHeatmapWhenPaused ? core.elements.habitHideHeatmapWhenPaused.checked : hasVal('habit-hide-heatmap-when-paused');
+    const hideHeatmap = core.elements.habitHideHeatmap ? core.elements.habitHideHeatmap.checked : hasVal('habit-hide-heatmap');
 
     const freqSelect = document.getElementById('habit-frequency-type');
     const freqType = getVal('habit-frequency-type') || (freqSelect ? freqSelect.value : 'daily');
@@ -2134,7 +2139,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (habit) {
         savedTargetHabit = habit;
         const previousHideFromAll = Boolean(habit.hideFromAll);
-        habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused;
+        habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused; habit.hideHeatmap = hideHeatmap;
         core.setHabitPauseState(habit, isPaused, core.getTodayKey(), { hideHeatmap: hideHeatmapWhenPaused });
         habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.parentId = parentId; habit.parentDependency = parentDependency;
         if (colorTheme) {
@@ -2189,7 +2194,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + core.idFromName(name),
-        name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
+        name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, logs: backfilledLogs
       };
       if (colorTheme) {

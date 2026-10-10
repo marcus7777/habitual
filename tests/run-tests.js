@@ -1387,6 +1387,23 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     assert(!cardHide.innerHTML.includes('badge-duration'), 'Heatmap card hides badge-duration when showDuration is false');
   });
 
+  test('hideHeatmap option renders minimal checkbox view card without 52-week heatmap grid', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+    const habit = { id: 'test_minimal', name: 'Minimal Checklist Task', createdAt: HabitualCore.getTodayKey(), hideHeatmap: true, logs: {} };
+    state.habits.push(habit);
+
+    const cardMinimal = HabitualCore.buildHeatmapCard(habit, 2026);
+    assert(cardMinimal.classList.contains('minimal-checkbox-card'), 'Card has minimal-checkbox-card class');
+    assert(!cardMinimal.innerHTML.includes('heatmap-wrapper'), 'Card omits heatmap-wrapper grid');
+    assert(cardMinimal.innerHTML.includes('btn-card-quick-log'), 'Card retains quick check-in log button');
+
+    habit.hideHeatmap = false;
+    const cardNormal = HabitualCore.buildHeatmapCard(habit, 2026);
+    assert(!cardNormal.classList.contains('minimal-checkbox-card'), 'Normal card omits minimal-checkbox-card class');
+    assert(cardNormal.innerHTML.includes('heatmap-wrapper'), 'Normal card includes heatmap-wrapper grid');
+  });
+
   test('hideFromAll option excludes habit from combined All heatmap calculation', () => {
     HabitualCore.resetState();
     const state = HabitualCore.getState();

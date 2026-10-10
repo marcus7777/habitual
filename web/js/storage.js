@@ -449,6 +449,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit.hideFromAll) h.hideFromAll = true;
     if (habit.isPaused) h.isPaused = true;
     if (habit.hideHeatmapWhenPaused) h.hideHeatmapWhenPaused = true;
+    if (habit.hideHeatmap) h.hideHeatmap = true;
     if (Array.isArray(habit.pauseHistory) && habit.pauseHistory.length > 0) h.pauseHistory = habit.pauseHistory;
     if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
     if (habit.frequencyType && habit.frequencyType !== 'daily') h.frequencyType = habit.frequencyType;
@@ -555,6 +556,7 @@ window.HabitualCore = window.HabitualCore || {};
         hideFromAll: Boolean(h.hideFromAll),
         isPaused: Boolean(h.isPaused),
         hideHeatmapWhenPaused: Boolean(h.hideHeatmapWhenPaused),
+        hideHeatmap: Boolean(h.hideHeatmap),
         pauseHistory: Array.isArray(h.pauseHistory) ? h.pauseHistory : [],
         colorTheme: h.colorTheme || derivedColor,
         dailyTarget: h.dailyTarget || 1,
