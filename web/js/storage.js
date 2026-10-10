@@ -379,199 +379,37 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.GunDBDriver = {
-    name: 'gunDB',
-    gun: null,
-    syncCode: null,
-    initPromise: null,
-
-    init: function() {
-      if (this.initPromise) return this.initPromise;
-      const self = this;
-
-      this.initPromise = new Promise(async (resolve, reject) => {
-        try {
-          if (core.showToast) core.showToast('Loading GunDB Engine...', 'info');
-
-          // Load Gun and Gun WebRTC extension from CDN
-          await core.loadScript('https://cdn.jsdelivr.net/npm/gun/gun.js');
-          await core.loadScript('https://cdn.jsdelivr.net/npm/gun/lib/webrtc.js');
-
-          if (core.showToast) core.showToast('Connecting to P2P Relays...', 'info');
-
-          // Connect to local GunDB relay first, followed by public Gun relays
-          self.gun = window.Gun({
-              peers: [
-                  'http://localhost:8765/gun',
-                  'http://127.0.0.1:8765/gun',
-                  'https://gun-js.com/gun',
-                  'https://peer.wall.org/gun',
-                  'https://dweb.me/gun',
-                  'https://gundb.m1.host/gun'
-              ]
-          });
-
-          // Retrieve or generate a 6-character room code synchronously
-          self.syncCode = self.getSyncCode();
-
-          // Listen for incoming peer updates on our specific node
-          self.gun.get('habitual_sync_' + self.syncCode).on(function(data, key) {
-              // Gun triggers this on EVERY read and write. We debounce to prevent infinite render loops.
-              if (self._isWriting) return;
-
-              if (self._syncTimeout) clearTimeout(self._syncTimeout);
-              self._syncTimeout = setTimeout(() => {
-                  if (core.loadStateAsync && core.renderAll) {
-                      core.loadStateAsync().then(() => core.renderAll());
-                  }
-              }, 500); // Wait 500ms for data to settle
-          });
-
-          if (core.showToast) core.showToast('GunDB P2P Ready!', 'success');
-
-          if (core.loadStateAsync && core.renderAll) {
-             core.loadStateAsync().then(() => core.renderAll());
-          }
-          if (typeof window.onGunDBReady === 'function') window.onGunDBReady();
-
-          resolve();
-        } catch (e) {
-          console.error('Failed to initialize GunDB:', e);
-          if (core.showToast) core.showToast('Failed to start GunDB node.', 'error');
-          this.initPromise = null;
-          reject(e);
-        }
-      });
-
-      return this.initPromise;
-    },
-
-    getItem: async function(key) {
-      if (key !== core.STORAGE_KEY) return null;
-      await this.init();
-
-      return new Promise((resolve) => {
-          let resolved = false;
-          const timer = setTimeout(() => {
-              if (!resolved) { resolved = true; resolve(null); }
-          }, 2000);
-
-          this.gun.get('habitual_sync_' + this.syncCode).get('payload').once((data) => {
-             if (!resolved) {
-                 resolved = true;
-                 clearTimeout(timer);
-                 resolve(data || null);
-             }
-          });
-      });
-    },
-
-    setItem: async function(key, value) {
-      if (key !== core.STORAGE_KEY) return;
-      await this.init();
-
-      return new Promise((resolve) => {
-          this._isWriting = true; // Prevent local echo
-          this.gun.get('habitual_sync_' + this.syncCode).put({ payload: value }, () => {
-              setTimeout(() => { this._isWriting = false; }, 1000);
-              resolve();
-          });
-      });
-    },
-
-    // Gun handles delta sync natively on large stringified objects, so for this evaluation,
-    // mapping the granular APIs directly to a monolithic rewrite is sufficient and highly performant.
-    saveLog: async function(habitId, dateKey, count, note) {
-       if (core.saveState) core.saveState();
-       return true;
-    },
-
-    saveHabit: async function(habit) {
-       if (core.saveState) core.saveState();
-       return true;
-    },
-
-    saveSettings: async function(settings) {
-       if (core.saveState) core.saveState();
-       return true;
-    },
-
-    getSyncCode: function() {
-        if (!this.syncCode) {
-            this.syncCode = localStorage.getItem('gundb_sync_code');
-            if (!this.syncCode) {
-                this.syncCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-                localStorage.setItem('gundb_sync_code', this.syncCode);
-            }
-        }
-        return this.syncCode;
-    },
-
-    joinSyncCode: async function(code) {
-        if (!code || code.length < 3) return false;
-
-        localStorage.setItem('gundb_sync_code', code.toUpperCase());
-        this.syncCode = code.toUpperCase();
-
-        if (core.showToast) core.showToast('Joining room ' + this.syncCode + '...', 'info');
-
-        this._isWriting = false;
-
-        // Re-bind listeners to new room
-        this.gun.get('habitual_sync_' + this.syncCode).on((data) => {
-            if (this._isWriting) return;
-            if (this._syncTimeout) clearTimeout(this._syncTimeout);
-            this._syncTimeout = setTimeout(() => {
-                if (core.loadStateAsync && core.renderAll) {
-                    core.loadStateAsync().then(() => core.renderAll());
-                }
-            }, 500);
-        });
-
-        if (core.loadStateAsync && core.renderAll) {
-            await core.loadStateAsync();
-            core.renderAll();
-        }
-        if (core.showToast) core.showToast('Successfully joined room!', 'success');
-        return true;
-    }
-  };
-
   core.activeStorageEngine = localStorage.getItem('habitual_storage_engine') || 'localStorage';
 
   core.getDriver = function(engineName) {
     const name = engineName || core.activeStorageEngine;
     if (name === 'indexedDB') return core.IndexedDBDriver;
-    if (name === 'orbitDB' || name === 'gunDB') return core.GunDBDriver; // Map orbitDB to GunDB for seamless pivot
     return core.LocalStorageDriver;
   };
 
   core.setStorageEngine = function(engineName) {
-    if (engineName !== 'localStorage' && engineName !== 'indexedDB' && engineName !== 'gunDB' && engineName !== 'orbitDB') return;
-    const finalEngine = engineName === 'orbitDB' ? 'gunDB' : engineName; // Map legacy selection
-    core.activeStorageEngine = finalEngine;
+    if (engineName !== 'localStorage' && engineName !== 'indexedDB') return;
+    core.activeStorageEngine = engineName;
     try {
-      localStorage.setItem('habitual_storage_engine', finalEngine);
+      localStorage.setItem('habitual_storage_engine', engineName);
     } catch (e) {
       console.warn('Could not persist active storage engine setting:', e);
     }
   };
 
   core.migrateStorageEngine = function(targetEngine) {
-    const finalTarget = targetEngine === 'orbitDB' ? 'gunDB' : targetEngine;
-
-    if (finalTarget === core.activeStorageEngine) {
-      return Promise.resolve({ success: true, message: 'Already using ' + finalTarget });
+    if (targetEngine === core.activeStorageEngine) {
+      return Promise.resolve({ success: true, message: 'Already using ' + targetEngine });
     }
     const currentDriver = core.getDriver();
-    const targetDriver = core.getDriver(finalTarget);
+    const targetDriver = core.getDriver(targetEngine);
 
     return currentDriver.getItem(core.STORAGE_KEY).then(function(raw) {
       const dataToMigrate = raw || JSON.stringify(core.getPayloadFromState());
       return targetDriver.setItem(core.STORAGE_KEY, dataToMigrate).then(function() {
-        core.setStorageEngine(finalTarget);
+        core.setStorageEngine(targetEngine);
         if (core.showToast) {
-          const engineLabel = finalTarget === 'indexedDB' ? 'IndexedDB' : finalTarget === 'gunDB' ? 'GunDB' : 'Local Storage';
+          const engineLabel = targetEngine === 'indexedDB' ? 'IndexedDB' : 'Local Storage';
           core.showToast(`Migrated data storage engine to ${engineLabel}!`, 'success');
         }
         return { success: true, message: 'Migration successful' };

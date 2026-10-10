@@ -183,35 +183,18 @@ async function runWidgetsPlaywrightTests() {
     }
 
     // ------------------------------------------------------------------------
-    // TEST 4: In-App Widgets Gallery Modal & Feature Flag Hiding (index.html)
+    // TEST 4: Data Sync Page Widgets Section (sync.html)
     // ------------------------------------------------------------------------
-    console.log('\n📋 Running Test 4: In-App Widgets Gallery Modal & Feature Flag Hiding (index.html)');
-    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
+    console.log('\n📋 Running Test 4: Data Sync Page Widgets Section (sync.html)');
+    await page.goto(`http://127.0.0.1:${PORT}/sync.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(500);
 
-    const openWidgetsBtnHidden = page.locator('#btn-open-widgets');
-    const isHiddenByDefault = !(await openWidgetsBtnHidden.isVisible());
-    logResult('index.html Widgets Button Hidden By Default Without Feature Flag', isHiddenByDefault);
+    const widgetsHeader = page.locator('h4:has-text("Platform Widgets")');
+    const isWidgetsHeaderVisible = await widgetsHeader.isVisible();
+    logResult('sync.html Platform Widgets Section Rendered', isWidgetsHeaderVisible);
 
-    // Open index.html with feature flag enabled (?widgets=1)
-    await page.goto(`http://127.0.0.1:${PORT}/index.html?widgets=1`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(500);
-
-    const openWidgetsBtnVisible = page.locator('#btn-open-widgets');
-    const isVisibleWithFlag = await openWidgetsBtnVisible.isVisible();
-    logResult('index.html Widgets Button Visible With ?widgets=1 Feature Flag', isVisibleWithFlag);
-
-    if (isVisibleWithFlag) {
-      await openWidgetsBtnVisible.click();
-      await page.waitForTimeout(500);
-
-      const modalWidgets = page.locator('#modal-widgets');
-      const isModalOpen = !(await modalWidgets.evaluate(el => el.classList.contains('hidden')));
-      logResult('index.html Open Widgets Modal', isModalOpen);
-
-      const cardsInGallery = await page.locator('.widget-preview-card').count();
-      logResult('index.html Widget Preview Cards Rendered in Gallery', cardsInGallery >= 2, `(${cardsInGallery} preview cards)`);
-    }
+    const quickAddLink = page.locator('a[href="widgets/add.html"]');
+    logResult('sync.html Quick Add Widget Link Present', await quickAddLink.count() > 0);
 
     // Capture Final Screenshot
     const screenshotDir = path.join(__dirname, 'screenshots');

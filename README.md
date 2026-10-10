@@ -56,22 +56,9 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 - **Keyboard & Proximity Cursor**: Navigate heatmap grids with **Arrow** or **WASD** keys (`W`/`S`/`A`/`D`), highlighted by a glowing gold ring cursor (`#f1e05a`). Press **Enter** on hover to log check-ins.
 
 ### ☁️ Storage Engines, Cloud Sync & E2EE
-- **Granular Storage ($O(1)$ Writes)**: High-performance IndexedDB persistence with debounced coalescing. Switchable storage engines (`localStorage`, `IndexedDB`, `GunDB`).
+- **Granular Storage ($O(1)$ Writes)**: High-performance IndexedDB persistence with debounced coalescing. Switchable storage engines (`localStorage`, `IndexedDB`).
 - **End-to-End Encryption**: Zero-Knowledge AES-256-GCM encryption client-side using Web Crypto API.
-- **Multi-Target Live Sync**: Live sync across devices using Encrypted Firestore Cloud Sync or P2P GunDB.
-
----
-
-## 🚩 Feature Flags
-
-Advanced cloud and peer-to-peer sync features can be unlocked via URL query parameters when launching Habitual:
-
-| Feature Flag | URL Parameter | Description |
-| :--- | :--- | :--- |
-| **Encrypted Firestore Live Sync** | `?firestore=1` | Enables real-time encrypted Firebase Firestore live sync (`habit_data` channel). |
-| **P2P GunDB Sync** | `?p2p=1` or `?gundb=1` | Enables GunDB peer-to-peer live sync and unlocks the GunDB storage engine option. |
-
-*Example:* `http://localhost:8080/?firestore=1`
+- **Multi-Target Live Sync**: Live sync across devices using Encrypted Firestore Cloud Sync, WebRTC P2P, and Acoustic Sound Sync.
 
 ---
 

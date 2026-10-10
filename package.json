@@ -1,6 +1,6 @@
 {
   "name": "habitual",
-  "version": "1.13.17",
+  "version": "1.14.0",
   "description": "Minimalist 100% fluid GitHub-style habit progression visualizer",
   "main": "web/app.js",
   "scripts": {
@@ -8,8 +8,7 @@
     "test:widgets": "node tests/test-widgets-playwright.js",
     "test:android": "node tests/test-android-playwright.js",
     "benchmark": "node tests/benchmark-playwright.js",
-    "bump": "node bump-version.js",
-    "gundb-server": "node server/index.js"
+    "bump": "node bump-version.js"
   },
   "keywords": [
     "habit-tracker",
@@ -20,8 +19,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "firebase-tools": "^14.23.0",
-    "gun": "^0.2020.1239"
+    "firebase-tools": "^14.23.0"
   },
   "allowScripts": {
     "re2@1.27.0": true,

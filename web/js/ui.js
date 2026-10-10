@@ -381,150 +381,35 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    // --- DATA MANAGEMENT & FEATURE FLAGS ---
-    const urlParams = new URLSearchParams(window.location.search);
-    const isP2PEnabled = urlParams.get('p2p') === '1' || urlParams.get('P2P') === '1' || urlParams.get('p2p') === 'true' || urlParams.get('gundb') === '1';
-    const isWidgetsEnabled = core.isWidgetsEnabled ? core.isWidgetsEnabled() : (urlParams.get('widgets') === '1' || urlParams.get('widgets') === 'true');
-
-    const btnOpenWidgets = document.getElementById('btn-open-widgets');
-    const menuWidgetsItem = document.getElementById('menu-btn-open-widgets');
-    if (btnOpenWidgets) {
-      if (isWidgetsEnabled) {
-        btnOpenWidgets.classList.remove('hidden');
-        if (btnOpenWidgets.style) btnOpenWidgets.style.display = '';
-      } else {
-        btnOpenWidgets.classList.add('hidden');
-        if (btnOpenWidgets.style) btnOpenWidgets.style.display = 'none';
-      }
-    }
-    if (menuWidgetsItem) {
-      if (isWidgetsEnabled) {
-        menuWidgetsItem.classList.remove('hidden');
-        if (menuWidgetsItem.style) menuWidgetsItem.style.display = '';
-      } else {
-        menuWidgetsItem.classList.add('hidden');
-        if (menuWidgetsItem.style) menuWidgetsItem.style.display = 'none';
-      }
-    }
-
+    // --- DATA MANAGEMENT & STORAGE ENGINES ---
     const selectStorageEngine = document.getElementById('select-storage-engine');
-    const gunDBOption = (selectStorageEngine && selectStorageEngine.querySelector) ? selectStorageEngine.querySelector('option[value="gunDB"]') : null;
-    if (gunDBOption) {
-      if (isP2PEnabled || core.activeStorageEngine === 'gunDB') {
-        gunDBOption.style.display = '';
-      } else {
-        gunDBOption.style.display = 'none';
-      }
+    if (selectStorageEngine) {
+      selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
     }
-
-    const sectionP2P = document.getElementById('section-p2p-sync');
-    if (sectionP2P) {
-      if (isP2PEnabled) sectionP2P.classList.remove('hidden');
-      else sectionP2P.classList.add('hidden');
-    }
-
-    const sectionE2EE = document.getElementById('section-e2ee-passphrase');
-    const sectionTrigger = document.getElementById('section-trigger-sync');
-    if (sectionE2EE) sectionE2EE.classList.remove('hidden');
-    if (sectionTrigger) sectionTrigger.classList.remove('hidden');
-
-  function toggleGunDBSyncPanel() {
-      if (!gundbSyncPanel) return;
-      const isActive = core.activeStorageEngine === 'gunDB';
-      const isSelected = selectStorageEngine && selectStorageEngine.value === 'gunDB';
-
-      if ((isActive || isSelected) && (isP2PEnabled || isActive)) {
-          gundbSyncPanel.style.display = 'block';
-          if (core.GunDBDriver && gundbSyncCodeOutput) {
-              gundbSyncCodeOutput.value = core.GunDBDriver.getSyncCode();
-          }
-      } else {
-          gundbSyncPanel.style.display = 'none';
-      }
-  }
-
-  // Ensure window-level callback actually gets attached immediately
-  window.onGunDBReady = function() {
-      if (core.elements && core.elements.modalData && !core.elements.modalData.classList.contains('hidden')) {
-          toggleGunDBSyncPanel();
-      }
-  };
-
-  if (selectStorageEngine) {
-    selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
-    selectStorageEngine.addEventListener('change', toggleGunDBSyncPanel);
-  }
 
     const btnMigrateEngine = document.getElementById('btn-migrate-engine');
-
-  // GunDB Sync Elements
-  const gundbSyncPanel = document.getElementById('gundb-sync-panel');
-  const gundbSyncCodeOutput = document.getElementById('gundb-sync-code-output');
-  const btnCopyGundbCode = document.getElementById('btn-copy-gundb-code');
-  const gundbSyncCodeInput = document.getElementById('gundb-sync-code-input');
-  const btnJoinGundb = document.getElementById('btn-join-gundb');
-
-  if (btnMigrateEngine) {
-    btnMigrateEngine.addEventListener('click', function() {
-      const target = selectStorageEngine ? selectStorageEngine.value : 'localStorage';
-      if (target === core.activeStorageEngine) {
-        if (core.showToast) core.showToast('Already using ' + target + ' engine.', 'info');
-        return;
-      }
-      const originalText = btnMigrateEngine.textContent;
-      btnMigrateEngine.textContent = 'Migrating...';
-      btnMigrateEngine.disabled = true;
-
-      core.migrateStorageEngine(target).then(function(res) {
-        btnMigrateEngine.textContent = originalText;
-        btnMigrateEngine.disabled = false;
-        toggleGunDBSyncPanel();
-      }).catch(function(err) {
-        btnMigrateEngine.textContent = originalText;
-        btnMigrateEngine.disabled = false;
-      });
-    });
-  }
-
-  if (btnCopyGundbCode && gundbSyncCodeOutput) {
-     btnCopyGundbCode.addEventListener('click', function() {
-        if (!gundbSyncCodeOutput.value || gundbSyncCodeOutput.value.includes('Init')) {
-           if (core.showToast) core.showToast('Code not ready yet.', 'error');
-           return;
+    if (btnMigrateEngine) {
+      btnMigrateEngine.addEventListener('click', function() {
+        const target = selectStorageEngine ? selectStorageEngine.value : 'localStorage';
+        if (target === core.activeStorageEngine) {
+          if (core.showToast) core.showToast('Already using ' + target + ' engine.', 'info');
+          return;
         }
-        navigator.clipboard.writeText(gundbSyncCodeOutput.value).then(() => {
-           if (core.showToast) core.showToast('Sync Code copied to clipboard!', 'success');
-        }).catch(err => {
-           console.error('Failed to copy text: ', err);
-           if (core.showToast) core.showToast('Failed to copy. Select and copy manually.', 'error');
+        const originalText = btnMigrateEngine.textContent;
+        btnMigrateEngine.textContent = 'Migrating...';
+        btnMigrateEngine.disabled = true;
+
+        core.migrateStorageEngine(target).then(function(res) {
+          btnMigrateEngine.textContent = originalText;
+          btnMigrateEngine.disabled = false;
+        }).catch(function(err) {
+          btnMigrateEngine.textContent = originalText;
+          btnMigrateEngine.disabled = false;
         });
-     });
-  }
+      });
+    }
 
-  if (btnJoinGundb && gundbSyncCodeInput) {
-     btnJoinGundb.addEventListener('click', function() {
-         const code = gundbSyncCodeInput.value.trim();
-         if (!code) {
-             if (core.showToast) core.showToast('Please enter a Sync Code first.', 'error');
-             return;
-         }
-
-         const originalText = btnJoinGundb.textContent;
-         btnJoinGundb.textContent = 'Joining...';
-         btnJoinGundb.disabled = true;
-
-         core.GunDBDriver.joinSyncCode(code).then(success => {
-             btnJoinGundb.textContent = originalText;
-             btnJoinGundb.disabled = false;
-             if (success) {
-                gundbSyncCodeInput.value = '';
-                toggleGunDBSyncPanel(); // Refresh the sync code field
-             }
-         });
-     });
-  }
-
-  const inputPassphrase = document.getElementById('input-sync-passphrase');
+    const inputPassphrase = document.getElementById('input-sync-passphrase');
     const badgePassphraseStatus = document.getElementById('passphrase-status-badge');
     const btnToggleShowPassphrase = document.getElementById('btn-toggle-show-passphrase');
     const eyeIconShow = document.getElementById('eye-icon-show');
