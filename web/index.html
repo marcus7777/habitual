@@ -217,7 +217,7 @@
           </div>
         </div>
       </div>
-      <p>Habitual &bull; v1.16.2</p>
+      <p>Habitual &bull; v1.16.3</p>
     </footer>
   </div>
 
@@ -652,6 +652,14 @@
                       <input type="text" name="habit-share-password" id="habit-share-password" class="text-input font-mono" placeholder="e.g. my_secret_pass">
                       <small class="muted-text">Used for end-to-end encryption.</small>
                     </div>
+                  </div>
+
+                  <div class="form-group margin-top-sm hidden" id="share-habit-children-container">
+                    <label class="checkbox-label">
+                      <input type="checkbox" name="habit-share-include-children" id="habit-share-include-children" checked>
+                      <span><strong>👶 Store sub-habits in this encrypted backup</strong></span>
+                    </label>
+                    <small class="muted-text">Encrypts and stores all sub-habits under this parent in the same Firestore collection with the same password.</small>
                   </div>
 
                   <div class="share-actions-row margin-top-sm" style="display: flex; gap: 8px; flex-wrap: wrap;">
