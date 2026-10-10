@@ -2360,8 +2360,6 @@ window.HabitualCore = window.HabitualCore || {};
       core.checkPendingVerifications();
     }
   };
-    }
-  };
 
   core.handleClearLog = function() {
     const habitId = core.elements.modalLogHabitSelect.value;
