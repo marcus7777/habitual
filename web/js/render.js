@@ -421,11 +421,19 @@ window.HabitualCore = window.HabitualCore || {};
         bgStyle = `background-color: ${alphaHex}; border-color: ${hexColor}; color: var(--text-main);`;
       }
 
+      const isUpcoming = cursorDateStr > todayStr;
       const formattedCursorDate = core.formatPrettyDate(cursorDateStr);
 
-      const tooltipText = isGoalMet
-        ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to open log details.`
-        : `${core.escapeHTML(habit.name)}: ${count}/${target} completed on ${formattedCursorDate}. Click to log +1.`;
+      let tooltipText = '';
+      if (isUpcoming) {
+        tooltipText = isGoalMet
+          ? `${core.escapeHTML(habit.name)}: Upcoming Goal Pre-logged (${count}/${target}) on ${formattedCursorDate}. Click to open log details.`
+          : `${core.escapeHTML(habit.name)}: Upcoming (${count}/${target} pre-logged) on ${formattedCursorDate}. Click to pre-log.`;
+      } else {
+        tooltipText = isGoalMet
+          ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to open log details.`
+          : `${core.escapeHTML(habit.name)}: ${count}/${target} completed on ${formattedCursorDate}. Click to log +1.`;
+      }
 
       bigLogButtonHTML = `
         <button type="button" class="btn-card-quick-log ${isGoalMet ? 'goal-met' : ''}"
@@ -614,6 +622,7 @@ window.HabitualCore = window.HabitualCore || {};
                data-count="${cellData.count}" data-ratio="${cellData.ratio || 0}"
                data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
                data-paused="${cellData.isPaused ? 'true' : 'false'}"
+               data-unverified="${cellData.isUnverified ? 'true' : 'false'}"
                data-has-note="${cellData.hasNote ? 'true' : 'false'}"
                data-note="${core.escapeHTML(cellData.note)}" ${habitsDoneAttr}>
           </div>`;

@@ -198,6 +198,7 @@ window.HabitualCore = window.HabitualCore || {};
                   if (habit) {
                       habit.logs[date] = { count: logEntry.count };
                       if (logEntry.note) habit.logs[date].note = logEntry.note;
+                      if (logEntry.unverified) habit.logs[date].unverified = true;
                   }
                }
             });
@@ -280,13 +281,17 @@ window.HabitualCore = window.HabitualCore || {};
               if (logs) {
                   Object.keys(logs).forEach(date => {
                       const logData = logs[date];
-                      logsStore.put({
+                      const logRec = {
                           id: habit.id + '_' + date, // Composite key
                           habitId: habit.id,
                           date: date,
                           count: typeof logData === 'number' ? logData : (logData.count || 0),
                           note: (logData && typeof logData === 'object' && logData.note) ? logData.note : ''
-                      });
+                      };
+                      if (logData && typeof logData === 'object' && logData.unverified) {
+                          logRec.unverified = true;
+                      }
+                      logsStore.put(logRec);
                   });
               }
           });
@@ -318,7 +323,7 @@ window.HabitualCore = window.HabitualCore || {};
     },
 
     // --- New Granular API Methods ---
-    saveLog: function(habitId, dateKey, count, note) {
+    saveLog: function(habitId, dateKey, count, note, unverified) {
        return this.getDB().then(db => {
            return new Promise((resolve, reject) => {
                if (!db.objectStoreNames.contains('logs')) return resolve(false);
@@ -329,13 +334,15 @@ window.HabitualCore = window.HabitualCore || {};
                    // Delete log if count is 0 and no note
                    store.delete(habitId + '_' + dateKey);
                } else {
-                   store.put({
+                   const rec = {
                        id: habitId + '_' + dateKey,
                        habitId: habitId,
                        date: dateKey,
                        count: count,
                        note: note || ''
-                   });
+                   };
+                   if (unverified) rec.unverified = true;
+                   store.put(rec);
                }
 
                tx.oncomplete = () => resolve(true);
@@ -470,8 +477,10 @@ window.HabitualCore = window.HabitualCore || {};
         const note = (log.note || '').trim();
         if (count > 0 || note !== '') {
           hasLogs = true;
-          if (note !== '') cleanLogs[dateKey] = { count, note };
-          else cleanLogs[dateKey] = { count };
+          const logData = { count };
+          if (note !== '') logData.note = note;
+          if (log.unverified) logData.unverified = true;
+          cleanLogs[dateKey] = logData;
         }
       });
       if (hasLogs) h.logs = cleanLogs;

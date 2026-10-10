@@ -301,6 +301,72 @@
             core.SyncManager.toggleTarget('dropbox', false);
             assert(!core.SyncManager.isTargetEnabled('dropbox'), 'Dropbox target disabled');
           });
+
+          describe('Feature 13: ⏳ Pre-logged Future Habit Verification & Future Events Clearing Engine', () => {
+            test('Toggling or saving a future date sets unverified flag', () => {
+              const todayStr = core.getTodayKey();
+              const parts = todayStr.split('-');
+              const futureDate = `${parseInt(parts[0], 10) + 1}-01-01`;
+              const testHabit = { id: 'test_future_h', name: 'Future Meditation', logs: {} };
+              core.state.habits = [testHabit];
+
+              core.toggleHabitForDate('test_future_h', futureDate);
+              assert(testHabit.logs[futureDate] !== undefined, 'Future log created');
+              assertEqual(testHabit.logs[futureDate].unverified, true, 'Future log marked as unverified');
+            });
+
+            test('getUnverifiedLogs identifies pending verification logs when date arrives', () => {
+              const todayStr = core.getTodayKey();
+              const testHabit = {
+                id: 'test_unverified_h',
+                name: 'Upcoming Run',
+                logs: {}
+              };
+              testHabit.logs[todayStr] = { count: 1, unverified: true };
+              core.state.habits = [testHabit];
+
+              const unverified = core.getUnverifiedLogs();
+              assert(unverified.length > 0, 'Found unverified log for today');
+              assertEqual(unverified[0].habitId, 'test_unverified_h');
+            });
+
+            test('verifyLog confirms pre-logged habit and removes unverified flag', () => {
+              const todayStr = core.getTodayKey();
+              const testHabit = {
+                id: 'test_verify_h',
+                name: 'Yoga',
+                logs: {}
+              };
+              testHabit.logs[todayStr] = { count: 1, unverified: true };
+              core.state.habits = [testHabit];
+
+              core.verifyLog('test_verify_h', todayStr, true);
+              assertEqual(testHabit.logs[todayStr].count, 1, 'Preserved completed count');
+              assertEqual(testHabit.logs[todayStr].unverified, undefined, 'Removed unverified flag');
+            });
+
+            test('clearFutureLogsForHabit removes all logs with dateKey > todayStr', () => {
+              const todayStr = core.getTodayKey();
+              const parts = todayStr.split('-');
+              const futureDate1 = `${parseInt(parts[0], 10) + 1}-05-10`;
+              const futureDate2 = `${parseInt(parts[0], 10) + 1}-06-15`;
+              const testHabit = {
+                id: 'test_clear_future_h',
+                name: 'Future Planning',
+                logs: {}
+              };
+              testHabit.logs['2020-01-01'] = { count: 1 };
+              testHabit.logs[futureDate1] = { count: 1, unverified: true };
+              testHabit.logs[futureDate2] = { count: 1, unverified: true };
+              core.state.habits = [testHabit];
+
+              const cleared = core.clearFutureLogsForHabit('test_clear_future_h');
+              assertEqual(cleared, 2, 'Cleared 2 future logs');
+              assert(testHabit.logs[futureDate1] === undefined, 'Future log 1 removed');
+              assert(testHabit.logs[futureDate2] === undefined, 'Future log 2 removed');
+              assert(testHabit.logs['2020-01-01'] !== undefined, 'Past log preserved');
+            });
+          });
         });
       }
 

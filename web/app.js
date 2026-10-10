@@ -34,6 +34,10 @@ window.HabitualCore = window.HabitualCore || {};
 
         if (core.renderAll) core.renderAll();
 
+        if (core.checkPendingVerifications) {
+          core.checkPendingVerifications();
+        }
+
         if (core.state && core.state.showQuickLogOnStartup) {
           if (core.openLogModal && core.getTodayKey) {
             core.openLogModal(core.getTodayKey());
