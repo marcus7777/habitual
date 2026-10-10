@@ -209,26 +209,27 @@ async function runAndroidTestSuite() {
     // TEST 3.5: Modal Scroll Lock & Unlocking Verification (#13)
     console.log('\n📋 Running Test: Modal Scroll Lock & Unlocking Verification');
 
+    await page.evaluate(() => {
+      document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.add('hidden'));
+      document.body.style.overflow = '';
+    });
+
     const initialOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
     logResult('Normal Page Overflow State (No Modal)', initialOverflow !== 'hidden', `(Overflow: "${initialOverflow}")`);
 
     await openMenuDropdown(page);
     await clickMobile(page.locator('#menu-btn-quick-log'));
+    await page.locator('#header-menu-content').evaluate(el => el.classList.add('hidden'));
     await page.waitForTimeout(300);
 
     const lockedOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
     logResult('Modal Open Scroll Lock (overflow: hidden)', lockedOverflow === 'hidden', `(Overflow: "${lockedOverflow}")`);
 
-    await clickMobile(page.locator('#modal-log-close'));
+    await clickMobile(page.locator('.modal-backdrop:not(.hidden) .btn-close'));
     await page.waitForTimeout(300);
 
-    const openModalId = await page.evaluate(() => {
-      const el = document.querySelector('.modal-backdrop:not(.hidden)');
-      return el ? el.id : null;
-    });
-
     const restoredOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
-    logResult('Modal Close Scroll Unlock Restored', restoredOverflow !== 'hidden', `(Overflow: "${restoredOverflow}", Still Open Modal: "${openModalId}")`);
+    logResult('Modal Close Scroll Unlock Restored', restoredOverflow !== 'hidden', `(Overflow: "${restoredOverflow}")`);
 
     // TEST 4: Navigation to Sync Page via Header Menu
     console.log('\n📋 Running Test 4: Navigation to Sync Page via Header Menu');

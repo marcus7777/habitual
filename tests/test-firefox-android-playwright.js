@@ -89,36 +89,11 @@ async function runFirefoxMobileTestSuite() {
     const title = await page.title();
     logResult('App Title Check on Firefox Mobile', title.includes('Habitual'), `(Title: "${title}")`);
 
-    // TEST 2: Scroll Lock & Unlocking Verification (#13) on Firefox
-    console.log('\n📋 Running Test 2: Firefox Scroll Lock & Unlocking Verification (#13)');
-
-    const initialOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
-    logResult('Normal Page Overflow State (No Modal)', initialOverflow !== 'hidden', `(Overflow: "${initialOverflow}")`);
-
-    // Open Menu & Quick Log modal
+    // TEST 2: Create Habit on Firefox Mobile
+    console.log('\n📋 Running Test 2: Create New Habit on Firefox Mobile');
     const menuBtn = page.locator('#btn-header-menu');
     await menuBtn.click();
     const menuContent = page.locator('#header-menu-content');
-    await menuContent.evaluate(el => el.classList.remove('hidden'));
-    await page.waitForTimeout(300);
-
-    const quickLogBtn = page.locator('#menu-btn-quick-log');
-    await quickLogBtn.click();
-    await page.waitForTimeout(300);
-
-    const lockedOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
-    logResult('Modal Open Scroll Lock (overflow: hidden)', lockedOverflow === 'hidden', `(Overflow: "${lockedOverflow}")`);
-
-    const modalCloseBtn = page.locator('#modal-log-close');
-    await modalCloseBtn.click();
-    await page.waitForTimeout(300);
-
-    const restoredOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
-    logResult('Modal Close Scroll Unlock Restored', restoredOverflow !== 'hidden', `(Overflow: "${restoredOverflow}")`);
-
-    // TEST 3: Create Habit on Firefox Mobile
-    console.log('\n📋 Running Test 3: Create New Habit on Firefox Mobile');
-    await menuBtn.click();
     await menuContent.evaluate(el => el.classList.remove('hidden'));
     await page.waitForTimeout(200);
 
@@ -132,6 +107,31 @@ async function runFirefoxMobileTestSuite() {
 
     const galleryText = await page.locator('#heatmaps-gallery').innerText();
     logResult('Habit Created and Rendered on Firefox Mobile', galleryText.includes(testHabitName), `(Habit: "${testHabitName}")`);
+
+    // TEST 3: Scroll Lock & Unlocking Verification (#13) on Firefox
+    console.log('\n📋 Running Test 3: Firefox Scroll Lock & Unlocking Verification (#13)');
+
+    const initialOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
+    logResult('Normal Page Overflow State (No Modal)', initialOverflow !== 'hidden', `(Overflow: "${initialOverflow}")`);
+
+    // Open Menu & Quick Log modal
+    await menuBtn.click();
+    await menuContent.evaluate(el => el.classList.remove('hidden'));
+    await page.waitForTimeout(300);
+
+    const quickLogBtn = page.locator('#menu-btn-quick-log');
+    await quickLogBtn.click();
+    await page.waitForTimeout(300);
+
+    const lockedOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
+    logResult('Modal Open Scroll Lock (overflow: hidden)', lockedOverflow === 'hidden', `(Overflow: "${lockedOverflow}")`);
+
+    const modalCloseBtn = page.locator('.modal-backdrop:not(.hidden) .btn-close');
+    await modalCloseBtn.click();
+    await page.waitForTimeout(300);
+
+    const restoredOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
+    logResult('Modal Close Scroll Unlock Restored', restoredOverflow !== 'hidden', `(Overflow: "${restoredOverflow}")`);
 
     console.log(`\n==================================================`);
     console.log(`🎉 FIREFOX MOBILE SUITE COMPLETED: ${passedTests}/${totalTests} Passed!`);

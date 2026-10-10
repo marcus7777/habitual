@@ -354,10 +354,10 @@ window.HabitualCore = window.HabitualCore || {};
   });
 
     const modalHabitClose = document.getElementById('modal-habit-close');
-    if (modalHabitClose) modalHabitClose.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; core.toggleModalScrollLock(false); core.elements.modalHabit.classList.add('hidden'); });
+    if (modalHabitClose) modalHabitClose.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden'); core.toggleModalScrollLock(false); });
 
     const btnCancelHabit = document.getElementById('btn-cancel-habit');
-    if (btnCancelHabit) btnCancelHabit.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; core.toggleModalScrollLock(false); core.elements.modalHabit.classList.add('hidden'); });
+    if (btnCancelHabit) btnCancelHabit.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden'); core.toggleModalScrollLock(false); });
 
     if (core.elements.modalPauseClose) core.elements.modalPauseClose.addEventListener('click', () => core.closePauseModal());
     if (core.elements.btnCancelPause) core.elements.btnCancelPause.addEventListener('click', () => core.closePauseModal());
@@ -372,10 +372,10 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const modalLogClose = document.getElementById('modal-log-close');
-    if (modalLogClose) modalLogClose.addEventListener('click', () => { core.toggleModalScrollLock(false); core.elements.modalLog.classList.add('hidden'); });
+    if (modalLogClose) modalLogClose.addEventListener('click', () => { if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden'); core.toggleModalScrollLock(false); });
 
     const modalDataClose = document.getElementById('modal-data-close');
-    if (modalDataClose) modalDataClose.addEventListener('click', () => { core.toggleModalScrollLock(false); core.elements.modalData.classList.add('hidden'); });
+    if (modalDataClose) modalDataClose.addEventListener('click', () => { if (core.elements.modalData) core.elements.modalData.classList.add('hidden'); core.toggleModalScrollLock(false); });
 
     const toastCloseBtn = document.getElementById('toast-close');
     if (toastCloseBtn) toastCloseBtn.addEventListener('click', () => document.getElementById('toast-banner').classList.add('hidden'));
