@@ -214,7 +214,7 @@
           </div>
         </div>
       </div>
-      <p>Habitual &bull; v1.14.0</p>
+      <p>Habitual &bull; v1.15.0</p>
     </footer>
   </div>
 
@@ -573,6 +573,50 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Share Habit & Firestore Override Section -->
+              <div class="form-group highlight-form-box margin-top-sm" id="share-habit-section">
+                <div class="share-habit-header-row" style="display: flex; justify-content: space-between; align-items: center;">
+                  <label class="checkbox-label">
+                    <input type="checkbox" name="habit-enable-sharing" id="habit-enable-sharing">
+                    <span><strong>👥 Share Habit (Override Firestore Storage)</strong></span>
+                  </label>
+                  <button type="button" class="btn btn-secondary btn-sm hidden" id="btn-toggle-share-habit-panel">
+                    <span>🔗 Share Link & QR</span>
+                  </button>
+                </div>
+                <small class="muted-text">Share this habit with family or a coach using a dedicated Firebase Firestore collection and password.</small>
+
+                <div id="share-habit-panel" class="share-habit-container hidden margin-top-sm">
+                  <div class="form-row-2col">
+                    <div class="form-group">
+                      <label for="habit-share-collection">Firestore Collection ID</label>
+                      <input type="text" name="habit-share-collection" id="habit-share-collection" class="text-input font-mono" placeholder="e.g. shared_hb_abc123">
+                      <small class="muted-text">Unique Firestore collection for this habit.</small>
+                    </div>
+                    <div class="form-group">
+                      <label for="habit-share-password">Shared Password / Passphrase</label>
+                      <input type="text" name="habit-share-password" id="habit-share-password" class="text-input font-mono" placeholder="e.g. my_secret_pass">
+                      <small class="muted-text">Used for end-to-end encryption.</small>
+                    </div>
+                  </div>
+
+                  <div class="share-actions-row margin-top-sm" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" id="btn-copy-share-link" class="btn btn-secondary btn-sm">
+                      📋 Copy Share Link
+                    </button>
+                    <button type="button" id="btn-regen-share-creds" class="btn btn-secondary btn-sm">
+                      🔄 Regenerate Keys
+                    </button>
+                  </div>
+
+                  <div class="qr-code-wrapper margin-top-sm">
+                    <label><strong>Scan QR Code to Join Habit</strong></label>
+                    <div id="qr-code-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 8px;"></div>
+                    <small class="muted-text">Anyone with this link or QR code can sync check-ins for this habit.</small>
+                  </div>
+                </div>
+              </div>
             </div>
           </details>
         </div>
@@ -654,8 +698,39 @@
     </div>
   </div>
 
+  <!-- MODAL: Import Shared Habit -->
+  <div id="modal-import-shared-habit" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-dialog-sm">
+      <div class="modal-header">
+        <h3>👥 Join Shared Habit</h3>
+        <button id="modal-import-close" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>You have been invited to join and sync a shared habit!</p>
+        <div class="highlight-form-box margin-top-sm">
+          <div class="form-group">
+            <label>Habit Name</label>
+            <strong id="import-shared-habit-name" style="display: block; font-size: 1.1rem; color: var(--text-main); margin-top: 4px;"></strong>
+          </div>
+          <div class="form-group margin-top-sm">
+            <label>Firestore Collection ID</label>
+            <code id="import-shared-habit-collection" class="font-mono text-muted" style="display: block; margin-top: 4px; word-break: break-all;"></code>
+          </div>
+        </div>
+        <small class="muted-text margin-top-sm" style="display: block;">
+          This habit will sync activity in real-time with other participants using end-to-end encryption.
+        </small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-import-shared" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="btn-confirm-import-shared" class="btn btn-primary">Join & Add Habit</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/colours.js" defer></script>
   <!-- App Core -->
+  <script src="js/qr.js" defer></script>
   <script src="js/state.js" defer></script>
   <script src="js/storage.js" defer></script>
   <script src="js/audio-sync.js" defer></script>

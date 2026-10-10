@@ -1145,6 +1145,123 @@ window.HabitualCore = window.HabitualCore || {};
         }
         this.pendingSnapshotData = null;
         this.isListening = false;
+      },
+
+      perHabitListeners: {},
+
+      startPerHabitLiveSync: function(habit) {
+        if (!habit || !habit.sharing || !habit.sharing.enabled || !habit.sharing.collection || !habit.sharing.password) return Promise.resolve(null);
+        const self = this;
+        const habitId = habit.id;
+        const collectionId = String(habit.sharing.collection || '').trim();
+        const passphrase = String(habit.sharing.password || '').trim();
+
+        if (self.perHabitListeners[habitId]) {
+          self.perHabitListeners[habitId]();
+          delete self.perHabitListeners[habitId];
+        }
+
+        return self.init().then(function() {
+          const unsub = self.db.collection(collectionId).doc('shared_data')
+            .onSnapshot(function(doc) {
+              if (!doc.exists) return;
+              if (doc.metadata && doc.metadata.hasPendingWrites) return;
+
+              const data = doc.data();
+              if (!data || !data.ciphertext) return;
+              if (data.writerId && data.writerId === core.CLIENT_ID) return;
+
+              core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remoteHabit) {
+                if (!remoteHabit || !remoteHabit.logs) return;
+                const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && h.sharing.collection === collectionId));
+                if (!targetHabit) return;
+
+                let updated = false;
+                if (!targetHabit.logs) targetHabit.logs = {};
+                Object.keys(remoteHabit.logs).forEach(dateKey => {
+                  const rLog = remoteHabit.logs[dateKey];
+                  const lLog = targetHabit.logs[dateKey];
+                  if (!lLog || lLog.count < rLog.count || (rLog.note && lLog.note !== rLog.note)) {
+                    targetHabit.logs[dateKey] = rLog;
+                    updated = true;
+                  }
+                });
+
+                if (updated) {
+                  core.saveState();
+                  if (core.renderAll) core.renderAll();
+                  if (core.showToast) core.showToast(`⚡ Shared habit "${targetHabit.name}" updated!`, 'info');
+                }
+              }).catch(function(e) {
+                console.warn('Per-habit Firestore decrypt error:', e);
+              });
+            }, function(err) {
+              console.warn('Per-habit Firestore snapshot error:', err);
+            });
+
+          self.perHabitListeners[habitId] = unsub;
+        }).catch(function(e) {
+          console.warn('Per-habit Firestore init error:', e);
+        });
+      },
+
+      uploadPerHabitBackup: function(habit) {
+        if (!habit || !habit.sharing || !habit.sharing.enabled || !habit.sharing.collection || !habit.sharing.password) return Promise.resolve(null);
+        const self = this;
+        const collectionId = String(habit.sharing.collection || '').trim();
+        const passphrase = String(habit.sharing.password || '').trim();
+
+        const payload = {
+          habitId: habit.id,
+          name: habit.name,
+          type: habit.type,
+          dailyTarget: habit.dailyTarget,
+          frequencyType: habit.frequencyType,
+          targetDays: habit.targetDays,
+          logs: habit.logs || {}
+        };
+
+        return self.init().then(function() {
+          return core.E2EE.encrypt(payload, passphrase);
+        }).then(function(cipher) {
+          const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+            ? firebase.firestore.FieldValue.serverTimestamp()
+            : Date.now();
+          return self.db.collection(collectionId).doc('shared_data').set({
+            ciphertext: cipher,
+            updatedAt: serverTs,
+            writerId: core.CLIENT_ID
+          });
+        }).catch(function(e) {
+          console.warn('Upload per-habit backup error:', e);
+        });
+      },
+
+      stopPerHabitLiveSync: function(habitId) {
+        if (this.perHabitListeners && this.perHabitListeners[habitId]) {
+          this.perHabitListeners[habitId]();
+          delete this.perHabitListeners[habitId];
+        }
+      },
+
+      startAllPerHabitLiveSyncs: function() {
+        const self = this;
+        if (!core.state || !core.state.habits) return;
+        core.state.habits.forEach(h => {
+          if (h.sharing && h.sharing.enabled) {
+            self.startPerHabitLiveSync(h);
+          }
+        });
+      },
+
+      syncAllSharedHabits: function() {
+        const self = this;
+        if (!core.state || !core.state.habits) return;
+        core.state.habits.forEach(h => {
+          if (h.sharing && h.sharing.enabled) {
+            self.uploadPerHabitBackup(h);
+          }
+        });
       }
     }
   };
@@ -1488,6 +1605,9 @@ window.HabitualCore = window.HabitualCore || {};
   setTimeout(function() {
     if (!core.isSyncPage() && core.SyncManager && core.SyncManager.isTargetEnabled('firestore') && core.SyncManager.settings.passphrase) {
       core.SyncTargets.Firestore.startLiveSync();
+    }
+    if (!core.isSyncPage() && core.SyncTargets && core.SyncTargets.Firestore) {
+      core.SyncTargets.Firestore.startAllPerHabitLiveSyncs();
     }
   }, 500);
 
