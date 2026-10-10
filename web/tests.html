@@ -263,6 +263,63 @@
             assert(errorCaught, 'Decryption rejected when passphrases do not match');
           });
 
+          test('per-habit E2EE backup includes sub-habits in the same encrypted blob', async () => {
+            const parentHabit = {
+              id: 'parent_1',
+              name: 'Fitness',
+              type: 'positive',
+              sharing: { enabled: true, collection: 'shared_fit_123', password: 'secret_parent_pass', includeChildren: true },
+              logs: { '2026-10-10': { count: 1 } }
+            };
+            const childHabit1 = {
+              id: 'child_1',
+              parentId: 'parent_1',
+              name: 'Pushups',
+              type: 'positive',
+              logs: { '2026-10-10': { count: 10 } }
+            };
+            const childHabit2 = {
+              id: 'child_2',
+              parentId: 'parent_1',
+              name: 'Pullups',
+              type: 'positive',
+              logs: { '2026-10-10': { count: 5 } }
+            };
+
+            const prevHabits = core.state.habits;
+            core.state.habits = [parentHabit, childHabit1, childHabit2];
+
+            let capturedCipher = null;
+            const origDb = core.SyncTargets.Firestore.db;
+            core.SyncTargets.Firestore.db = {
+              collection: function(col) {
+                return {
+                  doc: function(docId) {
+                    return {
+                      set: function(data) {
+                        capturedCipher = data.ciphertext;
+                        return Promise.resolve();
+                      }
+                    };
+                  }
+                };
+              }
+            };
+
+            await core.SyncTargets.Firestore.uploadPerHabitBackup(parentHabit);
+            assert(capturedCipher && capturedCipher.startsWith('ENC:'), 'Backup encrypted');
+
+            const decrypted = await core.E2EE.decrypt(capturedCipher, 'secret_parent_pass');
+            assertEqual(decrypted.habitId, 'parent_1');
+            assertEqual(decrypted.includeChildren, true);
+            assertEqual(decrypted.children.length, 2);
+            assertEqual(decrypted.children[0].name, 'Pushups');
+            assertEqual(decrypted.children[1].name, 'Pullups');
+
+            core.SyncTargets.Firestore.db = origDb;
+            core.state.habits = prevHabits;
+          });
+
           test('pullAndMergeAll reports failure when Firestore decryption fails', async () => {
             const samplePayload = { habits: [{ id: 'h1', name: 'Yoga' }] };
             const encrypted = await core.E2EE.encrypt(samplePayload, 'correct_pass');

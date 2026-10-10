@@ -47,7 +47,14 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.toggleModalScrollLock = function(isLocked) {
     if (typeof document !== 'undefined' && document.body) {
-      document.body.style.overflow = isLocked ? 'hidden' : '';
+      if (isLocked) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        const openModal = document.querySelector('.modal-backdrop:not(.hidden)');
+        if (!openModal) {
+          document.body.style.overflow = '';
+        }
+      }
     }
   };
 
@@ -254,10 +261,16 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const modalCalendarClose = document.getElementById('modal-calendar-close');
-    if (modalCalendarClose) modalCalendarClose.addEventListener('click', () => core.elements.modalCalendarPicker.classList.add('hidden'));
+    if (modalCalendarClose) modalCalendarClose.addEventListener('click', () => {
+      if (core.elements.modalCalendarPicker) core.elements.modalCalendarPicker.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+    });
 
     const btnCalendarCancel = document.getElementById('btn-calendar-cancel');
-    if (btnCalendarCancel) btnCalendarCancel.addEventListener('click', () => core.elements.modalCalendarPicker.classList.add('hidden'));
+    if (btnCalendarCancel) btnCalendarCancel.addEventListener('click', () => {
+      if (core.elements.modalCalendarPicker) core.elements.modalCalendarPicker.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+    });
 
     document.querySelectorAll('.quick-date-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -327,6 +340,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (menuDataModal) menuDataModal.addEventListener('click', () => {
     if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
     core.elements.modalData.classList.remove('hidden');
+    core.toggleModalScrollLock(true);
     core.state.selectedYear = core.CURRENT_YEAR;
     if (core.renderAll) core.renderAll();
 
@@ -864,6 +878,10 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     document.addEventListener('click', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('modal-backdrop')) {
+        e.target.classList.add('hidden');
+        core.toggleModalScrollLock(false);
+      }
       if (core.focusedDayState.dateStr && !e.target.closest('.heatmap-card') && !e.target.closest('.modal-backdrop')) {
         core.focusedDayState = { habitId: null, dateStr: null };
         if (core.renderAll) core.renderAll();
@@ -886,6 +904,15 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        const openModal = document.querySelector('.modal-backdrop:not(.hidden)');
+        if (openModal) {
+          openModal.classList.add('hidden');
+          core.toggleModalScrollLock(false);
+          return;
+        }
+      }
+
       const activeEl = document.activeElement;
       const activeTag = activeEl ? activeEl.tagName.toUpperCase() : '';
       const isEditable = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT' || (activeEl && activeEl.isContentEditable);
@@ -1787,13 +1814,33 @@ window.HabitualCore = window.HabitualCore || {};
     const chkSharing = document.getElementById('habit-enable-sharing');
     const inputShareCol = document.getElementById('habit-share-collection');
     const inputSharePwd = document.getElementById('habit-share-password');
+    const chkShareChildren = document.getElementById('habit-share-include-children');
+    const shareChildrenContainer = document.getElementById('share-habit-children-container');
     const sharePanel = document.getElementById('share-habit-panel');
     const btnToggleShare = document.getElementById('btn-toggle-share-habit-panel');
+
+    const subhabits = habitToEdit ? core.state.habits.filter(h => h.parentId === habitToEdit.id) : [];
+    const hasSubhabits = subhabits.length > 0;
+
+    if (shareChildrenContainer) {
+      if (hasSubhabits) {
+        shareChildrenContainer.classList.remove('hidden');
+      } else {
+        shareChildrenContainer.classList.add('hidden');
+      }
+    }
 
     const sharingData = (habitToEdit && habitToEdit.sharing && habitToEdit.sharing.enabled) ? habitToEdit.sharing : null;
     if (chkSharing) chkSharing.checked = Boolean(sharingData);
     if (inputShareCol) inputShareCol.value = sharingData ? sharingData.collection || '' : '';
     if (inputSharePwd) inputSharePwd.value = sharingData ? sharingData.password || '' : '';
+    if (chkShareChildren) {
+      if (hasSubhabits) {
+        chkShareChildren.checked = sharingData ? (sharingData.includeChildren !== false) : true;
+      } else {
+        chkShareChildren.checked = false;
+      }
+    }
 
     if (sharingData && sharePanel) {
       sharePanel.classList.remove('hidden');
@@ -2066,13 +2113,16 @@ window.HabitualCore = window.HabitualCore || {};
     const chkSharing = document.getElementById('habit-enable-sharing');
     const inputShareCol = document.getElementById('habit-share-collection');
     const inputSharePwd = document.getElementById('habit-share-password');
+    const chkShareChildren = document.getElementById('habit-share-include-children');
     const enableSharing = chkSharing ? chkSharing.checked : false;
     const shareCol = inputShareCol ? inputShareCol.value.trim() : '';
     const sharePwd = inputSharePwd ? inputSharePwd.value.trim() : '';
+    const includeChildren = chkShareChildren ? chkShareChildren.checked : false;
     const sharingConfig = (enableSharing && shareCol && sharePwd) ? {
       enabled: true,
       collection: shareCol,
-      password: sharePwd
+      password: sharePwd,
+      includeChildren: includeChildren
     } : null;
 
     if (!name) return;
@@ -2153,7 +2203,10 @@ window.HabitualCore = window.HabitualCore || {};
       core.state.selectedHabitId = newHabit.id;
     }
 
-    if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden');
+    if (core.elements.modalHabit) {
+      core.elements.modalHabit.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+    }
     if (core.renderAll) core.renderAll();
     if (core.saveState) core.saveState();
 
@@ -2343,7 +2396,10 @@ window.HabitualCore = window.HabitualCore || {};
     habit.logs[core.activeLogDateKey] = logObj;
 
     core.applyParentDependencyOnLog(habit, core.activeLogDateKey, count);
-    if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
+    if (core.elements.modalLog) {
+      core.elements.modalLog.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+    }
     if (core.renderAll) core.renderAll();
 
     if (isFuture && count > 0 && core.showToast) {
@@ -2366,7 +2422,10 @@ window.HabitualCore = window.HabitualCore || {};
     const habit = core.state.habits.find(h => h.id === habitId);
     if (habit && habit.logs && habit.logs[core.activeLogDateKey]) {
       delete habit.logs[core.activeLogDateKey];
-      if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
+      if (core.elements.modalLog) {
+        core.elements.modalLog.classList.add('hidden');
+        core.toggleModalScrollLock(false);
+      }
       if (core.renderAll) core.renderAll();
       if (core.saveLog) {
         core.saveLog(habitId, core.activeLogDateKey, 0, '');
@@ -2532,12 +2591,18 @@ window.HabitualCore = window.HabitualCore || {};
             fetchedRemotePayload = remoteData;
             const logEntries = remoteData.logs ? Object.keys(remoteData.logs).filter(k => (remoteData.logs[k].count > 0 || remoteData.logs[k].note)) : [];
             const logCount = logEntries.length;
+            const childCount = (remoteData.children && Array.isArray(remoteData.children)) ? remoteData.children.length : 0;
             if (nameEl && remoteData.name) nameEl.textContent = remoteData.name;
             if (pillEl && remoteData.colorTheme && core.normalizeHex) {
               pillEl.style.backgroundColor = core.normalizeHex(remoteData.colorTheme);
             }
             if (logsInfoEl) {
-              logsInfoEl.innerHTML = `<span>📅 ${logCount} past check-in log${logCount === 1 ? '' : 's'} included in cloud history!</span>`;
+              let infoText = `<span>📅 ${logCount} past check-in log${logCount === 1 ? '' : 's'}`;
+              if (childCount > 0) {
+                infoText += ` & ${childCount} sub-habit${childCount === 1 ? '' : 's'}`;
+              }
+              infoText += ` included in cloud history!</span>`;
+              logsInfoEl.innerHTML = infoText;
             }
           } else if (logsInfoEl) {
             logsInfoEl.innerHTML = `<span>📅 Ready to start tracking new shared activity!</span>`;
@@ -2566,6 +2631,7 @@ window.HabitualCore = window.HabitualCore || {};
           const payload = fetchedRemotePayload || {};
           const habitName = payload.name || name;
           const habitColor = payload.colorTheme || (colorParam ? (core.normalizeHex ? core.normalizeHex(colorParam) : colorParam) : undefined);
+          const hasRemoteChildren = Boolean(payload.children && Array.isArray(payload.children) && payload.children.length > 0);
 
           let existing = core.state.habits.find(h => h.sharing && h.sharing.collection === col);
           if (!existing) {
@@ -2591,7 +2657,8 @@ window.HabitualCore = window.HabitualCore || {};
               sharing: {
                 enabled: true,
                 collection: col,
-                password: pwd
+                password: pwd,
+                includeChildren: hasRemoteChildren
               },
               logs: payload.logs || {}
             };
@@ -2600,8 +2667,68 @@ window.HabitualCore = window.HabitualCore || {};
           } else {
             existing.name = habitName;
             if (habitColor) existing.colorTheme = habitColor;
-            existing.sharing = { enabled: true, collection: col, password: pwd };
+            existing.sharing = { enabled: true, collection: col, password: pwd, includeChildren: hasRemoteChildren };
             if (payload.logs) {
+              if (!existing.logs) existing.logs = {};
+              Object.assign(existing.logs, payload.logs);
+            }
+          }
+
+          if (hasRemoteChildren) {
+            payload.children.forEach(childData => {
+              let existingChild = core.state.habits.find(h => h.id === childData.habitId || (h.parentId === existing.id && h.name === childData.name));
+              if (!existingChild) {
+                existingChild = {
+                  id: childData.habitId || (existing.id + '_' + core.idFromName(childData.name)),
+                  name: childData.name,
+                  type: childData.type || 'positive',
+                  description: childData.description || '',
+                  category: childData.category || 'General',
+                  dailyTarget: childData.dailyTarget || 1,
+                  frequencyType: childData.frequencyType || 'daily',
+                  targetDays: childData.targetDays || [1],
+                  weeklyTarget: childData.weeklyTarget || 1,
+                  monthlyDay: childData.monthlyDay || '1',
+                  monthlyTarget: childData.monthlyTarget || 1,
+                  colorWholeWeek: childData.colorWholeWeek !== false,
+                  colorWholeMonth: childData.colorWholeMonth !== false,
+                  customTarget: childData.customTarget || 1,
+                  customInterval: childData.customInterval || 3,
+                  customUnit: childData.customUnit || 'days',
+                  colorTheme: childData.colorTheme,
+                  showStreak: childData.showStreak,
+                  showCount: childData.showCount,
+                  showDuration: childData.showDuration,
+                  hideFromAll: childData.hideFromAll,
+                  isPaused: childData.isPaused,
+                  parentId: existing.id,
+                  parentDependency: childData.parentDependency || 'none',
+                  createdAt: childData.createdAt || core.getTodayKey(),
+                  logs: childData.logs || {}
+                };
+                core.state.habits.push(existingChild);
+              } else {
+                existingChild.name = childData.name;
+                existingChild.parentId = existing.id;
+                if (!existingChild.logs) existingChild.logs = {};
+                if (childData.logs) {
+                  Object.assign(existingChild.logs, childData.logs);
+                }
+              }
+            });
+          }
+
+          core.saveState();
+          if (core.renderAll) core.renderAll();
+
+          if (core.SyncTargets && core.SyncTargets.Firestore) {
+            core.SyncTargets.Firestore.startPerHabitLiveSync(existing);
+          }
+
+          const totalLogs = Object.keys(existing.logs || {}).length;
+          const subInfo = hasRemoteChildren ? ` & ${payload.children.length} sub-habits` : '';
+          if (core.showToast) core.showToast(`👥 Joined shared habit "${habitName}" (${totalLogs} past check-ins${subInfo} synced)!`, 'success');
+          closeModal();
               if (!existing.logs) existing.logs = {};
               Object.assign(existing.logs, payload.logs);
             }

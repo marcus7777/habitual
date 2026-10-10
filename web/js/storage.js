@@ -1188,20 +1188,72 @@ window.HabitualCore = window.HabitualCore || {};
               if (data.writerId && data.writerId === core.CLIENT_ID) return;
 
               core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remoteHabit) {
-                if (!remoteHabit || !remoteHabit.logs) return;
+                if (!remoteHabit) return;
                 const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && h.sharing.collection === collectionId));
                 if (!targetHabit) return;
 
                 let updated = false;
-                if (!targetHabit.logs) targetHabit.logs = {};
-                Object.keys(remoteHabit.logs).forEach(dateKey => {
-                  const rLog = remoteHabit.logs[dateKey];
-                  const lLog = targetHabit.logs[dateKey];
-                  if (!lLog || lLog.count < rLog.count || (rLog.note && lLog.note !== rLog.note)) {
-                    targetHabit.logs[dateKey] = rLog;
-                    updated = true;
-                  }
-                });
+                if (remoteHabit.logs) {
+                  if (!targetHabit.logs) targetHabit.logs = {};
+                  Object.keys(remoteHabit.logs).forEach(dateKey => {
+                    const rLog = remoteHabit.logs[dateKey];
+                    const lLog = targetHabit.logs[dateKey];
+                    if (!lLog || lLog.count < rLog.count || (rLog.note && lLog.note !== rLog.note)) {
+                      targetHabit.logs[dateKey] = rLog;
+                      updated = true;
+                    }
+                  });
+                }
+
+                if (remoteHabit.children && Array.isArray(remoteHabit.children)) {
+                  remoteHabit.children.forEach(cData => {
+                    let childHabit = core.state.habits.find(h => h.id === cData.habitId || (h.parentId === targetHabit.id && h.name === cData.name));
+                    if (!childHabit) {
+                      childHabit = {
+                        id: cData.habitId || (targetHabit.id + '_' + core.idFromName(cData.name)),
+                        name: cData.name,
+                        type: cData.type || 'positive',
+                        description: cData.description || '',
+                        category: cData.category || 'General',
+                        dailyTarget: cData.dailyTarget || 1,
+                        frequencyType: cData.frequencyType || 'daily',
+                        targetDays: cData.targetDays || [1],
+                        weeklyTarget: cData.weeklyTarget || 1,
+                        monthlyDay: cData.monthlyDay || '1',
+                        monthlyTarget: cData.monthlyTarget || 1,
+                        colorWholeWeek: cData.colorWholeWeek !== false,
+                        colorWholeMonth: cData.colorWholeMonth !== false,
+                        customTarget: cData.customTarget || 1,
+                        customInterval: cData.customInterval || 3,
+                        customUnit: cData.customUnit || 'days',
+                        colorTheme: cData.colorTheme,
+                        showStreak: cData.showStreak,
+                        showCount: cData.showCount,
+                        showDuration: cData.showDuration,
+                        hideFromAll: cData.hideFromAll,
+                        isPaused: cData.isPaused,
+                        parentId: targetHabit.id,
+                        parentDependency: cData.parentDependency || 'none',
+                        createdAt: cData.createdAt || core.getTodayKey(),
+                        logs: cData.logs || {}
+                      };
+                      core.state.habits.push(childHabit);
+                      updated = true;
+                    } else {
+                      if (!childHabit.logs) childHabit.logs = {};
+                      if (cData.logs) {
+                        Object.keys(cData.logs).forEach(dateKey => {
+                          const rLog = cData.logs[dateKey];
+                          const lLog = childHabit.logs[dateKey];
+                          if (!lLog || lLog.count < rLog.count || (rLog.note && lLog.note !== rLog.note)) {
+                            childHabit.logs[dateKey] = rLog;
+                            updated = true;
+                          }
+                        });
+                      }
+                    }
+                  });
+                }
 
                 if (updated) {
                   core.saveState();
@@ -1248,6 +1300,44 @@ window.HabitualCore = window.HabitualCore || {};
           createdAt: habit.createdAt || core.getTodayKey(),
           logs: habit.logs || {}
         };
+
+        if (habit.sharing.includeChildren && core.state && core.state.habits) {
+          const descendantIds = core.getAllDescendantIds ? core.getAllDescendantIds(habit.id) : [];
+          const childIds = descendantIds.filter(id => id !== habit.id);
+          const childHabits = childIds.map(cid => core.state.habits.find(h => h.id === cid)).filter(Boolean);
+
+          if (childHabits.length > 0) {
+            payload.includeChildren = true;
+            payload.children = childHabits.map(child => ({
+              habitId: child.id,
+              parentId: child.parentId,
+              parentDependency: child.parentDependency || 'none',
+              name: child.name,
+              type: child.type || 'positive',
+              description: child.description || '',
+              category: child.category || 'General',
+              dailyTarget: child.dailyTarget || 1,
+              frequencyType: child.frequencyType || 'daily',
+              targetDays: child.targetDays || [1],
+              weeklyTarget: child.weeklyTarget || 1,
+              monthlyDay: child.monthlyDay || '1',
+              monthlyTarget: child.monthlyTarget || 1,
+              colorWholeWeek: child.colorWholeWeek !== false,
+              colorWholeMonth: child.colorWholeMonth !== false,
+              customTarget: child.customTarget || 1,
+              customInterval: child.customInterval || 3,
+              customUnit: child.customUnit || 'days',
+              colorTheme: child.colorTheme || undefined,
+              showStreak: child.showStreak,
+              showCount: child.showCount,
+              showDuration: child.showDuration,
+              hideFromAll: child.hideFromAll,
+              isPaused: child.isPaused,
+              createdAt: child.createdAt || core.getTodayKey(),
+              logs: child.logs || {}
+            }));
+          }
+        }
 
         return self.init().then(function() {
           return core.E2EE.encrypt(payload, passphrase);
