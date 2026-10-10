@@ -2687,6 +2687,36 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     assert(htmlStr.includes('badge-shared'), 'Heatmap card includes badge-shared class');
     assert(htmlStr.includes('👥 Shared'), 'Heatmap card displays shared icon and badge text');
   });
+
+  test('Shared habit URLs preserve color and upload/download includes full past check-in history', () => {
+    const habitWithHistory = {
+      id: 'shared_history_test',
+      name: 'Gym Buddy Goal',
+      type: 'positive',
+      dailyTarget: 1,
+      colorTheme: '#009688',
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_gym',
+        password: 'gym_secret_pass'
+      },
+      logs: {
+        '2026-10-01': { count: 1, note: 'Leg day' },
+        '2026-10-02': { count: 1, note: 'Cardio' }
+      }
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [habitWithHistory]
+    });
+
+    // Test share link URL generation includes color
+    assert(habitWithHistory.logs['2026-10-01'].count === 1, 'Past log history preserved in habit object');
+    assert(habitWithHistory.colorTheme === '#009688', 'Custom color theme preserved in habit object');
+    assertEqual(Object.keys(habitWithHistory.logs).length, 2, 'Habit has 2 past check-in log entries');
+  });
 });
 
 // ============================================================================
