@@ -142,6 +142,9 @@
 
       <!-- Header Actions Dropdown Menu -->
       <div class="header-actions">
+        <button id="btn-header-verify-checkin" class="btn btn-secondary btn-sm verify-checkin-badge hidden" title="Verify pre-logged habits">
+          ✨ Check-In
+        </button>
         <div class="header-menu-dropdown">
           <button id="btn-header-menu" class="btn btn-secondary dropdown-toggle" aria-expanded="false" title="Menu Options">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
@@ -214,7 +217,7 @@
           </div>
         </div>
       </div>
-      <p>Habitual &bull; v1.15.3</p>
+      <p>Habitual &bull; v1.16.0</p>
     </footer>
   </div>
 
@@ -672,6 +675,9 @@
         </div>
 
         <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm hidden" id="btn-clear-future-logs" style="margin-right: auto; color: var(--accent-orange, #f59e0b); border-color: rgba(245, 158, 11, 0.4);">
+            🧹 Clear Future Events
+          </button>
           <button type="button" class="btn btn-ghost" id="btn-cancel-habit">Cancel</button>
           <button type="submit" class="btn btn-primary">Save Habit</button>
         </div>
@@ -779,6 +785,28 @@
       <div class="modal-footer">
         <button type="button" id="btn-cancel-import-shared" class="btn btn-ghost">Cancel</button>
         <button type="button" id="btn-confirm-import-shared" class="btn btn-primary">Join & Add Habit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Verify Pre-Logged Habits Check-In -->
+  <div id="modal-verify-logs" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>✨ Habit Check-In</h3>
+        <button id="modal-verify-close" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-verify-intro" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px; line-height: 1.4;">
+          👋 Welcome back! You pre-logged a few habits in advance. Let's quickly verify if you got a chance to complete them!
+        </p>
+        <div id="modal-verify-logs-list" class="verify-logs-list margin-top-sm">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button type="button" id="btn-verify-later" class="btn btn-ghost btn-sm">Ask Me Later</button>
+        <button type="button" id="btn-verify-all" class="btn btn-primary btn-sm">✅ Confirm All as Done</button>
       </div>
     </div>
   </div>

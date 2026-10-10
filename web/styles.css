@@ -2398,6 +2398,118 @@ select.form-control-sm {
   border-radius: 20px;
 }
 
+/* Unverified Pre-logged Habit Squares & Badges */
+.day-square[data-unverified="true"] {
+  outline: 1.5px dashed var(--accent-orange, #f59e0b) !important;
+  outline-offset: -1px;
+  position: relative;
+  opacity: 0.9;
+}
+
+.day-square[data-unverified="true"]::after {
+  content: "⌛";
+  font-size: 7px;
+  position: absolute;
+  top: -1px;
+  right: 1px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.verify-checkin-badge {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: var(--accent-orange, #f59e0b) !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.verify-checkin-badge:hover {
+  background: rgba(245, 158, 11, 0.25) !important;
+}
+
+/* Verification Modal Check-In List */
+.verify-logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.verify-log-card {
+  background: var(--bg-pill);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.verify-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.verify-habit-badge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.verify-date-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-orange, #f59e0b);
+  font-family: var(--font-mono);
+}
+
+.verify-log-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.verify-log-info {
+  font-size: 0.82rem;
+  color: var(--text-main);
+}
+
+.verify-log-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+.verify-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.unverified-prelog-badge {
+  font-size: 0.78rem;
+  color: var(--accent-orange, #f59e0b);
+  margin-top: 6px;
+  font-weight: 500;
+}
+
 .slider:before {
   position: absolute;
   content: "";

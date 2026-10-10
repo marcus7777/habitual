@@ -398,6 +398,22 @@ window.HabitualCore = window.HabitualCore || {};
     const btnSaveLog = document.getElementById('btn-save-log');
     if (btnSaveLog) btnSaveLog.addEventListener('click', core.handleSaveLog);
 
+    const btnHeaderVerify = document.getElementById('btn-header-verify-checkin');
+    if (btnHeaderVerify) btnHeaderVerify.addEventListener('click', () => core.openVerifyLogsModal());
+
+    const btnVerifyAll = document.getElementById('btn-verify-all');
+    if (btnVerifyAll) btnVerifyAll.addEventListener('click', () => core.verifyAllLogs());
+
+    const btnVerifyLater = document.getElementById('btn-verify-later');
+    const modalVerifyClose = document.getElementById('modal-verify-close');
+    const modalVerifyEl = document.getElementById('modal-verify-logs');
+    const closeVerifyModal = () => {
+      if (modalVerifyEl) modalVerifyEl.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+    };
+    if (btnVerifyLater) btnVerifyLater.addEventListener('click', closeVerifyModal);
+    if (modalVerifyClose) modalVerifyClose.addEventListener('click', closeVerifyModal);
+
     if (core.elements.yearSelector) {
       core.elements.yearSelector.addEventListener('change', (e) => {
         core.state.selectedYear = parseInt(e.target.value, 10);
@@ -1014,22 +1030,35 @@ window.HabitualCore = window.HabitualCore || {};
     const count = parseInt(sq.dataset.count, 10) || 0;
     const isRelapse = sq.dataset.relapse === 'true';
     const isPaused = sq.dataset.paused === 'true';
+    const isUnverified = sq.dataset.unverified === 'true';
     const note = sq.dataset.note;
     const habitsDone = sq.dataset.habitsDone;
     const formattedDate = core.formatPrettyDate(dateStr);
+
+    const todayStr = core.getTodayKey();
+    const isUpcoming = dateStr > todayStr;
 
     let text = '';
     if (isPaused) text = `⏸️ <strong>Paused (Tracking paused)</strong> on ${formattedDate}`;
     else if (isRelapse) text = `<strong>Relapse logged</strong> (${note || 'Slip day'}) on ${formattedDate}`;
     else if (habitId.startsWith('all') || habitId.startsWith('group_')) {
       if (habitsDone) text = `✨ <strong>Completed (${count}):</strong> ${habitsDone} on ${formattedDate}`;
-      else text = `No check-ins on ${formattedDate}`;
+      else text = isUpcoming ? `⏳ <strong>Upcoming</strong> on ${formattedDate}` : `No check-ins on ${formattedDate}`;
     } else {
       const habit = (core.state && core.state.habits) ? core.state.habits.find(h => h.id === habitId) : null;
-      if (habit && habit.type === 'negative') text = count > 0 ? `✨ <strong>Clean Day Success</strong> on ${formattedDate}` : `No data for ${formattedDate}`;
-      else {
+      if (habit && habit.type === 'negative') {
+        if (count > 0) text = `✨ <strong>Clean Day Success</strong> on ${formattedDate}`;
+        else text = isUpcoming ? `⏳ <strong>Upcoming</strong> on ${formattedDate}` : `No data for ${formattedDate}`;
+      } else {
         const dailyTarget = habit ? Math.max(1, habit.dailyTarget || 1) : 1;
-        if (dailyTarget > 1) {
+        if (isUpcoming) {
+          if (count > 0) {
+            const unverifiedTag = isUnverified ? ' (Unverified)' : '';
+            text = `⏳ <strong>Upcoming: ${count}/${dailyTarget} pre-logged${unverifiedTag}</strong> on ${formattedDate}`;
+          } else {
+            text = `⏳ <strong>Upcoming</strong> on ${formattedDate}`;
+          }
+        } else if (dailyTarget > 1) {
           const status = count >= dailyTarget ? ' 🎉 Goal Met!' : '';
           text = `<strong>${count}/${dailyTarget} completed${status}</strong> on ${formattedDate}`;
         } else text = `<strong>${count} completion${count === 1 ? '' : 's'}</strong> on ${formattedDate}`;
@@ -1798,6 +1827,25 @@ window.HabitualCore = window.HabitualCore || {};
     typeRadios.forEach(radio => { radio.onchange = core.updateBackfillWordingUI; });
     core.updateBackfillWordingUI();
     updateParentDependencyUI();
+
+    const btnClearFuture = document.getElementById('btn-clear-future-logs');
+    if (btnClearFuture) {
+      if (habitToEdit && habitToEdit.id) {
+        const todayStr = core.getTodayKey();
+        const futureKeys = (habitToEdit.logs) ? Object.keys(habitToEdit.logs).filter(k => k > todayStr && habitToEdit.logs[k] && habitToEdit.logs[k].count > 0) : [];
+        btnClearFuture.classList.remove('hidden');
+        btnClearFuture.textContent = futureKeys.length > 0 ? `🧹 Clear Future Events (${futureKeys.length})` : '🧹 Clear Future Events';
+        btnClearFuture.onclick = () => {
+          core.clearFutureLogsForHabit(habitToEdit.id);
+          const remainingKeys = (habitToEdit.logs) ? Object.keys(habitToEdit.logs).filter(k => k > todayStr && habitToEdit.logs[k] && habitToEdit.logs[k].count > 0) : [];
+          btnClearFuture.textContent = remainingKeys.length > 0 ? `🧹 Clear Future Events (${remainingKeys.length})` : '🧹 Clear Future Events';
+        };
+      } else {
+        btnClearFuture.classList.add('hidden');
+        btnClearFuture.onclick = null;
+      }
+    }
+
     if (core.elements.modalHabit) {
       core.toggleModalScrollLock(true);
       core.elements.modalHabit.classList.remove('hidden');
@@ -2265,6 +2313,13 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.activeLogDateKey > todayStr) {
         reminderBox.classList.remove('hidden');
         core.updateReminderLinks(habit ? habit.name : 'Habit', core.activeLogDateKey);
+        let badgeEl = reminderBox.querySelector('.unverified-prelog-badge');
+        if (!badgeEl) {
+          badgeEl = document.createElement('div');
+          badgeEl.className = 'unverified-prelog-badge';
+          reminderBox.appendChild(badgeEl);
+        }
+        badgeEl.textContent = `⏳ Upcoming Pre-log: Entry will remain unverified until ${core.formatPrettyDate(core.activeLogDateKey)}.`;
       } else {
         reminderBox.classList.add('hidden');
       }
@@ -2278,14 +2333,33 @@ window.HabitualCore = window.HabitualCore || {};
     if (!habit.logs) habit.logs = {};
     const count = parseInt(core.elements.modalLogCount.value, 10) || 0;
     const note = core.elements.modalLogNote.value.trim();
-    habit.logs[core.activeLogDateKey] = { count, note };
+    const todayStr = core.getTodayKey();
+    const isFuture = core.activeLogDateKey > todayStr;
+
+    const logObj = { count, note };
+    if (isFuture && count > 0) {
+      logObj.unverified = true;
+    }
+    habit.logs[core.activeLogDateKey] = logObj;
+
     core.applyParentDependencyOnLog(habit, core.activeLogDateKey, count);
     if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden');
     if (core.renderAll) core.renderAll();
+
+    if (isFuture && count > 0 && core.showToast) {
+      core.showToast(`⏳ Pre-logged "${habit.name}" for ${core.formatPrettyDate(core.activeLogDateKey)}! We'll double-check with you on that day.`, 'info');
+    }
+
     if (core.saveLog) {
-      core.saveLog(habitId, core.activeLogDateKey, count, note);
+      core.saveLog(habitId, core.activeLogDateKey, count, note, logObj.unverified);
     } else if (core.saveState) {
       core.saveState();
+    }
+
+    if (core.checkPendingVerifications) {
+      core.checkPendingVerifications();
+    }
+  };
     }
   };
 
@@ -2550,6 +2624,205 @@ window.HabitualCore = window.HabitualCore || {};
     } catch (e) {
       console.warn('Error handling share URL hash:', e);
     }
+  };
+
+  // --- PRE-LOGGED FUTURE HABIT VERIFICATION & FUTURE EVENTS CLEARING ENGINE ---
+  core.getUnverifiedLogs = function() {
+    const todayStr = core.getTodayKey();
+    const results = [];
+    if (!core.state || !core.state.habits) return results;
+
+    core.state.habits.forEach(habit => {
+      if (!habit.logs) return;
+      Object.keys(habit.logs).forEach(dateKey => {
+        const log = habit.logs[dateKey];
+        if (dateKey <= todayStr && log && log.count > 0 && log.unverified) {
+          results.push({
+            habit: habit,
+            habitId: habit.id,
+            dateKey: dateKey,
+            log: log
+          });
+        }
+      });
+    });
+
+    results.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    return results;
+  };
+
+  core.updateHeaderVerifyBadge = function() {
+    const btnBadge = document.getElementById('btn-header-verify-checkin');
+    if (!btnBadge) return;
+    const unverifiedList = core.getUnverifiedLogs();
+    if (unverifiedList.length > 0) {
+      btnBadge.classList.remove('hidden');
+      btnBadge.innerHTML = `✨ Check-In (${unverifiedList.length})`;
+    } else {
+      btnBadge.classList.add('hidden');
+    }
+  };
+
+  core.checkPendingVerifications = function() {
+    core.updateHeaderVerifyBadge();
+    const unverifiedList = core.getUnverifiedLogs();
+    if (unverifiedList.length > 0) {
+      const openModal = document.querySelector('.modal-backdrop:not(.hidden)');
+      if (!openModal) {
+        core.openVerifyLogsModal(unverifiedList);
+      }
+    }
+  };
+
+  core.openVerifyLogsModal = function(unverifiedList = null) {
+    const list = unverifiedList || core.getUnverifiedLogs();
+    const modalEl = document.getElementById('modal-verify-logs');
+    const container = document.getElementById('modal-verify-logs-list');
+    if (!modalEl || !container) return;
+
+    if (list.length === 0) {
+      modalEl.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+      return;
+    }
+
+    let html = '';
+    list.forEach(item => {
+      const h = item.habit;
+      const hex = core.getHabitHexColor(h);
+      const prettyDate = core.formatPrettyDate(item.dateKey);
+      const todayStr = core.getTodayKey();
+      const relativeDateStr = (item.dateKey === todayStr) ? 'Today' : prettyDate;
+      const noteHtml = item.log.note ? `<div class="verify-log-note">📝 "${core.escapeHTML(item.log.note)}"</div>` : '';
+
+      html += `
+        <div class="verify-log-card" data-habit-id="${h.id}" data-date-key="${item.dateKey}">
+          <div class="verify-log-header">
+            <span class="verify-habit-badge" style="background: ${hex};">${core.escapeHTML(h.name)}</span>
+            <span class="verify-date-badge">📅 ${core.escapeHTML(relativeDateStr)}</span>
+          </div>
+          <div class="verify-log-body">
+            <div class="verify-log-info">
+              <span>Recorded Count: <strong>${item.log.count}</strong></span>
+              ${noteHtml}
+            </div>
+            <div class="verify-card-actions">
+              <button type="button" class="btn btn-primary btn-sm btn-verify-yes" data-habit-id="${h.id}" data-date-key="${item.dateKey}">
+                ✅ Yes, completed!
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm btn-verify-no" data-habit-id="${h.id}" data-date-key="${item.dateKey}">
+                ❌ Didn't do it
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm btn-verify-edit" data-habit-id="${h.id}" data-date-key="${item.dateKey}">
+                ✏️ Edit
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.btn-verify-yes').forEach(btn => {
+      btn.onclick = () => core.verifyLog(btn.dataset.habitId, btn.dataset.dateKey, true);
+    });
+    container.querySelectorAll('.btn-verify-no').forEach(btn => {
+      btn.onclick = () => core.verifyLog(btn.dataset.habitId, btn.dataset.dateKey, false);
+    });
+    container.querySelectorAll('.btn-verify-edit').forEach(btn => {
+      btn.onclick = () => {
+        modalEl.classList.add('hidden');
+        core.toggleModalScrollLock(false);
+        core.openLogModal(btn.dataset.dateKey, btn.dataset.habitId);
+      };
+    });
+
+    core.toggleModalScrollLock(true);
+    modalEl.classList.remove('hidden');
+  };
+
+  core.verifyLog = function(habitId, dateKey, confirmed) {
+    const habit = core.state.habits.find(h => h.id === habitId);
+    if (!habit || !habit.logs || !habit.logs[dateKey]) return;
+
+    if (confirmed) {
+      delete habit.logs[dateKey].unverified;
+      if (core.showToast) core.showToast(`✨ Verified "${habit.name}" for ${core.formatPrettyDate(dateKey)}!`, 'success');
+    } else {
+      delete habit.logs[dateKey];
+      if (core.showToast) core.showToast(`Cleared pre-logged entry for "${habit.name}".`, 'info');
+    }
+
+    if (core.saveLog) {
+      const count = habit.logs[dateKey] ? habit.logs[dateKey].count : 0;
+      const note = habit.logs[dateKey] ? habit.logs[dateKey].note : '';
+      core.saveLog(habitId, dateKey, count, note, false);
+    } else if (core.saveState) {
+      core.saveState();
+    }
+
+    if (core.renderAll) core.renderAll();
+    core.updateHeaderVerifyBadge();
+
+    const remaining = core.getUnverifiedLogs();
+    if (remaining.length > 0) {
+      core.openVerifyLogsModal(remaining);
+    } else {
+      const modalEl = document.getElementById('modal-verify-logs');
+      if (modalEl) modalEl.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+      if (core.showToast) core.showToast('🎉 All caught up on habit check-ins!', 'success');
+    }
+  };
+
+  core.verifyAllLogs = function() {
+    const list = core.getUnverifiedLogs();
+    if (list.length === 0) return;
+
+    list.forEach(item => {
+      if (item.habit && item.habit.logs && item.habit.logs[item.dateKey]) {
+        delete item.habit.logs[item.dateKey].unverified;
+        if (core.saveLog) {
+          core.saveLog(item.habit.id, item.dateKey, item.habit.logs[item.dateKey].count, item.habit.logs[item.dateKey].note || '', false);
+        }
+      }
+    });
+
+    if (core.saveState) core.saveState();
+    if (core.renderAll) core.renderAll();
+    core.updateHeaderVerifyBadge();
+
+    const modalEl = document.getElementById('modal-verify-logs');
+    if (modalEl) modalEl.classList.add('hidden');
+    core.toggleModalScrollLock(false);
+    if (core.showToast) core.showToast(`🎉 Verified ${list.length} pre-logged habits!`, 'success');
+  };
+
+  core.clearFutureLogsForHabit = function(habitId) {
+    const habit = core.state.habits.find(h => h.id === habitId);
+    if (!habit || !habit.logs) return 0;
+    const todayStr = core.getTodayKey();
+    let clearedCount = 0;
+
+    Object.keys(habit.logs).forEach(dateKey => {
+      if (dateKey > todayStr) {
+        delete habit.logs[dateKey];
+        clearedCount++;
+        if (core.saveLog) {
+          core.saveLog(habitId, dateKey, 0, '');
+        }
+      }
+    });
+
+    if (clearedCount > 0) {
+      if (core.saveState) core.saveState();
+      if (core.renderAll) core.renderAll();
+      if (core.showToast) core.showToast(`🧹 Cleared ${clearedCount} future event(s) for "${habit.name}".`, 'info');
+    } else {
+      if (core.showToast) core.showToast(`No future events found for "${habit.name}".`, 'info');
+    }
+    return clearedCount;
   };
 
 })(window.HabitualCore);
