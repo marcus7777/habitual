@@ -2182,10 +2182,22 @@ window.HabitualCore = window.HabitualCore || {};
     const inputSharePwd = document.getElementById('habit-share-password');
     const chkShareChildren = document.getElementById('habit-share-include-children');
     const enableSharing = chkSharing ? chkSharing.checked : false;
-    const shareCol = inputShareCol ? inputShareCol.value.trim() : '';
-    const sharePwd = inputSharePwd ? inputSharePwd.value.trim() : '';
+    let shareCol = inputShareCol ? inputShareCol.value.trim() : '';
+    let sharePwd = inputSharePwd ? inputSharePwd.value.trim() : '';
     const includeChildren = chkShareChildren ? chkShareChildren.checked : false;
-    const sharingConfig = (enableSharing && shareCol && sharePwd) ? {
+
+    const existingHabitObj = id ? core.state.habits.find(h => h.id === id) : null;
+    if (enableSharing) {
+      if (existingHabitObj && existingHabitObj.sharing) {
+        if (!shareCol && existingHabitObj.sharing.collection) shareCol = existingHabitObj.sharing.collection;
+        if (!sharePwd && existingHabitObj.sharing.password) sharePwd = existingHabitObj.sharing.password;
+      }
+      const targetHabitId = id || (parentId ? parentId + '_' : '') + core.idFromName(name);
+      if (!shareCol) shareCol = 'shared_hb_' + targetHabitId;
+      if (!sharePwd) sharePwd = 'sec_' + targetHabitId;
+    }
+
+    const sharingConfig = enableSharing ? {
       enabled: true,
       collection: shareCol,
       password: sharePwd,
