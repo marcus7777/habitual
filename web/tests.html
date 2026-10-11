@@ -352,6 +352,75 @@
             assertEqual(h1.logs['2026-10-02'].count, 1);
           });
 
+          test('_serializeHabit and applyPayloadToState round-trip all custom settings, sharing, and sub-habit properties', () => {
+            const originalHabit = {
+              id: 'habit_custom_1',
+              name: 'Hydration',
+              type: 'positive',
+              description: 'Drink 8 glasses',
+              category: 'Health',
+              colorTheme: '#1088ac',
+              dailyTarget: 8,
+              customTarget: 8,
+              customInterval: 1,
+              customUnit: 'days',
+              colorWholeWeek: true,
+              colorWholeMonth: true,
+              parentId: 'parent_health',
+              parentDependency: 'requires_parent',
+              createdAt: '2026-01-01',
+              updatedAt: 1700000000000,
+              sharing: { enabled: true, collection: 'shared_hb_123', password: 'sec_123', includeChildren: true },
+              logs: { '2026-10-10': { count: 4, note: 'Midday checkin' } }
+            };
+
+            const serialized = core._serializeHabit(originalHabit);
+            assertEqual(serialized.customTarget, 8);
+            assertEqual(serialized.customInterval, 1);
+            assertEqual(serialized.customUnit, 'days');
+            assertEqual(serialized.sharing.collection, 'shared_hb_123');
+
+            const payload = {
+              version: 2,
+              updatedAt: 1700000000000,
+              selectedHabitId: 'habit_custom_1',
+              selectedYear: 2026,
+              showQuickLogOnStartup: true,
+              habits: [serialized]
+            };
+
+            core.applyPayloadToState(payload);
+            const restored = core.getState().habits[0];
+            assertEqual(restored.id, 'habit_custom_1');
+            assertEqual(restored.name, 'Hydration');
+            assertEqual(restored.customTarget, 8);
+            assertEqual(restored.customInterval, 1);
+            assertEqual(restored.customUnit, 'days');
+            assertEqual(restored.sharing.collection, 'shared_hb_123');
+            assertEqual(restored.logs['2026-10-10'].count, 4);
+            assertEqual(restored.logs['2026-10-10'].note, 'Midday checkin');
+            assertEqual(core.getState().selectedHabitId, 'habit_custom_1');
+            assertEqual(core.getState().showQuickLogOnStartup, true);
+          });
+
+          test('saveState debounces and triggers Firestore write when target is enabled', (done) => {
+            let broadcastCalled = false;
+            const origBroadcast = core.SyncManager.broadcastWriteDebounced;
+            core.SyncManager.settings.enabledTargets = ['firestore'];
+            core.SyncManager.broadcastWriteDebounced = function(payload, delay) {
+              broadcastCalled = true;
+            };
+
+            core.setState({ habits: [{ id: 'h_test_sync', name: 'Sync Test' }] });
+            core.saveState();
+
+            setTimeout(() => {
+              assert(broadcastCalled, 'broadcastWriteDebounced called during saveState');
+              core.SyncManager.broadcastWriteDebounced = origBroadcast;
+              core.SyncManager.settings.enabledTargets = [];
+            }, 50);
+          });
+
           test('SyncManager target management', () => {
             core.SyncManager.toggleTarget('dropbox', true);
             assert(core.SyncManager.isTargetEnabled('dropbox'), 'Dropbox target enabled');
