@@ -2733,7 +2733,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
-    const shareUrl = `${baseUrl}#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&name=${encodeURIComponent(name)}${color ? '&color=' + encodeURIComponent(color) : ''}`;
+    const shareUrl = `${baseUrl}#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}`;
 
     if (qrDisplay && core.generateQRCodeSVG) {
       qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, 180);
@@ -2827,8 +2827,6 @@ window.HabitualCore = window.HabitualCore || {};
       const params = new URLSearchParams(queryStr);
       const col = params.get('col');
       const pwd = params.get('pwd');
-      const name = params.get('name') || 'Shared Habit';
-      const colorParam = params.get('color') || '';
 
       if (!col || !pwd) return;
 
@@ -2847,15 +2845,15 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (!modalImport) return;
 
-      if (nameEl) nameEl.textContent = name;
+      if (nameEl) nameEl.textContent = 'Shared Habit';
       if (colEl) colEl.textContent = col;
       if (logsInfoEl) logsInfoEl.innerHTML = '<span>⏳ Fetching cloud habit history...</span>';
       if (heatmapContainer) heatmapContainer.classList.add('hidden');
       if (heatmapSvgEl) heatmapSvgEl.innerHTML = '';
       if (subhabitsPreviewEl) { subhabitsPreviewEl.innerHTML = ''; subhabitsPreviewEl.classList.add('hidden'); }
 
-      const hexColor = (colorParam && core.parseHexColor && core.parseHexColor(colorParam)) ? core.normalizeHex(colorParam) : core.getDefaultColorForId(col);
-      if (pillEl) pillEl.style.backgroundColor = hexColor;
+      const initialHexColor = core.getDefaultColorForId(col);
+      if (pillEl) pillEl.style.backgroundColor = initialHexColor;
 
       modalImport.classList.remove('hidden');
 
@@ -2868,8 +2866,9 @@ window.HabitualCore = window.HabitualCore || {};
             const logEntries = remoteData.logs ? Object.keys(remoteData.logs).filter(k => (remoteData.logs[k].count > 0 || remoteData.logs[k].note)) : [];
             const logCount = logEntries.length;
             const childCount = (remoteData.children && Array.isArray(remoteData.children)) ? remoteData.children.length : 0;
-            if (nameEl && remoteData.name) nameEl.textContent = remoteData.name;
-            const habitColor = (remoteData.colorTheme && core.normalizeHex) ? core.normalizeHex(remoteData.colorTheme) : hexColor;
+            const habitName = remoteData.name || 'Shared Habit';
+            if (nameEl) nameEl.textContent = habitName;
+            const habitColor = (remoteData.colorTheme && core.normalizeHex) ? core.normalizeHex(remoteData.colorTheme) : initialHexColor;
             if (pillEl) pillEl.style.backgroundColor = habitColor;
 
             if (logsInfoEl) {
@@ -2888,7 +2887,7 @@ window.HabitualCore = window.HabitualCore || {};
 
               const habitPreview = {
                 id: 'preview_shared_' + col,
-                name: remoteData.name || name,
+                name: habitName,
                 type: remoteData.type || 'positive',
                 description: remoteData.description || '',
                 category: remoteData.category || 'General',
@@ -2970,8 +2969,8 @@ window.HabitualCore = window.HabitualCore || {};
       if (btnConfirm) {
         btnConfirm.onclick = function() {
           const payload = fetchedRemotePayload || {};
-          const habitName = payload.name || name;
-          const habitColor = payload.colorTheme || (colorParam ? (core.normalizeHex ? core.normalizeHex(colorParam) : colorParam) : undefined);
+          const habitName = payload.name || 'Shared Habit';
+          const habitColor = payload.colorTheme || core.getDefaultColorForId(col);
           const hasRemoteChildren = Boolean(payload.children && Array.isArray(payload.children) && payload.children.length > 0);
 
           let existing = core.state.habits.find(h => h.sharing && h.sharing.collection === col);
