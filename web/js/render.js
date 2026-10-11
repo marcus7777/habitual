@@ -46,7 +46,9 @@ window.HabitualCore = window.HabitualCore || {};
 
       viewNav.classList.remove('hidden');
 
-      const navAddSub = document.getElementById('btn-nav-add-sub');
+      const navAddSub = (viewNav && viewNav.querySelector)
+        ? (viewNav.querySelector('#btn-nav-add-sub') || document.getElementById('btn-nav-add-sub'))
+        : document.getElementById('btn-nav-add-sub');
       if (navAddSub) {
         navAddSub.addEventListener('click', () => {
           if (core.openHabitModal) core.openHabitModal(null, targetHabit.id);
@@ -183,7 +185,9 @@ window.HabitualCore = window.HabitualCore || {};
           </button>
         </div>
       `;
-      const btnAdd = document.getElementById('btn-add-first-habit');
+      const btnAdd = (core.elements.heatmapsGallery && core.elements.heatmapsGallery.querySelector)
+        ? (core.elements.heatmapsGallery.querySelector('#btn-add-first-habit') || core.elements.heatmapsGallery.querySelector('.btn-add-first-habit') || document.getElementById('btn-add-first-habit'))
+        : document.getElementById('btn-add-first-habit');
       if (btnAdd) {
         btnAdd.addEventListener('click', () => {
           if (core.openHabitModal) core.openHabitModal();
