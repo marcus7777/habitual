@@ -633,11 +633,11 @@ window.HabitualCore = window.HabitualCore || {};
       let tooltipText = '';
       if (isUpcoming) {
         tooltipText = isGoalMet
-          ? `${core.escapeHTML(habit.name)}: Upcoming Goal Pre-logged (${count}/${target}) on ${formattedCursorDate}. Click to open log details.`
+          ? `${core.escapeHTML(habit.name)}: Upcoming Goal Pre-logged (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
           : `${core.escapeHTML(habit.name)}: Upcoming (${count}/${target} pre-logged) on ${formattedCursorDate}. Click to pre-log.`;
       } else {
         tooltipText = isGoalMet
-          ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to open log details.`
+          ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
           : `${core.escapeHTML(habit.name)}: ${count}/${target} completed on ${formattedCursorDate}. Click to log +1.`;
       }
 
