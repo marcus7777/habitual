@@ -403,6 +403,43 @@
             assertEqual(core.getState().showQuickLogOnStartup, true);
           });
 
+          test('Join Shared Habit dialog renders SVG heatmap preview loaded from Firestore', async () => {
+            const origDownload = core.SyncTargets.Firestore.downloadPerHabitBackup;
+            core.SyncTargets.Firestore.downloadPerHabitBackup = function(col, pwd) {
+              return Promise.resolve({
+                habitId: 'remote_shared_1',
+                name: 'Cloud Running Habit',
+                type: 'positive',
+                colorTheme: '#39d353',
+                dailyTarget: 1,
+                logs: { '2026-10-01': { count: 1, note: 'Morning run' }, '2026-10-02': { count: 1 } },
+                children: [
+                  { habitId: 'remote_sub_1', name: 'Stretch 10m', colorTheme: '#1088ac', logs: { '2026-10-01': { count: 1 } } }
+                ]
+              });
+            };
+
+            window.location.hash = '#share?col=shared_test_col&pwd=test_sec_pwd&name=Cloud+Running+Habit';
+            core.checkURLHashForSharedHabit();
+
+            // Wait for promise resolution
+            await new Promise(r => setTimeout(r, 50));
+
+            const heatmapSvgEl = document.getElementById('import-shared-habit-heatmap-svg');
+            const subhabitsPreviewEl = document.getElementById('import-shared-habit-subhabits-preview');
+            const containerEl = document.getElementById('import-shared-habit-heatmap-container');
+
+            assert(containerEl && !containerEl.classList.contains('hidden'), 'Heatmap preview container visible');
+            assert(heatmapSvgEl && heatmapSvgEl.innerHTML.includes('<svg'), 'SVG Heatmap grid rendered');
+            assert(subhabitsPreviewEl && !subhabitsPreviewEl.classList.contains('hidden'), 'Sub-habits preview visible');
+            assert(subhabitsPreviewEl.innerHTML.includes('Stretch 10m'), 'Sub-habit name included in preview');
+
+            core.SyncTargets.Firestore.downloadPerHabitBackup = origDownload;
+            const modal = document.getElementById('modal-import-shared-habit');
+            if (modal) modal.classList.add('hidden');
+            window.location.hash = '';
+          });
+
           test('saveState debounces and triggers Firestore write when target is enabled', (done) => {
             let broadcastCalled = false;
             const origBroadcast = core.SyncManager.broadcastWriteDebounced;

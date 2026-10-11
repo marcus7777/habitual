@@ -2837,6 +2837,10 @@ window.HabitualCore = window.HabitualCore || {};
       const colEl = document.getElementById('import-shared-habit-collection');
       const pillEl = document.getElementById('import-shared-habit-color-pill');
       const logsInfoEl = document.getElementById('import-shared-habit-logs-info');
+      const heatmapContainer = document.getElementById('import-shared-habit-heatmap-container');
+      const heatmapSvgEl = document.getElementById('import-shared-habit-heatmap-svg');
+      const subhabitsPreviewEl = document.getElementById('import-shared-habit-subhabits-preview');
+      const yearBadgeEl = document.getElementById('import-shared-habit-year-badge');
       const btnConfirm = document.getElementById('btn-confirm-import-shared');
       const btnCancel = document.getElementById('btn-cancel-import-shared');
       const btnClose = document.getElementById('modal-import-close');
@@ -2846,6 +2850,9 @@ window.HabitualCore = window.HabitualCore || {};
       if (nameEl) nameEl.textContent = name;
       if (colEl) colEl.textContent = col;
       if (logsInfoEl) logsInfoEl.innerHTML = '<span>⏳ Fetching cloud habit history...</span>';
+      if (heatmapContainer) heatmapContainer.classList.add('hidden');
+      if (heatmapSvgEl) heatmapSvgEl.innerHTML = '';
+      if (subhabitsPreviewEl) { subhabitsPreviewEl.innerHTML = ''; subhabitsPreviewEl.classList.add('hidden'); }
 
       const hexColor = (colorParam && core.parseHexColor && core.parseHexColor(colorParam)) ? core.normalizeHex(colorParam) : core.getDefaultColorForId(col);
       if (pillEl) pillEl.style.backgroundColor = hexColor;
@@ -2862,9 +2869,9 @@ window.HabitualCore = window.HabitualCore || {};
             const logCount = logEntries.length;
             const childCount = (remoteData.children && Array.isArray(remoteData.children)) ? remoteData.children.length : 0;
             if (nameEl && remoteData.name) nameEl.textContent = remoteData.name;
-            if (pillEl && remoteData.colorTheme && core.normalizeHex) {
-              pillEl.style.backgroundColor = core.normalizeHex(remoteData.colorTheme);
-            }
+            const habitColor = (remoteData.colorTheme && core.normalizeHex) ? core.normalizeHex(remoteData.colorTheme) : hexColor;
+            if (pillEl) pillEl.style.backgroundColor = habitColor;
+
             if (logsInfoEl) {
               let infoText = `<span>📅 ${logCount} past check-in log${logCount === 1 ? '' : 's'}`;
               if (childCount > 0) {
@@ -2872,6 +2879,71 @@ window.HabitualCore = window.HabitualCore || {};
               }
               infoText += ` included in cloud history!</span>`;
               logsInfoEl.innerHTML = infoText;
+            }
+
+            // Render Heatmap Preview from loaded Firestore logs
+            if (heatmapSvgEl && core.buildSvgHeatmapGrid) {
+              const previewYear = (core.CURRENT_YEAR) ? core.CURRENT_YEAR : new Date().getFullYear();
+              if (yearBadgeEl) yearBadgeEl.textContent = previewYear;
+
+              const habitPreview = {
+                id: 'preview_shared_' + col,
+                name: remoteData.name || name,
+                type: remoteData.type || 'positive',
+                description: remoteData.description || '',
+                category: remoteData.category || 'General',
+                dailyTarget: remoteData.dailyTarget || 1,
+                frequencyType: remoteData.frequencyType || 'daily',
+                targetDays: remoteData.targetDays || [1, 2, 3, 4, 5, 6, 0],
+                weeklyTarget: remoteData.weeklyTarget || 1,
+                monthlyDay: remoteData.monthlyDay || 1,
+                monthlyTarget: remoteData.monthlyTarget || 1,
+                customTarget: remoteData.customTarget || 1,
+                customInterval: remoteData.customInterval || 3,
+                customUnit: remoteData.customUnit || 'days',
+                colorTheme: habitColor,
+                colorWholeWeek: remoteData.colorWholeWeek !== false,
+                colorWholeMonth: remoteData.colorWholeMonth !== false,
+                logs: remoteData.logs || {}
+              };
+
+              const themeName = habitColor.startsWith('#') ? 'custom' : (habitColor || 'green');
+              const svgGrid = core.buildSvgHeatmapGrid(habitPreview, previewYear, habitPreview.id, themeName, habitPreview);
+              heatmapSvgEl.innerHTML = svgGrid;
+
+              // Render Sub-habits Preview if sub-habits exist in cloud payload
+              if (remoteData.children && Array.isArray(remoteData.children) && remoteData.children.length > 0 && subhabitsPreviewEl) {
+                let subHtml = `<div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">📁 Included Sub-Habits (${remoteData.children.length}):</div><div style="display: flex; flex-direction: column; gap: 8px;">`;
+                remoteData.children.forEach(child => {
+                  const childColor = (child.colorTheme && core.normalizeHex) ? core.normalizeHex(child.colorTheme) : habitColor;
+                  const childLogCount = child.logs ? Object.keys(child.logs).filter(k => (child.logs[k].count > 0 || child.logs[k].note)).length : 0;
+                  const childPreview = {
+                    id: 'preview_sub_' + (child.habitId || child.name),
+                    name: child.name,
+                    type: child.type || 'positive',
+                    colorTheme: childColor,
+                    dailyTarget: child.dailyTarget || 1,
+                    logs: child.logs || {}
+                  };
+                  const childSvg = core.buildSvgHeatmapGrid(childPreview, previewYear, childPreview.id, childColor.startsWith('#') ? 'custom' : 'green', childPreview);
+                  subHtml += `
+                    <div style="background: var(--bg-surface-secondary); padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);">
+                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                          <span style="width: 10px; height: 10px; border-radius: 50%; background: ${childColor}; display: inline-block;"></span>
+                          ${core.escapeHTML(child.name)}
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">${childLogCount} log${childLogCount === 1 ? '' : 's'}</span>
+                      </div>
+                      <div style="min-width: 500px; max-height: 50px; overflow: hidden;">${childSvg}</div>
+                    </div>`;
+                });
+                subHtml += `</div>`;
+                subhabitsPreviewEl.innerHTML = subHtml;
+                subhabitsPreviewEl.classList.remove('hidden');
+              }
+
+              if (heatmapContainer) heatmapContainer.classList.remove('hidden');
             }
           } else if (logsInfoEl) {
             logsInfoEl.innerHTML = `<span>📅 Ready to start tracking new shared activity!</span>`;
