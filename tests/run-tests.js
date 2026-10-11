@@ -1732,7 +1732,7 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
     HabitualCore.elements = originalElements;
   });
 
-  test('Mobile arrow key footer buttons shift cursor date and trigger action', () => {
+  test('setupMobileArrowPad supports optional arrow key handlers when elements exist', () => {
     HabitualCore.resetState();
     const today = HabitualCore.getTodayKey();
     assertEqual(HabitualCore.getCursorDateKey(), today, 'getCursorDateKey starts on today');
@@ -1758,25 +1758,25 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
     // Test Up button (-1 day)
     buttonListeners['btn-arrow-up'](dummyEvent);
     const yesterday = HabitualCore.getDaysAgoKey(1);
-    assertEqual(HabitualCore.getCursorDateKey(), yesterday, 'Mobile Up button moves cursor up 1 day');
+    assertEqual(HabitualCore.getCursorDateKey(), yesterday, 'Up button moves cursor up 1 day');
 
     // Test Down button (+1 day)
     buttonListeners['btn-arrow-down'](dummyEvent);
-    assertEqual(HabitualCore.getCursorDateKey(), today, 'Mobile Down button moves cursor down 1 day');
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Down button moves cursor down 1 day');
 
     // Test Left button (-7 days)
     buttonListeners['btn-arrow-left'](dummyEvent);
     const lastWeek = HabitualCore.getDaysAgoKey(7);
-    assertEqual(HabitualCore.getCursorDateKey(), lastWeek, 'Mobile Left button moves cursor left 1 week');
+    assertEqual(HabitualCore.getCursorDateKey(), lastWeek, 'Left button moves cursor left 1 week');
 
     // Test Right button (+7 days)
     buttonListeners['btn-arrow-right'](dummyEvent);
-    assertEqual(HabitualCore.getCursorDateKey(), today, 'Mobile Right button moves cursor right 1 week');
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Right button moves cursor right 1 week');
 
     // Test Today button
     HabitualCore.setCursorDateKey('2026-01-01');
     buttonListeners['btn-arrow-today'](dummyEvent);
-    assertEqual(HabitualCore.getCursorDateKey(), today, 'Mobile Today button resets cursor to today');
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Today button resets cursor to today');
   });
 });
 
