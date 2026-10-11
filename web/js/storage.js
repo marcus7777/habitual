@@ -1346,12 +1346,12 @@ window.HabitualCore = window.HabitualCore || {};
         const payload = {
           habitId: habit.id,
           name: habit.name,
-          type: habit.type,
+          type: habit.type || 'positive',
           description: habit.description || '',
           category: habit.category || 'General',
           dailyTarget: habit.dailyTarget || 1,
           frequencyType: habit.frequencyType || 'daily',
-          targetDays: habit.targetDays || [1],
+          targetDays: habit.targetDays || [1, 2, 3, 4, 5, 6, 0],
           weeklyTarget: habit.weeklyTarget || 1,
           monthlyDay: habit.monthlyDay || '1',
           monthlyTarget: habit.monthlyTarget || 1,
@@ -1361,7 +1361,13 @@ window.HabitualCore = window.HabitualCore || {};
           customInterval: habit.customInterval || 3,
           customUnit: habit.customUnit || 'days',
           colorTheme: habit.colorTheme || undefined,
+          showStreak: habit.showStreak,
+          showCount: habit.showCount,
+          showDuration: habit.showDuration,
+          hideFromAll: habit.hideFromAll,
+          isPaused: habit.isPaused,
           createdAt: habit.createdAt || core.getTodayKey(),
+          updatedAt: habit.updatedAt || Date.now(),
           logs: habit.logs || {}
         };
 

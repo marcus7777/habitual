@@ -460,6 +460,49 @@
             window.location.hash = '';
           });
 
+          test('shareHabitDirectly instantly stores credentials in local state and uploads habit + subhabits + logs to Firestore', async () => {
+            const parentHabit = {
+              id: 'parent_direct_1',
+              name: 'Direct Fitness',
+              type: 'positive',
+              colorTheme: '#39d353',
+              dailyTarget: 2,
+              logs: { '2026-10-10': { count: 2, note: 'Done gym' } }
+            };
+            const childHabit = {
+              id: 'child_direct_1',
+              parentId: 'parent_direct_1',
+              name: 'Pushups Subhabit',
+              dailyTarget: 20,
+              logs: { '2026-10-10': { count: 20 } }
+            };
+
+            core.state.habits = [parentHabit, childHabit];
+
+            let uploadedPayload = null;
+            const origUpload = core.SyncTargets.Firestore.uploadPerHabitBackup;
+            core.SyncTargets.Firestore.uploadPerHabitBackup = function(h) {
+              const col = h.sharing ? h.sharing.collection : null;
+              const pwd = h.sharing ? h.sharing.password : null;
+              uploadedPayload = { col, pwd, name: h.name };
+              return Promise.resolve({ success: true });
+            };
+
+            core.shareHabitDirectly('parent_direct_1');
+
+            assert(parentHabit.sharing !== undefined, 'Sharing object created on habit');
+            assertEqual(parentHabit.sharing.enabled, true, 'Sharing enabled');
+            assert(parentHabit.sharing.collection.startsWith('shared_hb_'), 'Collection generated and stored in local state');
+            assert(parentHabit.sharing.password.startsWith('sec_'), 'Password generated and stored in local state');
+
+            assert(uploadedPayload !== null, 'uploadPerHabitBackup triggered immediately');
+            assertEqual(uploadedPayload.name, 'Direct Fitness');
+
+            core.SyncTargets.Firestore.uploadPerHabitBackup = origUpload;
+            const modalHabit = document.getElementById('modal-habit');
+            if (modalHabit) modalHabit.classList.add('hidden');
+          });
+
           test('saveState debounces and triggers Firestore write when target is enabled', (done) => {
             let broadcastCalled = false;
             const origBroadcast = core.SyncManager.broadcastWriteDebounced;
