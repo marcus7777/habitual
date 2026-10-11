@@ -1461,6 +1461,21 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
+    core.elements.heatmapsGallery.querySelectorAll('.btn-card-download-svg').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = btn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
+        const parentCard = btn.closest('.heatmap-card');
+        if (parentCard) parentCard.classList.remove('menu-open');
+        const parentWrapper = btn.closest('.heatmap-group-wrapper');
+        if (parentWrapper) parentWrapper.classList.remove('menu-open');
+
+        core.downloadHeatmapSVG(btn.dataset.habitId, core.state.selectedYear);
+        if (core.showToast) core.showToast('SVG Downloaded! 🎨');
+      });
+    });
+
     core.elements.heatmapsGallery.querySelectorAll('.btn-card-pause').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();

@@ -424,6 +424,53 @@ window.HabitualCore = window.HabitualCore || {};
     return svgHTML;
   };
 
+  core.downloadHeatmapSVG = function(habitId, year) {
+    let target = null;
+    let cardHabitId = 'all';
+    let theme = 'green';
+    let safeName = 'all_habits';
+
+    if (habitId && habitId !== 'all' && !habitId.startsWith('group_')) {
+      target = core.state.habits.find(h => h.id === habitId);
+      if (!target) return;
+      cardHabitId = target.id;
+      theme = target.colorTheme || 'green';
+      safeName = target.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    }
+
+    // We reuse the buildSvgHeatmapGrid function
+    let svgString = core.buildSvgHeatmapGrid(target, year, cardHabitId, theme, target);
+
+    // Add XML namespace
+    svgString = svgString.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+
+    // Inject styling so it renders nicely when opened directly in a browser or image viewer
+    const styleBlock = `
+    <style>
+      .heatmap-svg-grid { background-color: #0d1117; padding: 16px; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      rect { stroke-width: 0; }
+      rect[fill="var(--color-square-empty)"] { fill: #161b22; }
+      .cursor-day-stroke { stroke: #58a6ff; stroke-width: 2px; }
+      .today-stroke { stroke: #8b949e; stroke-width: 2px; stroke-dasharray: 4,4; }
+      .note-indicator { fill: #8b949e; }
+      .paused-indicator { stroke: #8b949e; stroke-width: 1px; }
+    </style>
+    `;
+
+    svgString = svgString.replace('>', '>' + styleBlock);
+
+    // Trigger download
+    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `habitual-${safeName}-${year}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   core.buildHeatmapCard = function(targetOrNull, year) {
     const todayStr = core.getTodayKey();
     const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
@@ -627,6 +674,7 @@ window.HabitualCore = window.HabitualCore || {};
               <button type="button" class="card-menu-item btn-card-pause" data-habit-id="${habit.id}">${habit.isPaused ? '▶️ Resume Habit' : '⏸️ Pause Habit'}</button>
               ${habit.sharing && habit.sharing.enabled ? `<button type="button" class="card-menu-item btn-card-stop-sharing text-warning" data-habit-id="${habit.id}">🚫 Stop Sharing</button>` : `<button type="button" class="card-menu-item btn-card-share" data-habit-id="${habit.id}">👥 Share Habit</button>`}
               <a href="https://github.com/marcus7777/habitual#readme" target="_blank" rel="noopener noreferrer" class="card-menu-item" style="text-decoration: none;">📖 Documentation (README)</a>
+              <button type="button" class="card-menu-item btn-card-download-svg" data-habit-id="${habit.id}">📥 Download SVG</button>
               <button type="button" class="card-menu-item btn-card-delete text-danger" data-habit-id="${habit.id}">Delete Habit</button>
             </div>
           </div>
