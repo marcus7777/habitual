@@ -200,7 +200,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.19.4</p>
+      <p>Habitual &bull; v1.20.0</p>
     </footer>
   </div>
 
@@ -754,7 +754,7 @@
 
   <!-- MODAL: Import Shared Habit -->
   <div id="modal-import-shared-habit" class="modal-backdrop hidden">
-    <div class="modal-dialog modal-dialog-sm">
+    <div class="modal-dialog modal-dialog-wide">
       <div class="modal-header">
         <h3>👥 Join Shared Habit</h3>
         <button id="modal-import-close" class="btn-close">&times;</button>
@@ -762,13 +762,12 @@
       <div class="modal-body">
         <p>You have been invited to join and sync a shared habit!</p>
         <div class="highlight-form-box margin-top-sm">
-          <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
-            <span id="import-shared-habit-color-pill" class="color-tab-pill" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block; background-color: var(--accent-green);"></span>
-            <strong id="import-shared-habit-name" style="font-size: 1.1rem; color: var(--text-main);"></strong>
-          </div>
-          <div class="form-group margin-top-sm">
-            <label>Firestore Collection ID</label>
-            <code id="import-shared-habit-collection" class="font-mono text-muted" style="display: block; margin-top: 4px; word-break: break-all;"></code>
+          <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span id="import-shared-habit-color-pill" class="color-tab-pill" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block; background-color: var(--accent-green);"></span>
+              <strong id="import-shared-habit-name" style="font-size: 1.1rem; color: var(--text-main);"></strong>
+            </div>
+            <code id="import-shared-habit-collection" class="font-mono text-muted" style="font-size: 0.8rem; background: var(--bg-surface-secondary); padding: 2px 6px; border-radius: 4px;"></code>
           </div>
           <div class="form-group margin-top-sm" id="import-shared-habit-history-group">
             <small id="import-shared-habit-logs-info" class="muted-text" style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--accent-blue);">
@@ -776,6 +775,19 @@
             </small>
           </div>
         </div>
+
+        <!-- Heatmap Preview Container -->
+        <div id="import-shared-habit-heatmap-container" class="margin-top-sm hidden" style="background: var(--bg-surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+              📊 Cloud Heatmap Log Preview
+            </span>
+            <span id="import-shared-habit-year-badge" class="badge-frequency" style="font-size: 0.75rem;">2026</span>
+          </div>
+          <div id="import-shared-habit-heatmap-svg" style="min-width: 580px;"></div>
+          <div id="import-shared-habit-subhabits-preview" class="margin-top-sm hidden"></div>
+        </div>
+
         <small class="muted-text margin-top-sm" style="display: block;">
           This habit will sync activity in real-time with other participants using end-to-end encryption.
         </small>
