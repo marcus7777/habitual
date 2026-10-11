@@ -3102,6 +3102,30 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
 });
 
 // ============================================================================
+// FEATURE 31: ➕ ADD BUTTON ON THE MAIN PAGE (EMPTY STATE)
+// ============================================================================
+describe('Feature 31: ➕ Add Button on the Main Page (Empty State)', () => {
+  test('Empty state placeholder renders an add habit button when there are no habits', () => {
+    HabitualCore.resetState();
+    const originalElements = HabitualCore.elements;
+
+    // Mock the required DOM elements for renderHeatmapsGallery
+    HabitualCore.elements = {
+      heatmapsGallery: createMockElement('div'),
+      headerMenuContent: createMockElement('div'),
+      btnHeaderMenu: createMockElement('button')
+    };
+
+    HabitualCore.renderHeatmapsGallery();
+
+    const html = HabitualCore.elements.heatmapsGallery.innerHTML;
+    assert(html.includes('Add Habit') || html.includes('Create Habit') || html.includes('New Habit'), 'Main page should render an Add Habit button when empty');
+
+    HabitualCore.elements = originalElements;
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);
