@@ -461,6 +461,9 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit.weeklyTarget && habit.weeklyTarget !== 1) h.weeklyTarget = habit.weeklyTarget;
     if (habit.monthlyDay && habit.monthlyDay !== 1) h.monthlyDay = habit.monthlyDay;
     if (habit.monthlyTarget && habit.monthlyTarget !== 1) h.monthlyTarget = habit.monthlyTarget;
+    if (habit.customTarget && habit.customTarget !== 1) h.customTarget = habit.customTarget;
+    if (habit.customInterval && habit.customInterval !== 3) h.customInterval = habit.customInterval;
+    if (habit.customUnit && habit.customUnit !== 'days') h.customUnit = habit.customUnit;
     if (habit.colorWholeWeek) h.colorWholeWeek = true;
     if (habit.colorWholeMonth) h.colorWholeMonth = true;
     if (habit.parentId) h.parentId = habit.parentId;
@@ -548,13 +551,14 @@ window.HabitualCore = window.HabitualCore || {};
           } else if (entry && typeof entry === 'object') {
             restoredLogs[dateKey] = {
               count: entry.count || 0,
-              note: entry.note || ''
+              note: entry.note || '',
+              unverified: Boolean(entry.unverified)
             };
           }
         });
       }
 
-      return {
+      const habitObj = {
         id: id,
         name: h.name || derivedName,
         type: h.type || 'positive',
@@ -575,6 +579,9 @@ window.HabitualCore = window.HabitualCore || {};
         weeklyTarget: h.weeklyTarget || 1,
         monthlyDay: h.monthlyDay || 1,
         monthlyTarget: h.monthlyTarget || 1,
+        customTarget: h.customTarget || 1,
+        customInterval: h.customInterval || 3,
+        customUnit: h.customUnit || 'days',
         colorWholeWeek: Boolean(h.colorWholeWeek),
         colorWholeMonth: Boolean(h.colorWholeMonth),
         parentId: h.parentId || null,
@@ -587,6 +594,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (h.sharing) habitObj.sharing = h.sharing;
       return habitObj;
     });
+
     core.state.selectedHabitId = parsed.selectedHabitId || 'all';
     core.state.selectedYear = parsed.selectedYear || core.CURRENT_YEAR;
     core.state.showQuickLogOnStartup = parsed.showQuickLogOnStartup || false;
@@ -636,6 +644,9 @@ window.HabitualCore = window.HabitualCore || {};
       }
       if (core.SyncTargets && core.SyncTargets.Firestore && typeof core.SyncTargets.Firestore.syncAllSharedHabits === 'function') {
         core.SyncTargets.Firestore.syncAllSharedHabits();
+      }
+      if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
+        core.SyncManager.broadcastWriteDebounced(payload, 500);
       }
     }).catch(function(err) {
       console.error('Failed to save state to driver:', err);
@@ -1785,6 +1796,16 @@ window.HabitualCore = window.HabitualCore || {};
         if (!core.isSyncPage() && core.SyncManager && core.SyncManager.isTargetEnabled('firestore') && core.SyncManager.settings.passphrase) {
           core.SyncTargets.Firestore.startLiveSync();
         }
+      }
+    });
+  }
+
+  // Online Reconnection Handler: Trigger sync when coming back online
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('online', function() {
+      console.log('⚡ Network connection restored. Syncing pending offline updates with Firestore...');
+      if (!core.isSyncPage() && core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
+        core.SyncManager.postToFirestoreIfReady();
       }
     });
   }
