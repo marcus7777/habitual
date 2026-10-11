@@ -3123,6 +3123,101 @@ describe('Feature 31: ➕ Add Button on the Main Page (Empty State)', () => {
 
     HabitualCore.elements = originalElements;
   });
+
+  test('Empty state Add Habit button opens the habit modal when clicked', () => {
+    HabitualCore.resetState();
+    const originalElements = HabitualCore.elements;
+    const originalGetById = global.document.getElementById;
+
+    let modalOpened = false;
+    const mockModalHabit = createMockElement('div');
+    mockModalHabit.classList.add('hidden');
+    mockModalHabit.classList.remove = (cls) => {
+      if (cls === 'hidden') modalOpened = true;
+    };
+
+    const mockBtnAdd = createMockElement('button');
+    const mockForm = createMockElement('form');
+    mockForm.reset = () => {};
+
+    global.document.getElementById = (id) => {
+      if (id === 'btn-add-first-habit') return mockBtnAdd;
+      if (id === 'modal-habit') return mockModalHabit;
+      if (id === 'form-habit') return mockForm;
+      const el = createMockElement('div');
+      el.selectedOptions = [{ text: '' }];
+      el.reset = () => {};
+      return el;
+    };
+
+    HabitualCore.elements = {
+      heatmapsGallery: createMockElement('div'),
+      headerMenuContent: createMockElement('div'),
+      btnHeaderMenu: createMockElement('button'),
+      modalHabit: mockModalHabit,
+      formHabit: mockForm
+    };
+
+    HabitualCore.renderHeatmapsGallery();
+
+    // Trigger click on the rendered empty state add button
+    const btnToClick = HabitualCore.elements.heatmapsGallery.querySelector('.btn-add-first-habit') || mockBtnAdd;
+    btnToClick.click();
+
+    assertEqual(modalOpened, true, 'Clicking empty state Add Habit button opened habit modal');
+
+    global.document.getElementById = originalGetById;
+    HabitualCore.elements = originalElements;
+  });
+
+  test('Header dropdown New Habit button opens the habit modal when clicked', () => {
+    HabitualCore.resetState();
+    const originalElements = HabitualCore.elements;
+    const originalGetById = global.document.getElementById;
+    const originalWinAddEvt = global.window.addEventListener;
+
+    global.window.addEventListener = global.window.addEventListener || (() => {});
+
+    let modalOpened = false;
+    const mockModalHabit = createMockElement('div');
+    mockModalHabit.classList.add('hidden');
+    mockModalHabit.classList.remove = (cls) => {
+      if (cls === 'hidden') modalOpened = true;
+    };
+
+    const mockMenuAddHabit = createMockElement('button');
+    const mockHeaderMenuContent = createMockElement('div');
+    const mockForm = createMockElement('form');
+    mockForm.reset = () => {};
+
+    global.document.getElementById = (id) => {
+      if (id === 'menu-btn-add-habit') return mockMenuAddHabit;
+      if (id === 'header-menu-content') return mockHeaderMenuContent;
+      if (id === 'modal-habit') return mockModalHabit;
+      if (id === 'form-habit') return mockForm;
+      const el = createMockElement('div');
+      el.selectedOptions = [{ text: '' }];
+      el.reset = () => {};
+      return el;
+    };
+
+    HabitualCore.elements = {
+      headerMenuContent: mockHeaderMenuContent,
+      modalHabit: mockModalHabit,
+      formHabit: mockForm
+    };
+
+    HabitualCore.initUI();
+
+    // Trigger click on the header menu add habit button
+    mockMenuAddHabit.click();
+
+    assertEqual(modalOpened, true, 'Clicking header menu New Habit button opened habit modal');
+
+    global.window.addEventListener = originalWinAddEvt;
+    global.document.getElementById = originalGetById;
+    HabitualCore.elements = originalElements;
+  });
 });
 
 // ============================================================================
