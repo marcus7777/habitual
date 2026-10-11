@@ -2880,8 +2880,9 @@ window.HabitualCore = window.HabitualCore || {};
               logsInfoEl.innerHTML = infoText;
             }
 
-            // Render Heatmap Preview from loaded Firestore logs
-            if (heatmapSvgEl && core.buildSvgHeatmapGrid) {
+            // Render Heatmap Preview Card from loaded Firestore logs
+            const buildCard = core.buildHeatmapCard || core.buildSvgHeatmapGrid;
+            if (heatmapSvgEl && buildCard) {
               const previewYear = (core.CURRENT_YEAR) ? core.CURRENT_YEAR : new Date().getFullYear();
               if (yearBadgeEl) yearBadgeEl.textContent = previewYear;
 
@@ -2906,16 +2907,21 @@ window.HabitualCore = window.HabitualCore || {};
                 logs: remoteData.logs || {}
               };
 
-              const themeName = habitColor.startsWith('#') ? 'custom' : (habitColor || 'green');
-              const svgGrid = core.buildSvgHeatmapGrid(habitPreview, previewYear, habitPreview.id, themeName, habitPreview);
-              heatmapSvgEl.innerHTML = svgGrid;
+              heatmapSvgEl.innerHTML = '';
+              if (core.buildHeatmapCard) {
+                const cardNode = core.buildHeatmapCard(habitPreview, previewYear);
+                heatmapSvgEl.appendChild(cardNode);
+              } else {
+                const themeName = habitColor.startsWith('#') ? 'custom' : (habitColor || 'green');
+                const svgGrid = core.buildSvgHeatmapGrid(habitPreview, previewYear, habitPreview.id, themeName, habitPreview);
+                heatmapSvgEl.innerHTML = svgGrid;
+              }
 
-              // Render Sub-habits Preview if sub-habits exist in cloud payload
+              // Render Sub-habits Preview Cards if sub-habits exist in cloud payload
               if (remoteData.children && Array.isArray(remoteData.children) && remoteData.children.length > 0 && subhabitsPreviewEl) {
-                let subHtml = `<div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">📁 Included Sub-Habits (${remoteData.children.length}):</div><div style="display: flex; flex-direction: column; gap: 8px;">`;
+                subhabitsPreviewEl.innerHTML = `<div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">📁 Included Sub-Habits (${remoteData.children.length}):</div>`;
                 remoteData.children.forEach(child => {
                   const childColor = (child.colorTheme && core.normalizeHex) ? core.normalizeHex(child.colorTheme) : habitColor;
-                  const childLogCount = child.logs ? Object.keys(child.logs).filter(k => (child.logs[k].count > 0 || child.logs[k].note)).length : 0;
                   const childPreview = {
                     id: 'preview_sub_' + (child.habitId || child.name),
                     name: child.name,
@@ -2924,34 +2930,30 @@ window.HabitualCore = window.HabitualCore || {};
                     dailyTarget: child.dailyTarget || 1,
                     logs: child.logs || {}
                   };
-                  const childSvg = core.buildSvgHeatmapGrid(childPreview, previewYear, childPreview.id, childColor.startsWith('#') ? 'custom' : 'green', childPreview);
-                  subHtml += `
-                    <div style="background: var(--bg-surface-secondary); padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);">
-                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
-                          <span style="width: 10px; height: 10px; border-radius: 50%; background: ${childColor}; display: inline-block;"></span>
-                          ${core.escapeHTML(child.name)}
-                        </span>
-                        <span style="font-size: 0.75rem; color: var(--text-muted);">${childLogCount} log${childLogCount === 1 ? '' : 's'}</span>
-                      </div>
-                      <div style="min-width: 500px; max-height: 50px; overflow: hidden;">${childSvg}</div>
-                    </div>`;
+                  if (core.buildHeatmapCard) {
+                    const childCardNode = core.buildHeatmapCard(childPreview, previewYear);
+                    subhabitsPreviewEl.appendChild(childCardNode);
+                  } else {
+                    const childSvg = core.buildSvgHeatmapGrid(childPreview, previewYear, childPreview.id, childColor.startsWith('#') ? 'custom' : 'green', childPreview);
+                    const childWrapper = document.createElement('div');
+                    childWrapper.innerHTML = childSvg;
+                    subhabitsPreviewEl.appendChild(childWrapper);
+                  }
                 });
-                subHtml += `</div>`;
-                subhabitsPreviewEl.innerHTML = subHtml;
                 subhabitsPreviewEl.classList.remove('hidden');
               }
 
               if (heatmapContainer) heatmapContainer.classList.remove('hidden');
             }
           } else if (logsInfoEl) {
-            logsInfoEl.innerHTML = `<span>📅 Ready to start tracking new shared activity!</span>`;
+            logsInfoEl.innerHTML = `<span style="color: #ff5555; font-weight: 600; display: flex; align-items: center; gap: 6px;">❌ Could not load habit from Firestore. Please check the collection ID and password.</span>`;
           }
         }).catch(function(err) {
-          if (logsInfoEl) logsInfoEl.innerHTML = `<span>📅 Ready to sync shared activity!</span>`;
+          const errMsg = err && err.message ? err.message : String(err);
+          if (logsInfoEl) logsInfoEl.innerHTML = `<span style="color: #ff5555; font-weight: 600; display: flex; align-items: center; gap: 6px;">❌ Error loading from Firestore: ${core.escapeHTML(errMsg)}</span>`;
         });
       } else if (logsInfoEl) {
-        logsInfoEl.innerHTML = `<span>📅 Ready to sync shared activity!</span>`;
+        logsInfoEl.innerHTML = `<span style="color: #ff5555; font-weight: 600; display: flex; align-items: center; gap: 6px;">❌ Firestore client not initialized.</span>`;
       }
 
       function closeModal() {
@@ -2968,7 +2970,13 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (btnConfirm) {
         btnConfirm.onclick = function() {
-          const payload = fetchedRemotePayload || {};
+          if (!fetchedRemotePayload) {
+            if (core.showToast) core.showToast('❌ Cannot join habit: Could not load data from Firestore.', 'error');
+            alert('Cannot join habit: Unable to load habit data from Firestore. Please verify the share link and password.');
+            return;
+          }
+
+          const payload = fetchedRemotePayload;
           const habitName = payload.name || 'Shared Habit';
           const habitColor = payload.colorTheme || core.getDefaultColorForId(col);
           const hasRemoteChildren = Boolean(payload.children && Array.isArray(payload.children) && payload.children.length > 0);
