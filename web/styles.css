@@ -73,6 +73,20 @@
 .flex-center { display: flex; align-items: center; justify-content: center; }
 .muted-text { color: var(--text-muted); }
 
+.empty-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  background-color: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  gap: 16px;
+  margin: 20px 0;
+}
+
 body.dark-theme {
   background-color: var(--bg-app);
   color: var(--text-main);

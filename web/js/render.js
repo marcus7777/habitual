@@ -175,9 +175,19 @@ window.HabitualCore = window.HabitualCore || {};
     core.renderViewNavigation(route);
 
     if (core.state.habits.length === 0) {
-      if (core.elements.headerMenuContent && core.elements.btnHeaderMenu) {
-        const isHidden = core.elements.headerMenuContent.classList.toggle('hidden');
-        core.elements.btnHeaderMenu.setAttribute('aria-expanded', !isHidden);
+      core.elements.heatmapsGallery.innerHTML = `
+        <div class="empty-placeholder">
+          <p style="font-size: 1.1rem; color: var(--text-muted); margin-bottom: 12px;">No habits yet! Start tracking your visual progression.</p>
+          <button type="button" class="btn btn-primary btn-add-first-habit" id="btn-add-first-habit">
+            ✨ Add Habit
+          </button>
+        </div>
+      `;
+      const btnAdd = document.getElementById('btn-add-first-habit');
+      if (btnAdd) {
+        btnAdd.addEventListener('click', () => {
+          if (core.openHabitModal) core.openHabitModal();
+        });
       }
       return;
     }
