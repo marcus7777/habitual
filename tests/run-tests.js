@@ -2739,6 +2739,43 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     assert(cardElemUnshared.innerHTML.includes('btn-card-share'), 'Unshared card includes Share Habit menu item');
   });
 
+  test('Habit ID remains immutable when shared or unshared and parent/child names are derivable from ID', () => {
+    const parentId = 'fitness_workout';
+    const childName = 'Pushups';
+    const habitId = `${parentId}_${HabitualCore.idFromName(childName)}`;
+
+    const habit = {
+      id: habitId,
+      name: 'Pushups',
+      parentId: parentId,
+      type: 'positive',
+      dailyTarget: 10,
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_pushups',
+        password: 'pushups_pass'
+      },
+      logs: {}
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [habit]
+    });
+
+    const parsedNames = HabitualCore.getHabitParentAndChildNames(habitId);
+    assertEqual(parsedNames.parentName, 'Workout', 'Parent name derived from habit ID');
+    assertEqual(parsedNames.childName, 'Pushups', 'Child name derived from habit ID');
+
+    // Verify ID remains unchanged after unsharing
+    HabitualCore.stopSharingHabit(habitId);
+    const unsharedHabit = HabitualCore.getState().habits.find(h => h.id === habitId);
+    assert(unsharedHabit, 'Habit exists with unchanged original ID after unsharing');
+    assertEqual(unsharedHabit.id, habitId, 'Habit ID did not change when unsharing');
+    assertEqual(unsharedHabit.sharing.enabled, false, 'Sharing disabled after stopSharingHabit');
+  });
+
   test('Main backup serialization limits shared habit logs to 5-day window while preserving link credentials', () => {
     const today = HabitualCore.getTodayKey();
     const d1 = new Date(); d1.setDate(d1.getDate() - 2);

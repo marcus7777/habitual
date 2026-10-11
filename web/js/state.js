@@ -46,6 +46,23 @@ window.HabitualCore = window.HabitualCore || {};
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
 
+  core.getHabitParentAndChildNames = function(id) {
+    if (!id) return { parentName: null, childName: '' };
+    if (id.includes('_')) {
+      const parts = id.split('_');
+      const parentPart = parts.slice(0, parts.length - 1).join('_');
+      const childPart = parts[parts.length - 1];
+      return {
+        parentName: core.deriveNameFromId(parentPart),
+        childName: core.deriveNameFromId(childPart)
+      };
+    }
+    return {
+      parentName: null,
+      childName: core.deriveNameFromId(id)
+    };
+  };
+
   core.nameFromId = function(id) {
     const habit = (core.state && core.state.habits) ? core.state.habits.find(h => h.id === id) : null;
     if (habit && habit.name) return habit.name;
