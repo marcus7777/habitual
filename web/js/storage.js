@@ -1017,9 +1017,21 @@ window.HabitualCore = window.HabitualCore || {};
         }
       },
 
+      _enableOfflinePersistence: function(db) {
+        if (!db || db._persistenceEnabled) return;
+        if (typeof db.enablePersistence === 'function') {
+          db.enablePersistence({ synchronizeTabs: true }).then(function() {
+            db._persistenceEnabled = true;
+          }).catch(function(err) {
+            // Ignore error if already enabled in another tab or unsupported
+          });
+        }
+      },
+
       init: function() {
         if (this.db) {
           this._setupEmulatorIfRequested(this.db);
+          this._enableOfflinePersistence(this.db);
           return Promise.resolve(this.db);
         }
         const self = this;
@@ -1029,6 +1041,7 @@ window.HabitualCore = window.HabitualCore || {};
           }
           this.db = firebase.firestore();
           this._setupEmulatorIfRequested(this.db);
+          this._enableOfflinePersistence(this.db);
           return Promise.resolve(this.db);
         }
         return core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js')
@@ -1041,6 +1054,7 @@ window.HabitualCore = window.HabitualCore || {};
             }
             core.SyncTargets.Firestore.db = firebase.firestore();
             self._setupEmulatorIfRequested(core.SyncTargets.Firestore.db);
+            self._enableOfflinePersistence(core.SyncTargets.Firestore.db);
             return core.SyncTargets.Firestore.db;
           });
       },
