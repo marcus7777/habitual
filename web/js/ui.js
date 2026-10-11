@@ -1379,16 +1379,7 @@ window.HabitualCore = window.HabitualCore || {};
         e.stopPropagation();
         e.preventDefault();
         const habitId = shareBtn.dataset.habitId || shareBtn.getAttribute('data-habit-id');
-        if (habitId && core.openHabitModal) {
-          core.openHabitModal(habitId);
-          const shareAccordion = document.getElementById('advanced-settings-accordion');
-          if (shareAccordion) shareAccordion.open = true;
-          const chkShare = document.getElementById('habit-enable-sharing');
-          if (chkShare && !chkShare.checked) {
-            chkShare.checked = true;
-            chkShare.dispatchEvent(new Event('change'));
-          }
-        }
+        if (habitId && core.shareHabitDirectly) core.shareHabitDirectly(habitId);
         return;
       }
 
@@ -1706,18 +1697,64 @@ window.HabitualCore = window.HabitualCore || {};
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const habitId = btn.dataset.habitId;
-        if (habitId && core.openHabitModal) {
-          core.openHabitModal(habitId);
-          const shareAccordion = document.getElementById('advanced-settings-accordion');
-          if (shareAccordion) shareAccordion.open = true;
-          const chkShare = document.getElementById('habit-enable-sharing');
-          if (chkShare && !chkShare.checked) {
-            chkShare.checked = true;
-            chkShare.dispatchEvent(new Event('change'));
-          }
-        }
+        if (habitId && core.shareHabitDirectly) core.shareHabitDirectly(habitId);
       });
     });
+  };
+
+  core.shareHabitDirectly = function(habitId) {
+    const habit = core.state.habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    const inputShareCol = document.getElementById('habit-share-collection');
+    const inputSharePwd = document.getElementById('habit-share-password');
+    const chkShareChildren = document.getElementById('habit-share-include-children');
+
+    const colVal = inputShareCol && inputShareCol.value.trim() ? inputShareCol.value.trim() : (habit.sharing ? habit.sharing.collection : '');
+    const pwdVal = inputSharePwd && inputSharePwd.value.trim() ? inputSharePwd.value.trim() : (habit.sharing ? habit.sharing.password : '');
+    const incChildrenVal = chkShareChildren ? chkShareChildren.checked : true;
+
+    if (!habit.sharing) {
+      habit.sharing = {
+        enabled: true,
+        collection: colVal || ('shared_hb_' + habit.id),
+        password: pwdVal || ('sec_' + habit.id + '_' + Date.now().toString(36)),
+        includeChildren: incChildrenVal
+      };
+    } else {
+      habit.sharing.enabled = true;
+      if (colVal) habit.sharing.collection = colVal;
+      else if (!habit.sharing.collection) habit.sharing.collection = 'shared_hb_' + habit.id;
+
+      if (pwdVal) habit.sharing.password = pwdVal;
+      else if (!habit.sharing.password) habit.sharing.password = 'sec_' + habit.id + '_' + Date.now().toString(36);
+
+      habit.sharing.includeChildren = incChildrenVal;
+    }
+
+    // Instantly save state to IndexedDB / LocalStorage so keys & sharing status persist locally
+    if (core.saveState) core.saveState();
+
+    // Upload habit data, settings, logs, names, colors, and all sub-habits immediately to Firestore
+    if (core.SyncTargets && core.SyncTargets.Firestore) {
+      core.SyncTargets.Firestore.startPerHabitLiveSync(habit);
+      core.SyncTargets.Firestore.uploadPerHabitBackup(habit);
+    }
+
+    // Open Habit Modal with Share section expanded so link & QR code can be copied / viewed
+    if (core.openHabitModal) {
+      core.openHabitModal(habit.id);
+      const shareAccordion = document.getElementById('advanced-settings-accordion');
+      if (shareAccordion) shareAccordion.open = true;
+      const chkShare = document.getElementById('habit-enable-sharing');
+      if (chkShare) chkShare.checked = true;
+      const sharePanel = document.getElementById('share-habit-panel');
+      if (sharePanel) sharePanel.classList.remove('hidden');
+      if (core.updateShareLinkAndQR) core.updateShareLinkAndQR();
+    }
+
+    if (core.renderAll) core.renderAll();
+    if (core.showToast) core.showToast(`🔥 Shared "${habit.name}" & uploaded logs and sub-habits to Firestore!`, 'success');
   };
 
   core.stopSharingHabit = function(habitId) {
@@ -2790,10 +2827,31 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (btnCopyShareLink) {
         btnCopyShareLink.addEventListener('click', function() {
+          const habitIdInput = document.getElementById('habit-id');
+          const editingId = habitIdInput ? habitIdInput.value : null;
+          if (editingId) {
+            const habit = core.state.habits.find(h => h.id === editingId);
+            if (habit) {
+              const colVal = inputShareCol ? inputShareCol.value.trim() : (habit.sharing ? habit.sharing.collection : '');
+              const pwdVal = inputSharePwd ? inputSharePwd.value.trim() : (habit.sharing ? habit.sharing.password : '');
+              habit.sharing = {
+                enabled: true,
+                collection: colVal || ('shared_hb_' + habit.id),
+                password: pwdVal || ('sec_' + habit.id + '_' + Date.now().toString(36)),
+                includeChildren: chkShareChildren ? chkShareChildren.checked : true
+              };
+              if (core.saveState) core.saveState();
+              if (core.SyncTargets && core.SyncTargets.Firestore) {
+                core.SyncTargets.Firestore.startPerHabitLiveSync(habit);
+                core.SyncTargets.Firestore.uploadPerHabitBackup(habit);
+              }
+            }
+          }
+
           const link = core.updateShareLinkAndQR();
           if (link && navigator.clipboard) {
             navigator.clipboard.writeText(link).then(function() {
-              if (core.showToast) core.showToast('📋 Share link copied to clipboard!', 'success');
+              if (core.showToast) core.showToast('📋 Share link copied & habit uploaded to Firestore!', 'success');
             }).catch(function() {
               alert('Share link: ' + link);
             });
