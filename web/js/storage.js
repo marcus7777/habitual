@@ -466,12 +466,22 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit.parentId) h.parentId = habit.parentId;
     if (habit.parentDependency && habit.parentDependency !== 'none') h.parentDependency = habit.parentDependency;
     if (habit.createdAt) h.createdAt = habit.createdAt;
+    if (habit.sharing) h.sharing = habit.sharing;
 
     if (habit.logs) {
       const cleanLogs = {};
       let hasLogs = false;
+      let effectiveCutoff = cutoffKey;
+
+      // Issue #15: For shared habits in main backup document, limit logs to recent 5 days link window
+      if (habit.sharing && habit.sharing.enabled && !effectiveCutoff) {
+        const d = new Date();
+        d.setDate(d.getDate() - 5);
+        effectiveCutoff = core.formatDateKey ? core.formatDateKey(d) : null;
+      }
+
       Object.keys(habit.logs).forEach(dateKey => {
-        if (cutoffKey && dateKey < cutoffKey) return;
+        if (effectiveCutoff && dateKey < effectiveCutoff) return;
         const log = habit.logs[dateKey];
         if (!log) return;
         const count = log.count || 0;
@@ -573,6 +583,9 @@ window.HabitualCore = window.HabitualCore || {};
         updatedAt: h.updatedAt || Date.now(),
         logs: restoredLogs
       };
+
+      if (h.sharing) habitObj.sharing = h.sharing;
+      return habitObj;
     });
     core.state.selectedHabitId = parsed.selectedHabitId || 'all';
     core.state.selectedYear = parsed.selectedYear || core.CURRENT_YEAR;

@@ -2705,6 +2705,70 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     assert(htmlStr.includes('👥 Shared'), 'Heatmap card displays shared icon and badge text');
   });
 
+  test('stopSharingHabit disables sharing and converts shared habit to local habit while retaining logs', () => {
+    const today = HabitualCore.getTodayKey();
+    const sharedHabit = {
+      id: 'shared_unshare_test',
+      name: 'Unshare Test Habit',
+      type: 'positive',
+      dailyTarget: 1,
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_unshare',
+        password: 'unshare_pass'
+      },
+      logs: { [today]: { count: 1, note: 'Check-in log' } }
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [sharedHabit]
+    });
+
+    const cardElemShared = HabitualCore.buildHeatmapCard(sharedHabit, 2026);
+    assert(cardElemShared.innerHTML.includes('btn-card-stop-sharing'), 'Shared card includes Stop Sharing menu item');
+
+    HabitualCore.stopSharingHabit('shared_unshare_test');
+
+    const updatedHabit = HabitualCore.getState().habits.find(h => h.id === 'shared_unshare_test');
+    assertEqual(updatedHabit.sharing.enabled, false, 'stopSharingHabit sets sharing.enabled to false');
+    assertEqual(updatedHabit.logs[today].count, 1, 'Habit retains all past check-in logs after unsharing');
+
+    const cardElemUnshared = HabitualCore.buildHeatmapCard(updatedHabit, 2026);
+    assert(cardElemUnshared.innerHTML.includes('btn-card-share'), 'Unshared card includes Share Habit menu item');
+  });
+
+  test('Main backup serialization limits shared habit logs to 5-day window while preserving link credentials', () => {
+    const today = HabitualCore.getTodayKey();
+    const d1 = new Date(); d1.setDate(d1.getDate() - 2);
+    const d2 = new Date(); d2.setDate(d2.getDate() - 10);
+    const recentKey = HabitualCore.formatDateKey(d1);
+    const oldKey = HabitualCore.formatDateKey(d2);
+
+    const sharedHabit = {
+      id: 'shared_backup_test',
+      name: 'Shared Family Habit',
+      type: 'positive',
+      dailyTarget: 1,
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_backup',
+        password: 'backup_pass'
+      },
+      logs: {
+        [recentKey]: { count: 1, note: 'Recent log' },
+        [oldKey]: { count: 1, note: 'Old log' }
+      }
+    };
+
+    const serialized = HabitualCore._serializeHabit(sharedHabit);
+    assert(serialized.sharing && serialized.sharing.enabled, 'Serialized habit preserves sharing link credentials');
+    assertEqual(serialized.sharing.collection, 'shared_hb_backup', 'Serialized habit preserves collection');
+    assert(serialized.logs && serialized.logs[recentKey], 'Serialized shared habit includes recent 5-day logs');
+    assert(!serialized.logs || !serialized.logs[oldKey], 'Serialized shared habit omits logs older than 5-day window from main backup document');
+  });
+
   test('Shared habit URLs preserve color and upload/download includes full past check-in history', () => {
     const habitWithHistory = {
       id: 'shared_history_test',

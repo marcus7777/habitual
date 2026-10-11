@@ -1514,6 +1514,54 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.heatmapsGallery.querySelectorAll('.card-title-link').forEach(el => {
       el.addEventListener('click', (e) => e.stopPropagation());
     });
+
+    core.elements.heatmapsGallery.querySelectorAll('.btn-card-stop-sharing').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const habitId = btn.dataset.habitId;
+        if (habitId && core.stopSharingHabit) core.stopSharingHabit(habitId);
+      });
+    });
+
+    core.elements.heatmapsGallery.querySelectorAll('.btn-card-share').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const habitId = btn.dataset.habitId;
+        if (habitId && core.openHabitModal) {
+          core.openHabitModal(habitId);
+          const shareAccordion = document.getElementById('advanced-settings-accordion');
+          if (shareAccordion) shareAccordion.open = true;
+          const chkShare = document.getElementById('habit-enable-sharing');
+          if (chkShare && !chkShare.checked) {
+            chkShare.checked = true;
+            chkShare.dispatchEvent(new Event('change'));
+          }
+        }
+      });
+    });
+  };
+
+  core.stopSharingHabit = function(habitId) {
+    const habit = core.state.habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    if (habit.sharing) {
+      habit.sharing.enabled = false;
+    }
+    if (core.SyncTargets && core.SyncTargets.Firestore) {
+      core.SyncTargets.Firestore.stopPerHabitLiveSync(habit.id);
+    }
+
+    const chkSharing = document.getElementById('habit-enable-sharing');
+    if (chkSharing) chkSharing.checked = false;
+    const btnStopShare = document.getElementById('btn-stop-sharing-habit');
+    if (btnStopShare) btnStopShare.classList.add('hidden');
+    const sharePanel = document.getElementById('share-habit-panel');
+    if (sharePanel) sharePanel.classList.add('hidden');
+
+    if (core.saveState) core.saveState();
+    if (core.renderAll) core.renderAll();
+    if (core.showToast) core.showToast(`🚫 Stopped sharing "${habit.name}" - now stored locally!`, 'info');
   };
 
   core.getHabitIdFromCardId = function(idStr) {
@@ -1843,6 +1891,20 @@ window.HabitualCore = window.HabitualCore || {};
         chkShareChildren.checked = sharingData ? (sharingData.includeChildren !== false) : true;
       } else {
         chkShareChildren.checked = false;
+      }
+    }
+
+    const btnStopShare = document.getElementById('btn-stop-sharing-habit');
+    if (btnStopShare) {
+      if (sharingData) {
+        btnStopShare.classList.remove('hidden');
+        btnStopShare.onclick = () => {
+          if (habitToEdit) core.stopSharingHabit(habitToEdit.id);
+          if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden');
+          core.toggleModalScrollLock(false);
+        };
+      } else {
+        btnStopShare.classList.add('hidden');
       }
     }
 
