@@ -503,6 +503,41 @@
             if (modalHabit) modalHabit.classList.add('hidden');
           });
 
+          test('ensureCurrentModalHabitSharedAndUploaded uploads habit data and auto-generated collection ID to Firestore when toggled in edit dialog', async () => {
+            const editHabit = {
+              id: 'edit_dialog_h1',
+              name: 'Dialog Share Test',
+              type: 'positive',
+              colorTheme: '#1088ac',
+              dailyTarget: 1,
+              logs: { '2026-10-10': { count: 1 } }
+            };
+            core.state.habits = [editHabit];
+
+            let uploadedPayload = null;
+            const origUpload = core.SyncTargets.Firestore.uploadPerHabitBackup;
+            core.SyncTargets.Firestore.uploadPerHabitBackup = function(h) {
+              uploadedPayload = { col: h.sharing ? h.sharing.collection : null, name: h.name };
+              return Promise.resolve({ success: true });
+            };
+
+            const inputId = document.getElementById('habit-id');
+            const inputCol = document.getElementById('habit-share-collection');
+            const inputPwd = document.getElementById('habit-share-password');
+            if (inputId) inputId.value = 'edit_dialog_h1';
+            if (inputCol) inputCol.value = '';
+            if (inputPwd) inputPwd.value = '';
+
+            core.ensureCurrentModalHabitSharedAndUploaded();
+
+            assert(editHabit.sharing !== undefined, 'Sharing attached to editHabit');
+            assert(editHabit.sharing.collection.startsWith('shared_hb_'), 'Generated collection ID saved on habit');
+            assert(uploadedPayload !== null, 'Uploaded to Firestore instantly on share trigger in dialog');
+            assertEqual(uploadedPayload.name, 'Dialog Share Test');
+
+            core.SyncTargets.Firestore.uploadPerHabitBackup = origUpload;
+          });
+
           test('saveState debounces and triggers Firestore write when target is enabled', (done) => {
             let broadcastCalled = false;
             const origBroadcast = core.SyncManager.broadcastWriteDebounced;

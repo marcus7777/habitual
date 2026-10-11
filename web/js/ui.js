@@ -2791,18 +2791,107 @@ window.HabitualCore = window.HabitualCore || {};
       const btnCopyShareLink = document.getElementById('btn-copy-share-link');
       const btnRegenShareCreds = document.getElementById('btn-regen-share-creds');
 
+  core.ensureCurrentModalHabitSharedAndUploaded = function() {
+    const habitIdInput = document.getElementById('habit-id');
+    const inputShareCol = document.getElementById('habit-share-collection');
+    const inputSharePwd = document.getElementById('habit-share-password');
+    const chkShareChildren = document.getElementById('habit-share-include-children');
+    const chkSharing = document.getElementById('habit-enable-sharing');
+
+    const editingId = habitIdInput ? habitIdInput.value.trim() : null;
+    let habit = editingId ? core.state.habits.find(h => h.id === editingId) : null;
+
+    if (inputShareCol && !inputShareCol.value.trim()) {
+      const idPart = editingId || core.generateRandomKey('hb_', 8);
+      inputShareCol.value = 'shared_hb_' + idPart;
+    }
+    if (inputSharePwd && !inputSharePwd.value.trim()) {
+      inputSharePwd.value = core.generateRandomKey('sec_', 12);
+    }
+
+    const shareCol = inputShareCol ? inputShareCol.value.trim() : '';
+    const sharePwd = inputSharePwd ? inputSharePwd.value.trim() : '';
+    const includeChildren = chkShareChildren ? chkShareChildren.checked : true;
+
+    if (!shareCol || !sharePwd) return;
+
+    if (habit) {
+      habit.sharing = {
+        enabled: true,
+        collection: shareCol,
+        password: sharePwd,
+        includeChildren: includeChildren
+      };
+
+      if (core.saveState) core.saveState();
+
+      if (core.SyncTargets && core.SyncTargets.Firestore) {
+        core.SyncTargets.Firestore.startPerHabitLiveSync(habit);
+        core.SyncTargets.Firestore.uploadPerHabitBackup(habit);
+      }
+    } else {
+      const nameInput = document.getElementById('habit-name');
+      const habitName = nameInput ? nameInput.value.trim() : 'New Shared Habit';
+      if (habitName) {
+        const draftId = editingId || ('habit_' + Date.now().toString(36));
+        if (habitIdInput) habitIdInput.value = draftId;
+
+        const draftHabit = {
+          id: draftId,
+          name: habitName,
+          type: 'positive',
+          colorTheme: core.getDefaultColorForId(draftId),
+          dailyTarget: 1,
+          createdAt: core.getTodayKey(),
+          logs: {},
+          sharing: {
+            enabled: true,
+            collection: shareCol,
+            password: sharePwd,
+            includeChildren: includeChildren
+          }
+        };
+
+        const existingIdx = core.state.habits.findIndex(h => h.id === draftId);
+        if (existingIdx !== -1) {
+          core.state.habits[existingIdx].sharing = draftHabit.sharing;
+          habit = core.state.habits[existingIdx];
+        } else {
+          core.state.habits.push(draftHabit);
+          habit = draftHabit;
+        }
+
+        if (core.saveState) core.saveState();
+        if (core.SyncTargets && core.SyncTargets.Firestore) {
+          core.SyncTargets.Firestore.startPerHabitLiveSync(habit);
+          core.SyncTargets.Firestore.uploadPerHabitBackup(habit);
+        }
+      }
+    }
+
+    if (chkSharing) chkSharing.checked = true;
+    core.updateShareLinkAndQR();
+    if (core.showToast) core.showToast(`🔥 Habit uploaded to Firestore (Collection: ${shareCol})!`, 'success');
+  };
+
+  // Wire up event listeners for Share Habit controls
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('DOMContentLoaded', function() {
+      const chkSharing = document.getElementById('habit-enable-sharing');
+      const inputShareCol = document.getElementById('habit-share-collection');
+      const inputSharePwd = document.getElementById('habit-share-password');
+      const inputHabitName = document.getElementById('habit-name');
+      const sharePanel = document.getElementById('share-habit-panel');
+      const btnToggleShare = document.getElementById('btn-toggle-share-habit-panel');
+      const btnCopyShareLink = document.getElementById('btn-copy-share-link');
+      const btnRegenShareCreds = document.getElementById('btn-regen-share-creds');
+
       if (chkSharing) {
         chkSharing.addEventListener('change', function() {
           if (chkSharing.checked) {
             if (sharePanel) sharePanel.classList.remove('hidden');
             if (btnToggleShare) btnToggleShare.classList.remove('hidden');
-            if (inputShareCol && !inputShareCol.value.trim()) {
-              inputShareCol.value = core.generateRandomKey('shared_hb_', 8);
-            }
-            if (inputSharePwd && !inputSharePwd.value.trim()) {
-              inputSharePwd.value = core.generateRandomKey('sec_', 12);
-            }
-            core.updateShareLinkAndQR();
+            core.ensureCurrentModalHabitSharedAndUploaded();
           } else {
             if (sharePanel) sharePanel.classList.add('hidden');
             if (btnToggleShare) btnToggleShare.classList.add('hidden');
@@ -2813,6 +2902,9 @@ window.HabitualCore = window.HabitualCore || {};
       if (btnToggleShare) {
         btnToggleShare.addEventListener('click', function() {
           if (sharePanel) sharePanel.classList.toggle('hidden');
+          if (!sharePanel.classList.contains('hidden')) {
+            core.ensureCurrentModalHabitSharedAndUploaded();
+          }
         });
       }
 
@@ -2820,34 +2912,13 @@ window.HabitualCore = window.HabitualCore || {};
         btnRegenShareCreds.addEventListener('click', function() {
           if (inputShareCol) inputShareCol.value = core.generateRandomKey('shared_hb_', 8);
           if (inputSharePwd) inputSharePwd.value = core.generateRandomKey('sec_', 12);
-          core.updateShareLinkAndQR();
-          if (core.showToast) core.showToast('🔄 Shared keys regenerated!', 'info');
+          core.ensureCurrentModalHabitSharedAndUploaded();
         });
       }
 
       if (btnCopyShareLink) {
         btnCopyShareLink.addEventListener('click', function() {
-          const habitIdInput = document.getElementById('habit-id');
-          const editingId = habitIdInput ? habitIdInput.value : null;
-          if (editingId) {
-            const habit = core.state.habits.find(h => h.id === editingId);
-            if (habit) {
-              const colVal = inputShareCol ? inputShareCol.value.trim() : (habit.sharing ? habit.sharing.collection : '');
-              const pwdVal = inputSharePwd ? inputSharePwd.value.trim() : (habit.sharing ? habit.sharing.password : '');
-              habit.sharing = {
-                enabled: true,
-                collection: colVal || ('shared_hb_' + habit.id),
-                password: pwdVal || ('sec_' + habit.id + '_' + Date.now().toString(36)),
-                includeChildren: chkShareChildren ? chkShareChildren.checked : true
-              };
-              if (core.saveState) core.saveState();
-              if (core.SyncTargets && core.SyncTargets.Firestore) {
-                core.SyncTargets.Firestore.startPerHabitLiveSync(habit);
-                core.SyncTargets.Firestore.uploadPerHabitBackup(habit);
-              }
-            }
-          }
-
+          core.ensureCurrentModalHabitSharedAndUploaded();
           const link = core.updateShareLinkAndQR();
           if (link && navigator.clipboard) {
             navigator.clipboard.writeText(link).then(function() {
@@ -2861,9 +2932,17 @@ window.HabitualCore = window.HabitualCore || {};
         });
       }
 
-      [inputShareCol, inputSharePwd, inputHabitName].forEach(el => {
-        if (el) el.addEventListener('input', () => core.updateShareLinkAndQR());
+      [inputShareCol, inputSharePwd].forEach(el => {
+        if (el) el.addEventListener('change', () => {
+          core.ensureCurrentModalHabitSharedAndUploaded();
+        });
+        if (el) el.addEventListener('input', () => {
+          core.updateShareLinkAndQR();
+        });
       });
+      if (inputHabitName) {
+        inputHabitName.addEventListener('input', () => core.updateShareLinkAndQR());
+      }
 
       // Check URL Hash for shared habit invitation on load
       core.checkURLHashForSharedHabit();
