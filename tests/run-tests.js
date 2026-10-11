@@ -28,16 +28,38 @@ function createMockElement(tagName) {
   const eventListeners = {};
   let innerHTMLVal = '';
   const elem = {
-    tagName: tagName.toUpperCase(),
+    tagName: tagName ? tagName.toUpperCase() : 'DIV',
     value: '',
     style: {},
+    parentElement: null,
+    get dataset() {
+      const ds = {};
+      for (const k in attributes) {
+        if (k.startsWith('data-')) {
+          const camelKey = k.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+          ds[camelKey] = attributes[k];
+        }
+      }
+      return ds;
+    },
     addEventListener: (event, fn) => {
       if (!eventListeners[event]) eventListeners[event] = [];
       eventListeners[event].push(fn);
     },
     click: function() {
-      if (eventListeners['click']) {
-        eventListeners['click'].forEach(fn => fn({ target: elem }));
+      let stopped = false;
+      const eventObj = {
+        target: elem,
+        preventDefault: () => {},
+        stopPropagation: () => { stopped = true; }
+      };
+      let curr = elem;
+      while (curr) {
+        if (curr._eventListeners && curr._eventListeners['click']) {
+          curr._eventListeners['click'].forEach(fn => fn(eventObj));
+          if (stopped) break;
+        }
+        curr = curr.parentElement;
       }
     },
     get className() { return Array.from(classListSet).join(' '); },
@@ -47,14 +69,27 @@ function createMockElement(tagName) {
     get innerHTML() { return innerHTMLVal; },
     set innerHTML(val) {
       innerHTMLVal = val;
+      const dataAttrMatches = val.match(/data-([a-z0-9-]+)="([^"]*)"/g) || [];
+      dataAttrMatches.forEach(m => {
+        const parts = m.split('=');
+        const k = parts[0];
+        const v = parts[1].replace(/"/g, '');
+        attributes[k] = v;
+      });
       const classMatches = val.match(/class="([^"]+)"/g) || [];
       classMatches.forEach(m => {
         const classes = m.replace('class="', '').replace('"', '').split(' ');
         const mockChild = createMockElement('div');
+        mockChild.parentElement = elem;
         classes.forEach(c => mockChild.classList.add(c));
         if (mockChild.classList.contains('btn-card-quick-log')) {
           const btnMatch = val.match(/<button[^>]*btn-card-quick-log[^>]*>([\s\S]*?)<\/button>/);
           if (btnMatch) mockChild.textContent = btnMatch[1].trim();
+          const bAttrMatches = val.match(/data-([a-z0-9-]+)="([^"]*)"/g) || [];
+          bAttrMatches.forEach(bm => {
+            const bp = bm.split('=');
+            mockChild.setAttribute(bp[0], bp[1].replace(/"/g, ''));
+          });
         }
         children.push(mockChild);
       });
@@ -74,7 +109,21 @@ function createMockElement(tagName) {
     },
     setAttribute: (k, v) => { attributes[k] = String(v); },
     getAttribute: (k) => attributes[k] || null,
-    appendChild: (child) => { children.push(child); return child; },
+    appendChild: (child) => { child.parentElement = elem; children.push(child); return child; },
+    closest: function(sel) {
+      let curr = elem;
+      while (curr) {
+        if (sel.startsWith('.')) {
+          const cls = sel.slice(1);
+          if (curr.classList && curr.classList.contains(cls)) return curr;
+        } else if (sel.startsWith('#')) {
+          const id = sel.slice(1);
+          if (curr.getAttribute && curr.getAttribute('id') === id) return curr;
+        }
+        curr = curr.parentElement;
+      }
+      return null;
+    },
     querySelector: function(sel) {
       if (sel.startsWith('.')) {
         const cls = sel.slice(1);
@@ -85,11 +134,22 @@ function createMockElement(tagName) {
             if (found) return found;
           }
         }
+      } else if (sel.startsWith('#')) {
+        const id = sel.slice(1);
+        if (attributes['id'] === id) return elem;
+        for (const child of children) {
+          if (child.getAttribute && child.getAttribute('id') === id) return child;
+          if (child.querySelector) {
+            const found = child.querySelector(sel);
+            if (found) return found;
+          }
+        }
       }
       return null;
     },
     querySelectorAll: () => []
   };
+  elem._eventListeners = eventListeners;
   return elem;
 }
 
@@ -1232,6 +1292,67 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
 
     HabitualCore.toggleHabitForDate('pushups', todayKey);
     assertEqual(habit.logs[todayKey].count, 2, 'Increments count to 2, reaching daily target');
+  });
+
+  test('Delegated click on btn-card-quick-log increments progress when goal is not met', () => {
+    HabitualCore.resetState();
+    const todayKey = HabitualCore.getTodayKey();
+    const habit = { id: 'stretching', name: 'Stretching', type: 'positive', dailyTarget: 2, logs: {} };
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
+
+    const originalElements = HabitualCore.elements;
+    const galleryMock = createMockElement('div');
+    HabitualCore.elements = {
+      heatmapsGallery: galleryMock,
+      yearSelector: createMockElement('select')
+    };
+
+    // Attach heatmap square and gallery events
+    HabitualCore.attachHeatmapSquareEvents();
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    galleryMock.appendChild(card);
+
+    const quickLogBtn = card.querySelector('.btn-card-quick-log');
+    assert(quickLogBtn !== null, 'Quick log button rendered on card');
+
+    // Trigger delegated click on quick log button
+    quickLogBtn.click();
+
+    assertEqual(habit.logs[todayKey]?.count, 1, 'Clicking btn-card-quick-log incremented progress count to 1');
+
+    HabitualCore.elements = originalElements;
+  });
+
+  test('Delegated click on btn-card-quick-log adds to log even when goal is already met', () => {
+    HabitualCore.resetState();
+    const todayKey = HabitualCore.getTodayKey();
+    const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 1, logs: { [todayKey]: { count: 1 } } };
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
+
+    const originalElements = HabitualCore.elements;
+    const galleryMock = createMockElement('div');
+    HabitualCore.elements = {
+      heatmapsGallery: galleryMock,
+      yearSelector: createMockElement('select')
+    };
+
+    // Attach heatmap square and gallery events
+    HabitualCore.attachHeatmapSquareEvents();
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    galleryMock.appendChild(card);
+
+    const quickLogBtn = card.querySelector('.btn-card-quick-log');
+    assert(quickLogBtn !== null, 'Quick log button rendered on card');
+    assert(quickLogBtn.classList.contains('goal-met'), 'Quick log button has goal-met class');
+
+    // Trigger delegated click on quick log button when goal is already met
+    quickLogBtn.click();
+
+    assertEqual(habit.logs[todayKey]?.count, 2, 'Clicking btn-card-quick-log when goal is met increments log count to 2');
+
+    HabitualCore.elements = originalElements;
   });
 });
 

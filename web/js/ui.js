@@ -938,7 +938,10 @@ window.HabitualCore = window.HabitualCore || {};
         e.preventDefault();
         if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
       } else if (key === 'Enter') {
-        const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) || core.hoveredCard;
+        const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) ||
+                            core.hoveredCard ||
+                            (document.querySelector && document.querySelector('.day-square.cursor-day')?.closest('.heatmap-card')) ||
+                            (document.querySelector && document.querySelector('.heatmap-card'));
         if (hoveredCard) {
           const quickLogBtn = hoveredCard.querySelector('.btn-card-quick-log');
           if (quickLogBtn) {
@@ -1250,7 +1253,155 @@ window.HabitualCore = window.HabitualCore || {};
       const card = e.target.closest('.heatmap-card');
       if (!card) return; // Only process clicks inside cards
 
-      if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions') || e.target.closest('.card-context-menu-dropdown') || e.target.closest('.btn-card-menu-toggle') || e.target.closest('.card-title-link') || e.target.closest('.btn-card-quick-log')) return;
+      // 1. Handle Quick Log Button clicks via Delegation
+      const quickLogBtn = e.target.closest('.btn-card-quick-log');
+      if (quickLogBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const habitId = quickLogBtn.dataset.habitId || quickLogBtn.getAttribute('data-habit-id');
+
+        if (!habitId) return;
+
+        const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
+
+        core.toggleHabitForDate(habitId, targetDate);
+        return;
+      }
+
+      // 2. Handle Context Menu Toggle Button clicks via Delegation
+      const menuToggleBtn = e.target.closest('.btn-card-menu-toggle');
+      if (menuToggleBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const dropdown = menuToggleBtn.closest('.card-context-menu-dropdown');
+        if (dropdown) {
+          const menu = dropdown.querySelector('.card-menu-content');
+          if (menu) {
+            const isHidden = menu.classList.contains('hidden');
+            gallery.querySelectorAll('.card-menu-content').forEach(m => m.classList.add('hidden'));
+            gallery.querySelectorAll('.heatmap-card.menu-open').forEach(c => c.classList.remove('menu-open'));
+            if (isHidden) {
+              menu.classList.remove('hidden');
+              card.classList.add('menu-open');
+            }
+          }
+        }
+        return;
+      }
+
+      // 3. Handle Card Context Menu Action Buttons via Delegation
+      const addSubBtn = e.target.closest('.btn-card-add-sub');
+      if (addSubBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const menu = addSubBtn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
+        card.classList.remove('menu-open');
+        const habitId = addSubBtn.dataset.habitId || addSubBtn.getAttribute('data-habit-id');
+        if (core.openHabitModal) core.openHabitModal(null, habitId);
+        return;
+      }
+
+      const editBtn = e.target.closest('.btn-card-edit');
+      if (editBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const menu = editBtn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
+        card.classList.remove('menu-open');
+        const habitId = editBtn.dataset.habitId || editBtn.getAttribute('data-habit-id');
+        const habit = core.state.habits.find(h => h.id === habitId);
+        if (habit && core.openHabitModal) core.openHabitModal(habit);
+        return;
+      }
+
+      const downloadSvgBtn = e.target.closest('.btn-card-download-svg');
+      if (downloadSvgBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const menu = downloadSvgBtn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
+        card.classList.remove('menu-open');
+        const habitId = downloadSvgBtn.dataset.habitId || downloadSvgBtn.getAttribute('data-habit-id');
+        if (habitId && core.downloadHeatmapSVG) {
+          core.downloadHeatmapSVG(habitId, core.state.selectedYear);
+          if (core.showToast) core.showToast('SVG Downloaded! 🎨');
+        }
+        return;
+      }
+
+      const pauseBtn = e.target.closest('.btn-card-pause');
+      if (pauseBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const menu = pauseBtn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
+        card.classList.remove('menu-open');
+        const habitId = pauseBtn.dataset.habitId || pauseBtn.getAttribute('data-habit-id');
+        const habit = core.state.habits.find(h => h.id === habitId);
+        if (habit) {
+          if (!habit.isPaused) {
+            if (core.openPauseModal) core.openPauseModal(habit);
+          } else {
+            if (core.setHabitPauseState) core.setHabitPauseState(habit, false);
+            if (core.renderAll) core.renderAll();
+            if (core.saveHabit) core.saveHabit(habit);
+            else if (core.saveState) core.saveState();
+            if (core.showToast) core.showToast(`Resumed "${habit.name}"`);
+          }
+        }
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.btn-card-delete');
+      if (deleteBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const menu = deleteBtn.closest('.card-menu-content');
+        if (menu) menu.classList.add('hidden');
+        card.classList.remove('menu-open');
+        const habitId = deleteBtn.dataset.habitId || deleteBtn.getAttribute('data-habit-id');
+        if (habitId && core.deleteHabit) core.deleteHabit(habitId);
+        return;
+      }
+
+      const concertinaBtn = e.target.closest('.btn-toggle-concertina, .btn-put-away');
+      if (concertinaBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const habitId = concertinaBtn.dataset.habitId || concertinaBtn.dataset.parentId || concertinaBtn.getAttribute('data-habit-id') || concertinaBtn.getAttribute('data-parent-id');
+        if (habitId && core.toggleConcertina) core.toggleConcertina(habitId);
+        return;
+      }
+
+      const shareBtn = e.target.closest('.btn-card-share');
+      if (shareBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const habitId = shareBtn.dataset.habitId || shareBtn.getAttribute('data-habit-id');
+        if (habitId && core.openHabitModal) {
+          core.openHabitModal(habitId);
+          const shareAccordion = document.getElementById('advanced-settings-accordion');
+          if (shareAccordion) shareAccordion.open = true;
+          const chkShare = document.getElementById('habit-enable-sharing');
+          if (chkShare && !chkShare.checked) {
+            chkShare.checked = true;
+            chkShare.dispatchEvent(new Event('change'));
+          }
+        }
+        return;
+      }
+
+      const stopShareBtn = e.target.closest('.btn-card-stop-sharing');
+      if (stopShareBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const habitId = stopShareBtn.dataset.habitId || stopShareBtn.getAttribute('data-habit-id');
+        if (habitId && core.stopSharingHabit) core.stopSharingHabit(habitId);
+        return;
+      }
+
+      if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions') || e.target.closest('.card-context-menu-dropdown') || e.target.closest('.card-title-link')) return;
 
       const sq = e.target.closest('.day-square[data-date], rect[data-date]');
       if (sq && sq._isLongPressTriggered) { sq._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
@@ -1530,17 +1681,12 @@ window.HabitualCore = window.HabitualCore || {};
         e.stopPropagation();
         e.preventDefault();
         const habitId = btn.dataset.habitId;
-        const isGoalMet = btn.dataset.goalMet === 'true';
 
         if (!habitId) return;
 
         const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
 
-        if (isGoalMet) {
-          core.openLogModal(targetDate, habitId);
-        } else {
-          core.toggleHabitForDate(habitId, targetDate);
-        }
+        core.toggleHabitForDate(habitId, targetDate);
       });
     });
 
