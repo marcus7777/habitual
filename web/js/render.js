@@ -279,6 +279,151 @@ window.HabitualCore = window.HabitualCore || {};
     return true;
   };
 
+  core.config = core.config || {};
+  core.config.renderEngine = 'html'; // default to html
+  core.svgCache = {};
+
+  core.buildSvgHeatmapGrid = function(targetOrNull, year, cardHabitId, theme, habit) {
+    const todayStr = core.getTodayKey();
+    const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
+    const isAll = targetOrNull === null;
+    const isGroup = targetOrNull && targetOrNull.isGroup;
+
+    // Check Cache
+    // We invalidate based on the global state hash and the cursor date
+    const cacheKey = `${cardHabitId}_${year}_${core._lastStateHash || ''}_${cursorDateStr}`;
+    if (core.svgCache[cacheKey]) {
+      return core.svgCache[cacheKey];
+    }
+
+    const startDate = new Date(year, 0, 1);
+    const gridStart = new Date(startDate);
+    gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+    const endDate = new Date(year, 11, 31);
+    const gridEnd = new Date(endDate);
+    gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+
+    const weekColumns = [];
+    let currentWeek = [];
+    let cur = new Date(gridStart);
+    while (cur <= gridEnd) {
+      currentWeek.push(new Date(cur));
+      if (currentWeek.length === 7) {
+        weekColumns.push(currentWeek);
+        currentWeek = [];
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    const CELL_SIZE = 12;
+    const CELL_GAP = 4;
+    const COL_WIDTH = CELL_SIZE + CELL_GAP;
+
+    const svgWidth = weekColumns.length * COL_WIDTH - CELL_GAP;
+    const svgHeight = 7 * COL_WIDTH - CELL_GAP;
+
+    let svgHTML = `<svg class="heatmap-svg-grid theme-${theme}" viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="100%" preserveAspectRatio="xMinYMin meet">`;
+    let defsHTML = '<defs>';
+    let hasDefs = false;
+    let rectsHTML = '';
+
+    weekColumns.forEach((week, colIdx) => {
+      const x = colIdx * COL_WIDTH;
+      let colHTML = `<g transform="translate(${x}, 0)">`;
+
+      week.forEach((d, rowIdx) => {
+        const y = rowIdx * COL_WIDTH;
+        const dateStr = core.formatDateKey(d);
+        const isCurrentYear = d.getFullYear() === year;
+
+        if (!isCurrentYear) {
+          colHTML += `<rect x="0" y="${y}" width="${CELL_SIZE}" height="${CELL_SIZE}" rx="3" fill="var(--color-square-empty)" opacity="0.12" />`;
+          return;
+        }
+
+        const cellData = core.getCellData(dateStr, isAll ? 'all' : (isGroup ? targetOrNull : habit), todayStr);
+        const isToday = dateStr === todayStr;
+        const isCursorDay = dateStr === cursorDateStr;
+
+        let fillValue = 'var(--color-square-empty)';
+        let habitsDoneAttr = '';
+        let classList = [];
+
+        if (isAll || isGroup) {
+          const numActive = cellData.activeHabits ? cellData.activeHabits.length : 0;
+          if (numActive === 1) {
+            fillValue = cellData.activeHabits[0].color;
+          } else if (numActive > 1) {
+            const gradId = `grad_${cardHabitId}_${dateStr}`;
+            const colors = cellData.activeHabits.map(h => h.color);
+            let stops = '';
+            colors.forEach((col, idx) => {
+              const p1 = (idx / colors.length) * 100;
+              const p2 = ((idx + 1) / colors.length) * 100;
+              stops += `<stop offset="${p1}%" stop-color="${col}" />`;
+              stops += `<stop offset="${p2}%" stop-color="${col}" />`;
+            });
+            defsHTML += `<linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">${stops}</linearGradient>`;
+            hasDefs = true;
+            fillValue = `url(#${gradId})`;
+          }
+          if (cellData.activeHabits && cellData.activeHabits.length > 0) {
+            habitsDoneAttr = `data-habits-done="${core.escapeHTML(cellData.activeHabits.map(h => h.name).join(', '))}"`;
+          }
+        } else {
+          const baseHex = core.normalizeHex(core.getHabitHexColor(habit));
+          if (cellData.ratio > 0) {
+            fillValue = core.getHabitHexWithAlpha(habit, cellData.ratio);
+          } else {
+            fillValue = `${baseHex}11`;
+          }
+        }
+
+        if (cellData.isTargetDay && (!cellData.ratio || cellData.ratio === 0)) classList.push('target-day');
+        if (cellData.isPaused) classList.push('is-paused-day');
+        if (cellData.hasNote) classList.push('has-note');
+        if (cellData.isRelapse) classList.push('relapse');
+        if (isToday) classList.push('today');
+        if (isCursorDay) classList.push('cursor-day');
+
+        let rectElement = `<rect class="${classList.join(' ')}" x="0" y="${y}" width="${CELL_SIZE}" height="${CELL_SIZE}" rx="3" fill="${fillValue}" ` +
+             `data-date="${dateStr}" data-habit-id="${cardHabitId}" ` +
+             `data-count="${cellData.count}" data-ratio="${cellData.ratio || 0}" ` +
+             `data-relapse="${cellData.isRelapse ? 'true' : 'false'}" ` +
+             `data-paused="${cellData.isPaused ? 'true' : 'false'}" ` +
+             `data-unverified="${cellData.isUnverified ? 'true' : 'false'}" ` +
+             `data-has-note="${cellData.hasNote ? 'true' : 'false'}" ` +
+             `data-note="${core.escapeHTML(cellData.note)}" ${habitsDoneAttr} />`;
+
+        // Add visual indicators (stroke or polygons)
+        if (isCursorDay) {
+            rectElement += `<rect x="-1" y="${y - 1}" width="${CELL_SIZE + 2}" height="${CELL_SIZE + 2}" rx="4" fill="none" class="cursor-day-stroke" />`;
+        }
+        if (isToday) {
+             rectElement += `<rect x="-1" y="${y - 1}" width="${CELL_SIZE + 2}" height="${CELL_SIZE + 2}" rx="4" fill="none" class="today-stroke" />`;
+        }
+        if (cellData.hasNote) {
+             rectElement += `<polygon points="${CELL_SIZE},${y} ${CELL_SIZE - 4},${y} ${CELL_SIZE},${y + 4}" class="note-indicator" />`;
+        }
+        if (cellData.isPaused) {
+             rectElement += `<line x1="0" y1="${y}" x2="${CELL_SIZE}" y2="${y + CELL_SIZE}" class="paused-indicator" />`;
+        }
+
+        colHTML += rectElement;
+      });
+      colHTML += '</g>';
+      rectsHTML += colHTML;
+    });
+
+    defsHTML += '</defs>';
+    if (hasDefs) svgHTML += defsHTML;
+    svgHTML += rectsHTML;
+    svgHTML += '</svg>';
+
+    core.svgCache[cacheKey] = svgHTML;
+    return svgHTML;
+  };
+
   core.buildHeatmapCard = function(targetOrNull, year) {
     const todayStr = core.getTodayKey();
     const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
@@ -570,68 +715,74 @@ window.HabitualCore = window.HabitualCore || {};
       cur.setDate(cur.getDate() + 1);
     }
 
-    let gridHTML = `<div class="heatmap-weeks-grid theme-${theme}">`;
-    weekColumns.forEach(week => {
-      gridHTML += '<div class="heatmap-week-column">';
-      week.forEach(d => {
-        const dateStr = core.formatDateKey(d);
-        const isCurrentYear = d.getFullYear() === year;
+    let gridHTML = '';
 
-        if (!isCurrentYear) {
-          gridHTML += '<div class="day-square" style="opacity: 0.12;"></div>';
-          return;
-        }
+    if (core.config.renderEngine === 'svg') {
+      gridHTML = core.buildSvgHeatmapGrid(targetOrNull, year, cardHabitId, theme, habit);
+    } else {
+      gridHTML = `<div class="heatmap-weeks-grid theme-${theme}">`;
+      weekColumns.forEach(week => {
+        gridHTML += '<div class="heatmap-week-column">';
+        week.forEach(d => {
+          const dateStr = core.formatDateKey(d);
+          const isCurrentYear = d.getFullYear() === year;
 
-        const cellData = core.getCellData(dateStr, isAll ? 'all' : (isGroup ? targetOrNull : habit), todayStr);
-        const isToday = dateStr === todayStr;
-        const isCursorDay = dateStr === cursorDateStr;
-
-        let squareStyle = '';
-        let habitsDoneAttr = '';
-
-        if (isAll || isGroup) {
-          const numActive = cellData.activeHabits ? cellData.activeHabits.length : 0;
-          if (numActive === 1) {
-            squareStyle = `background-color: ${cellData.activeHabits[0].color};`;
-          } else if (numActive > 1) {
-            const colors = cellData.activeHabits.map(h => h.color);
-            const stops = colors.map((col, idx) => {
-              const p1 = ((idx / colors.length) * 100).toFixed(1);
-              const p2 = (((idx + 1) / colors.length) * 100).toFixed(1);
-              return `${col} ${p1}% ${p2}%`;
-            }).join(', ');
-            squareStyle = `background: linear-gradient(135deg, ${stops});`;
+          if (!isCurrentYear) {
+            gridHTML += '<div class="day-square" style="opacity: 0.12;"></div>';
+            return;
           }
-          if (cellData.activeHabits && cellData.activeHabits.length > 0) {
-            habitsDoneAttr = `data-habits-done="${core.escapeHTML(cellData.activeHabits.map(h => h.name).join(', '))}"`;
-          }
-        } else {
-          const baseHex = core.normalizeHex(core.getHabitHexColor(habit));
-          if (cellData.ratio > 0) {
-            squareStyle = `background-color: ${core.getHabitHexWithAlpha(habit, cellData.ratio)};`;
+
+          const cellData = core.getCellData(dateStr, isAll ? 'all' : (isGroup ? targetOrNull : habit), todayStr);
+          const isToday = dateStr === todayStr;
+          const isCursorDay = dateStr === cursorDateStr;
+
+          let squareStyle = '';
+          let habitsDoneAttr = '';
+
+          if (isAll || isGroup) {
+            const numActive = cellData.activeHabits ? cellData.activeHabits.length : 0;
+            if (numActive === 1) {
+              squareStyle = `background-color: ${cellData.activeHabits[0].color};`;
+            } else if (numActive > 1) {
+              const colors = cellData.activeHabits.map(h => h.color);
+              const stops = colors.map((col, idx) => {
+                const p1 = ((idx / colors.length) * 100).toFixed(1);
+                const p2 = (((idx + 1) / colors.length) * 100).toFixed(1);
+                return `${col} ${p1}% ${p2}%`;
+              }).join(', ');
+              squareStyle = `background: linear-gradient(135deg, ${stops});`;
+            }
+            if (cellData.activeHabits && cellData.activeHabits.length > 0) {
+              habitsDoneAttr = `data-habits-done="${core.escapeHTML(cellData.activeHabits.map(h => h.name).join(', '))}"`;
+            }
           } else {
-            squareStyle = `background-color: ${baseHex}11;`;
+            const baseHex = core.normalizeHex(core.getHabitHexColor(habit));
+            if (cellData.ratio > 0) {
+              squareStyle = `background-color: ${core.getHabitHexWithAlpha(habit, cellData.ratio)};`;
+            } else {
+              squareStyle = `background-color: ${baseHex}11;`;
+            }
           }
-        }
 
-        const targetDayClass = (cellData.isTargetDay && (!cellData.ratio || cellData.ratio === 0)) ? 'target-day' : '';
-        const isPausedDayClass = cellData.isPaused ? 'is-paused-day' : '';
-        const hasNoteClass = cellData.hasNote ? 'has-note' : '';
+          const targetDayClass = (cellData.isTargetDay && (!cellData.ratio || cellData.ratio === 0)) ? 'target-day' : '';
+          const isPausedDayClass = cellData.isPaused ? 'is-paused-day' : '';
+          const hasNoteClass = cellData.hasNote ? 'has-note' : '';
 
-        gridHTML += `
-          <div class="day-square ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${isCursorDay ? 'cursor-day' : ''} ${targetDayClass} ${isPausedDayClass} ${hasNoteClass}"
-               style="${squareStyle}" data-date="${dateStr}" data-habit-id="${cardHabitId}"
-               data-count="${cellData.count}" data-ratio="${cellData.ratio || 0}"
-               data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
-               data-paused="${cellData.isPaused ? 'true' : 'false'}"
-               data-unverified="${cellData.isUnverified ? 'true' : 'false'}"
-               data-has-note="${cellData.hasNote ? 'true' : 'false'}"
-               data-note="${core.escapeHTML(cellData.note)}" ${habitsDoneAttr}>
-          </div>`;
+          gridHTML += `
+            <div class="day-square ${cellData.isRelapse ? 'relapse' : ''} ${isToday ? 'today' : ''} ${isCursorDay ? 'cursor-day' : ''} ${targetDayClass} ${isPausedDayClass} ${hasNoteClass}"
+                 style="${squareStyle}" data-date="${dateStr}" data-habit-id="${cardHabitId}"
+                 data-count="${cellData.count}" data-ratio="${cellData.ratio || 0}"
+                 data-relapse="${cellData.isRelapse ? 'true' : 'false'}"
+                 data-paused="${cellData.isPaused ? 'true' : 'false'}"
+                 data-unverified="${cellData.isUnverified ? 'true' : 'false'}"
+                 data-has-note="${cellData.hasNote ? 'true' : 'false'}"
+                 data-note="${core.escapeHTML(cellData.note)}" ${habitsDoneAttr}>
+            </div>`;
+        });
+        gridHTML += '</div>';
       });
       gridHTML += '</div>';
-    });
-    gridHTML += '</div>';
+    }
 
     const shouldHideHeatmap = habit && (habit.hideHeatmap === true || (habit.isPaused && habit.hideHeatmapWhenPaused === true));
 

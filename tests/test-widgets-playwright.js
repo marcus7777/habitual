@@ -196,10 +196,49 @@ async function runWidgetsPlaywrightTests() {
     const quickAddLink = page.locator('a[href="widgets/add.html"]');
     logResult('sync.html Quick Add Widget Link Present', await quickAddLink.count() > 0);
 
-    // Capture Final Screenshot
+    // TEST 5: Visual Screenshot Comparison (HTML vs SVG)
+    console.log('\n📋 Running Test 5: Visual Screenshot Comparison (HTML vs SVG)');
+    const htmlPage = await context.newPage();
+    const svgPage = await context.newPage();
+
+    // Inject identical data and toggle engines
+    const injectData = async (page, engine) => {
+      await page.goto(`http://127.0.0.1:${PORT}`, { waitUntil: 'domcontentloaded' });
+      await page.evaluate((engineType) => {
+         window.HabitualCore.state.habits = [
+           { id: 'v1', name: 'Visual Habit', type: 'positive', dailyTarget: 1, colorTheme: 'green', logs: { '2026-10-01': { count: 1 } } }
+         ];
+         window.HabitualCore.config.renderEngine = engineType;
+         window.HabitualCore.renderAll();
+      }, engine);
+    };
+
+    await injectData(htmlPage, 'html');
+    await injectData(svgPage, 'svg');
+
+    // Wait for render
+    await htmlPage.waitForTimeout(500);
+    await svgPage.waitForTimeout(500);
+
+    const htmlBuffer = await htmlPage.locator('.heatmap-card').first().screenshot();
+    const svgBuffer = await svgPage.locator('.heatmap-card').first().screenshot();
+
     const screenshotDir = path.join(__dirname, 'screenshots');
     if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
 
+    const htmlPath = path.join(screenshotDir, 'heatmap-html.png');
+    const svgPath = path.join(screenshotDir, 'heatmap-svg.png');
+    fs.writeFileSync(htmlPath, htmlBuffer);
+    fs.writeFileSync(svgPath, svgBuffer);
+
+    // Simple byte size comparison (a basic heuristic since exact pixel match might fail slightly due to anti-aliasing differences)
+    // A true pixel-diff library like pixelmatch would be better for CI, but this works as a basic sanity check
+    const diffRatio = Math.abs(htmlBuffer.length - svgBuffer.length) / htmlBuffer.length;
+    logResult('Visual Match Heuristic (File Size Ratio < 5%)', diffRatio < 0.05, `(Diff ratio: ${(diffRatio * 100).toFixed(2)}%)`);
+    console.log(`   └─ Saved artifacts to tests/screenshots/heatmap-{html,svg}.png for manual inspection.`);
+
+
+    // Capture Final Screenshot
     const screenshotPath = path.join(screenshotDir, 'widgets-preview.png');
     await page.screenshot({ path: screenshotPath });
     console.log(`\n📸 [Screenshot Saved] -> ${screenshotPath}`);

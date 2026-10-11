@@ -1187,92 +1187,112 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.attachHeatmapSquareEvents = function() {
-    const cards = core.elements.heatmapsGallery.querySelectorAll('.heatmap-card');
-    cards.forEach(card => {
-      let longPressTimer = null, startX = 0, startY = 0;
+    // SINGLE DELEGATED EVENT LISTENER ON THE GALLERY CONTAINER
+    const gallery = core.elements.heatmapsGallery;
+    if (gallery._eventsAttached) return; // Prevent attaching multiple times
+    gallery._eventsAttached = true;
 
-      const cancelLongPress = () => {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-      };
+    let longPressTimer = null, startX = 0, startY = 0;
 
-      const handlePointerDown = (e) => {
-        if (e.button !== undefined && e.button !== 0) return;
-        const sq = e.target.closest('.day-square[data-date]');
-        if (!sq) return;
-        cancelLongPress();
-        sq._isLongPressTriggered = false;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        startX = clientX; startY = clientY;
+    const cancelLongPress = () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    };
 
-        longPressTimer = setTimeout(() => {
-          sq._isLongPressTriggered = true;
-          longPressTimer = null;
-          if (core.vibrate) core.vibrate(40);
-          if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
-          const dateStr = sq.dataset.date;
-          let targetHabitId = sq.dataset.habitId;
-          if (!targetHabitId || targetHabitId === 'all' || targetHabitId.startsWith('group_')) {
-            targetHabitId = card.getAttribute('data-habit-id') || 'all';
-          }
-          core.openLogModal(dateStr, targetHabitId);
-        }, 500);
-      };
+    gallery.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      const sq = e.target.closest('.day-square[data-date], rect[data-date]');
+      if (!sq) return;
+      cancelLongPress();
+      sq._isLongPressTriggered = false;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      startX = clientX; startY = clientY;
 
-      const handlePointerMove = (e) => {
-        if (!longPressTimer) return;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        if (Math.hypot(clientX - startX, clientY - startY) > 10) cancelLongPress();
-      };
-
-      card.addEventListener('pointerdown', handlePointerDown);
-      card.addEventListener('pointermove', handlePointerMove);
-      card.addEventListener('pointerup', cancelLongPress);
-      card.addEventListener('pointercancel', cancelLongPress);
-
-      card.addEventListener('mouseover', (e) => {
-        const sq = e.target.closest('.day-square[data-date]');
-        if (sq) core.showTooltipForSquare(sq, 0);
-      });
-
-      card.addEventListener('mouseout', (e) => {
-        const sq = e.target.closest('.day-square[data-date]');
-        if (sq) {
-          if (core._cursorTooltipTimer) { clearTimeout(core._cursorTooltipTimer); core._cursorTooltipTimer = null; }
-          if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
+      longPressTimer = setTimeout(() => {
+        sq._isLongPressTriggered = true;
+        longPressTimer = null;
+        if (core.vibrate) core.vibrate(40);
+        if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
+        const dateStr = sq.getAttribute('data-date'); // use getAttribute for SVG compatibility
+        let targetHabitId = sq.getAttribute('data-habit-id');
+        const card = sq.closest('.heatmap-card');
+        if (!targetHabitId || targetHabitId === 'all' || targetHabitId.startsWith('group_')) {
+          targetHabitId = card ? (card.getAttribute('data-habit-id') || 'all') : 'all';
         }
-      });
+        core.openLogModal(dateStr, targetHabitId);
+      }, 500);
+    });
 
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions') || e.target.closest('.card-context-menu-dropdown') || e.target.closest('.btn-card-menu-toggle') || e.target.closest('.card-title-link') || e.target.closest('.btn-card-quick-log')) return;
-        const sq = e.target.closest('.day-square[data-date]');
-        if (sq && sq._isLongPressTriggered) { sq._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
+    gallery.addEventListener('pointermove', (e) => {
+      if (!longPressTimer) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      if (Math.hypot(clientX - startX, clientY - startY) > 10) cancelLongPress();
+    });
+
+    gallery.addEventListener('pointerup', cancelLongPress);
+    gallery.addEventListener('pointercancel', cancelLongPress);
+
+    gallery.addEventListener('mouseover', (e) => {
+      const sq = e.target.closest('.day-square[data-date], rect[data-date]');
+      if (sq) core.showTooltipForSquare(sq, 0);
+    });
+
+    gallery.addEventListener('mouseout', (e) => {
+      const sq = e.target.closest('.day-square[data-date], rect[data-date]');
+      if (sq) {
+        if (core._cursorTooltipTimer) { clearTimeout(core._cursorTooltipTimer); core._cursorTooltipTimer = null; }
+        if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
+      }
+    });
+
+    gallery.addEventListener('click', (e) => {
+      const card = e.target.closest('.heatmap-card');
+      if (!card) return; // Only process clicks inside cards
+
+      if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions') || e.target.closest('.card-context-menu-dropdown') || e.target.closest('.btn-card-menu-toggle') || e.target.closest('.card-title-link') || e.target.closest('.btn-card-quick-log')) return;
+
+      const sq = e.target.closest('.day-square[data-date], rect[data-date]');
+      if (sq && sq._isLongPressTriggered) { sq._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
+
+      // If we clicked a square, handle it directly and don't expand the card
+      if (sq) {
         e.stopPropagation();
         if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
 
-        const hasSubhabits = card.getAttribute('data-has-subhabits') === 'true';
-        const rawHabitId = card.getAttribute('data-habit-id-raw');
-
-        if (hasSubhabits && rawHabitId) {
-          core.toggleConcertina(rawHabitId);
-          return;
-        }
-
         const cardHabitId = card.getAttribute('data-habit-id') || 'all';
         let targetHabitId = cardHabitId;
-        if (sq && sq.dataset.habitId && sq.dataset.habitId !== 'all' && !sq.dataset.habitId.startsWith('group_')) targetHabitId = sq.dataset.habitId;
-        const targetDate = sq ? sq.dataset.date : (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
-        if (sq && sq.dataset.date && core.setCursorDateKey) {
-          core.setCursorDateKey(sq.dataset.date);
+        const sqHabitId = sq.getAttribute('data-habit-id');
+        if (sqHabitId && sqHabitId !== 'all' && !sqHabitId.startsWith('group_')) targetHabitId = sqHabitId;
+        const targetDate = sq.getAttribute('data-date');
+
+        if (targetDate && core.setCursorDateKey) {
+          core.setCursorDateKey(targetDate);
         }
         core.openLogModal(targetDate, targetHabitId);
-      });
+        return; // Important: Return early so we don't trigger the card expansion below
+      }
+
+      // If we didn't click a square, handle card expansion
+      e.stopPropagation();
+      if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
+
+      const hasSubhabits = card.getAttribute('data-has-subhabits') === 'true';
+      const rawHabitId = card.getAttribute('data-habit-id-raw');
+
+      if (hasSubhabits && rawHabitId) {
+        core.toggleConcertina(rawHabitId);
+        return;
+      }
+
+      const cardHabitId = card.getAttribute('data-habit-id') || 'all';
+      const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
+      core.openLogModal(targetDate, cardHabitId);
     });
 
-    const dateInput = core.elements.heatmapsGallery.querySelector('.focused-date-input');
-    if (dateInput) {
-      dateInput.addEventListener('change', (e) => {
+    // Delegated event listeners for focused toolbar inputs and buttons
+    gallery.addEventListener('change', (e) => {
+      if (e.target.classList.contains('focused-date-input')) {
         e.stopPropagation();
         const newDate = e.target.value;
         if (newDate) {
@@ -1281,26 +1301,24 @@ window.HabitualCore = window.HabitualCore || {};
           core.focusedDayState.dateStr = newDate;
           if (core.renderAll) core.renderAll();
         }
-      });
-      dateInput.addEventListener('click', (e) => e.stopPropagation());
-    }
-
-    const actionButtons = core.elements.heatmapsGallery.querySelectorAll('[data-action-habit-id]');
-    actionButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        core.toggleHabitForDate(btn.dataset.actionHabitId, btn.dataset.actionDateKey);
-      });
+      }
     });
 
-    const closeToolbarBtn = core.elements.heatmapsGallery.querySelector('#btn-close-focused-toolbar');
-    if (closeToolbarBtn) {
-      closeToolbarBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        core.focusedDayState = { habitId: null, dateStr: null };
-        if (core.renderAll) core.renderAll();
-      });
-    }
+    gallery.addEventListener('click', (e) => {
+       const btn = e.target.closest('[data-action-habit-id]');
+       if (btn) {
+         e.stopPropagation();
+         core.toggleHabitForDate(btn.dataset.actionHabitId, btn.dataset.actionDateKey);
+         return;
+       }
+
+       const closeBtn = e.target.closest('#btn-close-focused-toolbar');
+       if (closeBtn) {
+         e.stopPropagation();
+         core.focusedDayState = { habitId: null, dateStr: null };
+         if (core.renderAll) core.renderAll();
+       }
+    });
 
     core.elements.heatmapsGallery.querySelectorAll('.btn-card-menu-toggle').forEach(btn => {
       btn.addEventListener('click', (e) => {

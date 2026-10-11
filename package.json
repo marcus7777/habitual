@@ -1,6 +1,6 @@
 {
   "name": "habitual",
-  "version": "1.17.6",
+  "version": "1.18.0",
   "description": "Minimalist 100% fluid GitHub-style habit progression visualizer",
   "main": "web/app.js",
   "scripts": {
