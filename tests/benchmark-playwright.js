@@ -122,60 +122,75 @@ async function runBenchmarkSuite() {
     console.log('\n⏱️  Measuring Render Latency Across Scaling Datasets...');
     benchmarkData.metrics.renderDurations = {};
 
-    for (const count of [10, 50, 100]) {
-      const syntheticData = generateSyntheticDataset(count);
+    for (const engine of ['html', 'svg']) {
+      console.log(`\n--- Engine: ${engine.toUpperCase()} ---`);
+      for (const count of [10, 50, 100]) {
+        const syntheticData = generateSyntheticDataset(count);
 
-      const renderMetrics = await page.evaluate((dataset) => {
-        window.HabitualCore.state.habits = dataset.habits;
-        window.HabitualCore.state.selectedYear = 2026;
+        const renderMetrics = await page.evaluate((args) => {
+          const { dataset, renderEngine } = args;
+          window.HabitualCore.state.habits = dataset.habits;
+          window.HabitualCore.state.selectedYear = 2026;
+          window.HabitualCore.config.renderEngine = renderEngine;
 
-        const t0 = performance.now();
-        window.HabitualCore.renderAll();
-        const t1 = performance.now();
+          const t0 = performance.now();
+          window.HabitualCore.renderAll();
+          const t1 = performance.now();
 
-        const domNodeCount = document.querySelectorAll('#heatmaps-gallery *').length;
-        return {
-          renderTimeMs: t1 - t0,
-          domNodeCount: domNodeCount
+          const domNodeCount = document.querySelectorAll('#heatmaps-gallery *').length;
+          return {
+            renderTimeMs: t1 - t0,
+            domNodeCount: domNodeCount
+          };
+        }, { dataset: syntheticData, renderEngine: engine });
+
+        console.log(`   ├─ ${count} Habits (${renderMetrics.domNodeCount} DOM nodes): ${renderMetrics.renderTimeMs.toFixed(2)} ms`);
+
+        if (!benchmarkData.metrics.renderDurations[engine]) {
+          benchmarkData.metrics.renderDurations[engine] = {};
+        }
+
+        benchmarkData.metrics.renderDurations[engine][`habits_${count}`] = {
+          renderTimeMs: parseFloat(renderMetrics.renderTimeMs.toFixed(2)),
+          domNodeCount: renderMetrics.domNodeCount
         };
-      }, syntheticData);
-
-      console.log(`   ├─ ${count} Habits (${renderMetrics.domNodeCount} DOM nodes): ${renderMetrics.renderTimeMs.toFixed(2)} ms`);
-      benchmarkData.metrics.renderDurations[`habits_${count}`] = {
-        renderTimeMs: parseFloat(renderMetrics.renderTimeMs.toFixed(2)),
-        domNodeCount: renderMetrics.domNodeCount
-      };
+      }
     }
 
     // BENCHMARK 3: Interaction to Next Paint (INP) / Single Card Check-in Latency
     console.log('\n⏱️  Measuring Interaction to Next Paint (INP) Check-in Latency...');
+    benchmarkData.metrics.quickCheckInInpMs = {};
 
-    // Load 50 habits state
-    await page.evaluate((dataset) => {
-      window.HabitualCore.state.habits = dataset.habits;
-      window.HabitualCore.renderAll();
-    }, generateSyntheticDataset(50));
+    for (const engine of ['html', 'svg']) {
+      // Load 50 habits state
+      await page.evaluate((args) => {
+        const { dataset, renderEngine } = args;
+        window.HabitualCore.state.habits = dataset.habits;
+        window.HabitualCore.config.renderEngine = renderEngine;
+        window.HabitualCore.renderAll();
+      }, { dataset: generateSyntheticDataset(50), renderEngine: engine });
 
-    const inpMetrics = await page.evaluate(async () => {
-      const firstCardBtn = document.querySelector('.btn-card-quick-log');
-      if (!firstCardBtn) return { success: false };
+      const inpMetrics = await page.evaluate(async () => {
+        const firstCardBtn = document.querySelector('.btn-card-quick-log');
+        if (!firstCardBtn) return { success: false };
 
-      const t0 = performance.now();
-      firstCardBtn.click();
+        const t0 = performance.now();
+        firstCardBtn.click();
 
-      // Wait for next animation frame paint
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const t1 = performance.now();
+        // Wait for next animation frame paint
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const t1 = performance.now();
 
-      return {
-        success: true,
-        inpMs: t1 - t0
-      };
-    });
+        return {
+          success: true,
+          inpMs: t1 - t0
+        };
+      });
 
-    if (inpMetrics.success) {
-      console.log(`   └─ Quick Check-in INP Latency: ${inpMetrics.inpMs.toFixed(2)} ms`);
-      benchmarkData.metrics.quickCheckInInpMs = parseFloat(inpMetrics.inpMs.toFixed(2));
+      if (inpMetrics.success) {
+        console.log(`   └─ [${engine.toUpperCase()}] Quick Check-in INP Latency: ${inpMetrics.inpMs.toFixed(2)} ms`);
+        benchmarkData.metrics.quickCheckInInpMs[engine] = parseFloat(inpMetrics.inpMs.toFixed(2));
+      }
     }
 
     // BENCHMARK 4: Storage Driver Throughput (Ops/Sec)

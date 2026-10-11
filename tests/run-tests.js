@@ -842,6 +842,43 @@ describe('Feature 13: 🎨 255-Level Transparency Combined Heatmap', () => {
     const h2Data = cellData.activeHabits.find(a => a.id === 'h2');
     assertEqual(h2Data.color, '#388bfdff', '100% completion translated to #388bfdff 8-char hex transparency');
   });
+
+  test('buildSvgHeatmapGrid renders valid SVG markup for all habits combined view with linear-gradients', () => {
+    const habit1 = { id: 'h1', name: 'Exercise', type: 'positive', dailyTarget: 2, colorTheme: 'green', logs: { '2026-10-02': { count: 1 } } };
+    const habit2 = { id: 'h2', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: 'blue', logs: { '2026-10-02': { count: 1 } } };
+    HabitualCore.setState({
+      habits: [habit1, habit2],
+      selectedHabitId: 'all',
+      selectedYear: 2026
+    });
+
+    const svgHTML = HabitualCore.buildSvgHeatmapGrid(null, 2026, 'all', 'green', null);
+    assert(svgHTML.startsWith('<svg'), 'Starts with SVG tag');
+    assert(svgHTML.includes('<defs>'), 'Contains definitions for linear gradients');
+    assert(svgHTML.includes('<linearGradient'), 'Contains a linearGradient tag');
+    assert(svgHTML.includes('stop-color="#388bfdff"'), 'Gradient contains blue at 100%');
+    assert(svgHTML.includes('stop-color="#39d35391"'), 'Gradient contains green at 50%');
+    assert(svgHTML.includes('data-date="2026-10-02"'), 'Includes standard rect with correct data attributes');
+  });
+
+  test('buildSvgHeatmapGrid uses memoized cache on subsequent calls without state changes', () => {
+     HabitualCore.resetState();
+     const state = HabitualCore.getState();
+     state.habits.push(
+       { id: 'h1', name: 'H1', colorTheme: 'blue', type: 'positive', dailyTarget: 1, logs: { '2026-10-03': { count: 1 } } }
+     );
+     HabitualCore._lastStateHash = 'hash123';
+     const cursorDate = HabitualCore.getCursorDateKey ? HabitualCore.getCursorDateKey() : HabitualCore.getTodayKey();
+     const cacheKey = 'all_2026_hash123_' + cursorDate;
+
+     const call1 = HabitualCore.buildSvgHeatmapGrid(null, 2026, 'all', 'green', null);
+     assert(HabitualCore.svgCache[cacheKey] === call1, 'SVG string added to cache');
+
+     HabitualCore.svgCache[cacheKey] = '<svg>CACHED</svg>';
+     const call2 = HabitualCore.buildSvgHeatmapGrid(null, 2026, 'all', 'green', null);
+
+     assertEqual(call2, '<svg>CACHED</svg>', 'Returns cached SVG string when hash and cursor match');
+  });
 });
 
 // ============================================================================
@@ -1444,7 +1481,8 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
         },
         querySelector() {
           return null;
-        }
+        },
+        addEventListener() {}
       },
       yearSelector: { innerHTML: '' }
     };
@@ -1626,7 +1664,7 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
     HabitualCore.resetState();
     const originalElements = HabitualCore.elements;
     HabitualCore.elements = {
-      heatmapsGallery: { innerHTML: '', appendChild: () => {}, querySelectorAll: () => [], querySelector: () => null },
+      heatmapsGallery: { innerHTML: '', appendChild: () => {}, querySelectorAll: () => [], querySelector: () => null, addEventListener: () => {} },
       yearSelector: { innerHTML: '' }
     };
 
