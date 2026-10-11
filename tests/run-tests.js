@@ -2835,6 +2835,232 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     assert(habitWithHistory.colorTheme === '#009688', 'Custom color theme preserved in habit object');
     assertEqual(Object.keys(habitWithHistory.logs).length, 2, 'Habit has 2 past check-in log entries');
   });
+
+  test('Sub-habits and sub-habit logs are included in Firestore shared habit backup payload', async () => {
+    const parentWorkout = {
+      id: 'parent_workout_123',
+      name: 'Daily Workout',
+      type: 'positive',
+      dailyTarget: 1,
+      colorTheme: '#4caf50',
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_workout_col',
+        password: 'sec_workout_pwd',
+        includeChildren: true
+      },
+      logs: {
+        '2026-10-10': { count: 1, note: 'Warmup completed' }
+      }
+    };
+
+    const childPushups = {
+      id: 'parent_workout_123_pushups',
+      name: 'Pushups',
+      parentId: 'parent_workout_123',
+      parentDependency: 'auto_log_parent',
+      type: 'positive',
+      dailyTarget: 30,
+      colorTheme: '#e91e63',
+      logs: {
+        '2026-10-10': { count: 30, note: '3 sets of 10' }
+      }
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [parentWorkout, childPushups]
+    });
+
+    const store = {};
+    const mockDb = {
+      collection: function(collName) {
+        if (!store[collName]) store[collName] = {};
+        return {
+          doc: function(docId) {
+            return {
+              set: function(data) {
+                store[collName][docId] = data;
+                return Promise.resolve();
+              },
+              get: function() {
+                return Promise.resolve({
+                  exists: !!store[collName][docId],
+                  data: () => store[collName][docId]
+                });
+              }
+            };
+          }
+        };
+      }
+    };
+
+    HabitualCore.SyncTargets.Firestore.db = mockDb;
+
+    await HabitualCore.SyncTargets.Firestore.uploadPerHabitBackup(parentWorkout);
+
+    const storedDoc = store['shared_hb_workout_col']['shared_data'];
+    assert(storedDoc && storedDoc.ciphertext, 'Encrypted document uploaded to Firestore collection');
+
+    const decrypted = await HabitualCore.E2EE.decrypt(storedDoc.ciphertext, 'sec_workout_pwd');
+    assert(decrypted, 'Decrypted Firestore payload successfully');
+    assertEqual(decrypted.includeChildren, true, 'Payload has includeChildren=true');
+    assert(Array.isArray(decrypted.children), 'Payload contains children array');
+    assertEqual(decrypted.children.length, 1, 'Children array contains 1 sub-habit');
+
+    const syncedChild = decrypted.children[0];
+    assertEqual(syncedChild.habitId, 'parent_workout_123_pushups', 'Synced child habitId matches');
+    assertEqual(syncedChild.parentId, 'parent_workout_123', 'Synced child parentId matches');
+    assertEqual(syncedChild.parentDependency, 'auto_log_parent', 'Synced child parentDependency matches');
+    assertEqual(syncedChild.colorTheme, '#e91e63', 'Synced child colorTheme matches');
+    assertEqual(syncedChild.dailyTarget, 30, 'Synced child dailyTarget matches');
+    assert(syncedChild.logs['2026-10-10'], 'Synced child contains check-in log');
+    assertEqual(syncedChild.logs['2026-10-10'].count, 30, 'Synced child log count matches');
+    assertEqual(syncedChild.logs['2026-10-10'].note, '3 sets of 10', 'Synced child log note matches');
+
+    HabitualCore.SyncTargets.Firestore.db = null;
+  });
+
+  test('Remote Firestore sync snapshot restores missing sub-habits and merges sub-habit logs onto receiving device', async () => {
+    const parentReading = {
+      id: 'parent_read_999',
+      name: 'Read Books',
+      type: 'positive',
+      dailyTarget: 1,
+      colorTheme: '#2196f3',
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_read_col',
+        password: 'sec_read_pwd',
+        includeChildren: true
+      },
+      logs: {}
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [parentReading]
+    });
+
+    const remotePayload = {
+      habitId: 'parent_read_999',
+      name: 'Read Books',
+      type: 'positive',
+      dailyTarget: 1,
+      colorTheme: '#2196f3',
+      logs: { '2026-10-11': { count: 1, note: 'Finished chapter' } },
+      includeChildren: true,
+      children: [
+        {
+          habitId: 'parent_read_999_ch1',
+          parentId: 'parent_read_999',
+          name: 'Chapter 1',
+          type: 'positive',
+          dailyTarget: 1,
+          colorTheme: '#00bcd4',
+          parentDependency: 'requires_parent',
+          logs: { '2026-10-11': { count: 1, note: 'Read 20 pages' } }
+        }
+      ]
+    };
+
+    const ciphertext = await HabitualCore.E2EE.encrypt(remotePayload, 'sec_read_pwd');
+
+    let snapshotCallback = null;
+    const mockDb = {
+      collection: function(collName) {
+        return {
+          doc: function(docId) {
+            return {
+              onSnapshot: function(cb) {
+                snapshotCallback = cb;
+                return function unsubscribe() {};
+              }
+            };
+          }
+        };
+      }
+    };
+
+    HabitualCore.SyncTargets.Firestore.db = mockDb;
+    HabitualCore.SyncTargets.Firestore.startPerHabitLiveSync(parentReading);
+
+    // Trigger listener snapshot callback
+    if (snapshotCallback) {
+      snapshotCallback({
+        exists: true,
+        data: () => ({ ciphertext: ciphertext, writerId: 'remote_client_abc' })
+      });
+    }
+
+    // Allow promise microtasks for decrypt to resolve
+    await new Promise(r => setTimeout(r, 50));
+
+    const updatedHabits = HabitualCore.getState().habits;
+    const restoredChild = updatedHabits.find(h => h.id === 'parent_read_999_ch1');
+    assert(restoredChild, 'Remote child sub-habit was created in local state');
+    assertEqual(restoredChild.parentId, 'parent_read_999', 'Restored child parentId matches');
+    assertEqual(restoredChild.name, 'Chapter 1', 'Restored child name matches');
+    assertEqual(restoredChild.colorTheme, '#00bcd4', 'Restored child color theme matches');
+    assertEqual(restoredChild.parentDependency, 'requires_parent', 'Restored child parent dependency matches');
+    assert(restoredChild.logs && restoredChild.logs['2026-10-11'], 'Restored child log entry exists');
+    assertEqual(restoredChild.logs['2026-10-11'].count, 1, 'Restored child log count matches');
+    assertEqual(restoredChild.logs['2026-10-11'].note, 'Read 20 pages', 'Restored child log note matches');
+
+    HabitualCore.SyncTargets.Firestore.stopPerHabitLiveSync('parent_read_999');
+    HabitualCore.SyncTargets.Firestore.db = null;
+  });
+
+  test('Saving a sub-habit in UI automatically uploads top-level parent shared habit backup to Firestore', async () => {
+    const parentShared = {
+      id: 'shared_parent_study',
+      name: 'Study Routine',
+      type: 'positive',
+      dailyTarget: 1,
+      colorTheme: '#9c27b0',
+      sharing: {
+        enabled: true,
+        collection: 'shared_hb_study_col',
+        password: 'sec_study_pass',
+        includeChildren: true
+      },
+      logs: {}
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [parentShared]
+    });
+
+    let uploadedTarget = null;
+    const originalUpload = HabitualCore.SyncTargets.Firestore.uploadPerHabitBackup;
+    HabitualCore.SyncTargets.Firestore.uploadPerHabitBackup = function(habit) {
+      uploadedTarget = habit;
+      return Promise.resolve();
+    };
+
+    // Simulate saving a sub-habit under parentShared
+    const newChild = {
+      id: 'shared_parent_study_math',
+      name: 'Math Exercises',
+      parentId: 'shared_parent_study',
+      type: 'positive',
+      dailyTarget: 10,
+      colorTheme: '#ff9800',
+      logs: {}
+    };
+
+    // Call saveHabit / form save
+    HabitualCore.saveHabit(newChild);
+
+    HabitualCore.SyncTargets.Firestore.uploadPerHabitBackup = originalUpload;
+
+    assert(uploadedTarget, 'uploadPerHabitBackup was triggered after saving sub-habit');
+    assertEqual(uploadedTarget.id, 'shared_parent_study', 'uploadPerHabitBackup was invoked on root shared parent habit');
+  });
 });
 
 // ============================================================================

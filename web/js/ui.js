@@ -2289,9 +2289,20 @@ window.HabitualCore = window.HabitualCore || {};
     if (core.renderAll) core.renderAll();
     if (core.saveState) core.saveState();
 
-    if (savedTargetHabit && savedTargetHabit.sharing && savedTargetHabit.sharing.enabled && core.SyncTargets && core.SyncTargets.Firestore) {
-      core.SyncTargets.Firestore.startPerHabitLiveSync(savedTargetHabit);
-      core.SyncTargets.Firestore.uploadPerHabitBackup(savedTargetHabit);
+    let rootSharedTarget = savedTargetHabit;
+    if (savedTargetHabit && savedTargetHabit.parentId) {
+      let topParent = core.state.habits.find(h => h.id === savedTargetHabit.parentId);
+      while (topParent && topParent.parentId) {
+        topParent = core.state.habits.find(h => h.id === topParent.parentId);
+      }
+      if (topParent && topParent.sharing && topParent.sharing.enabled) {
+        rootSharedTarget = topParent;
+      }
+    }
+
+    if (rootSharedTarget && rootSharedTarget.sharing && rootSharedTarget.sharing.enabled && core.SyncTargets && core.SyncTargets.Firestore) {
+      core.SyncTargets.Firestore.startPerHabitLiveSync(rootSharedTarget);
+      core.SyncTargets.Firestore.uploadPerHabitBackup(rootSharedTarget);
     }
 
     if (core.pendingQuickLogAfterHabit) {

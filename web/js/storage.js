@@ -999,13 +999,36 @@ window.HabitualCore = window.HabitualCore || {};
         return formatted;
       },
 
+      _setupEmulatorIfRequested: function(db) {
+        if (!db) return;
+        try {
+          const urlParams = (typeof window !== 'undefined' && window.location && window.location.search) ? new URLSearchParams(window.location.search) : null;
+          const useEmul = (urlParams && urlParams.get('emulator') === 'true') ||
+            (typeof localStorage !== 'undefined' && localStorage.getItem('habitual_use_firestore_emulator') === 'true');
+          if (useEmul && typeof db.useEmulator === 'function' && !db._emulatorConnected) {
+            const host = (urlParams && urlParams.get('emulatorHost')) || 'localhost';
+            const port = parseInt((urlParams && urlParams.get('emulatorPort')) || '8080', 10);
+            db.useEmulator(host, port);
+            db._emulatorConnected = true;
+            console.log(`🔥 Connected to Firestore Emulator at ${host}:${port}`);
+          }
+        } catch (e) {
+          // Ignore error if emulator already connected or unsupported
+        }
+      },
+
       init: function() {
-        if (this.db) return Promise.resolve(this.db);
+        if (this.db) {
+          this._setupEmulatorIfRequested(this.db);
+          return Promise.resolve(this.db);
+        }
+        const self = this;
         if (typeof firebase !== 'undefined' && firebase.firestore) {
           if (!firebase.apps.length) {
             firebase.initializeApp({ projectId: "habitual-log" });
           }
           this.db = firebase.firestore();
+          this._setupEmulatorIfRequested(this.db);
           return Promise.resolve(this.db);
         }
         return core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js')
@@ -1017,6 +1040,7 @@ window.HabitualCore = window.HabitualCore || {};
               firebase.initializeApp({ projectId: "habitual-log" });
             }
             core.SyncTargets.Firestore.db = firebase.firestore();
+            self._setupEmulatorIfRequested(core.SyncTargets.Firestore.db);
             return core.SyncTargets.Firestore.db;
           });
       },
@@ -1316,7 +1340,7 @@ window.HabitualCore = window.HabitualCore || {};
           logs: habit.logs || {}
         };
 
-        if (habit.sharing.includeChildren && core.state && core.state.habits) {
+        if ((habit.sharing.includeChildren !== false) && core.state && core.state.habits) {
           const descendantIds = core.getAllDescendantIds ? core.getAllDescendantIds(habit.id) : [];
           const childIds = descendantIds.filter(id => id !== habit.id);
           const childHabits = childIds.map(cid => core.state.habits.find(h => h.id === cid)).filter(Boolean);
