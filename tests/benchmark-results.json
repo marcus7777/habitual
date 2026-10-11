@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-10-11T12:54:11.841Z",
+  "metrics": {
+    "bootDurationMs": 133,
+    "renderDurations": {
+      "html": {
+        "habits_10": {
+          "renderTimeMs": 133.1,
+          "domNodeCount": 5072
+        },
+        "habits_50": {
+          "renderTimeMs": 325.1,
+          "domNodeCount": 23632
+        },
+        "habits_100": {
+          "renderTimeMs": 630.5,
+          "domNodeCount": 46832
+        }
+      },
+      "svg": {
+        "habits_10": {
+          "renderTimeMs": 131.9,
+          "domNodeCount": 9066
+        },
+        "habits_50": {
+          "renderTimeMs": 385.5,
+          "domNodeCount": 28416
+        },
+        "habits_100": {
+          "renderTimeMs": 661.1,
+          "domNodeCount": 52577
+        }
+      }
+    },
+    "quickCheckInInpMs": {
+      "html": 10.4,
+      "svg": 7.2
+    },
+    "storageThroughput": {
+      "localStorageOpsPerSec": 80000,
+      "indexedDBOpsPerSec": 24570
+    }
+  }
+}
