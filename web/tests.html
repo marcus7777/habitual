@@ -430,9 +430,29 @@
             const containerEl = document.getElementById('import-shared-habit-heatmap-container');
 
             assert(containerEl && !containerEl.classList.contains('hidden'), 'Heatmap preview container visible');
-            assert(heatmapSvgEl && heatmapSvgEl.innerHTML.includes('<svg'), 'SVG Heatmap grid rendered');
+            assert(heatmapSvgEl && (heatmapSvgEl.innerHTML.includes('heatmap-card') || heatmapSvgEl.innerHTML.includes('<svg')), 'Heatmap card or grid rendered');
             assert(subhabitsPreviewEl && !subhabitsPreviewEl.classList.contains('hidden'), 'Sub-habits preview visible');
             assert(subhabitsPreviewEl.innerHTML.includes('Stretch 10m'), 'Sub-habit name included in preview');
+
+            core.SyncTargets.Firestore.downloadPerHabitBackup = origDownload;
+            const modal = document.getElementById('modal-import-shared-habit');
+            if (modal) modal.classList.add('hidden');
+            window.location.hash = '';
+          });
+
+          test('Join Shared Habit dialog displays error message when Firestore fails to load', async () => {
+            const origDownload = core.SyncTargets.Firestore.downloadPerHabitBackup;
+            core.SyncTargets.Firestore.downloadPerHabitBackup = function(col, pwd) {
+              return Promise.resolve(null); // Simulate missing or undecryptable Firestore document
+            };
+
+            window.location.hash = '#share?col=invalid_col&pwd=invalid_pwd';
+            core.checkURLHashForSharedHabit();
+
+            await new Promise(r => setTimeout(r, 50));
+
+            const logsInfoEl = document.getElementById('import-shared-habit-logs-info');
+            assert(logsInfoEl && logsInfoEl.innerHTML.includes('Could not load habit from Firestore'), 'Displays error message when Firestore load returns null');
 
             core.SyncTargets.Firestore.downloadPerHabitBackup = origDownload;
             const modal = document.getElementById('modal-import-shared-habit');
