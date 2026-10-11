@@ -480,6 +480,7 @@ window.HabitualCore = window.HabitualCore || {};
               <button type="button" class="card-menu-item btn-card-add-sub" data-habit-id="${habit.id}">+ Add Sub-habit</button>
               <button type="button" class="card-menu-item btn-card-edit" data-habit-id="${habit.id}">Edit Habit</button>
               <button type="button" class="card-menu-item btn-card-pause" data-habit-id="${habit.id}">${habit.isPaused ? '▶️ Resume Habit' : '⏸️ Pause Habit'}</button>
+              ${habit.sharing && habit.sharing.enabled ? `<button type="button" class="card-menu-item btn-card-stop-sharing text-warning" data-habit-id="${habit.id}">🚫 Stop Sharing</button>` : `<button type="button" class="card-menu-item btn-card-share" data-habit-id="${habit.id}">👥 Share Habit</button>`}
               <a href="https://github.com/marcus7777/habitual#readme" target="_blank" rel="noopener noreferrer" class="card-menu-item" style="text-decoration: none;">📖 Documentation (README)</a>
               <button type="button" class="card-menu-item btn-card-delete text-danger" data-habit-id="${habit.id}">Delete Habit</button>
             </div>
