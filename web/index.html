@@ -171,11 +171,11 @@
             <div class="dropdown-divider"></div>
             <a href="sync.html" class="dropdown-item" style="text-decoration: none;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-              Data Management & Sync
+              Data & Sync
             </a>
             <a id="menu-btn-readme" href="https://github.com/marcus7777/habitual#readme" target="_blank" rel="noopener noreferrer" class="dropdown-item" style="text-decoration: none;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-              Documentation (README)
+              Documentation
             </a>
           </div>
         </div>
@@ -200,92 +200,12 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.21.1</p>
+      <p>Habitual &bull; v1.21.5</p>
     </footer>
   </div>
 
   <!-- Custom Tooltip Element -->
   <div id="custom-tooltip" class="custom-tooltip hidden"></div>
-
-  <!-- MODAL: Calendar Date Selector Pop-up (Triggered by Long-Press) -->
-  <div id="modal-calendar-picker" class="modal-backdrop hidden">
-    <div class="modal-dialog modal-dialog-sm">
-      <div class="modal-header">
-        <h3>Select Date to Log</h3>
-        <button id="modal-calendar-close" class="btn-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div>
-          <span id="modal-calendar-habit-badge" class="badge-count">Habit Name</span>
-          <p class="muted-text">Pick a past date or tap a quick option below:</p>
-        </div>
-
-        <!-- Quick Date Pills -->
-        <div class="quick-date-pills">
-          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="0">Today</button>
-          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="1">Yesterday</button>
-          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="2">2 Days Ago</button>
-          <button type="button" class="btn btn-secondary quick-date-btn" data-days-ago="3">3 Days Ago</button>
-        </div>
-
-        <!-- Calendar Picker Input -->
-        <div class="form-group">
-          <label for="calendar-input-date">Custom Calendar Date</label>
-          <input type="date" id="calendar-input-date" class="text-input date-picker-input">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="btn-calendar-cancel" class="btn btn-ghost">Cancel</button>
-        <button type="button" id="btn-calendar-submit" class="btn btn-primary">Open Log Entry</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: Pause Habit -->
-  <div id="modal-pause-habit" class="modal-backdrop hidden">
-    <div class="modal-dialog modal-dialog-sm">
-      <div class="modal-header">
-        <h3 id="modal-pause-habit-title">Pause Habit ⏸️</h3>
-        <button id="modal-pause-close" class="btn-close">&times;</button>
-      </div>
-      <form id="form-pause-habit" class="modal-body">
-        <input type="hidden" id="pause-habit-id">
-
-        <div>
-          <span id="modal-pause-habit-badge" class="badge-count">Habit Name</span>
-          <p class="muted-text">Set a pause period and optional reason for taking a break.</p>
-        </div>
-
-        <div class="form-row-2col margin-top-sm">
-          <div class="form-group">
-            <label for="pause-start-date">Pause Start Date <span class="required">*</span></label>
-            <input type="date" id="pause-start-date" class="text-input" required>
-          </div>
-          <div class="form-group">
-            <label for="pause-resume-date">Expected Resume Date (Optional)</label>
-            <input type="date" id="pause-resume-date" class="text-input">
-            <small class="muted-text">Habit will automatically resume after this date.</small>
-          </div>
-        </div>
-
-        <div class="form-group margin-top-sm">
-          <label for="pause-note">Note / Reason for Pausing (Optional)</label>
-          <textarea id="pause-note" class="textarea-input" rows="2" placeholder="e.g. Vacation, injury recovery, taking a short break..."></textarea>
-        </div>
-
-        <div class="form-group margin-top-sm">
-          <label class="checkbox-label" title="Hide this habit's heatmap card while paused">
-            <input type="checkbox" id="pause-hide-heatmap">
-            <span>Hide heatmap for now 🙈</span>
-          </label>
-        </div>
-      </form>
-      <div class="modal-footer">
-        <button type="button" id="btn-cancel-pause" class="btn btn-ghost">Cancel</button>
-        <button type="button" id="btn-confirm-pause" class="btn btn-primary">Confirm Pause ⏸️</button>
-      </div>
-    </div>
-  </div>
 
   <!-- MODAL: Add / Edit Habit -->
   <div id="modal-habit" class="modal-backdrop hidden">
@@ -330,14 +250,12 @@
               <option value="specific_days">Specific Days of Week (e.g. Mon, Wed, Fri)</option>
               <option value="custom_interval">Custom Interval / Arbitrary Period (e.g. X times every N days/weeks/months)</option>
             </select>
-            <small class="muted-text">Choose how often you plan to practice or track this habit goal.</small>
 
             <!-- Sub-options for Daily -->
             <div id="freq-daily-options" class="schedule-sub-options">
               <div class="form-group margin-top-sm">
                 <label for="habit-daily-target">Daily Target Count (Number of times per day)</label>
                 <input type="number" name="habit-daily-target" id="habit-daily-target" class="text-input" min="1" max="100" value="1">
-                <small class="muted-text">Target number of check-ins / completions per active day.</small>
               </div>
             </div>
 
@@ -362,14 +280,12 @@
               <div class="form-group">
                 <label>Repeat Interval (Every N Weeks)</label>
                 <input type="number" class="text-input" min="1" max="52" value="1" aria-label="Repeat Interval (Every N Weeks)">
-                <small class="muted-text">Set to 1 for every week, 2 for bi-weekly (every 2 weeks), etc.</small>
               </div>
               <div class="form-group">
                 <label class="checkbox-label">
                   <input type="checkbox" name="habit-color-whole-week" id="habit-color-whole-week" checked>
                   <span><strong>Color entire week</strong> when target is completed</span>
                 </label>
-                <small class="muted-text">Logging your practice session colours the heatmap for that full week block until the next target day.</small>
               </div>
             </div>
 
@@ -394,14 +310,12 @@
               <div class="form-group">
                 <label>Repeat Interval (Every N Months)</label>
                 <input type="number" class="text-input" min="1" max="24" value="1" aria-label="Repeat Interval (Every N Months)">
-                <small class="muted-text">Set to 1 for every month, 3 for quarterly (every 3 months), etc.</small>
               </div>
               <div class="form-group">
                 <label class="checkbox-label">
                   <input type="checkbox" name="habit-color-whole-month" id="habit-color-whole-month" checked>
                   <span><strong>Color entire month block</strong> when target is completed</span>
                 </label>
-                <small class="muted-text">Logging your check-in colours the heatmap for that full month block.</small>
               </div>
             </div>
 
@@ -436,12 +350,10 @@
               <div class="form-group margin-top-sm">
                 <label for="habit-custom-target">Target Completion Count</label>
                 <input type="number" name="habit-custom-target" id="habit-custom-target" class="text-input" min="1" max="100" value="1">
-                <small class="muted-text">Number of times required in each period.</small>
               </div>
               <div class="form-group">
                 <label for="habit-custom-interval">Interval Number (Arbitrary Period)</label>
                 <input type="number" name="habit-custom-interval" id="habit-custom-interval" class="text-input" min="1" max="365" value="3">
-                <small class="muted-text">Frequency length (e.g. 3, 5, 10, 14, 30, etc.).</small>
               </div>
               <div class="form-group">
                 <label for="habit-custom-unit">Interval Time Unit</label>
@@ -499,7 +411,7 @@
           <!-- Advanced Settings Accordion -->
           <details class="advanced-settings-accordion" id="advanced-settings-accordion">
             <summary class="advanced-settings-summary">
-              <span>⚙️ Advanced Settings (Category, Parent, Display & Backfill)</span>
+              <span>⚙️ Advanced Settings</span>
               <span class="accordion-arrow">▼</span>
             </summary>
             <div class="advanced-settings-body">
@@ -520,7 +432,6 @@
                   <option value="">None (Top-Level Habit)</option>
                   <!-- Populated dynamically by JS -->
                 </select>
-                <small class="muted-text">Nest habit (e.g. "Leg Day" in "Gym")</small>
               </div>
 
               <!-- Parent Dependency Options -->
@@ -533,38 +444,37 @@
                   <option value="auto_complete_from_parent">Auto-Complete with Parent (Logging parent task automatically completes sub-habit)</option>
                   <option value="parent_days_only">Only Active on Parent Days (Goal & streak active only when parent task is done)</option>
                 </select>
-                <small class="muted-text" id="parent-dependency-hint">Choose how doing the parent task influences or triggers this sub-habit.</small>
               </div>
 
               <!-- Display & Behavior Options Grid -->
               <div class="form-group margin-top-sm">
                 <label><strong>Display & Behavior Options</strong></label>
                 <div class="display-options-grid">
-                  <label class="checkbox-label" title="Display current active streak counter in the card header">
+                  <label class="checkbox-label">
                     <input type="checkbox" name="habit-show-streak" id="habit-show-streak">
                     <span>Show Streak 🔥</span>
                   </label>
-                  <label class="checkbox-label" title="Display total count and completions in the card header">
+                  <label class="checkbox-label">
                     <input type="checkbox" name="habit-show-count" id="habit-show-count" checked>
                     <span>Show Stats 📊</span>
                   </label>
-                  <label class="checkbox-label" title="Display total active habit duration in the card header">
+                  <label class="checkbox-label">
                     <input type="checkbox" name="habit-show-duration" id="habit-show-duration">
                     <span>Show Duration ⏱️</span>
                   </label>
-                  <label class="checkbox-label" title="Exclude this habit's activity from the combined 'All' heatmap card">
+                  <label class="checkbox-label">
                     <input type="checkbox" name="habit-hide-from-all" id="habit-hide-from-all">
                     <span>Hide from 'All' 🙈</span>
                   </label>
-                  <label class="checkbox-label" title="Paused habits display a Paused badge and freeze streak">
+                  <label class="checkbox-label">
                     <input type="checkbox" name="habit-is-paused" id="habit-is-paused">
                     <span>Pause Habit ⏸️</span>
                   </label>
-                  <label class="checkbox-label" title="Hide this habit's heatmap card while paused">
+                  <label class="checkbox-label">
                     <input type="checkbox" name="habit-hide-heatmap-when-paused" id="habit-hide-heatmap-when-paused">
                     <span>Hide Heatmap When Paused 🙈</span>
                   </label>
-                  <label class="checkbox-label" title="Hide 7x52 heatmap matrix and show minimal checkbox card">
+                  <label class="checkbox-label">
                     <input type="checkbox" name="habit-hide-heatmap" id="habit-hide-heatmap">
                     <span>Minimal View (Hide Heatmap) 📋</span>
                   </label>
@@ -575,9 +485,8 @@
               <div class="form-group highlight-form-box margin-top-sm" id="backfill-section">
                 <label class="checkbox-label">
                   <input type="checkbox" name="habit-enable-backfill" id="habit-enable-backfill">
-                  <span id="backfill-checkbox-title"><strong>Add Past History / Backfill Progress</strong></span>
+                  <span id="backfill-checkbox-title"><strong>Backfill History</strong></span>
                 </label>
-                <small class="muted-text" id="backfill-checkbox-desc">Fill out past heatmap activity so you don't start from a blank canvas.</small>
 
                 <div id="backfill-options-container" class="backfill-options-grid hidden">
                   <div class="form-group">
@@ -609,7 +518,6 @@
                       <option value="random_multi">Random / Variable (1 to 3 instances)</option>
                       <option value="random_high">Random / Variable (1 to 5 instances)</option>
                     </select>
-                    <small class="muted-text">Allows backfilling single or multiple completed check-ins per day.</small>
                   </div>
                 </div>
               </div>
@@ -619,25 +527,23 @@
                 <div class="share-habit-header-row" style="display: flex; justify-content: space-between; align-items: center;">
                   <label class="checkbox-label">
                     <input type="checkbox" name="habit-enable-sharing" id="habit-enable-sharing">
-                    <span><strong>👥 Share Habit (Override Firestore Storage)</strong></span>
+                    <span><strong>👥 Share Habit</strong></span>
                   </label>
                   <button type="button" class="btn btn-secondary btn-sm hidden" id="btn-toggle-share-habit-panel">
                     <span>🔗 Share Link & QR</span>
                   </button>
                 </div>
-                <small class="muted-text">Share this habit with family or a coach using a dedicated Firebase Firestore collection and password.</small>
+                <small class="muted-text">Sync this habit in real-time with family or a coach.</small>
 
                 <div id="share-habit-panel" class="share-habit-container hidden margin-top-sm">
                   <div class="form-row-2col">
                     <div class="form-group">
                       <label for="habit-share-collection">Firestore Document ID</label>
                       <input type="text" name="habit-share-collection" id="habit-share-collection" class="text-input font-mono" placeholder="e.g. Xy9zK2mN4pQ7R1sT3uV5">
-                      <small class="muted-text">Unique Firestore document ID for this habit.</small>
                     </div>
                     <div class="form-group">
                       <label for="habit-share-password">Shared Password / Passphrase</label>
                       <input type="text" name="habit-share-password" id="habit-share-password" class="text-input font-mono" placeholder="e.g. standard_password_123">
-                      <small class="muted-text">Used for end-to-end encryption.</small>
                     </div>
                   </div>
 
@@ -646,7 +552,6 @@
                       <input type="checkbox" name="habit-share-include-children" id="habit-share-include-children" checked>
                       <span><strong>👶 Store sub-habits in this encrypted backup</strong></span>
                     </label>
-                    <small class="muted-text">Encrypts and stores all sub-habits under this parent under the same Firestore document with the same password.</small>
                   </div>
 
                   <div class="share-actions-row margin-top-sm" style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -656,15 +561,11 @@
                     <button type="button" id="btn-regen-share-creds" class="btn btn-secondary btn-sm">
                       🔄 Regenerate Keys
                     </button>
-                    <button type="button" id="btn-stop-sharing-habit" class="btn btn-secondary btn-sm text-warning hidden">
-                      🚫 Stop Sharing
-                    </button>
                   </div>
 
                   <div class="qr-code-wrapper margin-top-sm">
                     <label><strong>Scan QR Code to Join Habit</strong></label>
                     <div id="qr-code-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 8px;"></div>
-                    <small class="muted-text">Anyone with this link or QR code can sync check-ins for this habit.</small>
                   </div>
                 </div>
               </div>
@@ -673,9 +574,6 @@
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary btn-sm hidden" id="btn-clear-future-logs" style="margin-right: auto; color: var(--accent-orange, #f59e0b); border-color: rgba(245, 158, 11, 0.4);">
-            🧹 Clear Future Events
-          </button>
           <button type="button" class="btn btn-ghost" id="btn-cancel-habit">Cancel</button>
           <button type="submit" class="btn btn-primary">Save Habit</button>
         </div>
@@ -704,12 +602,10 @@
           <div class="reminder-box-header">
             <span>⏰ Future Date Reminder</span>
           </div>
-          <p class="reminder-box-desc">
-            This date is in the future. Add a calendar reminder so you don't miss it!
-          </p>
+          <p class="reminder-box-desc">Future date - add a calendar reminder.</p>
           <div class="reminder-box-actions">
             <button type="button" id="btn-modal-ics-reminder" class="btn btn-secondary btn-sm">
-              📅 Download .ics Reminder
+              📅 Download .ics
             </button>
             <a id="link-modal-google-cal" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
               🌐 Google Calendar
@@ -736,7 +632,7 @@
 
         <div class="form-group">
           <label for="modal-log-note">Day Note / Journal Entry (Optional)</label>
-          <textarea id="modal-log-note" class="textarea-input" rows="3" placeholder="Add a short note for this day..."></textarea>
+          <textarea id="modal-log-note" class="textarea-input" rows="3" placeholder="Add note..."></textarea>
         </div>
 
         <div class="form-group" style="margin-top: 14px;">
@@ -760,7 +656,6 @@
         <button id="modal-import-close" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
-        <p>You have been invited to join and sync a shared habit!</p>
         <div class="highlight-form-box margin-top-sm">
           <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -771,7 +666,7 @@
           </div>
           <div class="form-group margin-top-sm" id="import-shared-habit-history-group">
             <small id="import-shared-habit-logs-info" class="muted-text" style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--accent-blue);">
-              <span>⏳ Fetching cloud habit history...</span>
+              <span>⏳ Fetching history...</span>
             </small>
           </div>
         </div>
@@ -780,17 +675,13 @@
         <div id="import-shared-habit-heatmap-container" class="margin-top-sm hidden" style="background: var(--bg-surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
-              📊 Cloud Heatmap Log Preview
+              📊 Cloud Preview
             </span>
             <span id="import-shared-habit-year-badge" class="badge-frequency" style="font-size: 0.75rem;">2026</span>
           </div>
           <div id="import-shared-habit-heatmap-svg" style="min-width: 580px;"></div>
           <div id="import-shared-habit-subhabits-preview" class="margin-top-sm hidden"></div>
         </div>
-
-        <small class="muted-text margin-top-sm" style="display: block;">
-          This habit will sync activity in real-time with other participants using end-to-end encryption.
-        </small>
       </div>
       <div class="modal-footer">
         <button type="button" id="btn-cancel-import-shared" class="btn btn-ghost">Cancel</button>
@@ -808,15 +699,15 @@
       </div>
       <div class="modal-body">
         <p class="modal-verify-intro" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px; line-height: 1.4;">
-          👋 Welcome back! You pre-logged a few habits in advance. Let's quickly verify if you got a chance to complete them!
+          Verify your pre-logged habits below:
         </p>
         <div id="modal-verify-logs-list" class="verify-logs-list margin-top-sm">
           <!-- Populated by JS -->
         </div>
       </div>
       <div class="modal-footer" style="justify-content: space-between;">
-        <button type="button" id="btn-verify-later" class="btn btn-ghost btn-sm">Ask Me Later</button>
-        <button type="button" id="btn-verify-all" class="btn btn-primary btn-sm">✅ Confirm All as Done</button>
+        <button type="button" id="btn-verify-later" class="btn btn-ghost btn-sm">Later</button>
+        <button type="button" id="btn-verify-all" class="btn btn-primary btn-sm">✅ Confirm All</button>
       </div>
     </div>
   </div>

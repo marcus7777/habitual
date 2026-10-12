@@ -62,7 +62,7 @@
               Encrypted & Local-First
             </span>
           </h1>
-          <p class="muted-text">Manage local storage engines, P2P sound sync, E2EE encryption keys, cloud backups, and data imports/exports.</p>
+          <p class="muted-text">Manage database engines, encryption, cloud sync, and backups.</p>
         </div>
       </div>
 
@@ -72,7 +72,7 @@
         <div class="data-option-card highlight-card">
           <div class="data-option-info">
             <h4>💾 Local Storage Engine</h4>
-            <p class="muted-text">Choose your local database engine. IndexedDB bypasses browser 5MB storage limits.</p>
+            <p class="muted-text">IndexedDB supports large local data storage.</p>
           </div>
           <div class="engine-selector-group">
             <select id="select-storage-engine" class="form-control-sm select-input" aria-label="Storage Engine">
@@ -87,7 +87,7 @@
         <div id="section-e2ee-passphrase" class="data-option-card highlight-card">
           <div class="data-option-info">
             <h4>🔒 Master Encryption Passphrase (E2EE)</h4>
-            <p class="muted-text">Zero-knowledge client-side encryption key (AES-256-GCM). Required for Firestore Live Sync.</p>
+            <p class="muted-text">Client-side encryption key required for cloud sync.</p>
           </div>
           <div class="input-inline-group" style="align-items: center;">
             <div style="position: relative; flex: 1; display: flex; align-items: center;">
@@ -108,8 +108,8 @@
         <!-- Section 2.5: Firebase Firestore Encrypted Live Sync (Collection: habit_data) -->
         <div id="section-firestore-sync" class="data-option-card highlight-card">
           <div class="data-option-info">
-            <h4>🔥 Encrypted Firestore Cloud Sync (Collection: habit_data)</h4>
-            <p class="muted-text">Real-time Zero-Knowledge client-side encrypted cloud synchronization. Disabled by default & requires a Master Encryption Passphrase.</p>
+            <h4>🔥 Encrypted Firestore Cloud Sync</h4>
+            <p class="muted-text">Real-time client-side encrypted cloud sync.</p>
           </div>
           <div class="p2p-controls">
             <label class="switch-toggle" title="Toggle Firestore Sync">
@@ -126,7 +126,7 @@
               <button id="btn-gen-firestore-code" class="btn btn-secondary btn-sm">New Code</button>
               <button id="btn-copy-firestore-code" class="btn btn-secondary btn-sm" style="display: none;">Copy</button>
             </div>
-            <p class="muted-text text-xs" style="margin: 0;">Copy this Sync Channel Identifier Code and your Master Passphrase to your other computer or phone so both devices sync to the same encrypted plot of data.</p>
+            <p class="muted-text text-xs" style="margin: 0;">Share this channel code and master passphrase to sync across devices.</p>
           </div>
         </div>
 
@@ -135,7 +135,7 @@
           <div class="data-option-card">
             <div class="data-option-info">
               <h4>⚡ Peer-to-Peer (WebRTC) Sync</h4>
-              <p class="muted-text">Directly sync live updates between two open devices using WebRTC P2P.</p>
+              <p class="muted-text">Sync live updates between active devices.</p>
             </div>
             <div class="p2p-controls">
               <label class="switch-toggle" title="Toggle P2P Sync">
@@ -158,7 +158,7 @@
           <!-- Subpanel: Acoustic Sound Sync Fallback (No WebRTC / Network Needed) -->
           <div class="data-subpanel" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
             <h5 class="subpanel-heading">📻 Acoustic Sound Sync (Fallback / No Network Needed)</h5>
-            <p class="muted-text text-xs" style="margin-bottom: 0.5rem;">Transmit habits data directly via audio sound waves (speaker & mic).</p>
+            <p class="muted-text text-xs" style="margin-bottom: 0.5rem;">Transmit data via audio waves (speaker & mic).</p>
             <div class="btn-group-row" style="margin-bottom: 0.5rem;">
               <button id="btn-acoustic-broadcast-delta" class="btn btn-secondary btn-sm">🔊 Broadcast Delta (Past 7 Days)</button>
               <button id="btn-acoustic-broadcast-full" class="btn btn-secondary btn-sm">🔊 Broadcast Full State</button>
@@ -188,7 +188,7 @@
         <div id="section-trigger-sync" class="data-option-card">
           <div class="data-option-info">
             <h4>🔄 Trigger Multi-Target Sync</h4>
-            <p class="muted-text">Pull and merge latest encrypted data from all active sync targets.</p>
+            <p class="muted-text">Pull and merge data from active sync targets.</p>
           </div>
           <button id="btn-trigger-sync" class="btn btn-primary btn-sm">Sync Now</button>
         </div>
@@ -197,7 +197,7 @@
         <div class="data-option-card">
           <div class="data-option-info">
             <h4>📊 Import CSV Activity File</h4>
-            <p class="muted-text">Upload your own CSV habit activity log file.</p>
+            <p class="muted-text">Upload CSV habit activity file.</p>
           </div>
           <label class="btn btn-secondary btn-sm btn-file-label">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
@@ -209,7 +209,7 @@
         <div class="data-option-card">
           <div class="data-option-info">
             <h4>📦 Backup & Restore JSON</h4>
-            <p class="muted-text">Export local backup or restore from JSON file.</p>
+            <p class="muted-text">Export backup or restore JSON file.</p>
           </div>
           <div class="btn-group-row">
             <button id="btn-export-json" class="btn btn-secondary btn-sm">Export JSON</button>
@@ -220,26 +220,17 @@
           </div>
         </div>
 
-        <div class="data-option-card">
-          <div class="data-option-info">
-            <h4>🧩 Widgets & Feature Flags</h4>
-            <p class="muted-text">Widgets Gallery and platform launchers are managed via feature flags (<code>?widgets=1</code> or <code>?widgets=true</code>).</p>
-          </div>
-          <div class="btn-group-row">
-            <a href="index.html?widgets=1" class="btn btn-secondary btn-sm" style="text-decoration: none;">Launch App with Widgets Enabled</a>
-          </div>
-        </div>
-
         <!-- Section 6: PWA & Platform Widgets -->
         <div class="data-option-card">
           <div class="data-option-info">
             <h4>🧩 Platform Widgets & Launcher</h4>
-            <p class="muted-text">Standalone Quick Add, Heatmap Grid widgets, and Adaptive Card settings.</p>
+            <p class="muted-text">Standalone Quick Add, Heatmap Grid widgets, and launcher settings.</p>
           </div>
           <div class="btn-group-row">
+            <a href="index.html?widgets=1" class="btn btn-secondary btn-sm" style="text-decoration: none;">Launch App with Widgets</a>
             <a href="widgets/add.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">⚡ Quick Add Widget</a>
             <a href="widgets/heatmaps.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">📊 Heatmap Grid Widget</a>
-            <a href="widgets/settings.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">⚙️ Widget Settings</a>
+            <a href="widgets/settings.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">⚙️ Settings</a>
           </div>
         </div>
 
@@ -255,7 +246,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.21.1</p>
+      <p>Habitual &bull; v1.21.5</p>
     </footer>
   </div>
 

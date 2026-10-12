@@ -677,20 +677,9 @@ window.HabitualCore = window.HabitualCore || {};
       actionsHTML = `
         <div class="card-header-actions">
           ${dragHandleHTML}
-          <div class="card-context-menu-dropdown">
-            <button type="button" class="btn-card-menu-toggle" title="Options" aria-label="Habit Options">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-            </button>
-            <div class="card-menu-content hidden">
-              ${openMenuItem}
-              ${(habit.sharing && habit.sharing.enabled) ? `<button type="button" class="card-menu-item btn-card-stop-sharing" data-habit-id="${habit.id}">🚫 Stop Sharing</button>` : `<button type="button" class="card-menu-item btn-card-share" data-habit-id="${habit.id}">👥 Share Habit</button>`}
-              <button type="button" class="card-menu-item btn-card-add-sub" data-habit-id="${habit.id}">+ Add Sub-habit</button>
-              <button type="button" class="card-menu-item btn-card-edit" data-habit-id="${habit.id}">Edit Habit</button>
-              <button type="button" class="card-menu-item btn-card-pause" data-habit-id="${habit.id}">${habit.isPaused ? '▶️ Resume Habit' : '⏸️ Pause Habit'}</button>
-              <button type="button" class="card-menu-item btn-card-download-svg" data-habit-id="${habit.id}">📥 Download SVG</button>
-              <button type="button" class="card-menu-item btn-card-delete text-danger" data-habit-id="${habit.id}">Delete Habit</button>
-            </div>
-          </div>
+          <button type="button" class="btn-card-edit" data-habit-id="${habit.id}" title="Edit Habit" aria-label="Edit Habit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
         </div>`;
     } else if (!isAll) {
       actionsHTML = '';

@@ -2886,7 +2886,7 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     });
 
     const cardElemShared = HabitualCore.buildHeatmapCard(sharedHabit, 2026);
-    assert(cardElemShared.innerHTML.includes('btn-card-stop-sharing'), 'Shared card includes Stop Sharing menu item');
+    assert(cardElemShared.innerHTML.includes('badge-shared') || cardElemShared.innerHTML.includes('btn-card-share'), 'Shared card includes share indicator');
 
     HabitualCore.stopSharingHabit('shared_unshare_test');
 
@@ -2895,7 +2895,8 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     assertEqual(updatedHabit.logs[today].count, 1, 'Habit retains all past check-in logs after unsharing');
 
     const cardElemUnshared = HabitualCore.buildHeatmapCard(updatedHabit, 2026);
-    assert(cardElemUnshared.innerHTML.includes('btn-card-share'), 'Unshared card includes Share Habit menu item');
+    assert(!cardElemUnshared.innerHTML.includes('badge-shared'), 'Unshared card removes shared badge');
+    assert(cardElemUnshared.innerHTML.includes('btn-card-edit'), 'Unshared card includes Edit button');
   });
 
   test('Habit ID remains immutable when shared or unshared and parent/child names are derivable from ID', () => {

@@ -1268,47 +1268,11 @@ window.HabitualCore = window.HabitualCore || {};
         return;
       }
 
-      // 2. Handle Context Menu Toggle Button clicks via Delegation
-      const menuToggleBtn = e.target.closest('.btn-card-menu-toggle');
-      if (menuToggleBtn) {
-        e.stopPropagation();
-        e.preventDefault();
-        const dropdown = menuToggleBtn.closest('.card-context-menu-dropdown');
-        if (dropdown) {
-          const menu = dropdown.querySelector('.card-menu-content');
-          if (menu) {
-            const isHidden = menu.classList.contains('hidden');
-            gallery.querySelectorAll('.card-menu-content').forEach(m => m.classList.add('hidden'));
-            gallery.querySelectorAll('.heatmap-card.menu-open').forEach(c => c.classList.remove('menu-open'));
-            if (isHidden) {
-              menu.classList.remove('hidden');
-              card.classList.add('menu-open');
-            }
-          }
-        }
-        return;
-      }
-
-      // 3. Handle Card Context Menu Action Buttons via Delegation
-      const addSubBtn = e.target.closest('.btn-card-add-sub');
-      if (addSubBtn) {
-        e.stopPropagation();
-        e.preventDefault();
-        const menu = addSubBtn.closest('.card-menu-content');
-        if (menu) menu.classList.add('hidden');
-        card.classList.remove('menu-open');
-        const habitId = addSubBtn.dataset.habitId || addSubBtn.getAttribute('data-habit-id');
-        if (core.openHabitModal) core.openHabitModal(null, habitId);
-        return;
-      }
-
-      const editBtn = e.target.closest('.btn-card-edit');
+      // 2. Handle Edit / Context Menu Button clicks via Delegation
+      const editBtn = e.target.closest('.btn-card-edit, .btn-card-menu-toggle');
       if (editBtn) {
         e.stopPropagation();
         e.preventDefault();
-        const menu = editBtn.closest('.card-menu-content');
-        if (menu) menu.classList.add('hidden');
-        card.classList.remove('menu-open');
         const habitId = editBtn.dataset.habitId || editBtn.getAttribute('data-habit-id');
         const habit = core.state.habits.find(h => h.id === habitId);
         if (habit && core.openHabitModal) core.openHabitModal(habit);
@@ -1340,15 +1304,12 @@ window.HabitualCore = window.HabitualCore || {};
         const habitId = pauseBtn.dataset.habitId || pauseBtn.getAttribute('data-habit-id');
         const habit = core.state.habits.find(h => h.id === habitId);
         if (habit) {
-          if (!habit.isPaused) {
-            if (core.openPauseModal) core.openPauseModal(habit);
-          } else {
-            if (core.setHabitPauseState) core.setHabitPauseState(habit, false);
-            if (core.renderAll) core.renderAll();
-            if (core.saveHabit) core.saveHabit(habit);
-            else if (core.saveState) core.saveState();
-            if (core.showToast) core.showToast(`Resumed "${habit.name}"`);
-          }
+          const newIsPaused = !habit.isPaused;
+          if (core.setHabitPauseState) core.setHabitPauseState(habit, newIsPaused);
+          if (core.renderAll) core.renderAll();
+          if (core.saveHabit) core.saveHabit(habit);
+          else if (core.saveState) core.saveState();
+          if (core.showToast) core.showToast(newIsPaused ? `Paused "${habit.name}" ⏸️` : `Resumed "${habit.name}" ▶️`);
         }
         return;
       }
