@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "updatedAt": 1791732316185,
+  "habits": [
+    {
+      "id": "dailyReading445",
+      "updatedAt": 1791732311839,
+      "name": "Daily Reading 445",
+      "colorTheme": "#616161",
+      "category": "General",
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-10-11",
+      "logs": {
+        "2026-10-11": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "selectedHabitId": "dailyReading445",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false
+}

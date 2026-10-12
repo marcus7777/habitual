@@ -683,6 +683,7 @@ window.HabitualCore = window.HabitualCore || {};
             </button>
             <div class="card-menu-content hidden">
               ${openMenuItem}
+              ${(habit.sharing && habit.sharing.enabled) ? `<button type="button" class="card-menu-item btn-card-stop-sharing" data-habit-id="${habit.id}">🚫 Stop Sharing</button>` : `<button type="button" class="card-menu-item btn-card-share" data-habit-id="${habit.id}">👥 Share Habit</button>`}
               <button type="button" class="card-menu-item btn-card-add-sub" data-habit-id="${habit.id}">+ Add Sub-habit</button>
               <button type="button" class="card-menu-item btn-card-edit" data-habit-id="${habit.id}">Edit Habit</button>
               <button type="button" class="card-menu-item btn-card-pause" data-habit-id="${habit.id}">${habit.isPaused ? '▶️ Resume Habit' : '⏸️ Pause Habit'}</button>

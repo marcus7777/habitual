@@ -586,8 +586,8 @@
 
             assert(parentHabit.sharing !== undefined, 'Sharing object created on habit');
             assertEqual(parentHabit.sharing.enabled, true, 'Sharing enabled');
-            assert(parentHabit.sharing.collection.startsWith('shared_hb_'), 'Collection generated and stored in local state');
-            assert(parentHabit.sharing.password.startsWith('sec_'), 'Password generated and stored in local state');
+            assert(parentHabit.sharing.docId || parentHabit.sharing.collection, 'Doc ID generated and stored in local state');
+            assert(parentHabit.sharing.password && parentHabit.sharing.password.length >= 10, 'Password generated without sec_ prefix');
 
             assert(uploadedPayload !== null, 'uploadPerHabitBackup triggered immediately');
             assertEqual(uploadedPayload.name, 'Direct Fitness');
@@ -625,7 +625,7 @@
             core.ensureCurrentModalHabitSharedAndUploaded();
 
             assert(editHabit.sharing !== undefined, 'Sharing attached to editHabit');
-            assert(editHabit.sharing.collection.startsWith('shared_hb_'), 'Generated collection ID saved on habit');
+            assert(editHabit.sharing.docId || editHabit.sharing.collection, 'Generated document ID saved on habit');
             assert(uploadedPayload !== null, 'Uploaded to Firestore instantly on share trigger in dialog');
             assertEqual(uploadedPayload.name, 'Dialog Share Test');
 
@@ -717,16 +717,16 @@
 
             assert(parentHabit.sharing !== undefined, 'Sharing configuration created on parent habit');
             assertEqual(parentHabit.sharing.enabled, true, 'Sharing enabled');
-            const col = parentHabit.sharing.collection;
+            const docId = parentHabit.sharing.docId || parentHabit.sharing.collection;
             const pwd = parentHabit.sharing.password;
-            assert(col && col.startsWith('shared_hb_'), 'Collection ID saved in local habit state');
-            assert(pwd && pwd.startsWith('sec_'), 'Password saved in local habit state');
+            assert(docId && docId.length > 0, 'Document ID saved in local habit state');
+            assert(pwd && pwd.length >= 10, 'Password saved in local habit state');
 
             await new Promise(r => setTimeout(r, 50));
 
-            assert(firestoreStore.has(`${col}_shared_data`), 'Data successfully uploaded to Firestore document');
+            assert(firestoreStore.has(`share_${docId}`), 'Data successfully uploaded to Firestore document');
 
-            const downloaded = await core.SyncTargets.Firestore.downloadPerHabitBackup(col, pwd);
+            const downloaded = await core.SyncTargets.Firestore.downloadPerHabitBackup(docId, pwd);
             assert(downloaded !== null, 'Data successfully downloaded and decrypted from Firestore');
             assertEqual(downloaded.name, 'End to End Fitness Routine', 'Decrypted habit name matches');
             assertEqual(downloaded.colorTheme, '#39d353', 'Decrypted color theme matches');
