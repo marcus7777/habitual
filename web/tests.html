@@ -538,6 +538,87 @@
             core.SyncTargets.Firestore.uploadPerHabitBackup = origUpload;
           });
 
+          test('Complete Round Trip: Share habit -> upload encrypted payload to Firestore -> download from Firestore -> decrypt and verify integrity', async () => {
+            const parentHabit = {
+              id: 'rt_parent_1',
+              name: 'End to End Fitness Routine',
+              type: 'positive',
+              description: 'Full body routine',
+              category: 'Wellness',
+              colorTheme: '#39d353',
+              dailyTarget: 2,
+              customTarget: 2,
+              customInterval: 1,
+              customUnit: 'days',
+              logs: { '2026-10-11': { count: 2, note: 'Evening session' } }
+            };
+            const childHabit = {
+              id: 'rt_child_1',
+              parentId: 'rt_parent_1',
+              name: 'Stretch & Foam Roll',
+              dailyTarget: 1,
+              logs: { '2026-10-11': { count: 1, note: '10 min stretch' } }
+            };
+
+            core.state.habits = [parentHabit, childHabit];
+
+            const firestoreStore = new Map();
+            const origDb = core.SyncTargets.Firestore.db;
+            core.SyncTargets.Firestore.db = {
+              collection: function(col) {
+                return {
+                  doc: function(docId) {
+                    return {
+                      set: function(data) {
+                        firestoreStore.set(`${col}_${docId}`, data);
+                        return Promise.resolve();
+                      },
+                      get: function() {
+                        const data = firestoreStore.get(`${col}_${docId}`);
+                        return Promise.resolve({
+                          exists: !!data,
+                          data: function() { return data; }
+                        });
+                      }
+                    };
+                  }
+                };
+              }
+            };
+
+            core.shareHabitDirectly('rt_parent_1');
+
+            assert(parentHabit.sharing !== undefined, 'Sharing configuration created on parent habit');
+            assertEqual(parentHabit.sharing.enabled, true, 'Sharing enabled');
+            const col = parentHabit.sharing.collection;
+            const pwd = parentHabit.sharing.password;
+            assert(col && col.startsWith('shared_hb_'), 'Collection ID saved in local habit state');
+            assert(pwd && pwd.startsWith('sec_'), 'Password saved in local habit state');
+
+            await new Promise(r => setTimeout(r, 50));
+
+            assert(firestoreStore.has(`${col}_shared_data`), 'Data successfully uploaded to Firestore document');
+
+            const downloaded = await core.SyncTargets.Firestore.downloadPerHabitBackup(col, pwd);
+            assert(downloaded !== null, 'Data successfully downloaded and decrypted from Firestore');
+            assertEqual(downloaded.name, 'End to End Fitness Routine', 'Decrypted habit name matches');
+            assertEqual(downloaded.colorTheme, '#39d353', 'Decrypted color theme matches');
+            assertEqual(downloaded.dailyTarget, 2, 'Decrypted daily target matches');
+            assertEqual(downloaded.logs['2026-10-11'].count, 2, 'Decrypted check-in log count matches');
+            assertEqual(downloaded.logs['2026-10-11'].note, 'Evening session', 'Decrypted check-in note matches');
+            assertEqual(downloaded.includeChildren, true, 'Sub-habits included in backup');
+            assertEqual(downloaded.children.length, 1, 'Sub-habit present in decrypted payload');
+            assertEqual(downloaded.children[0].name, 'Stretch & Foam Roll', 'Decrypted sub-habit name matches');
+            assertEqual(downloaded.children[0].logs['2026-10-11'].count, 1, 'Decrypted sub-habit log matches');
+
+            const wrongDecrypt = await core.SyncTargets.Firestore.downloadPerHabitBackup(col, 'incorrect_passphrase_xyz');
+            assertEqual(wrongDecrypt, null, 'Decryption rejected when wrong password is supplied');
+
+            core.SyncTargets.Firestore.db = origDb;
+            const modalHabit = document.getElementById('modal-habit');
+            if (modalHabit) modalHabit.classList.add('hidden');
+          });
+
           test('saveState debounces and triggers Firestore write when target is enabled', (done) => {
             let broadcastCalled = false;
             const origBroadcast = core.SyncManager.broadcastWriteDebounced;
