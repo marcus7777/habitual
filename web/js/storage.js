@@ -476,13 +476,6 @@ window.HabitualCore = window.HabitualCore || {};
       let hasLogs = false;
       let effectiveCutoff = cutoffKey;
 
-      // Issue #15: For shared habits in main backup document, limit logs to recent 5 days link window
-      if (habit.sharing && habit.sharing.enabled && !effectiveCutoff) {
-        const d = new Date();
-        d.setDate(d.getDate() - 5);
-        effectiveCutoff = core.formatDateKey ? core.formatDateKey(d) : null;
-      }
-
       Object.keys(habit.logs).forEach(dateKey => {
         if (effectiveCutoff && dateKey < effectiveCutoff) return;
         const log = habit.logs[dateKey];
@@ -1046,28 +1039,42 @@ window.HabitualCore = window.HabitualCore || {};
           return Promise.resolve(this.db);
         }
         const self = this;
-        if (typeof firebase !== 'undefined' && firebase.firestore) {
+        const ensureFirebaseLibs = function() {
+          if (typeof firebase !== 'undefined' && firebase.firestore) {
+            return Promise.resolve();
+          }
+          return core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js')
+            .then(function() {
+              return core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js');
+            });
+        };
+
+        return ensureFirebaseLibs().then(function() {
+          if (!firebase.apps.length) {
+            return core.loadScript('/__/firebase/init.js').catch(function() {
+              if (!firebase.apps.length) {
+                firebase.initializeApp({ projectId: "habitual-log" });
+              }
+            });
+          }
+        }).then(function() {
           if (!firebase.apps.length) {
             firebase.initializeApp({ projectId: "habitual-log" });
           }
-          this.db = firebase.firestore();
-          this._setupEmulatorIfRequested(this.db);
-          this._enableOfflinePersistence(this.db);
-          return Promise.resolve(this.db);
-        }
-        return core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js')
-          .then(function() {
-            return core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js');
-          })
-          .then(function() {
+          self.db = firebase.firestore();
+          self._setupEmulatorIfRequested(self.db);
+          self._enableOfflinePersistence(self.db);
+          return self.db;
+        }).catch(function(err) {
+          if (typeof firebase !== 'undefined' && firebase.firestore) {
             if (!firebase.apps.length) {
-              firebase.initializeApp({ projectId: "habitual-log" });
+              try { firebase.initializeApp({ projectId: "habitual-log" }); } catch (e) {}
             }
-            core.SyncTargets.Firestore.db = firebase.firestore();
-            self._setupEmulatorIfRequested(core.SyncTargets.Firestore.db);
-            self._enableOfflinePersistence(core.SyncTargets.Firestore.db);
-            return core.SyncTargets.Firestore.db;
-          });
+            self.db = firebase.firestore();
+            return self.db;
+          }
+          return Promise.reject(err);
+        });
       },
 
       lastUploadedPayloadStr: null,
@@ -1257,18 +1264,61 @@ window.HabitualCore = window.HabitualCore || {};
                 if (!targetHabit) return;
 
                 let updated = false;
+
+                // 1. Synchronize Metadata & Display Settings on Parent Habit
+                const metaFields = [
+                  'name', 'type', 'description', 'category', 'dailyTarget', 'frequencyType',
+                  'weeklyTarget', 'monthlyDay', 'monthlyTarget', 'customTarget', 'customInterval', 'customUnit',
+                  'colorWholeWeek', 'colorWholeMonth', 'showStreak', 'showCount', 'showDuration',
+                  'hideFromAll', 'isPaused', 'hideHeatmapWhenPaused', 'hideHeatmap'
+                ];
+
+                metaFields.forEach(field => {
+                  if (remoteHabit[field] !== undefined && remoteHabit[field] !== targetHabit[field]) {
+                    targetHabit[field] = remoteHabit[field];
+                    updated = true;
+                  }
+                });
+
+                if (remoteHabit.colorTheme && remoteHabit.colorTheme !== targetHabit.colorTheme) {
+                  targetHabit.colorTheme = remoteHabit.colorTheme;
+                  updated = true;
+                }
+
+                if (remoteHabit.targetDays && Array.isArray(remoteHabit.targetDays)) {
+                  const currDays = targetHabit.targetDays || [];
+                  if (currDays.length !== remoteHabit.targetDays.length || !currDays.every((v, i) => v === remoteHabit.targetDays[i])) {
+                    targetHabit.targetDays = remoteHabit.targetDays;
+                    updated = true;
+                  }
+                }
+
+                // 2. Synchronize Check-In Logs on Parent Habit
                 if (remoteHabit.logs) {
                   if (!targetHabit.logs) targetHabit.logs = {};
                   Object.keys(remoteHabit.logs).forEach(dateKey => {
                     const rLog = remoteHabit.logs[dateKey];
                     const lLog = targetHabit.logs[dateKey];
-                    if (!lLog || lLog.count < rLog.count || (rLog.note && lLog.note !== rLog.note)) {
-                      targetHabit.logs[dateKey] = rLog;
+                    if (!rLog) return;
+
+                    if (!lLog) {
+                      targetHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
+                      if (rLog.unverified) targetHabit.logs[dateKey].unverified = true;
                       updated = true;
+                    } else {
+                      const newCount = Math.max(lLog.count || 0, rLog.count || 0);
+                      const newNote = (rLog.note && rLog.note.trim() !== '') ? rLog.note : (lLog.note || '');
+                      const newUnverified = Boolean(lLog.unverified || rLog.unverified);
+                      if (lLog.count !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
+                        targetHabit.logs[dateKey] = { count: newCount, note: newNote };
+                        if (newUnverified) targetHabit.logs[dateKey].unverified = true;
+                        updated = true;
+                      }
                     }
                   });
                 }
 
+                // 3. Synchronize Sub-Habits (Children) Metadata, Settings & Logs
                 if (remoteHabit.children && Array.isArray(remoteHabit.children)) {
                   remoteHabit.children.forEach(cData => {
                     let childHabit = core.state.habits.find(h => h.id === cData.habitId || (h.parentId === targetHabit.id && h.name === cData.name));
@@ -1281,7 +1331,7 @@ window.HabitualCore = window.HabitualCore || {};
                         category: cData.category || 'General',
                         dailyTarget: cData.dailyTarget || 1,
                         frequencyType: cData.frequencyType || 'daily',
-                        targetDays: cData.targetDays || [1],
+                        targetDays: cData.targetDays || [1, 2, 3, 4, 5, 6, 0],
                         weeklyTarget: cData.weeklyTarget || 1,
                         monthlyDay: cData.monthlyDay || '1',
                         monthlyTarget: cData.monthlyTarget || 1,
@@ -1304,14 +1354,38 @@ window.HabitualCore = window.HabitualCore || {};
                       core.state.habits.push(childHabit);
                       updated = true;
                     } else {
+                      metaFields.forEach(field => {
+                        if (cData[field] !== undefined && cData[field] !== childHabit[field]) {
+                          childHabit[field] = cData[field];
+                          updated = true;
+                        }
+                      });
+
+                      if (cData.colorTheme && cData.colorTheme !== childHabit.colorTheme) {
+                        childHabit.colorTheme = cData.colorTheme;
+                        updated = true;
+                      }
+
                       if (!childHabit.logs) childHabit.logs = {};
                       if (cData.logs) {
                         Object.keys(cData.logs).forEach(dateKey => {
                           const rLog = cData.logs[dateKey];
                           const lLog = childHabit.logs[dateKey];
-                          if (!lLog || lLog.count < rLog.count || (rLog.note && lLog.note !== rLog.note)) {
-                            childHabit.logs[dateKey] = rLog;
+                          if (!rLog) return;
+
+                          if (!lLog) {
+                            childHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
+                            if (rLog.unverified) childHabit.logs[dateKey].unverified = true;
                             updated = true;
+                          } else {
+                            const newCount = Math.max(lLog.count || 0, rLog.count || 0);
+                            const newNote = (rLog.note && rLog.note.trim() !== '') ? rLog.note : (lLog.note || '');
+                            const newUnverified = Boolean(lLog.unverified || rLog.unverified);
+                            if (lLog.count !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
+                              childHabit.logs[dateKey] = { count: newCount, note: newNote };
+                              if (newUnverified) childHabit.logs[dateKey].unverified = true;
+                              updated = true;
+                            }
                           }
                         });
                       }
@@ -1443,7 +1517,7 @@ window.HabitualCore = window.HabitualCore || {};
           return core.E2EE.decrypt(doc.data().ciphertext, pwd);
         }).catch(function(err) {
           console.warn('Error downloading per-habit backup:', err);
-          return null;
+          return Promise.reject(err);
         });
       },
 

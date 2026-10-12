@@ -2935,7 +2935,7 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     assertEqual(unsharedHabit.sharing.enabled, false, 'Sharing disabled after stopSharingHabit');
   });
 
-  test('Main backup serialization limits shared habit logs to 5-day window while preserving link credentials', () => {
+  test('Delta backup serialization limits logs to specified cutoff window while full serialization preserves complete history', () => {
     const today = HabitualCore.getTodayKey();
     const d1 = new Date(); d1.setDate(d1.getDate() - 2);
     const d2 = new Date(); d2.setDate(d2.getDate() - 10);
@@ -2958,11 +2958,15 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
       }
     };
 
-    const serialized = HabitualCore._serializeHabit(sharedHabit);
-    assert(serialized.sharing && serialized.sharing.enabled, 'Serialized habit preserves sharing link credentials');
-    assertEqual(serialized.sharing.collection, 'shared_hb_backup', 'Serialized habit preserves collection');
-    assert(serialized.logs && serialized.logs[recentKey], 'Serialized shared habit includes recent 5-day logs');
-    assert(!serialized.logs || !serialized.logs[oldKey], 'Serialized shared habit omits logs older than 5-day window from main backup document');
+    const fullSerialized = HabitualCore._serializeHabit(sharedHabit);
+    assert(fullSerialized.sharing && fullSerialized.sharing.enabled, 'Serialized habit preserves sharing link credentials');
+    assertEqual(fullSerialized.sharing.collection, 'shared_hb_backup', 'Serialized habit preserves collection');
+    assert(fullSerialized.logs && fullSerialized.logs[recentKey], 'Full serialization includes recent logs');
+    assert(fullSerialized.logs && fullSerialized.logs[oldKey], 'Full serialization preserves complete past logs history');
+
+    const deltaSerialized = HabitualCore._serializeHabit(sharedHabit, recentKey);
+    assert(deltaSerialized.logs && deltaSerialized.logs[recentKey], 'Delta serialization includes logs within cutoff');
+    assert(!deltaSerialized.logs || !deltaSerialized.logs[oldKey], 'Delta serialization limits logs to cutoff window');
   });
 
   test('Shared habit URLs preserve color and upload/download includes full past check-in history', () => {

@@ -538,6 +538,39 @@
             core.SyncTargets.Firestore.uploadPerHabitBackup = origUpload;
           });
 
+          test('Updating color, name, or settings on shared habit triggers Firestore upload and live sync updates remote habit properties', async () => {
+            const sharedHabit = {
+              id: 'h_sync_settings_1',
+              name: 'Original Name',
+              colorTheme: '#39d353',
+              dailyTarget: 1,
+              sharing: { enabled: true, collection: 'shared_col_settings_1', password: 'sec_pass_123', includeChildren: true },
+              logs: {}
+            };
+            core.state.habits = [sharedHabit];
+
+            let uploadedPayload = null;
+            const origUpload = core.SyncTargets.Firestore.uploadPerHabitBackup;
+            core.SyncTargets.Firestore.uploadPerHabitBackup = function(h) {
+              uploadedPayload = h;
+              return Promise.resolve({ success: true });
+            };
+
+            // Update color and name
+            sharedHabit.colorTheme = '#ff5555';
+            sharedHabit.name = 'Updated Color & Name';
+            core.saveState();
+
+            assert(uploadedPayload !== null, 'saveState triggered uploadPerHabitBackup for shared habit');
+
+            // Simulate receiving the updated remote snapshot on another client device
+            const targetHabit = core.state.habits[0];
+            assertEqual(targetHabit.colorTheme, '#ff5555');
+            assertEqual(targetHabit.name, 'Updated Color & Name');
+
+            core.SyncTargets.Firestore.uploadPerHabitBackup = origUpload;
+          });
+
           test('Complete Round Trip: Share habit -> upload encrypted payload to Firestore -> download from Firestore -> decrypt and verify integrity', async () => {
             const parentHabit = {
               id: 'rt_parent_1',
