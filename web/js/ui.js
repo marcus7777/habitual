@@ -1738,7 +1738,10 @@ window.HabitualCore = window.HabitualCore || {};
     // Upload habit data, settings, logs, names, colors, and all sub-habits immediately to Firestore
     if (core.SyncTargets && core.SyncTargets.Firestore) {
       core.SyncTargets.Firestore.startPerHabitLiveSync(habit);
-      core.SyncTargets.Firestore.uploadPerHabitBackup(habit);
+      core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(err) {
+        const errMsg = err && err.message ? err.message : String(err);
+        if (core.showToast) core.showToast(`❌ Firestore upload error: ${errMsg}`, 'error');
+      });
     }
 
     // Open Habit Modal with Share section expanded so link & QR code can be copied / viewed
@@ -2779,18 +2782,6 @@ window.HabitualCore = window.HabitualCore || {};
     return shareUrl;
   };
 
-  // Wire up event listeners for Share Habit controls
-  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-    document.addEventListener('DOMContentLoaded', function() {
-      const chkSharing = document.getElementById('habit-enable-sharing');
-      const inputShareCol = document.getElementById('habit-share-collection');
-      const inputSharePwd = document.getElementById('habit-share-password');
-      const inputHabitName = document.getElementById('habit-name');
-      const sharePanel = document.getElementById('share-habit-panel');
-      const btnToggleShare = document.getElementById('btn-toggle-share-habit-panel');
-      const btnCopyShareLink = document.getElementById('btn-copy-share-link');
-      const btnRegenShareCreds = document.getElementById('btn-regen-share-creds');
-
   core.ensureCurrentModalHabitSharedAndUploaded = function() {
     const habitIdInput = document.getElementById('habit-id');
     const inputShareCol = document.getElementById('habit-share-collection');
@@ -2827,7 +2818,10 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (core.SyncTargets && core.SyncTargets.Firestore) {
         core.SyncTargets.Firestore.startPerHabitLiveSync(habit);
-        core.SyncTargets.Firestore.uploadPerHabitBackup(habit);
+        core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(err) {
+          const errMsg = err && err.message ? err.message : String(err);
+          if (core.showToast) core.showToast(`❌ Firestore upload error: ${errMsg}`, 'error');
+        });
       }
     } else {
       const nameInput = document.getElementById('habit-name');
@@ -2864,7 +2858,10 @@ window.HabitualCore = window.HabitualCore || {};
         if (core.saveState) core.saveState();
         if (core.SyncTargets && core.SyncTargets.Firestore) {
           core.SyncTargets.Firestore.startPerHabitLiveSync(habit);
-          core.SyncTargets.Firestore.uploadPerHabitBackup(habit);
+          core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(err) {
+            const errMsg = err && err.message ? err.message : String(err);
+            if (core.showToast) core.showToast(`❌ Firestore upload error: ${errMsg}`, 'error');
+          });
         }
       }
     }
@@ -2947,12 +2944,12 @@ window.HabitualCore = window.HabitualCore || {};
       // Check URL Hash for shared habit invitation on load
       core.checkURLHashForSharedHabit();
     });
+  }
 
-    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('hashchange', function() {
-        if (core.checkURLHashForSharedHabit) core.checkURLHashForSharedHabit();
-      });
-    }
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('hashchange', function() {
+      if (core.checkURLHashForSharedHabit) core.checkURLHashForSharedHabit();
+    });
   }
 
   core.checkURLHashForSharedHabit = function() {

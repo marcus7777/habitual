@@ -1422,6 +1422,11 @@ window.HabitualCore = window.HabitualCore || {};
           });
         }).catch(function(e) {
           console.warn('Upload per-habit backup error:', e);
+          const errMsg = e && e.message ? e.message : String(e);
+          if (core.showToast) {
+            core.showToast('❌ Firestore Upload Error: ' + errMsg, 'error');
+          }
+          return Promise.reject(e);
         });
       },
 
