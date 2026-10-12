@@ -1202,7 +1202,7 @@ window.HabitualCore = window.HabitualCore || {};
             return self.db.collection('habit_data').doc(syncCode).set({
               ciphertext: cipher,
               updatedAt: serverTs,
-              dataHash: dataHash
+              hashOfdata: dataHash
             });
           });
         });
@@ -1242,7 +1242,7 @@ window.HabitualCore = window.HabitualCore || {};
               if (!data || !data.ciphertext) return;
 
               // Check if unencrypted data hash matches local state to suppress re-decryption
-              const remoteHash = data.dataHash || data.data_hash || data.hash;
+              const remoteHash = data.hashOfdata || data.hashOfData || data.dataHash || data.data_hash || data.hash;
               if (remoteHash) {
                 const localPayload = core.getPayloadFromState();
                 const localHash = core.computeDataHash(localPayload);
@@ -1346,7 +1346,7 @@ window.HabitualCore = window.HabitualCore || {};
               if (!data || !data.ciphertext) return;
 
               const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && h.sharing.collection === collectionId));
-              const remoteHash = data.dataHash || data.data_hash || data.hash;
+              const remoteHash = data.hashOfdata || data.hashOfData || data.dataHash || data.data_hash || data.hash;
 
               if (remoteHash && targetHabit) {
                 const localPayload = core.getPerHabitPayload(targetHabit);
@@ -1527,7 +1527,7 @@ window.HabitualCore = window.HabitualCore || {};
           return self.db.collection(collectionId).doc('shared_data').set({
             ciphertext: cipher,
             updatedAt: serverTs,
-            dataHash: dataHash
+            hashOfdata: dataHash
           });
         }).catch(function(e) {
           console.warn('Upload per-habit backup error:', e);
