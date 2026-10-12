@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "updatedAt": 1791580442453,
+  "habits": [
+    {
+      "id": "dailyReading925",
+      "updatedAt": 1791580439198,
+      "name": "Daily Reading 925",
+      "colorTheme": "#616161",
+      "category": "General",
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-10-09",
+      "logs": {
+        "2026-10-09": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "selectedHabitId": "dailyReading925",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false
+}

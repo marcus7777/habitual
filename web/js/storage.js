@@ -915,6 +915,48 @@ window.HabitualCore = window.HabitualCore || {};
     return (h1 >>> 0).toString(16) + (h2 >>> 0).toString(16);
   };
 
+  core.generateShareDocId = function() {
+    try {
+      if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.db) {
+        return core.SyncTargets.Firestore.db.collection('share').doc().id;
+      } else if (typeof firebase !== 'undefined' && firebase.firestore) {
+        return firebase.firestore().collection('share').doc().id;
+      }
+    } catch (e) {}
+
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let autoId = '';
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const vals = new Uint8Array(20);
+      crypto.getRandomValues(vals);
+      for (let i = 0; i < 20; i++) {
+        autoId += chars.charAt(vals[i] % chars.length);
+      }
+      return autoId;
+    }
+    for (let i = 0; i < 20; i++) {
+      autoId += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return autoId;
+  };
+
+  core.generateRandomPassword = function(length = 16) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let res = '';
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const vals = new Uint8Array(length);
+      crypto.getRandomValues(vals);
+      for (let i = 0; i < length; i++) {
+        res += chars.charAt(vals[i] % chars.length);
+      }
+      return res;
+    }
+    for (let i = 0; i < length; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return res;
+  };
+
   core.getPerHabitPayload = function(habit) {
     if (!habit) return null;
     const todayStr = core.getTodayKey ? core.getTodayKey() : '';
@@ -1325,11 +1367,12 @@ window.HabitualCore = window.HabitualCore || {};
       perHabitListeners: {},
 
       startPerHabitLiveSync: function(habit) {
-        if (!habit || !habit.sharing || !habit.sharing.enabled || !habit.sharing.collection || !habit.sharing.password) return Promise.resolve(null);
+        if (!habit || !habit.sharing || !habit.sharing.enabled) return Promise.resolve(null);
+        const docId = String(habit.sharing.docId || habit.sharing.collection || '').trim();
+        const passphrase = String(habit.sharing.password || '').trim();
+        if (!docId || !passphrase) return Promise.resolve(null);
         const self = this;
         const habitId = habit.id;
-        const collectionId = String(habit.sharing.collection || '').trim();
-        const passphrase = String(habit.sharing.password || '').trim();
 
         if (self.perHabitListeners[habitId]) {
           self.perHabitListeners[habitId]();
@@ -1337,7 +1380,7 @@ window.HabitualCore = window.HabitualCore || {};
         }
 
         return self.init().then(function() {
-          const unsub = self.db.collection(collectionId).doc('shared_data')
+          const unsub = self.db.collection('share').doc(docId)
             .onSnapshot(function(doc) {
               if (!doc.exists) return;
               if (doc.metadata && doc.metadata.hasPendingWrites) return;
@@ -1345,7 +1388,7 @@ window.HabitualCore = window.HabitualCore || {};
               const data = doc.data();
               if (!data || !data.ciphertext) return;
 
-              const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && h.sharing.collection === collectionId));
+              const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)));
               const remoteHash = data.hashOfdata || data.hashOfData || data.dataHash || data.data_hash || data.hash;
 
               if (remoteHash && targetHabit) {
@@ -1358,7 +1401,7 @@ window.HabitualCore = window.HabitualCore || {};
 
               core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remoteHabit) {
                 if (!remoteHabit) return;
-                const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && h.sharing.collection === collectionId));
+                const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)));
                 if (!targetHabit) return;
 
                 let updated = false;
@@ -1510,11 +1553,12 @@ window.HabitualCore = window.HabitualCore || {};
       },
 
       uploadPerHabitBackup: function(habit) {
-        if (!habit || !habit.sharing || !habit.sharing.enabled || !habit.sharing.collection || !habit.sharing.password) return Promise.resolve(null);
-        const self = this;
-        const collectionId = String(habit.sharing.collection || '').trim();
+        if (!habit || !habit.sharing || !habit.sharing.enabled) return Promise.resolve(null);
+        const docId = String(habit.sharing.docId || habit.sharing.collection || '').trim();
         const passphrase = String(habit.sharing.password || '').trim();
+        if (!docId || !passphrase) return Promise.resolve(null);
 
+        const self = this;
         const payload = core.getPerHabitPayload(habit);
         const dataHash = core.computeDataHash(payload);
 
@@ -1524,7 +1568,7 @@ window.HabitualCore = window.HabitualCore || {};
           const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
             ? firebase.firestore.FieldValue.serverTimestamp()
             : Date.now();
-          return self.db.collection(collectionId).doc('shared_data').set({
+          return self.db.collection('share').doc(docId).set({
             ciphertext: cipher,
             updatedAt: serverTs,
             hashOfdata: dataHash
@@ -1539,14 +1583,14 @@ window.HabitualCore = window.HabitualCore || {};
         });
       },
 
-      downloadPerHabitBackup: function(collectionId, passphrase) {
-        if (!collectionId || !passphrase) return Promise.resolve(null);
+      downloadPerHabitBackup: function(docIdParam, passphrase) {
+        if (!docIdParam || !passphrase) return Promise.resolve(null);
         const self = this;
-        const col = String(collectionId).trim();
+        const docId = String(docIdParam).trim();
         const pwd = String(passphrase).trim();
 
         return self.init().then(function() {
-          return self.db.collection(col).doc('shared_data').get();
+          return self.db.collection('share').doc(docId).get();
         }).then(function(doc) {
           if (!doc || !doc.exists || !doc.data() || !doc.data().ciphertext) return null;
           return core.E2EE.decrypt(doc.data().ciphertext, pwd);

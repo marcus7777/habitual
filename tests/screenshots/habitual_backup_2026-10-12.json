@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "updatedAt": 1791790771930,
+  "habits": [
+    {
+      "id": "dailyReading52",
+      "updatedAt": 1791790767756,
+      "name": "Daily Reading 52",
+      "colorTheme": "#616161",
+      "category": "General",
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-10-12",
+      "logs": {
+        "2026-10-12": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "selectedHabitId": "dailyReading52",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false
+}

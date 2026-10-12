@@ -200,7 +200,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.21.0</p>
+      <p>Habitual &bull; v1.21.1</p>
     </footer>
   </div>
 
@@ -630,13 +630,13 @@
                 <div id="share-habit-panel" class="share-habit-container hidden margin-top-sm">
                   <div class="form-row-2col">
                     <div class="form-group">
-                      <label for="habit-share-collection">Firestore Collection ID</label>
-                      <input type="text" name="habit-share-collection" id="habit-share-collection" class="text-input font-mono" placeholder="e.g. shared_hb_abc123">
-                      <small class="muted-text">Unique Firestore collection for this habit.</small>
+                      <label for="habit-share-collection">Firestore Document ID</label>
+                      <input type="text" name="habit-share-collection" id="habit-share-collection" class="text-input font-mono" placeholder="e.g. Xy9zK2mN4pQ7R1sT3uV5">
+                      <small class="muted-text">Unique Firestore document ID for this habit.</small>
                     </div>
                     <div class="form-group">
                       <label for="habit-share-password">Shared Password / Passphrase</label>
-                      <input type="text" name="habit-share-password" id="habit-share-password" class="text-input font-mono" placeholder="e.g. my_secret_pass">
+                      <input type="text" name="habit-share-password" id="habit-share-password" class="text-input font-mono" placeholder="e.g. standard_password_123">
                       <small class="muted-text">Used for end-to-end encryption.</small>
                     </div>
                   </div>
@@ -646,7 +646,7 @@
                       <input type="checkbox" name="habit-share-include-children" id="habit-share-include-children" checked>
                       <span><strong>👶 Store sub-habits in this encrypted backup</strong></span>
                     </label>
-                    <small class="muted-text">Encrypts and stores all sub-habits under this parent in the same Firestore collection with the same password.</small>
+                    <small class="muted-text">Encrypts and stores all sub-habits under this parent under the same Firestore document with the same password.</small>
                   </div>
 
                   <div class="share-actions-row margin-top-sm" style="display: flex; gap: 8px; flex-wrap: wrap;">

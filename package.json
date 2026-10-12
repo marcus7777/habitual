@@ -1,6 +1,6 @@
 {
   "name": "habitual",
-  "version": "1.21.0",
+  "version": "1.21.1",
   "description": "Minimalist 100% fluid GitHub-style habit progression visualizer",
   "main": "web/app.js",
   "scripts": {
@@ -9,7 +9,8 @@
     "test:widgets": "node tests/test-widgets-playwright.js",
     "test:android": "node tests/test-android-playwright.js",
     "benchmark": "node tests/benchmark-playwright.js",
-    "bump": "node bump-version.js"
+    "bump": "node bump-version.js",
+    "deploy": "node deploy.js"
   },
   "keywords": [
     "habit-tracker",
