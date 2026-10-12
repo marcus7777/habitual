@@ -308,7 +308,7 @@
 
             await core.SyncTargets.Firestore.uploadPerHabitBackup(parentHabit);
             assert(capturedData && capturedData.ciphertext && capturedData.ciphertext.startsWith('ENC:'), 'Backup encrypted');
-            assert(capturedData && capturedData.dataHash && capturedData.dataHash.length > 0, 'uploadPerHabitBackup includes unencrypted dataHash');
+            assert(capturedData && (capturedData.hashOfdata || capturedData.dataHash) && (capturedData.hashOfdata || capturedData.dataHash).length > 0, 'uploadPerHabitBackup includes unencrypted hashOfdata');
 
             const decrypted = await core.E2EE.decrypt(capturedData.ciphertext, 'secret_parent_pass');
             assertEqual(decrypted.habitId, 'parent_1');
@@ -341,7 +341,7 @@
             assert(hash1 !== hash3, 'Hash changes when habit logs change');
           });
 
-          test('startPerHabitLiveSync skips decryption when remote dataHash matches local dataHash', async () => {
+          test('startPerHabitLiveSync skips decryption when remote hashOfdata matches local dataHash', async () => {
             const sharedHabit = {
               id: 'habit_sync_test',
               name: 'Reading',
@@ -383,31 +383,31 @@
             await core.SyncTargets.Firestore.startPerHabitLiveSync(sharedHabit);
             assert(typeof snapshotCallback === 'function', 'Snapshot callback registered');
 
-            // Simulate incoming snapshot with matching dataHash
+            // Simulate incoming snapshot with matching hashOfdata
             snapshotCallback({
               exists: true,
               data: function() {
                 return {
                   ciphertext: 'ENC:dummy',
-                  dataHash: matchingHash
+                  hashOfdata: matchingHash
                 };
               }
             });
 
-            assertEqual(decryptCalled, false, 'Decryption was skipped because local and remote dataHash matched');
+            assertEqual(decryptCalled, false, 'Decryption was skipped because local and remote hashOfdata matched');
 
-            // Simulate snapshot with different dataHash
+            // Simulate snapshot with different hashOfdata
             snapshotCallback({
               exists: true,
               data: function() {
                 return {
                   ciphertext: 'ENC:dummy',
-                  dataHash: 'different_hash_999'
+                  hashOfdata: 'different_hash_999'
                 };
               }
             });
 
-            assertEqual(decryptCalled, true, 'Decryption was triggered when dataHash differed');
+            assertEqual(decryptCalled, true, 'Decryption was triggered when hashOfdata differed');
 
             core.E2EE.decrypt = origDecrypt;
             core.SyncTargets.Firestore.db = origDb;
