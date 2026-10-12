@@ -289,7 +289,7 @@
             const prevHabits = core.state.habits;
             core.state.habits = [parentHabit, childHabit1, childHabit2];
 
-            let capturedCipher = null;
+            let capturedData = null;
             const origDb = core.SyncTargets.Firestore.db;
             core.SyncTargets.Firestore.db = {
               collection: function(col) {
@@ -297,7 +297,7 @@
                   doc: function(docId) {
                     return {
                       set: function(data) {
-                        capturedCipher = data.ciphertext;
+                        capturedData = data;
                         return Promise.resolve();
                       }
                     };
@@ -307,15 +307,109 @@
             };
 
             await core.SyncTargets.Firestore.uploadPerHabitBackup(parentHabit);
-            assert(capturedCipher && capturedCipher.startsWith('ENC:'), 'Backup encrypted');
+            assert(capturedData && capturedData.ciphertext && capturedData.ciphertext.startsWith('ENC:'), 'Backup encrypted');
+            assert(capturedData && capturedData.dataHash && capturedData.dataHash.length > 0, 'uploadPerHabitBackup includes unencrypted dataHash');
 
-            const decrypted = await core.E2EE.decrypt(capturedCipher, 'secret_parent_pass');
+            const decrypted = await core.E2EE.decrypt(capturedData.ciphertext, 'secret_parent_pass');
             assertEqual(decrypted.habitId, 'parent_1');
             assertEqual(decrypted.includeChildren, true);
             assertEqual(decrypted.children.length, 2);
             assertEqual(decrypted.children[0].name, 'Pushups');
             assertEqual(decrypted.children[1].name, 'Pullups');
 
+            core.SyncTargets.Firestore.db = origDb;
+            core.state.habits = prevHabits;
+          });
+
+          test('computeDataHash produces deterministic hash regardless of updatedAt timestamp', () => {
+            const habit = { id: 'h_test', name: 'Meditation', dailyTarget: 1, logs: { '2026-10-12': { count: 1 } } };
+            const payload1 = core.getPerHabitPayload(habit);
+            payload1.updatedAt = 1000000;
+            const payload2 = core.getPerHabitPayload(habit);
+            payload2.updatedAt = 9999999;
+
+            const hash1 = core.computeDataHash(payload1);
+            const hash2 = core.computeDataHash(payload2);
+
+            assert(hash1 && hash1.length > 0, 'Hash generated');
+            assertEqual(hash1, hash2, 'Hashes are identical regardless of updatedAt');
+
+            // Modifying a log changes the hash
+            habit.logs['2026-10-12'].count = 2;
+            const payload3 = core.getPerHabitPayload(habit);
+            const hash3 = core.computeDataHash(payload3);
+            assert(hash1 !== hash3, 'Hash changes when habit logs change');
+          });
+
+          test('startPerHabitLiveSync skips decryption when remote dataHash matches local dataHash', async () => {
+            const sharedHabit = {
+              id: 'habit_sync_test',
+              name: 'Reading',
+              sharing: { enabled: true, collection: 'col_read_1', password: 'pwd1' },
+              logs: { '2026-10-12': { count: 1 } }
+            };
+
+            const prevHabits = core.state.habits;
+            core.state.habits = [sharedHabit];
+
+            const localPayload = core.getPerHabitPayload(sharedHabit);
+            const matchingHash = core.computeDataHash(localPayload);
+
+            let snapshotCallback = null;
+            const origDb = core.SyncTargets.Firestore.db;
+            let decryptCalled = false;
+            const origDecrypt = core.E2EE.decrypt;
+
+            core.E2EE.decrypt = function() {
+              decryptCalled = true;
+              return origDecrypt.apply(this, arguments);
+            };
+
+            core.SyncTargets.Firestore.db = {
+              collection: function(col) {
+                return {
+                  doc: function(docId) {
+                    return {
+                      onSnapshot: function(cb) {
+                        snapshotCallback = cb;
+                        return function unsubscribe() {};
+                      }
+                    };
+                  }
+                };
+              }
+            };
+
+            await core.SyncTargets.Firestore.startPerHabitLiveSync(sharedHabit);
+            assert(typeof snapshotCallback === 'function', 'Snapshot callback registered');
+
+            // Simulate incoming snapshot with matching dataHash
+            snapshotCallback({
+              exists: true,
+              data: function() {
+                return {
+                  ciphertext: 'ENC:dummy',
+                  dataHash: matchingHash
+                };
+              }
+            });
+
+            assertEqual(decryptCalled, false, 'Decryption was skipped because local and remote dataHash matched');
+
+            // Simulate snapshot with different dataHash
+            snapshotCallback({
+              exists: true,
+              data: function() {
+                return {
+                  ciphertext: 'ENC:dummy',
+                  dataHash: 'different_hash_999'
+                };
+              }
+            });
+
+            assertEqual(decryptCalled, true, 'Decryption was triggered when dataHash differed');
+
+            core.E2EE.decrypt = origDecrypt;
             core.SyncTargets.Firestore.db = origDb;
             core.state.habits = prevHabits;
           });

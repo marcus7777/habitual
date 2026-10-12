@@ -881,6 +881,111 @@ window.HabitualCore = window.HabitualCore || {};
     return 'cli_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   })();
 
+  // --- UNENCRYPTED DATA HASHING (Sync Status & Messaging Optimization) ---
+  core.canonicalJson = function(obj, ignoredKeys) {
+    if (!ignoredKeys) ignoredKeys = ['updatedAt', 'writerId', 'ciphertext', 'lastSentCiphertext'];
+    if (obj === null || typeof obj !== 'object') {
+      return JSON.stringify(obj);
+    }
+    if (Array.isArray(obj)) {
+      return '[' + obj.map(item => core.canonicalJson(item, ignoredKeys)).join(',') + ']';
+    }
+    const keys = Object.keys(obj).sort();
+    const parts = [];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      if (ignoredKeys.includes(key)) continue;
+      const val = obj[key];
+      if (val === undefined) continue;
+      parts.push(JSON.stringify(key) + ':' + core.canonicalJson(val, ignoredKeys));
+    }
+    return '{' + parts.join(',') + '}';
+  };
+
+  core.computeDataHash = function(data) {
+    if (data === null || data === undefined) return '';
+    const str = (typeof data === 'string') ? data : core.canonicalJson(data);
+    let h1 = 0x811c9dc5;
+    let h2 = 0x01000193;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 0x01000193);
+      h2 = Math.imul(h2 ^ ch, 0x85ebca6b);
+    }
+    return (h1 >>> 0).toString(16) + (h2 >>> 0).toString(16);
+  };
+
+  core.getPerHabitPayload = function(habit) {
+    if (!habit) return null;
+    const todayStr = core.getTodayKey ? core.getTodayKey() : '';
+    const payload = {
+      habitId: habit.id,
+      name: habit.name,
+      type: habit.type || 'positive',
+      description: habit.description || '',
+      category: habit.category || 'General',
+      dailyTarget: habit.dailyTarget || 1,
+      frequencyType: habit.frequencyType || 'daily',
+      targetDays: habit.targetDays || [1, 2, 3, 4, 5, 6, 0],
+      weeklyTarget: habit.weeklyTarget || 1,
+      monthlyDay: habit.monthlyDay || '1',
+      monthlyTarget: habit.monthlyTarget || 1,
+      colorWholeWeek: habit.colorWholeWeek !== false,
+      colorWholeMonth: habit.colorWholeMonth !== false,
+      customTarget: habit.customTarget || 1,
+      customInterval: habit.customInterval || 3,
+      customUnit: habit.customUnit || 'days',
+      colorTheme: habit.colorTheme || undefined,
+      showStreak: habit.showStreak,
+      showCount: habit.showCount,
+      showDuration: habit.showDuration,
+      hideFromAll: habit.hideFromAll,
+      isPaused: habit.isPaused,
+      createdAt: habit.createdAt || todayStr,
+      logs: habit.logs || {}
+    };
+
+    if ((!habit.sharing || habit.sharing.includeChildren !== false) && core.state && core.state.habits) {
+      const descendantIds = core.getAllDescendantIds ? core.getAllDescendantIds(habit.id) : [];
+      const childIds = descendantIds.filter(id => id !== habit.id);
+      const childHabits = childIds.map(cid => core.state.habits.find(h => h.id === cid)).filter(Boolean);
+
+      if (childHabits.length > 0) {
+        payload.includeChildren = true;
+        payload.children = childHabits.map(child => ({
+          habitId: child.id,
+          parentId: child.parentId,
+          parentDependency: child.parentDependency || 'none',
+          name: child.name,
+          type: child.type || 'positive',
+          description: child.description || '',
+          category: child.category || 'General',
+          dailyTarget: child.dailyTarget || 1,
+          frequencyType: child.frequencyType || 'daily',
+          targetDays: child.targetDays || [1],
+          weeklyTarget: child.weeklyTarget || 1,
+          monthlyDay: child.monthlyDay || '1',
+          monthlyTarget: child.monthlyTarget || 1,
+          colorWholeWeek: child.colorWholeWeek !== false,
+          colorWholeMonth: child.colorWholeMonth !== false,
+          customTarget: child.customTarget || 1,
+          customInterval: child.customInterval || 3,
+          customUnit: child.customUnit || 'days',
+          colorTheme: child.colorTheme || undefined,
+          showStreak: child.showStreak,
+          showCount: child.showCount,
+          showDuration: child.showDuration,
+          hideFromAll: child.hideFromAll,
+          isPaused: child.isPaused,
+          createdAt: child.createdAt || todayStr,
+          logs: child.logs || {}
+        }));
+      }
+    }
+
+    return payload;
+  };
+
 
   // --- SYNC TARGET CLIENTS (P2P, Google Drive, Dropbox, WebDAV) ---
   core.SyncTargets = {
@@ -1060,10 +1165,12 @@ window.HabitualCore = window.HabitualCore || {};
         }
         const syncCode = this.getSyncCode();
 
+        const payload = core.getPayloadFromState();
+        const dataHash = core.computeDataHash(payload);
+
         // Check if payload content matches last uploaded payload
         if (!encryptedText) {
-          const currentPayload = core.getPayloadFromState();
-          const currentStr = JSON.stringify(currentPayload.habits || []);
+          const currentStr = JSON.stringify(payload.habits || []);
           if (self.lastUploadedPayloadStr && self.lastUploadedPayloadStr === currentStr) {
             return Promise.resolve(null);
           }
@@ -1085,7 +1192,7 @@ window.HabitualCore = window.HabitualCore || {};
         }).then(function() {
           const encryptPromise = encryptedText
             ? Promise.resolve(encryptedText)
-            : core.E2EE.encrypt(core.getPayloadFromState(), passphrase);
+            : core.E2EE.encrypt(payload, passphrase);
 
           return encryptPromise.then(function(cipher) {
             self.lastSentCiphertext = cipher;
@@ -1095,7 +1202,7 @@ window.HabitualCore = window.HabitualCore || {};
             return self.db.collection('habit_data').doc(syncCode).set({
               ciphertext: cipher,
               updatedAt: serverTs,
-              writerId: core.CLIENT_ID
+              dataHash: dataHash
             });
           });
         });
@@ -1134,8 +1241,16 @@ window.HabitualCore = window.HabitualCore || {};
               const data = doc.data();
               if (!data || !data.ciphertext) return;
 
-              // Echo Suppression: Skip processing if update originated from this client instance
-              if (data.writerId && data.writerId === core.CLIENT_ID) return;
+              // Check if unencrypted data hash matches local state to suppress re-decryption
+              const remoteHash = data.dataHash || data.data_hash || data.hash;
+              if (remoteHash) {
+                const localPayload = core.getPayloadFromState();
+                const localHash = core.computeDataHash(localPayload);
+                if (localHash === remoteHash) return;
+              } else if (data.writerId && data.writerId === core.CLIENT_ID) {
+                return;
+              }
+
               if (data.ciphertext === self.lastSentCiphertext) return;
 
               if (data.updatedAt && data.updatedAt.toMillis && data.updatedAt.toMillis() <= self.lastUpdatedServerTime) {
@@ -1229,7 +1344,17 @@ window.HabitualCore = window.HabitualCore || {};
 
               const data = doc.data();
               if (!data || !data.ciphertext) return;
-              if (data.writerId && data.writerId === core.CLIENT_ID) return;
+
+              const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && h.sharing.collection === collectionId));
+              const remoteHash = data.dataHash || data.data_hash || data.hash;
+
+              if (remoteHash && targetHabit) {
+                const localPayload = core.getPerHabitPayload(targetHabit);
+                const localHash = core.computeDataHash(localPayload);
+                if (localHash === remoteHash) return;
+              } else if (data.writerId && data.writerId === core.CLIENT_ID) {
+                return;
+              }
 
               core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remoteHabit) {
                 if (!remoteHabit) return;
@@ -1390,71 +1515,8 @@ window.HabitualCore = window.HabitualCore || {};
         const collectionId = String(habit.sharing.collection || '').trim();
         const passphrase = String(habit.sharing.password || '').trim();
 
-        const payload = {
-          habitId: habit.id,
-          name: habit.name,
-          type: habit.type || 'positive',
-          description: habit.description || '',
-          category: habit.category || 'General',
-          dailyTarget: habit.dailyTarget || 1,
-          frequencyType: habit.frequencyType || 'daily',
-          targetDays: habit.targetDays || [1, 2, 3, 4, 5, 6, 0],
-          weeklyTarget: habit.weeklyTarget || 1,
-          monthlyDay: habit.monthlyDay || '1',
-          monthlyTarget: habit.monthlyTarget || 1,
-          colorWholeWeek: habit.colorWholeWeek !== false,
-          colorWholeMonth: habit.colorWholeMonth !== false,
-          customTarget: habit.customTarget || 1,
-          customInterval: habit.customInterval || 3,
-          customUnit: habit.customUnit || 'days',
-          colorTheme: habit.colorTheme || undefined,
-          showStreak: habit.showStreak,
-          showCount: habit.showCount,
-          showDuration: habit.showDuration,
-          hideFromAll: habit.hideFromAll,
-          isPaused: habit.isPaused,
-          createdAt: habit.createdAt || core.getTodayKey(),
-          updatedAt: habit.updatedAt || Date.now(),
-          logs: habit.logs || {}
-        };
-
-        if ((habit.sharing.includeChildren !== false) && core.state && core.state.habits) {
-          const descendantIds = core.getAllDescendantIds ? core.getAllDescendantIds(habit.id) : [];
-          const childIds = descendantIds.filter(id => id !== habit.id);
-          const childHabits = childIds.map(cid => core.state.habits.find(h => h.id === cid)).filter(Boolean);
-
-          if (childHabits.length > 0) {
-            payload.includeChildren = true;
-            payload.children = childHabits.map(child => ({
-              habitId: child.id,
-              parentId: child.parentId,
-              parentDependency: child.parentDependency || 'none',
-              name: child.name,
-              type: child.type || 'positive',
-              description: child.description || '',
-              category: child.category || 'General',
-              dailyTarget: child.dailyTarget || 1,
-              frequencyType: child.frequencyType || 'daily',
-              targetDays: child.targetDays || [1],
-              weeklyTarget: child.weeklyTarget || 1,
-              monthlyDay: child.monthlyDay || '1',
-              monthlyTarget: child.monthlyTarget || 1,
-              colorWholeWeek: child.colorWholeWeek !== false,
-              colorWholeMonth: child.colorWholeMonth !== false,
-              customTarget: child.customTarget || 1,
-              customInterval: child.customInterval || 3,
-              customUnit: child.customUnit || 'days',
-              colorTheme: child.colorTheme || undefined,
-              showStreak: child.showStreak,
-              showCount: child.showCount,
-              showDuration: child.showDuration,
-              hideFromAll: child.hideFromAll,
-              isPaused: child.isPaused,
-              createdAt: child.createdAt || core.getTodayKey(),
-              logs: child.logs || {}
-            }));
-          }
-        }
+        const payload = core.getPerHabitPayload(habit);
+        const dataHash = core.computeDataHash(payload);
 
         return self.init().then(function() {
           return core.E2EE.encrypt(payload, passphrase);
@@ -1465,7 +1527,7 @@ window.HabitualCore = window.HabitualCore || {};
           return self.db.collection(collectionId).doc('shared_data').set({
             ciphertext: cipher,
             updatedAt: serverTs,
-            writerId: core.CLIENT_ID
+            dataHash: dataHash
           });
         }).catch(function(e) {
           console.warn('Upload per-habit backup error:', e);
