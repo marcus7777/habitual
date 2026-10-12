@@ -626,20 +626,25 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.saveState = function() {
     const payload = core.getPayloadFromState();
-    const driver = core.getDriver();
     const payloadStr = JSON.stringify(payload);
 
+    // Synchronously update LocalStorage fallback for instant synchronous reads & zero latency on page refresh
+    try {
+      localStorage.setItem(core.STORAGE_KEY, payloadStr);
+      localStorage.setItem('habitual_v2_active_engine', core.activeStorageEngine);
+    } catch (e) {
+      console.warn('LocalStorage save fallback warning:', e);
+    }
+
+    // Persist to active driver (IndexedDB or LocalStorage)
+    const driver = core.getDriver();
     driver.setItem(core.STORAGE_KEY, payloadStr).then(function() {
-      if (core.activeStorageEngine === 'localStorage') {
-        try { localStorage.setItem(core.STORAGE_KEY, payloadStr); } catch (e) {}
-      } else {
-        try { localStorage.setItem('habitual_v2_active_engine', core.activeStorageEngine); } catch (e) {}
-      }
+      // Synchronize all shared habits to Firebase at the exact same time
       if (core.SyncTargets && core.SyncTargets.Firestore && typeof core.SyncTargets.Firestore.syncAllSharedHabits === 'function') {
         core.SyncTargets.Firestore.syncAllSharedHabits();
       }
       if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
-        core.SyncManager.broadcastWriteDebounced(payload, 500);
+        core.SyncManager.broadcastWriteDebounced(payload, 300);
       }
     }).catch(function(err) {
       console.error('Failed to save state to driver:', err);
@@ -657,65 +662,33 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.saveLog = function(habitId, dateKey, count, note) {
+    // Always update local storage and Firebase at the exact same time
+    core.saveState();
     const driver = core.getDriver();
     if (driver && typeof driver.saveLog === 'function') {
-      return Promise.resolve(driver.saveLog(habitId, dateKey, count, note)).then(function(res) {
-        if (core.activeStorageEngine === 'localStorage') {
-          core.saveState();
-        }
-        if (core.SyncManager) {
-          const delta = typeof core.getDeltaPayloadFromState === 'function' ? core.getDeltaPayloadFromState(1) : core.getPayloadFromState();
-          core.SyncManager.broadcastWriteDebounced(delta, 600);
-        }
-        return res;
-      });
-    } else {
-      core.saveState();
-      if (core.SyncManager) {
-        const delta = typeof core.getDeltaPayloadFromState === 'function' ? core.getDeltaPayloadFromState(1) : core.getPayloadFromState();
-        core.SyncManager.broadcastWriteDebounced(delta, 600);
-      }
-      return Promise.resolve(true);
+      return Promise.resolve(driver.saveLog(habitId, dateKey, count, note));
     }
+    return Promise.resolve(true);
   };
 
   core.saveHabit = function(habit) {
+    // Always update local storage and Firebase at the exact same time
+    core.saveState();
     const driver = core.getDriver();
     if (driver && typeof driver.saveHabit === 'function') {
-      return Promise.resolve(driver.saveHabit(habit)).then(function(res) {
-        if (core.activeStorageEngine === 'localStorage') {
-          core.saveState();
-        }
-        if (core.SyncManager) {
-          core.SyncManager.broadcastWriteDebounced(core.getPayloadFromState(), 600);
-        }
-        return res;
-      });
-    } else {
-      core.saveState();
-      if (core.SyncManager) {
-        core.SyncManager.broadcastWriteDebounced(core.getPayloadFromState(), 600);
-      }
-      return Promise.resolve(true);
+      return Promise.resolve(driver.saveHabit(habit));
     }
+    return Promise.resolve(true);
   };
 
   core.saveSettings = function(settings) {
+    // Always update local storage and Firebase at the exact same time
+    core.saveState();
     const driver = core.getDriver();
     if (driver && typeof driver.saveSettings === 'function') {
-      return Promise.resolve(driver.saveSettings(settings)).then(function(res) {
-        if (core.activeStorageEngine === 'localStorage') {
-          core.saveState();
-        }
-        if (core.SyncManager) {
-          core.SyncManager.broadcastWrite(core.getPayloadFromState());
-        }
-        return res;
-      });
-    } else {
-      core.saveState();
-      return Promise.resolve(true);
+      return Promise.resolve(driver.saveSettings(settings));
     }
+    return Promise.resolve(true);
   };
 
 
