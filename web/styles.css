@@ -549,6 +549,9 @@ body.dark-theme {
 .heatmap-card.menu-open,
 .heatmap-card:has(.card-menu-content:not(.hidden)) {
   z-index: 1000;
+  content-visibility: visible !important;
+  contain: none !important;
+  overflow: visible !important;
 }
 
 /* Card Header visible by default */
@@ -2076,6 +2079,9 @@ select.form-control-sm {
 .heatmap-group-wrapper:has(.card-menu-content:not(.hidden)),
 .heatmap-group-wrapper:has(.menu-open) {
   z-index: 1000;
+  content-visibility: visible !important;
+  contain: none !important;
+  overflow: visible !important;
 }
 
 .subhabits-concertina {
@@ -2093,12 +2099,15 @@ select.form-control-sm {
   pointer-events: none;
 }
 
-.subhabits-concertina.expanded {
+.subhabits-concertina.expanded,
+.subhabits-concertina:has(.card-menu-content:not(.hidden)) {
   max-height: 4000px;
   opacity: 1;
   margin-top: 12px;
   pointer-events: auto;
-  overflow: visible;
+  overflow: visible !important;
+  content-visibility: visible !important;
+  contain: none !important;
 }
 
 .concertina-header {
