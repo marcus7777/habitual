@@ -470,6 +470,11 @@ window.HabitualCore = window.HabitualCore || {};
     const btnToggleShowPassphrase = document.getElementById('btn-toggle-show-passphrase');
     const eyeIconShow = document.getElementById('eye-icon-show');
     const eyeIconHide = document.getElementById('eye-icon-hide');
+    const btnGenPassphrase = document.getElementById('btn-gen-passphrase');
+    const qrSyncWrapper = document.getElementById('firestore-sync-qr-wrapper');
+    const qrSyncDisplay = document.getElementById('firestore-sync-qr-display');
+    const btnCopySyncLink = document.getElementById('btn-copy-sync-link');
+    const inputFirestoreCode = document.getElementById('input-firestore-sync-code');
 
     function updatePassphraseStatusUI() {
       const savedKey = core.SyncManager && core.SyncManager.settings ? core.SyncManager.settings.passphrase : '';
@@ -481,7 +486,46 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
+    function updateSyncPagePassphraseAndQRUI() {
+      const inputPassphraseVal = inputPassphrase ? inputPassphrase.value.trim() : '';
+      if (btnGenPassphrase) {
+        if (inputPassphraseVal.length > 0) {
+          btnGenPassphrase.classList.add('hidden');
+        } else {
+          btnGenPassphrase.classList.remove('hidden');
+        }
+      }
+
+      const savedPassphrase = (core.SyncManager && core.SyncManager.settings) ? core.SyncManager.settings.passphrase : '';
+      const activePass = inputPassphraseVal || savedPassphrase;
+      const activeCode = (inputFirestoreCode ? inputFirestoreCode.value.trim() : '') || (core.SyncTargets && core.SyncTargets.Firestore ? core.SyncTargets.Firestore.getSyncCode() : '');
+
+      if (activeCode && activePass && qrSyncWrapper && qrSyncDisplay && core.generateQRCodeSVG) {
+        const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
+        const syncUrl = `${baseUrl}#sync?code=${encodeURIComponent(activeCode)}&pass=${encodeURIComponent(activePass)}`;
+        qrSyncDisplay.innerHTML = core.generateQRCodeSVG(syncUrl, 180);
+        qrSyncWrapper.classList.remove('hidden');
+        if (btnCopySyncLink) {
+          if (btnCopySyncLink.style) btnCopySyncLink.style.display = 'inline-block';
+          btnCopySyncLink.onclick = () => {
+            if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+              navigator.clipboard.writeText(syncUrl);
+              if (core.showToast) core.showToast('📋 Device Sync URL copied to clipboard!', 'success');
+            }
+          };
+        }
+      } else {
+        if (qrSyncWrapper) qrSyncWrapper.classList.add('hidden');
+        if (btnCopySyncLink && btnCopySyncLink.style) btnCopySyncLink.style.display = 'none';
+      }
+    }
+
     updatePassphraseStatusUI();
+    updateSyncPagePassphraseAndQRUI();
+
+    if (inputPassphrase) {
+      inputPassphrase.addEventListener('input', updateSyncPagePassphraseAndQRUI);
+    }
 
     if (btnToggleShowPassphrase && inputPassphrase) {
       btnToggleShowPassphrase.addEventListener('click', () => {
@@ -492,7 +536,6 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    const btnGenPassphrase = document.getElementById('btn-gen-passphrase');
     if (btnGenPassphrase && inputPassphrase) {
       btnGenPassphrase.addEventListener('click', () => {
         const strongPwd = core.generateRandomPassword ? core.generateRandomPassword(20) : Math.random().toString(36).slice(-10);
@@ -500,6 +543,7 @@ window.HabitualCore = window.HabitualCore || {};
         inputPassphrase.type = 'text';
         if (eyeIconShow && eyeIconShow.style) eyeIconShow.style.display = 'none';
         if (eyeIconHide && eyeIconHide.style) eyeIconHide.style.display = 'block';
+        updateSyncPagePassphraseAndQRUI();
         if (core.showToast) core.showToast('Generated strong master passphrase!', 'info');
       });
     }
@@ -509,13 +553,13 @@ window.HabitualCore = window.HabitualCore || {};
       btnSavePassphrase.addEventListener('click', () => {
         core.SyncManager.setPassphrase(inputPassphrase.value);
         updatePassphraseStatusUI();
+        updateSyncPagePassphraseAndQRUI();
         if (core.showToast) core.showToast('Master encryption key saved!', 'success');
       });
     }
 
     // Firestore Live Sync & Code Controls
     const chkFirestore = document.getElementById('chk-sync-firestore');
-    const inputFirestoreCode = document.getElementById('input-firestore-sync-code');
     const btnSaveFirestoreCode = document.getElementById('btn-save-firestore-code');
     const btnGenFirestoreCode = document.getElementById('btn-gen-firestore-code');
     const btnCopyFirestoreCode = document.getElementById('btn-copy-firestore-code');
@@ -2949,16 +2993,48 @@ window.HabitualCore = window.HabitualCore || {};
         inputHabitName.addEventListener('input', () => core.updateShareLinkAndQR());
       }
 
-      // Check URL Hash for shared habit invitation on load
+      // Check URL Hash for shared habit invitation or device sync connection on load
       core.checkURLHashForSharedHabit();
+      core.checkURLHashForSyncConnection();
     });
   }
 
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     window.addEventListener('hashchange', function() {
       if (core.checkURLHashForSharedHabit) core.checkURLHashForSharedHabit();
+      if (core.checkURLHashForSyncConnection) core.checkURLHashForSyncConnection();
     });
   }
+
+  core.checkURLHashForSyncConnection = function() {
+    const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';
+    if (!hash.includes('sync?') && !hash.includes('code=')) return;
+
+    try {
+      const queryStr = hash.substring(hash.indexOf('?') + 1);
+      const params = new URLSearchParams(queryStr);
+      const code = params.get('code') || params.get('col') || params.get('doc');
+      const pass = params.get('pass') || params.get('pwd');
+
+      if (!code || !pass) return;
+
+      if (core.SyncManager) {
+        core.SyncManager.setPassphrase(pass);
+        core.SyncManager.setFirestoreSyncCode(code);
+        core.SyncManager.setFirestoreEnabled(true);
+      }
+
+      if (core.updateFirestoreCodeUIState) core.updateFirestoreCodeUIState();
+      if (core.showToast) core.showToast(`⚡ Device connected to sync channel ${code}!`, 'success');
+
+      if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.pathname + window.location.search;
+        window.history.replaceState(null, '', cleanUrl);
+      }
+    } catch(e) {
+      console.warn('Error parsing sync URL hash:', e);
+    }
+  };
 
   core.checkURLHashForSharedHabit = function() {
     const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';
