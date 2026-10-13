@@ -95,7 +95,7 @@ async function deploy() {
     console.log(`========================================`);
 
     const playwrightScripts = [
-      { cmd: 'node tests/test-share-roundtrip-playwright.js', desc: 'Playwright: Share & Sync Roundtrip E2E Test', allowFail: true },
+      { cmd: 'node tests/test-share-roundtrip-playwright.js', desc: 'Playwright: Share & Sync Roundtrip E2E Test' },
       { cmd: 'node tests/test-widgets-playwright.js', desc: 'Playwright: Standalone Widgets E2E Test' },
       { cmd: 'node tests/test-android-playwright.js', desc: 'Playwright: Android Mobile Browser E2E Test' },
       { cmd: 'node tests/test-firefox-android-playwright.js', desc: 'Playwright: Firefox Mobile Browser E2E Test' },
@@ -106,13 +106,9 @@ async function deploy() {
     for (const script of playwrightScripts) {
       const success = runStep(script.cmd, script.desc);
       if (!success) {
-        if (script.allowFail) {
-          console.warn(`\n⚠️ Warning: Non-critical Playwright test failed (${script.desc}). Continuing deployment...`);
-        } else {
-          console.error(`\n❌ Playwright test failed: ${script.desc}! Halting deployment.`);
-          console.error(`Use --no-playwright to bypass Playwright tests if needed.`);
-          process.exit(1);
-        }
+        console.error(`\n❌ Playwright test failed: ${script.desc}! Halting deployment immediately.`);
+        console.error(`Use --no-playwright to bypass Playwright tests if needed.`);
+        process.exit(1);
       }
     }
   } else {
