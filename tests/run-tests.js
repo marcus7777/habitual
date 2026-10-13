@@ -558,6 +558,19 @@ describe('Feature 7: ⌛ Past History Backfilling', () => {
     const keys = Object.keys(result.logs);
     assert(keys.length >= 30 && keys.length <= 70, `Moderate frequency produces ~50% logs (got ${keys.length})`);
   });
+
+  test('generateBackfillLogs accepts native YYYY-MM-DD start date string', () => {
+    const startDateStr = '2026-09-01';
+    const frequency = 'daily'; // 100% completion
+    const instances = '1';
+
+    const result = HabitualCore.generateBackfillLogs(
+      startDateStr, frequency, instances, 1, 'positive', 'daily', [1], '1', 1, 1
+    );
+
+    assertEqual(result.startDateKey, '2026-09-01', 'startDateKey matches selected start date');
+    assert(result.logs['2026-09-01'] !== undefined, 'Log entry created on exact start date 2026-09-01');
+  });
 });
 
 // ============================================================================
@@ -3224,6 +3237,58 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
 
     assert(uploadedTarget, 'uploadPerHabitBackup was triggered after saving sub-habit');
     assertEqual(uploadedTarget.id, 'shared_parent_study', 'uploadPerHabitBackup was invoked on root shared parent habit');
+  });
+
+  test('checkURLHashForSharedHabit supports both col and doc query parameters from hash or search URL', async () => {
+    let modalOpened = false;
+    let fetchedDocId = null;
+
+    const mockModal = createMockElement('div');
+    mockModal.classList.add('hidden');
+    mockModal.classList.remove = (cls) => { if (cls === 'hidden') modalOpened = true; };
+
+    const origGetById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'modal-import-shared-habit') return mockModal;
+      return createMockElement('div');
+    };
+
+    const origDownload = HabitualCore.SyncTargets.Firestore.downloadPerHabitBackup;
+    HabitualCore.SyncTargets.Firestore.downloadPerHabitBackup = function(col, pwd) {
+      fetchedDocId = col;
+      return Promise.resolve({
+        name: 'Shared Exercise',
+        colorTheme: '#39d353',
+        logs: {}
+      });
+    };
+
+    // Test 1: Hash with doc parameter (#share?doc=doc_test_123&pwd=pwd_xyz)
+    global.window.location = { hash: '#share?doc=doc_test_123&pwd=pwd_xyz', search: '', pathname: '/index.html' };
+    modalOpened = false;
+    fetchedDocId = null;
+    HabitualCore.checkURLHashForSharedHabit();
+    assert(modalOpened, 'Modal import opened when hash contains doc= parameter');
+    assertEqual(fetchedDocId, 'doc_test_123', 'Extracted doc ID doc_test_123 from doc= hash param');
+
+    // Test 2: Hash with col parameter (#share?col=col_test_456&pwd=pwd_xyz)
+    global.window.location = { hash: '#share?col=col_test_456&pwd=pwd_xyz', search: '', pathname: '/index.html' };
+    modalOpened = false;
+    fetchedDocId = null;
+    HabitualCore.checkURLHashForSharedHabit();
+    assert(modalOpened, 'Modal import opened when hash contains col= parameter');
+    assertEqual(fetchedDocId, 'col_test_456', 'Extracted collection ID col_test_456 from col= hash param');
+
+    // Test 3: Search with doc parameter (?share&doc=search_test_789&pwd=pwd_xyz)
+    global.window.location = { hash: '', search: '?share&doc=search_test_789&pwd=pwd_xyz', pathname: '/index.html' };
+    modalOpened = false;
+    fetchedDocId = null;
+    HabitualCore.checkURLHashForSharedHabit();
+    assert(modalOpened, 'Modal import opened when search query string contains doc= parameter');
+    assertEqual(fetchedDocId, 'search_test_789', 'Extracted doc ID search_test_789 from search query param');
+
+    global.document.getElementById = origGetById;
+    HabitualCore.SyncTargets.Firestore.downloadPerHabitBackup = origDownload;
   });
 });
 

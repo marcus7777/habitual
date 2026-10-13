@@ -212,7 +212,8 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.habitEnableBackfill = document.getElementById('habit-enable-backfill');
     core.elements.backfillOptionsContainer = document.getElementById('backfill-options-container');
     core.elements.backfillSection = document.getElementById('backfill-section');
-    core.elements.habitHistoryDuration = document.getElementById('habit-history-duration');
+    core.elements.habitHistoryStartDate = document.getElementById('habit-history-start-date') || document.getElementById('habit-history-duration');
+    core.elements.habitHistoryDuration = core.elements.habitHistoryStartDate;
     core.elements.habitHistoryFrequency = document.getElementById('habit-history-frequency');
     core.elements.habitHistoryInstances = document.getElementById('habit-history-instances');
 
@@ -2021,7 +2022,9 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.backfillSection) core.elements.backfillSection.classList.remove('hidden');
       if (core.elements.habitEnableBackfill) core.elements.habitEnableBackfill.checked = false;
       if (core.elements.backfillOptionsContainer) core.elements.backfillOptionsContainer.classList.add('hidden');
-      if (core.elements.habitHistoryDuration) core.elements.habitHistoryDuration.value = '30';
+      const defaultStartDate30 = core.getDaysAgoKey ? core.getDaysAgoKey(30) : new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+      if (core.elements.habitHistoryStartDate) core.elements.habitHistoryStartDate.value = defaultStartDate30;
+      if (core.elements.habitHistoryDuration) core.elements.habitHistoryDuration.value = defaultStartDate30;
       if (core.elements.habitHistoryFrequency) core.elements.habitHistoryFrequency.value = 'frequent';
       if (core.elements.habitHistoryInstances) core.elements.habitHistoryInstances.value = '1';
 
@@ -2095,7 +2098,9 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.backfillSection) core.elements.backfillSection.classList.remove('hidden');
       if (core.elements.habitEnableBackfill) core.elements.habitEnableBackfill.checked = false;
       if (core.elements.backfillOptionsContainer) core.elements.backfillOptionsContainer.classList.add('hidden');
-      if (core.elements.habitHistoryDuration) core.elements.habitHistoryDuration.value = '30';
+      const defaultStartDate30 = core.getDaysAgoKey ? core.getDaysAgoKey(30) : new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+      if (core.elements.habitHistoryStartDate) core.elements.habitHistoryStartDate.value = defaultStartDate30;
+      if (core.elements.habitHistoryDuration) core.elements.habitHistoryDuration.value = defaultStartDate30;
       if (core.elements.habitHistoryFrequency) core.elements.habitHistoryFrequency.value = 'frequent';
       if (core.elements.habitHistoryInstances) core.elements.habitHistoryInstances.value = '1';
     }
@@ -2514,7 +2519,7 @@ window.HabitualCore = window.HabitualCore || {};
         }
 
         if (core.elements.habitEnableBackfill && core.elements.habitEnableBackfill.checked) {
-          const durationVal = core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30';
+          const durationVal = (core.elements.habitHistoryStartDate && core.elements.habitHistoryStartDate.value) ? core.elements.habitHistoryStartDate.value : (core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30');
           const frequencyVal = core.elements.habitHistoryFrequency ? core.elements.habitHistoryFrequency.value : 'frequent';
           const instancesVal = core.elements.habitHistoryInstances ? core.elements.habitHistoryInstances.value : '1';
           const result = core.generateBackfillLogs(durationVal, frequencyVal, instancesVal, dailyTarget, type, freqType, targetDays, monthlyDay, monthlyTarget, weeklyTarget);
@@ -2529,7 +2534,7 @@ window.HabitualCore = window.HabitualCore || {};
       let backfilledLogs = {};
       let createdAtKey = core.getTodayKey();
       if (core.elements.habitEnableBackfill && core.elements.habitEnableBackfill.checked) {
-        const durationVal = core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30';
+        const durationVal = (core.elements.habitHistoryStartDate && core.elements.habitHistoryStartDate.value) ? core.elements.habitHistoryStartDate.value : (core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30');
         const frequencyVal = core.elements.habitHistoryFrequency ? core.elements.habitHistoryFrequency.value : 'frequent';
         const instancesVal = core.elements.habitHistoryInstances ? core.elements.habitHistoryInstances.value : '1';
         const result = core.generateBackfillLogs(durationVal, frequencyVal, instancesVal, dailyTarget, type, freqType, targetDays, monthlyDay, monthlyTarget, weeklyTarget);
@@ -2824,7 +2829,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
-    const shareUrl = `${baseUrl}#share?doc=${encodeURIComponent(docId)}&pwd=${encodeURIComponent(pwd)}`;
+    const shareUrl = `${baseUrl}#share?col=${encodeURIComponent(docId)}&pwd=${encodeURIComponent(pwd)}`;
 
     if (qrDisplay && core.generateQRCodeSVG) {
       qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, 180);
@@ -3038,13 +3043,28 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.checkURLHashForSharedHabit = function() {
     const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';
-    if (!hash.includes('share?') && !hash.includes('col=')) return;
+    const search = (typeof window !== 'undefined' && window.location && window.location.search) ? String(window.location.search).trim() : '';
+
+    if (!hash.includes('share') && !hash.includes('col=') && !hash.includes('doc=') &&
+        !search.includes('share') && !search.includes('col=') && !search.includes('doc=')) return;
 
     try {
-      const queryStr = hash.substring(hash.indexOf('?') + 1);
-      const params = new URLSearchParams(queryStr);
-      const col = params.get('col');
-      const pwd = params.get('pwd');
+      let col = null;
+      let pwd = null;
+
+      if (hash.includes('col=') || hash.includes('doc=') || hash.includes('share')) {
+        const queryStr = hash.includes('?') ? hash.substring(hash.indexOf('?') + 1) : hash.replace(/^#\/?/, '');
+        const params = new URLSearchParams(queryStr);
+        col = params.get('col') || params.get('doc') || params.get('collection');
+        pwd = params.get('pwd') || params.get('pass') || params.get('password');
+      }
+
+      if ((!col || !pwd) && (search.includes('col=') || search.includes('doc=') || search.includes('share'))) {
+        const queryStr = search.startsWith('?') ? search.substring(1) : search;
+        const params = new URLSearchParams(queryStr);
+        col = col || params.get('col') || params.get('doc') || params.get('collection');
+        pwd = pwd || params.get('pwd') || params.get('pass') || params.get('password');
+      }
 
       if (!col || !pwd) return;
 
@@ -3061,7 +3081,15 @@ window.HabitualCore = window.HabitualCore || {};
       const btnCancel = document.getElementById('btn-cancel-import-shared');
       const btnClose = document.getElementById('modal-import-close');
 
-      if (!modalImport) return;
+      if (!modalImport) {
+        if (typeof window !== 'undefined' && window.location) {
+          const currentPath = window.location.pathname;
+          if (!currentPath.endsWith('index.html') && !currentPath.endsWith('/')) {
+            window.location.href = 'index.html#share?col=' + encodeURIComponent(col) + '&pwd=' + encodeURIComponent(pwd);
+          }
+        }
+        return;
+      }
 
       if (nameEl) nameEl.textContent = 'Shared Habit';
       if (colEl) colEl.textContent = col;
@@ -3199,7 +3227,7 @@ window.HabitualCore = window.HabitualCore || {};
           const habitColor = payload.colorTheme || core.getDefaultColorForId(col);
           const hasRemoteChildren = Boolean(payload.children && Array.isArray(payload.children) && payload.children.length > 0);
 
-          let existing = core.state.habits.find(h => h.sharing && h.sharing.collection === col);
+          let existing = core.state.habits.find(h => h.sharing && (h.sharing.collection === col || h.sharing.docId === col));
           if (!existing) {
             existing = {
               id: 'shared_' + core.idFromName(habitName) + '_' + Date.now().toString(36),
@@ -3222,6 +3250,7 @@ window.HabitualCore = window.HabitualCore || {};
               createdAt: payload.createdAt || core.getTodayKey(),
               sharing: {
                 enabled: true,
+                docId: col,
                 collection: col,
                 password: pwd,
                 includeChildren: hasRemoteChildren
@@ -3233,7 +3262,7 @@ window.HabitualCore = window.HabitualCore || {};
           } else {
             existing.name = habitName;
             if (habitColor) existing.colorTheme = habitColor;
-            existing.sharing = { enabled: true, collection: col, password: pwd, includeChildren: hasRemoteChildren };
+            existing.sharing = { enabled: true, docId: col, collection: col, password: pwd, includeChildren: hasRemoteChildren };
             if (payload.logs) {
               if (!existing.logs) existing.logs = {};
               Object.assign(existing.logs, payload.logs);
