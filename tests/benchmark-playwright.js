@@ -6,8 +6,187 @@ const { chromium } = require('playwright');
 const PORT = 8089;
 const WEB_DIR = path.join(__dirname, '..', 'web');
 const RESULTS_FILE = path.join(__dirname, 'benchmark-results.json');
+const packageJsonPath = path.join(__dirname, '..', 'package.json');
 
-// 1. Static Web Server
+// Performance Regression Threshold Configuration
+const REGRESSION_THRESHOLDS = {
+  FAIL_PERCENT: 25,        // Hard failure if metric regresses >= 25%
+  WARN_PERCENT: 12,        // Soft warning if metric regresses >= 12%
+  MIN_TIME_BUFFER_MS: 20   // Ignore latency changes under 20ms (noise buffer)
+};
+
+function getCurrentVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    return pkg.version || '1.0.0';
+  } catch (e) {
+    return '1.0.0';
+  }
+}
+
+function loadBenchmarkHistory() {
+  if (!fs.existsSync(RESULTS_FILE)) {
+    return { latest: null, history: [] };
+  }
+  try {
+    const content = JSON.parse(fs.readFileSync(RESULTS_FILE, 'utf8'));
+    if (!content) return { latest: null, history: [] };
+
+    // Support legacy schema: { timestamp, metrics }
+    if (content.metrics && !content.latest) {
+      const legacyRun = {
+        version: content.version || '1.21.11',
+        timestamp: content.timestamp || new Date().toISOString(),
+        metrics: content.metrics
+      };
+      return { latest: legacyRun, history: [legacyRun] };
+    }
+
+    return {
+      latest: content.latest || null,
+      history: Array.isArray(content.history) ? content.history : []
+    };
+  } catch (err) {
+    return { latest: null, history: [] };
+  }
+}
+
+function getBaselineRun(history, currentVersion) {
+  if (!history || history.length === 0) return null;
+  // 1. Prefer the latest benchmark run from a previous application version
+  const previousVersionRun = history.find(run => run.version && run.version !== currentVersion);
+  if (previousVersionRun) return previousVersionRun;
+  // 2. Fall back to the most recent run in history
+  return history[0] || null;
+}
+
+function evaluateMetricRegression(currVal, prevVal, isTime = true) {
+  if (currVal === undefined || currVal === null || prevVal === undefined || prevVal === null || isNaN(prevVal) || prevVal === 0) {
+    return { status: 'NORMAL', text: 'no baseline' };
+  }
+
+  const diff = currVal - prevVal;
+  const pct = (diff / prevVal) * 100;
+
+  if (isTime) {
+    // Duration: positive diff means SLOWER (regression)
+    // Ignore small absolute changes under MIN_TIME_BUFFER_MS
+    if (diff > REGRESSION_THRESHOLDS.MIN_TIME_BUFFER_MS) {
+      if (pct >= REGRESSION_THRESHOLDS.FAIL_PERCENT) {
+        return { status: 'FAIL', text: `${pct.toFixed(1)}% SLOWER (FAIL ≥${REGRESSION_THRESHOLDS.FAIL_PERCENT}%)` };
+      }
+      if (pct >= REGRESSION_THRESHOLDS.WARN_PERCENT) {
+        return { status: 'WARN', text: `${pct.toFixed(1)}% SLOWER (WARN ≥${REGRESSION_THRESHOLDS.WARN_PERCENT}%)` };
+      }
+    }
+    if (pct < -2) {
+      return { status: 'IMPROVED', text: `${Math.abs(pct).toFixed(1)}% FASTER` };
+    }
+    return { status: 'NORMAL', text: `NEUTRAL (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)` };
+  } else {
+    // Throughput (ops/sec): negative diff means LOWER (regression)
+    const dropPct = -pct; // positive dropPct means throughput dropped
+    if (dropPct >= REGRESSION_THRESHOLDS.FAIL_PERCENT) {
+      return { status: 'FAIL', text: `${dropPct.toFixed(1)}% LOWER (FAIL ≥${REGRESSION_THRESHOLDS.FAIL_PERCENT}%)` };
+    }
+    if (dropPct >= REGRESSION_THRESHOLDS.WARN_PERCENT) {
+      return { status: 'WARN', text: `${dropPct.toFixed(1)}% LOWER (WARN ≥${REGRESSION_THRESHOLDS.WARN_PERCENT}%)` };
+    }
+    if (pct > 2) {
+      return { status: 'IMPROVED', text: `${pct.toFixed(1)}% HIGHER` };
+    }
+    return { status: 'NORMAL', text: `NEUTRAL (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)` };
+  }
+}
+
+function formatMetricComparison(label, currVal, prevVal, isTime = true) {
+  if (currVal === undefined || currVal === null) return null;
+
+  if (prevVal === undefined || prevVal === null || isNaN(prevVal) || prevVal === 0) {
+    const valStr = isTime ? `${currVal.toFixed(2)} ms` : `${currVal.toLocaleString()} ops/sec`;
+    return {
+      line: `   ├─ ${label.padEnd(30)}: ${valStr} (no baseline)`,
+      level: 'NORMAL'
+    };
+  }
+
+  const evalResult = evaluateMetricRegression(currVal, prevVal, isTime);
+  let icon = '⚪';
+  if (evalResult.status === 'IMPROVED') icon = '🟢';
+  if (evalResult.status === 'WARN') icon = '⚠️';
+  if (evalResult.status === 'FAIL') icon = '🚨';
+
+  const currStr = isTime ? `${currVal.toFixed(2)} ms` : `${currVal.toLocaleString()} ops/sec`;
+  const prevStr = isTime ? `${prevVal.toFixed(2)} ms` : `${prevVal.toLocaleString()} ops/sec`;
+
+  return {
+    line: `   ├─ ${label.padEnd(30)}: ${currStr} vs ${prevStr} (${icon} ${evalResult.text})`,
+    level: evalResult.status
+  };
+}
+
+function printComparisonReport(currentMetrics, previousRun) {
+  const prevVersion = previousRun && previousRun.version ? `v${previousRun.version}` : 'Previous Run';
+  console.log('\n==================================================');
+  console.log(`📊 PERFORMANCE COMPARISON vs ${prevVersion}`);
+  console.log('==================================================\n');
+
+  const prevM = previousRun ? (previousRun.metrics || {}) : {};
+  let hardFailures = 0;
+  let warnings = 0;
+
+  function trackResult(res) {
+    if (!res || !res.line) return;
+    console.log(res.line);
+    if (res.level === 'FAIL') hardFailures++;
+    if (res.level === 'WARN') warnings++;
+  }
+
+  // Boot
+  console.log('⚡ Boot Duration:');
+  trackResult(formatMetricComparison('Initial Boot (DOMContentLoaded)', currentMetrics.bootDurationMs, prevM.bootDurationMs, true));
+
+  // Render HTML
+  console.log('\n🎨 Render Latency (HTML Engine):');
+  for (const count of [10, 50, 100]) {
+    const key = `habits_${count}`;
+    const curr = currentMetrics.renderDurations?.html?.[key]?.renderTimeMs;
+    const prev = prevM.renderDurations?.html?.[key]?.renderTimeMs;
+    trackResult(formatMetricComparison(`${count} Habits Render`, curr, prev, true));
+  }
+
+  // Render SVG
+  console.log('\n🎨 Render Latency (SVG Engine):');
+  for (const count of [10, 50, 100]) {
+    const key = `habits_${count}`;
+    const curr = currentMetrics.renderDurations?.svg?.[key]?.renderTimeMs;
+    const prev = prevM.renderDurations?.svg?.[key]?.renderTimeMs;
+    trackResult(formatMetricComparison(`${count} Habits Render`, curr, prev, true));
+  }
+
+  // INP
+  console.log('\n⏱️ Interaction to Next Paint (INP Check-in):');
+  if (currentMetrics.quickCheckInInpMs?.html !== undefined) {
+    trackResult(formatMetricComparison('HTML Quick Check-in INP', currentMetrics.quickCheckInInpMs.html, prevM.quickCheckInInpMs?.html, true));
+  }
+  if (currentMetrics.quickCheckInInpMs?.svg !== undefined) {
+    trackResult(formatMetricComparison('SVG Quick Check-in INP', currentMetrics.quickCheckInInpMs.svg, prevM.quickCheckInInpMs?.svg, true));
+  }
+
+  // Storage
+  console.log('\n💾 Storage Throughput:');
+  if (currentMetrics.storageThroughput?.localStorageOpsPerSec !== undefined) {
+    trackResult(formatMetricComparison('LocalStorage Writes', currentMetrics.storageThroughput.localStorageOpsPerSec, prevM.storageThroughput?.localStorageOpsPerSec, false));
+  }
+  if (currentMetrics.storageThroughput?.indexedDBOpsPerSec !== undefined) {
+    trackResult(formatMetricComparison('IndexedDB Writes', currentMetrics.storageThroughput.indexedDBOpsPerSec, prevM.storageThroughput?.indexedDBOpsPerSec, false));
+  }
+
+  console.log('\n==================================================');
+  return { hardFailures, warnings };
+}
+
+// Static Web Server
 function createStaticServer() {
   const mimeTypes = {
     '.html': 'text/html',
@@ -84,14 +263,18 @@ function generateSyntheticDataset(habitCount) {
 }
 
 async function runBenchmarkSuite() {
+  const currentVersion = getCurrentVersion();
+  const benchmarkHistory = loadBenchmarkHistory();
+
   console.log('\n==================================================');
-  console.log('⚡ HABITUAL AUTOMATED PERFORMANCE BENCHMARK SUITE');
+  console.log(`⚡ HABITUAL AUTOMATED PERFORMANCE BENCHMARK SUITE (v${currentVersion})`);
   console.log('==================================================\n');
 
   const server = await createStaticServer();
   let browser;
 
   const benchmarkData = {
+    version: currentVersion,
     timestamp: new Date().toISOString(),
     metrics: {}
   };
@@ -241,16 +424,45 @@ async function runBenchmarkSuite() {
     }
     benchmarkData.metrics.storageThroughput = storageMetrics;
 
-    // Save benchmark report file
-    fs.writeFileSync(RESULTS_FILE, JSON.stringify(benchmarkData, null, 2));
+    // Build Current Run Record
+    const currentRun = {
+      version: currentVersion,
+      timestamp: benchmarkData.timestamp,
+      metrics: benchmarkData.metrics
+    };
 
-    console.log('\n==================================================');
-    console.log(`✅ BENCHMARK COMPLETED SUCCESSFULLY!`);
+    // Find previous baseline run (from previous version if available)
+    const baselineRun = getBaselineRun(benchmarkHistory.history, currentVersion) || benchmarkHistory.latest;
+    const { hardFailures, warnings } = printComparisonReport(benchmarkData.metrics, baselineRun);
+
+    // Save history array with up to 50 previous runs
+    const updatedHistory = [currentRun, ...(benchmarkHistory.history || [])].slice(0, 50);
+
+    const fullResultsData = {
+      version: currentVersion,
+      timestamp: currentRun.timestamp,
+      latest: currentRun,
+      metrics: currentRun.metrics, // Preserve root metrics for backward compatibility
+      history: updatedHistory
+    };
+
+    fs.writeFileSync(RESULTS_FILE, JSON.stringify(fullResultsData, null, 2));
+
+    if (hardFailures > 0) {
+      console.error(`\n❌ REGRESSION TEST FAILED: ${hardFailures} performance metric(s) regressed beyond the ${REGRESSION_THRESHOLDS.FAIL_PERCENT}% threshold.`);
+      process.exitCode = 1;
+    } else if (warnings > 0) {
+      console.warn(`\n⚠️ PERFORMANCE WARNING: ${warnings} performance metric(s) regressed above ${REGRESSION_THRESHOLDS.WARN_PERCENT}%.`);
+    } else {
+      console.log(`\n✅ PERFORMANCE VERIFIED: All metrics passed within threshold buffers!`);
+    }
+
     console.log(`📊 Report Saved -> ${RESULTS_FILE}`);
     console.log('==================================================\n');
 
   } catch (err) {
     console.error('\n❌ Benchmark error:', err.message);
+    process.exitCode = 1;
   } finally {
     if (browser) await browser.close();
     server.close();
