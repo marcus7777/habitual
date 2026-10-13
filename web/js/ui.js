@@ -492,6 +492,18 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
+    const btnGenPassphrase = document.getElementById('btn-gen-passphrase');
+    if (btnGenPassphrase && inputPassphrase) {
+      btnGenPassphrase.addEventListener('click', () => {
+        const strongPwd = core.generateRandomPassword ? core.generateRandomPassword(20) : Math.random().toString(36).slice(-10);
+        inputPassphrase.value = strongPwd;
+        inputPassphrase.type = 'text';
+        if (eyeIconShow && eyeIconShow.style) eyeIconShow.style.display = 'none';
+        if (eyeIconHide && eyeIconHide.style) eyeIconHide.style.display = 'block';
+        if (core.showToast) core.showToast('Generated strong master passphrase!', 'info');
+      });
+    }
+
     const btnSavePassphrase = document.getElementById('btn-save-passphrase');
     if (btnSavePassphrase && inputPassphrase) {
       btnSavePassphrase.addEventListener('click', () => {
