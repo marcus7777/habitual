@@ -1871,23 +1871,25 @@ select.form-control-sm {
   display: inline-flex;
 }
 
+.btn-card-edit,
 .btn-card-menu-toggle {
-  padding: 4px 6px;
+  padding: 5px 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  background: transparent;
-  border: 1px solid transparent;
+  background-color: var(--bg-pill);
+  border: 1px solid var(--border-color);
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
+.btn-card-edit:hover,
 .btn-card-menu-toggle:hover {
   background-color: var(--bg-pill-active);
   color: var(--text-main);
-  border-color: var(--border-color);
+  border-color: var(--accent-blue);
 }
 
 .card-menu-content {
