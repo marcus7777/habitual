@@ -200,7 +200,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.21.6</p>
+      <p>Habitual &bull; v1.21.7</p>
     </footer>
   </div>
 
@@ -568,6 +568,16 @@
                     <div id="qr-code-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 8px;"></div>
                   </div>
                 </div>
+              </div>
+
+              <!-- Export & Danger Actions Section -->
+              <div class="form-group margin-top-sm hidden" id="habit-actions-section" style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
+                <button type="button" id="btn-modal-download-svg" class="btn btn-secondary btn-sm">
+                  📥 Download SVG
+                </button>
+                <button type="button" id="btn-modal-delete-habit" class="btn btn-danger btn-sm text-danger" style="color: var(--accent-red, #f85149); border-color: rgba(248, 81, 73, 0.4);">
+                  🗑️ Delete Habit
+                </button>
               </div>
             </div>
           </details>

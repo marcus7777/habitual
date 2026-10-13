@@ -2140,6 +2140,37 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
+    const actionsSec = document.getElementById('habit-actions-section');
+    const btnModalDownloadSvg = document.getElementById('btn-modal-download-svg');
+    const btnModalDeleteHabit = document.getElementById('btn-modal-delete-habit');
+
+    if (actionsSec) {
+      if (habitToEdit && habitToEdit.id) {
+        actionsSec.classList.remove('hidden');
+        if (btnModalDownloadSvg) {
+          btnModalDownloadSvg.onclick = () => {
+            if (core.downloadHeatmapSVG) {
+              core.downloadHeatmapSVG(habitToEdit.id, core.state.selectedYear);
+              if (core.showToast) core.showToast('SVG Downloaded! 🎨');
+            }
+          };
+        }
+        if (btnModalDeleteHabit) {
+          btnModalDeleteHabit.onclick = () => {
+            if (core.deleteHabit) {
+              core.deleteHabit(habitToEdit.id);
+              if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden');
+              core.toggleModalScrollLock(false);
+            }
+          };
+        }
+      } else {
+        actionsSec.classList.add('hidden');
+        if (btnModalDownloadSvg) btnModalDownloadSvg.onclick = null;
+        if (btnModalDeleteHabit) btnModalDeleteHabit.onclick = null;
+      }
+    }
+
     if (core.elements.modalHabit) {
       core.toggleModalScrollLock(true);
       core.elements.modalHabit.classList.remove('hidden');
