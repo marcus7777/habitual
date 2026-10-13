@@ -1,6 +1,6 @@
 {
   "name": "habitual",
-  "version": "1.21.12",
+  "version": "1.21.13",
   "description": "Minimalist 100% fluid GitHub-style habit progression visualizer",
   "main": "web/app.js",
   "scripts": {
@@ -8,6 +8,8 @@
     "test:share": "node tests/test-share-roundtrip-playwright.js",
     "test:widgets": "node tests/test-widgets-playwright.js",
     "test:android": "node tests/test-android-playwright.js",
+    "test:firefox": "node tests/test-firefox-android-playwright.js",
+    "test:diag": "node tests/test-playwright-diag.js",
     "benchmark": "node tests/benchmark-playwright.js",
     "bump": "node bump-version.js",
     "deploy": "node deploy.js"
