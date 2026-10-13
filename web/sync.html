@@ -97,7 +97,7 @@
                 <svg id="eye-icon-hide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               </button>
             </div>
-            <button id="btn-gen-passphrase" class="btn btn-secondary btn-sm" title="Generate strong passphrase">🎲 Generate Key</button>
+            <button id="btn-gen-passphrase" class="btn btn-secondary btn-sm hidden" title="Generate strong passphrase">🎲 Generate Key</button>
             <button id="btn-save-passphrase" class="btn btn-primary btn-sm">Save Key</button>
           </div>
           <div id="passphrase-status-badge" style="margin-top: 8px; font-size: 0.85rem; color: var(--accent-green); display: none; align-items: center; gap: 6px;">
@@ -125,9 +125,17 @@
               <input type="text" id="input-firestore-sync-code" class="form-control-sm code-input uppercase" placeholder="Sync Code" title="Paste or enter Sync Code (e.g. HAB-XXXXXX)..." aria-label="Firestore Sync Channel Code">
               <button id="btn-save-firestore-code" class="btn btn-primary btn-sm">Save & Sync Code</button>
               <button id="btn-gen-firestore-code" class="btn btn-secondary btn-sm">New Code</button>
-              <button id="btn-copy-firestore-code" class="btn btn-secondary btn-sm" style="display: none;">Copy</button>
+              <button id="btn-copy-firestore-code" class="btn btn-secondary btn-sm" style="display: none;">Copy Code</button>
+              <button id="btn-copy-sync-link" class="btn btn-secondary btn-sm" style="display: none;">📋 Copy Sync Link</button>
             </div>
-            <p class="muted-text text-xs" style="margin: 0;">Share this channel code and master passphrase to sync across devices.</p>
+            <p class="muted-text text-xs" style="margin: 0 0 0.8rem 0;">Share this channel code and master passphrase to sync across devices.</p>
+
+            <!-- Device Sync QR Code Wrapper -->
+            <div id="firestore-sync-qr-wrapper" class="qr-code-wrapper hidden margin-top-sm" style="background: var(--bg-surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center;">
+              <label style="font-size: 0.88rem; font-weight: 600; display: block;">📱 Scan QR Code to Sync Another Device</label>
+              <div id="firestore-sync-qr-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 8px;"></div>
+              <small class="muted-text text-xs" style="display: block; margin-top: 6px;">Scan with phone camera to instantly connect this device to your cloud sync channel.</small>
+            </div>
           </div>
         </div>
 
@@ -247,7 +255,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.21.10</p>
+      <p>Habitual &bull; v1.21.11</p>
     </footer>
   </div>
 

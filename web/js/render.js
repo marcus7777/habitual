@@ -253,7 +253,15 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    core.elements.heatmapsGallery.appendChild(fragment);
+    if (core.elements.heatmapsGallery) {
+      if (typeof core.elements.heatmapsGallery.appendChild === 'function') {
+        core.elements.heatmapsGallery.appendChild(fragment);
+      } else {
+        const dummyDiv = document.createElement('div');
+        dummyDiv.appendChild(fragment);
+        core.elements.heatmapsGallery.innerHTML = dummyDiv.innerHTML;
+      }
+    }
 
     if (core.attachHeatmapSquareEvents) core.attachHeatmapSquareEvents();
     if (core.attachCardDragAndDropHandlers) core.attachCardDragAndDropHandlers();
