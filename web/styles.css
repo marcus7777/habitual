@@ -2688,5 +2688,207 @@ input:checked + .slider:before {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* ============================================================================
+   WIDGETS & QUICK ADD CARD COMPONENTS
+   ============================================================================ */
+.widget-preview-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.widget-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.widget-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.widget-card-title h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.widget-type-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background-color: rgba(56, 139, 253, 0.12);
+  color: var(--accent-blue);
+  border: 1px solid rgba(56, 139, 253, 0.3);
+}
+
+.widget-card-description {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.widget-card-body {
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.widget-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.85rem;
+}
+
+.widget-brand {
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.widget-date {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.widget-quick-add-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Individual Habit Card inside Quick Add Widget */
+.widget-habit-card,
+.widget-habit-item {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.widget-habit-card:hover,
+.widget-habit-item:hover {
+  border-color: #444c56;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  background-color: var(--bg-card-hover);
+}
+
+.widget-habit-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.widget-habit-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.widget-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background-color: var(--bg-pill);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.widget-meta-pill.completed-pill {
+  background-color: rgba(57, 211, 83, 0.15);
+  color: var(--accent-green);
+  border-color: rgba(57, 211, 83, 0.3);
+}
+
+.widget-quick-log-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: var(--radius-md, 8px);
+  border: 2px solid var(--border-color);
+  background-color: var(--bg-pill);
+  color: var(--text-main);
+  font-size: 1.25rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  user-select: none;
+  flex-shrink: 0;
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.widget-quick-log-btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.18);
+}
+
+.widget-quick-log-btn:active {
+  transform: translateY(0) scale(0.92);
+}
+
+.widget-quick-log-btn.completed {
+  background-color: #39d353;
+  border-color: #39d353;
+  color: #0d1117;
+  box-shadow: 0 0 12px rgba(57, 211, 83, 0.4);
+}
+
+.widget-empty-notice {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  background-color: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.widget-action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
 
 

@@ -154,19 +154,33 @@ window.HabitualCore = window.HabitualCore || {};
     if (quickAddData.habits.length === 0) {
       quickAddHabitsHTML = `<div class="widget-empty-notice">No active habits found. Create a habit to populate your widget!</div>`;
     } else {
-      quickAddHabitsHTML = quickAddData.habits.map(h => `
-        <div class="widget-habit-item">
-          <div class="widget-habit-info">
-            <span class="widget-habit-title" style="color: ${core.escapeHTML ? core.escapeHTML(h.color) : h.color};">${core.escapeHTML ? core.escapeHTML(h.name) : h.name}</span>
-            <span class="widget-habit-meta">🔥 ${h.streak} day streak • Today: ${h.completedCount}/${h.dailyTarget}</span>
+      quickAddHabitsHTML = quickAddData.habits.map(h => {
+        const habitName = core.escapeHTML ? core.escapeHTML(h.name) : h.name;
+        const habitId = core.escapeHTML ? core.escapeHTML(h.id) : h.id;
+        const habitColor = (core.normalizeHex && h.color) ? core.normalizeHex(h.color) : (h.color || '#39d353');
+        return `
+          <div class="widget-habit-card widget-habit-item">
+            <div class="widget-habit-left">
+              <div class="habit-color-tab" style="background-color: ${habitColor}1a; border-color: ${habitColor}4d;">
+                <span class="color-tab-pill" style="background-color: ${habitColor}; box-shadow: 0 0 6px ${habitColor};"></span>
+                <span class="tab-title">${habitName}</span>
+              </div>
+              <div class="widget-habit-meta-row">
+                <span class="widget-meta-pill">🔥 ${h.streak} d streak</span>
+                <span class="widget-meta-pill ${h.isCompleted ? 'completed-pill' : ''}">
+                  Today: ${h.completedCount}/${h.dailyTarget} ${h.isCompleted ? '✓' : ''}
+                </span>
+              </div>
+            </div>
+            <button class="widget-quick-log-btn ${h.isCompleted ? 'completed' : ''}"
+                    style="${!h.isCompleted ? `border-color: ${habitColor}; color: ${habitColor};` : ''}"
+                    data-habit-id="${habitId}"
+                    title="${h.isCompleted ? 'Completed today!' : 'Click to quick log +1'}">
+              ${h.statusIcon}
+            </button>
           </div>
-          <button class="widget-quick-log-btn ${h.isCompleted ? 'completed' : ''}"
-                  data-habit-id="${core.escapeHTML ? core.escapeHTML(h.id) : h.id}"
-                  title="${h.isCompleted ? 'Completed today!' : 'Click to quick log +1'}">
-            ${h.statusIcon}
-          </button>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     let habitOptionsHTML = `<option value="all" ${heatmapData.habitId === 'all' ? 'selected' : ''}>🌟 Combined All Habits</option>`;
