@@ -89,6 +89,52 @@
       if (window.HabitualCore) {
         if (HabitualCore.loadState) HabitualCore.loadState();
 
+        let draggedHabitId = null;
+
+        function getFilterHabitId() {
+          const hash = window.location.hash || '';
+          if (hash.startsWith('#habit/')) {
+            return decodeURIComponent(hash.replace('#habit/', '').trim());
+          }
+          return null;
+        }
+
+        function getDescendantIds(habitId) {
+          const ids = [habitId];
+          const habits = (HabitualCore.state && Array.isArray(HabitualCore.state.habits)) ? HabitualCore.state.habits : [];
+          const children = habits.filter(h => h.parentId === habitId);
+          children.forEach(c => ids.push(...getDescendantIds(c.id)));
+          return ids;
+        }
+
+        function reorderHabitsInState(fromId, toId) {
+          if (!HabitualCore.state || !Array.isArray(HabitualCore.state.habits)) return null;
+          const habits = HabitualCore.state.habits;
+          const fromIdx = habits.findIndex(h => h.id === fromId);
+          const toIdx = habits.findIndex(h => h.id === toId);
+          if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return null;
+
+          const [moved] = habits.splice(fromIdx, 1);
+          habits.splice(toIdx, 0, moved);
+          if (HabitualCore.saveState) HabitualCore.saveState();
+          return moved;
+        }
+
+        function moveHabitInState(habitId, direction) {
+          if (!HabitualCore.state || !Array.isArray(HabitualCore.state.habits)) return;
+          const habits = HabitualCore.state.habits;
+          const fromIdx = habits.findIndex(h => h.id === habitId);
+          if (fromIdx === -1) return;
+          const toIdx = fromIdx + direction;
+          if (toIdx < 0 || toIdx >= habits.length) return;
+
+          const [moved] = habits.splice(fromIdx, 1);
+          habits.splice(toIdx, 0, moved);
+          if (HabitualCore.saveState) HabitualCore.saveState();
+          if (HabitualCore.showToast) HabitualCore.showToast(`Reordered "${moved.name}"`);
+          renderQuickAddWidget();
+        }
+
         function renderQuickAddWidget() {
           const payload = HabitualCore.getQuickAddWidgetPayload ? HabitualCore.getQuickAddWidgetPayload() : null;
           const container = document.getElementById('widget-add-list');
@@ -105,19 +151,55 @@
             return;
           }
 
-          container.innerHTML = payload.habits.map(h => {
+          const filterHabitId = getFilterHabitId();
+          let displayHabits = payload.habits;
+          let filterHeaderHTML = '';
+
+          if (filterHabitId) {
+            const allowedIds = new Set(getDescendantIds(filterHabitId));
+            displayHabits = payload.habits.filter(h => allowedIds.has(h.id));
+
+            const targetHabit = (HabitualCore.state && Array.isArray(HabitualCore.state.habits))
+              ? HabitualCore.state.habits.find(h => h.id === filterHabitId)
+              : null;
+            const filterName = targetHabit ? (HabitualCore.escapeHTML ? HabitualCore.escapeHTML(targetHabit.name) : targetHabit.name) : filterHabitId;
+
+            filterHeaderHTML = `
+              <div class="widget-filter-bar">
+                <span>Viewing: <strong>${filterName}</strong> & sub-habits</span>
+                <button id="btn-clear-widget-filter" class="btn btn-secondary btn-sm">⬅ Show All Habits</button>
+              </div>
+            `;
+          }
+
+          if (displayHabits.length === 0) {
+            container.innerHTML = filterHeaderHTML + `<div class="widget-empty-notice">No matching sub-habits found for this filter. <a href="#">Clear filter</a></div>`;
+            const btnClear = document.getElementById('btn-clear-widget-filter');
+            if (btnClear) btnClear.onclick = () => { window.location.hash = ''; renderQuickAddWidget(); };
+            return;
+          }
+
+          const cardsHTML = displayHabits.map(h => {
             const habitName = HabitualCore.escapeHTML ? HabitualCore.escapeHTML(h.name) : h.name;
             const habitColor = (HabitualCore.normalizeHex && h.color) ? HabitualCore.normalizeHex(h.color) : (h.color || '#39d353');
-            const indentStyle = h.depth > 0 ? `margin-left: ${Math.min(h.depth, 3) * 18}px;` : '';
+            const indentStyle = h.depth > 0 ? `margin-left: ${Math.min(h.depth, 3) * 24}px;` : '';
             const subIndicator = h.isSubhabit ? `<span class="subhabit-curve-icon" style="color: ${habitColor}; font-weight: bold; margin-right: 4px;">↳</span>` : '';
 
             return `
-              <div class="widget-habit-card widget-habit-item ${h.isSubhabit ? 'widget-subhabit-card' : ''}" style="${indentStyle}">
+              <div class="widget-habit-card widget-habit-item draggable-card ${h.isSubhabit ? 'widget-subhabit-card' : ''}"
+                   draggable="true"
+                   data-habit-id="${h.id}"
+                   style="${indentStyle}">
+                <div class="widget-order-controls">
+                  <span class="widget-drag-handle" title="Drag to reorder">⋮⋮</span>
+                  <button class="btn-order-move btn-move-up" data-habit-id="${h.id}" title="Move Up">▲</button>
+                  <button class="btn-order-move btn-move-down" data-habit-id="${h.id}" title="Move Down">▼</button>
+                </div>
                 <div class="widget-habit-left">
                   <div class="habit-color-tab" style="background-color: ${habitColor}1a; border-color: ${habitColor}4d;">
                     <span class="color-tab-pill" style="background-color: ${habitColor}; box-shadow: 0 0 6px ${habitColor};"></span>
                     <span class="tab-title">
-                      ${subIndicator}<a href="../index.html#/habit/${encodeURIComponent(h.id)}" class="card-title-link" title="Open ${habitName} & sub-habits in Habitual">${habitName}</a>
+                      ${subIndicator}<a href="#habit/${encodeURIComponent(h.id)}" class="card-title-link" title="Show ${habitName} & sub-habits in this view">${habitName}</a>
                     </span>
                   </div>
                   <div class="widget-habit-meta-row">
@@ -137,6 +219,76 @@
             `;
           }).join('');
 
+          container.innerHTML = filterHeaderHTML + cardsHTML;
+
+          const btnClear = document.getElementById('btn-clear-widget-filter');
+          if (btnClear) {
+            btnClear.onclick = () => {
+              window.location.hash = '';
+              renderQuickAddWidget();
+            };
+          }
+
+          // Attach move up / move down handlers
+          container.querySelectorAll('.btn-move-up').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const id = btn.getAttribute('data-habit-id');
+              if (id) moveHabitInState(id, -1);
+            });
+          });
+
+          container.querySelectorAll('.btn-move-down').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const id = btn.getAttribute('data-habit-id');
+              if (id) moveHabitInState(id, 1);
+            });
+          });
+
+          // Attach HTML5 Drag & Drop reorder handlers
+          container.querySelectorAll('.widget-habit-card').forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+              draggedHabitId = card.getAttribute('data-habit-id');
+              card.classList.add('dragging');
+              if (e.dataTransfer) {
+                e.dataTransfer.setData('text/plain', draggedHabitId || '');
+                e.dataTransfer.effectAllowed = 'move';
+              }
+            });
+
+            card.addEventListener('dragend', () => {
+              card.classList.remove('dragging');
+              container.querySelectorAll('.widget-habit-card').forEach(c => c.classList.remove('drag-over'));
+            });
+
+            card.addEventListener('dragover', (e) => {
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+              const targetId = card.getAttribute('data-habit-id');
+              if (draggedHabitId && targetId && draggedHabitId !== targetId) {
+                card.classList.add('drag-over');
+              }
+            });
+
+            card.addEventListener('dragleave', () => {
+              card.classList.remove('drag-over');
+            });
+
+            card.addEventListener('drop', (e) => {
+              e.preventDefault();
+              card.classList.remove('drag-over');
+              const targetHabitId = card.getAttribute('data-habit-id');
+              if (draggedHabitId && targetHabitId && draggedHabitId !== targetHabitId) {
+                const moved = reorderHabitsInState(draggedHabitId, targetHabitId);
+                if (moved && HabitualCore.showToast) {
+                  HabitualCore.showToast(`Reordered "${moved.name}"`);
+                }
+                renderQuickAddWidget();
+              }
+            });
+          });
+
           // Attach log click handlers
           container.querySelectorAll('.widget-quick-log-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -152,6 +304,7 @@
           });
         }
 
+        window.addEventListener('hashchange', renderQuickAddWidget);
         renderQuickAddWidget();
 
         const btnRefresh = document.getElementById('btn-refresh-add');
