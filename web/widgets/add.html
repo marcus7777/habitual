@@ -190,10 +190,12 @@
                    draggable="true"
                    data-habit-id="${h.id}"
                    style="${indentStyle}">
-                <div class="widget-order-controls">
-                  <span class="widget-drag-handle" title="Drag to reorder">⋮⋮</span>
-                  <button class="btn-order-move btn-move-up" data-habit-id="${h.id}" title="Move Up">▲</button>
-                  <button class="btn-order-move btn-move-down" data-habit-id="${h.id}" title="Move Down">▼</button>
+                <div class="drag-handle-container">
+                  <span class="widget-drag-handle" data-habit-id="${h.id}" title="Tap for reorder arrows, or drag to reorder">⋮⋮</span>
+                  <div class="widget-drag-arrows drag-arrows hidden" data-habit-id="${h.id}">
+                    <button class="btn-order-move btn-move-up" data-habit-id="${h.id}" title="Move Up">▲ Move Up</button>
+                    <button class="btn-order-move btn-move-down" data-habit-id="${h.id}" title="Move Down">▼ Move Down</button>
+                  </div>
                 </div>
                 <div class="widget-habit-left">
                   <div class="habit-color-tab" style="background-color: ${habitColor}1a; border-color: ${habitColor}4d;">
@@ -228,6 +230,21 @@
               renderQuickAddWidget();
             };
           }
+
+          // Attach handle click toggle for arrow tooltip popovers
+          container.querySelectorAll('.widget-drag-handle').forEach(handle => {
+            handle.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const habitId = handle.getAttribute('data-habit-id');
+              container.querySelectorAll('.widget-drag-arrows').forEach(arrows => {
+                if (arrows.getAttribute('data-habit-id') === habitId) {
+                  arrows.classList.toggle('hidden');
+                } else {
+                  arrows.classList.add('hidden');
+                }
+              });
+            });
+          });
 
           // Attach move up / move down handlers
           container.querySelectorAll('.btn-move-up').forEach(btn => {
@@ -305,6 +322,11 @@
         }
 
         window.addEventListener('hashchange', renderQuickAddWidget);
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('.drag-handle-container')) {
+            document.querySelectorAll('.widget-drag-arrows').forEach(arr => arr.classList.add('hidden'));
+          }
+        });
         renderQuickAddWidget();
 
         const btnRefresh = document.getElementById('btn-refresh-add');
