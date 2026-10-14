@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "updatedAt": 1791966224402,
+  "habits": [
+    {
+      "id": "dailyReading964",
+      "updatedAt": 1791966220441,
+      "name": "Daily Reading 964",
+      "colorTheme": "#616161",
+      "category": "General",
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-10-14",
+      "logs": {
+        "2026-10-14": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "selectedHabitId": "dailyReading964",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false
+}
