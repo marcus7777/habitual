@@ -3426,6 +3426,71 @@ describe('Feature 31: ➕ Add Button on the Main Page (Empty State)', () => {
 });
 
 // ============================================================================
+// FEATURE 32: Toast Alerts & Content Layout Stability
+// ============================================================================
+describe('Feature 32: Toast Alerts & Content Layout Stability', () => {
+  test('showToast updates #toast-message and reveals #toast-banner without duplicating toast-item', () => {
+    const originalGetById = global.document.getElementById;
+
+    let bannerHidden = true;
+    let toastMsg = '';
+    const mockBanner = createMockElement('div');
+    mockBanner.classList.add('hidden');
+    mockBanner.classList.remove = (cls) => {
+      if (cls === 'hidden') bannerHidden = false;
+    };
+
+    const mockMsgEl = createMockElement('span');
+    Object.defineProperty(mockMsgEl, 'textContent', {
+      set(val) { toastMsg = val; },
+      get() { return toastMsg; }
+    });
+
+    let containerCreated = false;
+
+    global.document.getElementById = (id) => {
+      if (id === 'toast-banner') return mockBanner;
+      if (id === 'toast-message') return mockMsgEl;
+      if (id === 'toast-container') {
+        containerCreated = true;
+        return null;
+      }
+      return null;
+    };
+
+    HabitualCore.showToast('Data synced cleanly!', 'success');
+
+    assertEqual(toastMsg, 'Data synced cleanly!', 'showToast sets toast-message text');
+    assertEqual(bannerHidden, false, 'showToast reveals toast-banner by removing hidden class');
+    assertEqual(containerCreated, false, 'showToast does not create duplicate toast-item container when banner exists');
+
+    global.document.getElementById = originalGetById;
+  });
+
+  test('showToast creates toast-item in toast-container when toast-banner is missing', () => {
+    const originalGetById = global.document.getElementById;
+
+    let createdItems = [];
+    const mockContainer = createMockElement('div');
+    mockContainer.appendChild = (child) => {
+      createdItems.push(child);
+    };
+
+    global.document.getElementById = (id) => {
+      if (id === 'toast-banner') return null;
+      if (id === 'toast-container') return mockContainer;
+      return null;
+    };
+
+    HabitualCore.showToast('Widget alert toast', 'info');
+
+    assertEqual(createdItems.length, 1, 'showToast appends new toast item to container when banner absent');
+
+    global.document.getElementById = originalGetById;
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);

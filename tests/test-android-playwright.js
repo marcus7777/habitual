@@ -231,6 +231,38 @@ async function runAndroidTestSuite() {
     const restoredOverflow = await page.evaluate(() => window.getComputedStyle(document.body).overflow);
     logResult('Modal Close Scroll Unlock Restored', restoredOverflow !== 'hidden', `(Overflow: "${restoredOverflow}")`);
 
+    // TEST 3.6: Toast Alert Bottom Positioning & Layout Content Stability Verification
+    console.log('\n📋 Running Test: Toast Alert Bottom Positioning & Layout Content Stability Verification');
+
+    // 1. Measure initial position and size of main gallery content area and header
+    const initialMainBox = await page.locator('.main-content').boundingBox();
+    const initialHeaderBox = await page.locator('.app-header').boundingBox();
+
+    // 2. Trigger toast message via core API
+    await page.evaluate(() => {
+      if (window.HabitualCore && window.HabitualCore.showToast) {
+        window.HabitualCore.showToast('Test Toast: Content should not shift!', 'info');
+      }
+    });
+    await page.waitForTimeout(100);
+
+    // 3. Inspect toast position and content position while toast banner is active
+    const toastBox = await page.locator('#toast-banner').boundingBox();
+    const viewportSize = page.viewportSize();
+    const activeMainBox = await page.locator('.main-content').boundingBox();
+
+    // 4. Verify toast is displayed at the bottom of the viewport and away from the header
+    const isToastAtBottom = toastBox && viewportSize && initialHeaderBox &&
+      (toastBox.y + toastBox.height) >= (viewportSize.height - 120) &&
+      toastBox.y > (initialHeaderBox.y + initialHeaderBox.height + 50);
+    logResult('Toast Displayed at Bottom of Page (Away From Header)', isToastAtBottom, `(Toast Y: ${Math.round(toastBox ? toastBox.y : 0)}, Viewport H: ${viewportSize ? viewportSize.height : 0})`);
+
+    // 5. Verify main content position and dimensions did not shift at all
+    const isContentUnshifted = initialMainBox && activeMainBox &&
+      Math.abs(initialMainBox.y - activeMainBox.y) < 1 &&
+      Math.abs(initialMainBox.height - activeMainBox.height) < 1;
+    logResult('Page Content Position Unchanged During Toast (No-Shift)', isContentUnshifted, `(Initial Y: ${initialMainBox ? Math.round(initialMainBox.y) : 0}, Active Y: ${activeMainBox ? Math.round(activeMainBox.y) : 0})`);
+
     // TEST 4: Navigation to Sync Page via Header Menu
     console.log('\n📋 Running Test 4: Navigation to Sync Page via Header Menu');
     await openMenuDropdown(page);

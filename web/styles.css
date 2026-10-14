@@ -109,54 +109,80 @@ body.dark-theme {
 
 /* Toast Banner & Container */
 .toast-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #1f6feb;
-  color: #ffffff;
-  padding: 10px 16px;
-  border-radius: var(--radius-md);
+  gap: 12px;
+  background-color: rgba(22, 27, 34, 0.95);
+  color: #f0f6fc;
+  border: 1px solid #30363d;
+  border-left: 4px solid #1f6feb;
+  padding: 10px 18px;
+  border-radius: var(--radius-md, 10px);
   font-size: 0.88rem;
   font-weight: 500;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  max-width: calc(100vw - 32px);
+  width: max-content;
+  pointer-events: auto;
+  animation: toastSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
-.toast-banner.toast-success { background-color: #238636; }
-.toast-banner.toast-error { background-color: #da3633; }
-.toast-banner.toast-warning { background-color: #d29922; color: #000; }
-.toast-banner.toast-info { background-color: #1f6feb; }
+.toast-banner.hidden {
+  display: none !important;
+}
+
+.toast-banner.toast-success { background-color: rgba(22, 27, 34, 0.95); border-left-color: #238636; color: #f0f6fc; }
+.toast-banner.toast-error { background-color: rgba(22, 27, 34, 0.95); border-left-color: #da3633; color: #f0f6fc; }
+.toast-banner.toast-warning { background-color: rgba(22, 27, 34, 0.95); border-left-color: #d29922; color: #f0f6fc; }
+.toast-banner.toast-info { background-color: rgba(22, 27, 34, 0.95); border-left-color: #1f6feb; color: #f0f6fc; }
 
 .toast-container {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 9999;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 380px;
+  max-width: calc(100vw - 32px);
+  width: max-content;
   pointer-events: none;
 }
 
 .toast-item {
   pointer-events: auto;
-  padding: 10px 16px;
-  border-radius: var(--radius-md, 8px);
+  padding: 10px 18px;
+  border-radius: var(--radius-md, 10px);
   font-size: 0.88rem;
   font-weight: 500;
-  color: #ffffff;
-  background-color: #1f6feb;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  color: #f0f6fc;
+  background-color: rgba(22, 27, 34, 0.95);
+  border: 1px solid #30363d;
+  border-left: 4px solid #1f6feb;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  animation: toastSlideIn 0.25s ease-out forwards;
+  gap: 12px;
+  animation: toastItemSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.toast-item.toast-success { background-color: #238636; }
-.toast-item.toast-error { background-color: #da3633; }
-.toast-item.toast-warning { background-color: #d29922; color: #000; }
-.toast-item.toast-info { background-color: #1f6feb; }
+.toast-item.toast-success { border-left-color: #238636; }
+.toast-item.toast-error { border-left-color: #da3633; }
+.toast-item.toast-warning { border-left-color: #d29922; }
+.toast-item.toast-info { border-left-color: #1f6feb; }
 
 .toast-fade-out {
   opacity: 0;
@@ -164,7 +190,12 @@ body.dark-theme {
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-@keyframes toastSlideIn {
+@keyframes toastSlideUp {
+  from { opacity: 0; transform: translate(-50%, 15px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes toastItemSlideUp {
   from { opacity: 0; transform: translateY(15px); }
   to { opacity: 1; transform: translateY(0); }
 }
@@ -172,10 +203,16 @@ body.dark-theme {
 .btn-close-toast {
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: #8b949e;
   font-size: 1.2rem;
   cursor: pointer;
   line-height: 1;
+  padding: 0 2px;
+  transition: color 0.15s ease;
+}
+
+.btn-close-toast:hover {
+  color: #f0f6fc;
 }
 
 /* Minimalist Navigation Header */
@@ -2774,6 +2811,57 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.widget-habit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.widget-habit-group .subhabits-concertina {
+  margin-left: 18px;
+  padding-left: 12px;
+  border-left: 2px dashed rgba(88, 166, 255, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin-top 0.25s ease;
+  margin-top: 0;
+  pointer-events: none;
+}
+
+.widget-habit-group .subhabits-concertina.expanded {
+  max-height: 2000px;
+  opacity: 1;
+  margin-top: 4px;
+  pointer-events: auto;
+  overflow: visible !important;
+}
+
+.btn-toggle-concertina-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: var(--bg-pill);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent-blue);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-toggle-concertina-widget:hover {
+  background-color: var(--bg-pill-active, rgba(56, 139, 253, 0.2));
+  border-color: var(--accent-blue);
 }
 
 /* Individual Habit Card inside Quick Add Widget */
