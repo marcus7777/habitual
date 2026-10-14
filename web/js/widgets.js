@@ -16,7 +16,33 @@ window.HabitualCore = window.HabitualCore || {};
     const prettyToday = core.formatPrettyDate ? core.formatPrettyDate(todayKey) : todayKey;
     const habits = (core.state && Array.isArray(core.state.habits)) ? core.state.habits : [];
 
-    const activeHabitList = habits.filter(h => !h.isPaused).map(h => {
+    // Helper: Sort/order habits according to homepage hierarchy (Top-level parent -> descendant sub-habits)
+    const orderedHabits = [];
+    const visited = new Set();
+
+    function addHabitTree(habit, depth) {
+      if (!habit || visited.has(habit.id)) return;
+      visited.add(habit.id);
+
+      if (!habit.isPaused) {
+        orderedHabits.push({ habit, depth });
+      }
+
+      // Find direct sub-habits of this habit in original array order
+      const children = habits.filter(h => h.parentId === habit.id);
+      children.forEach(child => addHabitTree(child, depth + 1));
+    }
+
+    // 1. Process top-level habits first
+    const topLevelHabits = habits.filter(h => !h.parentId);
+    topLevelHabits.forEach(parent => addHabitTree(parent, 0));
+
+    // 2. Process any remaining unvisited habits (e.g., orphaned sub-habits)
+    habits.forEach(h => {
+      if (!visited.has(h.id)) addHabitTree(h, h.parentId ? 1 : 0);
+    });
+
+    const activeHabitList = orderedHabits.map(({ habit: h, depth }) => {
       const log = (h.logs && h.logs[todayKey]) ? h.logs[todayKey] : null;
       const count = log ? (log.count || 0) : 0;
       const target = Math.max(1, h.dailyTarget || 1);
@@ -28,6 +54,9 @@ window.HabitualCore = window.HabitualCore || {};
         id: h.id,
         name: h.name || 'Habit',
         type: h.type || 'positive',
+        parentId: h.parentId || null,
+        isSubhabit: Boolean(h.parentId),
+        depth: depth,
         streak: streakInfo.current || 0,
         completedCount: count,
         dailyTarget: target,
@@ -158,12 +187,17 @@ window.HabitualCore = window.HabitualCore || {};
         const habitName = core.escapeHTML ? core.escapeHTML(h.name) : h.name;
         const habitId = core.escapeHTML ? core.escapeHTML(h.id) : h.id;
         const habitColor = (core.normalizeHex && h.color) ? core.normalizeHex(h.color) : (h.color || '#39d353');
+        const indentStyle = h.depth > 0 ? `margin-left: ${Math.min(h.depth, 3) * 18}px;` : '';
+        const subIndicator = h.isSubhabit ? `<span class="subhabit-curve-icon" style="color: ${habitColor}; font-weight: bold; margin-right: 4px;">↳</span>` : '';
+
         return `
-          <div class="widget-habit-card widget-habit-item">
+          <div class="widget-habit-card widget-habit-item ${h.isSubhabit ? 'widget-subhabit-card' : ''}" style="${indentStyle}">
             <div class="widget-habit-left">
               <div class="habit-color-tab" style="background-color: ${habitColor}1a; border-color: ${habitColor}4d;">
                 <span class="color-tab-pill" style="background-color: ${habitColor}; box-shadow: 0 0 6px ${habitColor};"></span>
-                <span class="tab-title">${habitName}</span>
+                <span class="tab-title">
+                  ${subIndicator}<a href="#/habit/${encodeURIComponent(h.id)}" class="card-title-link" onclick="if(window.HabitualCore && HabitualCore.closeWidgetsModal) HabitualCore.closeWidgetsModal();" title="Open ${habitName} & sub-habits">${habitName}</a>
+                </span>
               </div>
               <div class="widget-habit-meta-row">
                 <span class="widget-meta-pill">🔥 ${h.streak} d streak</span>

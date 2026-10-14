@@ -2800,6 +2800,17 @@ input:checked + .slider:before {
   background-color: var(--bg-card-hover);
 }
 
+.widget-subhabit-card {
+  border-left: 3px solid var(--border-color);
+  background-color: rgba(22, 27, 34, 0.85);
+}
+
+.subhabit-curve-icon {
+  display: inline-block;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
 .widget-habit-left {
   display: flex;
   flex-direction: column;
