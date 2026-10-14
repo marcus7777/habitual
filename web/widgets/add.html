@@ -108,12 +108,17 @@
           container.innerHTML = payload.habits.map(h => {
             const habitName = HabitualCore.escapeHTML ? HabitualCore.escapeHTML(h.name) : h.name;
             const habitColor = (HabitualCore.normalizeHex && h.color) ? HabitualCore.normalizeHex(h.color) : (h.color || '#39d353');
+            const indentStyle = h.depth > 0 ? `margin-left: ${Math.min(h.depth, 3) * 18}px;` : '';
+            const subIndicator = h.isSubhabit ? `<span class="subhabit-curve-icon" style="color: ${habitColor}; font-weight: bold; margin-right: 4px;">↳</span>` : '';
+
             return `
-              <div class="widget-habit-card widget-habit-item">
+              <div class="widget-habit-card widget-habit-item ${h.isSubhabit ? 'widget-subhabit-card' : ''}" style="${indentStyle}">
                 <div class="widget-habit-left">
                   <div class="habit-color-tab" style="background-color: ${habitColor}1a; border-color: ${habitColor}4d;">
                     <span class="color-tab-pill" style="background-color: ${habitColor}; box-shadow: 0 0 6px ${habitColor};"></span>
-                    <span class="tab-title">${habitName}</span>
+                    <span class="tab-title">
+                      ${subIndicator}<a href="../index.html#/habit/${encodeURIComponent(h.id)}" class="card-title-link" title="Open ${habitName} & sub-habits in Habitual">${habitName}</a>
+                    </span>
                   </div>
                   <div class="widget-habit-meta-row">
                     <span class="widget-meta-pill">🔥 ${h.streak} d streak</span>
