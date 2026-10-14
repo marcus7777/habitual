@@ -179,13 +179,34 @@
             return;
           }
 
-          const cardsHTML = displayHabits.map(h => {
+          const expandedWidgetIds = window._expandedWidgetIds || (window._expandedWidgetIds = new Set());
+
+          // Recursive helper to render habit card & its concertina sub-habits
+          function renderHabitCardNode(h) {
             const habitName = HabitualCore.escapeHTML ? HabitualCore.escapeHTML(h.name) : h.name;
             const habitColor = (HabitualCore.normalizeHex && h.color) ? HabitualCore.normalizeHex(h.color) : (h.color || '#39d353');
-            const indentStyle = h.depth > 0 ? `margin-left: ${Math.min(h.depth, 3) * 24}px;` : '';
+            const indentStyle = h.depth > 0 ? `margin-left: ${Math.min(h.depth, 3) * 16}px;` : '';
             const subIndicator = h.isSubhabit ? `<span class="subhabit-curve-icon" style="color: ${habitColor}; font-weight: bold; margin-right: 4px;">↳</span>` : '';
 
-            return `
+            // Find direct children in displayHabits
+            const childHabits = displayHabits.filter(c => c.parentId === h.id);
+            const hasChildren = childHabits.length > 0;
+            // If filtering into a habit or sub-habit, auto-expand so filtered sub-habits are visible
+            const isExpanded = filterHabitId ? true : expandedWidgetIds.has(h.id);
+
+            let concertinaBadgeHTML = '';
+            if (hasChildren) {
+              concertinaBadgeHTML = `
+                <button type="button"
+                        class="badge-subhabits btn-toggle-concertina-widget"
+                        data-parent-id="${h.id}"
+                        title="Toggle ${childHabits.length} sub-habits">
+                  📁 ${childHabits.length} <span class="concertina-arrow">${isExpanded ? '▲' : '▼'}</span>
+                </button>
+              `;
+            }
+
+            const cardHTML = `
               <div class="widget-habit-card widget-habit-item draggable-card ${h.isSubhabit ? 'widget-subhabit-card' : ''}"
                    draggable="true"
                    data-habit-id="${h.id}"
@@ -203,6 +224,7 @@
                     <span class="tab-title">
                       ${subIndicator}<a href="#habit/${encodeURIComponent(h.id)}" class="card-title-link" title="Show ${habitName} & sub-habits in this view">${habitName}</a>
                     </span>
+                    ${concertinaBadgeHTML}
                   </div>
                   <div class="widget-habit-meta-row">
                     <span class="widget-meta-pill">🔥 ${h.streak} d streak</span>
@@ -219,7 +241,26 @@
                 </button>
               </div>
             `;
-          }).join('');
+
+            if (hasChildren) {
+              const childrenCardsHTML = childHabits.map(child => renderHabitCardNode(child)).join('');
+              return `
+                <div class="widget-habit-group" data-group-id="${h.id}">
+                  ${cardHTML}
+                  <div class="subhabits-concertina ${isExpanded ? 'expanded' : ''}" data-parent-id="${h.id}">
+                    ${childrenCardsHTML}
+                  </div>
+                </div>
+              `;
+            }
+
+            return cardHTML;
+          }
+
+          const displayHabitIds = new Set(displayHabits.map(h => h.id));
+          const topLevelDisplayHabits = displayHabits.filter(h => !h.parentId || !displayHabitIds.has(h.parentId));
+
+          const cardsHTML = topLevelDisplayHabits.map(h => renderHabitCardNode(h)).join('');
 
           container.innerHTML = filterHeaderHTML + cardsHTML;
 
@@ -230,6 +271,36 @@
               renderQuickAddWidget();
             };
           }
+
+          // Attach concertina toggle event handlers
+          container.querySelectorAll('.btn-toggle-concertina-widget').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const parentId = btn.getAttribute('data-parent-id');
+              if (!parentId) return;
+
+              if (expandedWidgetIds.has(parentId)) {
+                expandedWidgetIds.delete(parentId);
+              } else {
+                expandedWidgetIds.add(parentId);
+              }
+
+              const concertina = container.querySelector(`.subhabits-concertina[data-parent-id="${parentId}"]`);
+              const arrow = btn.querySelector('.concertina-arrow');
+              const isNowExpanded = expandedWidgetIds.has(parentId);
+
+              if (concertina) {
+                if (isNowExpanded) {
+                  concertina.classList.add('expanded');
+                } else {
+                  concertina.classList.remove('expanded');
+                }
+              }
+              if (arrow) {
+                arrow.textContent = isNowExpanded ? '▲' : '▼';
+              }
+            });
+          });
 
           // Attach handle click toggle for arrow tooltip popovers
           container.querySelectorAll('.widget-drag-handle').forEach(handle => {

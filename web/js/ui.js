@@ -6,7 +6,7 @@ window.HabitualCore = window.HabitualCore || {};
   core.showToast = function(message, type = 'info') {
     if (!message) return;
 
-    // 1. Banner Toast
+    // 1. Banner Toast Alert (Fixed bottom overlay for pages with #toast-banner)
     const banner = document.getElementById('toast-banner');
     const msgEl = document.getElementById('toast-message');
     if (banner && msgEl) {
@@ -15,9 +15,10 @@ window.HabitualCore = window.HabitualCore || {};
       banner.classList.remove('hidden');
       if (core._toastTimeout) clearTimeout(core._toastTimeout);
       core._toastTimeout = setTimeout(() => { banner.classList.add('hidden'); }, 4000);
+      return;
     }
 
-    // 2. Floating Pop-up Toast
+    // 2. Floating Pop-up Toast (Fallback for pages without #toast-banner)
     let container = document.getElementById('toast-container');
     if (!container && document.body) {
       container = document.createElement('div');
