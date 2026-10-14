@@ -2002,6 +2002,7 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
   });
 
   test('getDeltaPayloadFromState minimizes payload by omitting default properties and old logs', () => {
+    const recentKey = HabitualCore.getTodayKey ? HabitualCore.getTodayKey() : '2026-10-14';
     HabitualCore.state.habits = [
       {
         id: 'water_1',
@@ -2010,7 +2011,7 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
         dailyTarget: 1,
         logs: {
           '2020-01-01': { count: 1 },
-          '2026-10-06': { count: 2, note: 'Fresh water' }
+          [recentKey]: { count: 2, note: 'Fresh water' }
         }
       }
     ];
@@ -2024,7 +2025,7 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     assertEqual(h.name, undefined, 'Derived default name is omitted');
     assertEqual(h.colorTheme, undefined, 'Derived default color is omitted');
     assertEqual(h.logs['2020-01-01'], undefined, 'Old log prior to 7-day cutoff is omitted');
-    assertEqual(h.logs['2026-10-06'].count, 2, 'Recent log is preserved');
+    assertEqual(h.logs[recentKey].count, 2, 'Recent log is preserved');
   });
 
   test('Granular storage APIs saveLog, saveHabit, saveSettings and saveStateDebounced', async () => {
@@ -3286,6 +3287,19 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     HabitualCore.checkURLHashForSharedHabit();
     assert(modalOpened, 'Modal import opened when search query string contains doc= parameter');
     assertEqual(fetchedDocId, 'search_test_789', 'Extracted doc ID search_test_789 from search query param');
+
+    // Test 4: Existing habit redirect - when user already has the habit, take directly to habit page without preview
+    HabitualCore.state.habits = [
+      { id: 'already_existing_123', name: 'Existing Shared Goal', sharing: { collection: 'already_existing_123', password: 'pwd' } }
+    ];
+    global.window.location = { hash: '#share?col=already_existing_123&pwd=pwd', search: '', pathname: '/index.html' };
+    modalOpened = false;
+    fetchedDocId = null;
+    HabitualCore.checkURLHashForSharedHabit();
+    assert(!modalOpened, 'Modal preview skipped when user already has habit');
+    assertEqual(fetchedDocId, null, 'Firestore download skipped when user already has habit');
+    assertEqual(HabitualCore.state.selectedHabitId, 'already_existing_123', 'Selected habit ID set to existing habit ID');
+    assertEqual(global.window.location.hash, '#/habit/already_existing_123', 'Location hash redirected to habit page');
 
     global.document.getElementById = origGetById;
     HabitualCore.SyncTargets.Firestore.downloadPerHabitBackup = origDownload;

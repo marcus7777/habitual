@@ -265,6 +265,25 @@ async function runShareRoundTripPlaywrightTests() {
     const errorMsgText = await page3.textContent('#import-shared-habit-logs-info');
     assert(errorMsgText.includes('Could not load habit from Firestore'), 'Explicit error message shown when Firestore load fails');
 
+
+    // --- STEP 4: Opening Share Link for an Already Existing Habit in Context 2 ---
+    console.log('\n📌 STEP 4: Re-opening Share Link for Already Existing Habit in Context 2...');
+    await page2.goto(shareUrl, { waitUntil: 'domcontentloaded' });
+    await page2.waitForTimeout(300);
+
+    await page2.evaluate(({ col }) => {
+      const core = window.HabitualCore;
+      core.checkURLHashForSharedHabit();
+    }, { col: shareInfo.col });
+
+    await page2.waitForTimeout(150);
+
+    const reOpenedModalVisible = await page2.isVisible('#modal-import-shared-habit');
+    assert(!reOpenedModalVisible, 'Modal preview is skipped when re-opening share link for existing habit');
+
+    const currentUrlHash = await page2.evaluate(() => window.location.hash);
+    assert(currentUrlHash.startsWith('#/habit/'), 'Redirected directly to habit page view (#/habit/...)');
+
   } catch (err) {
     console.error('Fatal Playwright Test Error:', err);
   } finally {

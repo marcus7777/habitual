@@ -3068,6 +3068,40 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (!col || !pwd) return;
 
+      // If user ALREADY has this habit in state, take them directly to the habit page instead of showing preview
+      const existingInState = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
+        h.id === col ||
+        (h.sharing && (h.sharing.collection === col || h.sharing.docId === col))
+      ) : null;
+
+      if (existingInState) {
+        let targetHabit = existingInState;
+        while (targetHabit && targetHabit.parentId) {
+          const p = core.state.habits.find(h => h.id === targetHabit.parentId);
+          if (!p) break;
+          targetHabit = p;
+        }
+
+        const modalImport = document.getElementById('modal-import-shared-habit');
+        if (modalImport) modalImport.classList.add('hidden');
+
+        core.state.selectedHabitId = targetHabit.id;
+        if (core.saveState) core.saveState();
+
+        const targetHash = '#/habit/' + targetHabit.id;
+        if (typeof window !== 'undefined' && window.location) {
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + targetHash);
+          } else {
+            window.location.hash = targetHash;
+          }
+        }
+
+        if (core.renderAll) core.renderAll();
+        if (core.showToast) core.showToast(`👥 Opened existing habit "${existingInState.name}"!`, 'info');
+        return;
+      }
+
       const modalImport = document.getElementById('modal-import-shared-habit');
       const nameEl = document.getElementById('import-shared-habit-name');
       const colEl = document.getElementById('import-shared-habit-collection');
@@ -3324,6 +3358,7 @@ window.HabitualCore = window.HabitualCore || {};
           const subInfo = hasRemoteChildren ? ` & ${payload.children.length} sub-habits` : '';
           if (core.showToast) core.showToast(`👥 Joined shared habit "${habitName}" (${totalLogs} past check-ins${subInfo} synced)!`, 'success');
           closeModal();
+          if (core.navigateTo) core.navigateTo('#/habit/' + existing.id);
         };
       }
     } catch (e) {

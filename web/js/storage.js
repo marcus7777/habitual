@@ -490,7 +490,7 @@ window.HabitualCore = window.HabitualCore || {};
           cleanLogs[dateKey] = logData;
         }
       });
-      if (hasLogs) h.logs = cleanLogs;
+      if (hasLogs || cutoffKey) h.logs = cleanLogs;
     }
     return h;
   };
