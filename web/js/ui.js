@@ -553,10 +553,17 @@ window.HabitualCore = window.HabitualCore || {};
     const btnSavePassphrase = document.getElementById('btn-save-passphrase');
     if (btnSavePassphrase && inputPassphrase) {
       btnSavePassphrase.addEventListener('click', () => {
-        core.SyncManager.setPassphrase(inputPassphrase.value);
-        updatePassphraseStatusUI();
-        updateSyncPagePassphraseAndQRUI();
-        if (core.showToast) core.showToast('Master encryption key saved!', 'success');
+        const val = inputPassphrase.value.trim();
+        if (!val) {
+          if (core.showToast) core.showToast('⚠️ Please enter a Master Passphrase first!', 'warning');
+          return;
+        }
+        core.SyncManager.updatePassphrase(val).then(() => {
+          updatePassphraseStatusUI();
+          updateSyncPagePassphraseAndQRUI();
+        }).catch(err => {
+          console.warn('Passphrase update error:', err);
+        });
       });
     }
 
@@ -607,13 +614,17 @@ window.HabitualCore = window.HabitualCore || {};
             }
             return;
           }
-          core.SyncManager.toggleTarget('firestore', true);
-          if (core.SyncTargets && core.SyncTargets.Firestore) {
-            const syncCode = core.SyncTargets.Firestore.getSyncCode();
-            if (inputFirestoreCode) inputFirestoreCode.value = syncCode;
-          }
-          updateFirestoreCopyBtnVisibility();
-          if (core.showToast) core.showToast('🔥 Encrypted Firestore Live Sync Enabled!', 'success');
+
+          const code = core.SyncTargets.Firestore.getSyncCode();
+          core.SyncTargets.Firestore.validateChannelAccess(code, currentPassphrase).then(() => {
+            core.SyncManager.toggleTarget('firestore', true);
+            if (inputFirestoreCode) inputFirestoreCode.value = code;
+            updateFirestoreCopyBtnVisibility();
+            if (core.showToast) core.showToast('🔥 Encrypted Firestore Live Sync Enabled!', 'success');
+          }).catch(err => {
+            e.target.checked = false;
+            console.warn('Channel access validation blocked:', err);
+          });
         } else {
           core.SyncManager.toggleTarget('firestore', false);
           if (core.showToast) core.showToast('Firestore Sync Disabled.');
@@ -626,7 +637,7 @@ window.HabitualCore = window.HabitualCore || {};
         updateFirestoreCopyBtnVisibility();
       });
 
-      // Paste event listener: automatically format, enable sync toggle if needed, and sync immediately
+      // Paste event listener: automatically format, validate channel access, enable sync toggle if valid, and sync immediately
       inputFirestoreCode.addEventListener('paste', (e) => {
         setTimeout(() => {
           const val = inputFirestoreCode.value.trim();
@@ -642,14 +653,18 @@ window.HabitualCore = window.HabitualCore || {};
               return;
             }
 
-            if (!core.SyncManager.isTargetEnabled('firestore')) {
-              core.SyncManager.toggleTarget('firestore', true);
-              if (chkFirestore) chkFirestore.checked = true;
-            }
+            core.SyncTargets.Firestore.validateChannelAccess(formatted, currentPassphrase).then(() => {
+              if (!core.SyncManager.isTargetEnabled('firestore')) {
+                core.SyncManager.toggleTarget('firestore', true);
+                if (chkFirestore) chkFirestore.checked = true;
+              }
 
-            if (core.showToast) core.showToast('📋 Pasted Sync Code recognized! Syncing with channel ' + formatted + '...', 'info');
-            core.SyncManager.postToFirestoreIfReady();
-            core.SyncManager.pullAndMergeAll();
+              if (core.showToast) core.showToast('📋 Pasted Sync Code recognized! Syncing with channel ' + formatted + '...', 'info');
+              core.SyncManager.postToFirestoreIfReady();
+              core.SyncManager.pullAndMergeAll();
+            }).catch(err => {
+              console.warn('Channel validation blocked paste sync:', err);
+            });
           }
         }, 50);
       });
@@ -674,14 +689,18 @@ window.HabitualCore = window.HabitualCore || {};
           return;
         }
 
-        if (!core.SyncManager.isTargetEnabled('firestore')) {
-          core.SyncManager.toggleTarget('firestore', true);
-          if (chkFirestore) chkFirestore.checked = true;
-        }
+        core.SyncTargets.Firestore.validateChannelAccess(formatted, currentPassphrase).then(() => {
+          if (!core.SyncManager.isTargetEnabled('firestore')) {
+            core.SyncManager.toggleTarget('firestore', true);
+            if (chkFirestore) chkFirestore.checked = true;
+          }
 
-        if (core.showToast) core.showToast('💾 Code saved! Syncing with channel ' + formatted + '...', 'info');
-        core.SyncManager.postToFirestoreIfReady();
-        core.SyncManager.pullAndMergeAll();
+          if (core.showToast) core.showToast('💾 Code saved! Syncing with channel ' + formatted + '...', 'info');
+          core.SyncManager.postToFirestoreIfReady();
+          core.SyncManager.pullAndMergeAll();
+        }).catch(err => {
+          console.warn('Channel validation blocked save sync code:', err);
+        });
       });
     }
 
@@ -2034,7 +2053,7 @@ window.HabitualCore = window.HabitualCore || {};
 
       const rawColor = habitToEdit.colorTheme || core.getDefaultColorForId(habitToEdit.id);
       const normalizedDerived = core.updateColorDropdownDefault(habitToEdit.id);
-      const normalized = rawColor.startsWith('#') ? core.normalizeHex(rawColor) : (core.PRESET_THEME_HEX[rawColor] || normalizedDerived);
+      const normalized = rawColor.startsWith('#') ? core.normalizeHex(rawColor) : ((typeof window !== 'undefined' && window.colourFromString ? window.colourFromString(rawColor) : null) || normalizedDerived);
       if (core.elements.customColorHex) core.elements.customColorHex.value = normalized;
       if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalized;
       if (core.elements.customSwatchPreview && core.elements.customSwatchPreview.style) {
