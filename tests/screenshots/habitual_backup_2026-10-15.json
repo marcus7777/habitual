@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "updatedAt": 1792083447066,
+  "habits": [
+    {
+      "id": "dailyReading823",
+      "updatedAt": 1792083443086,
+      "name": "Daily Reading 823",
+      "colorTheme": "#616161",
+      "category": "General",
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-10-15",
+      "logs": {
+        "2026-10-15": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "selectedHabitId": "dailyReading823",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false
+}
