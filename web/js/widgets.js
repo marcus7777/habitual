@@ -141,6 +141,29 @@ window.HabitualCore = window.HabitualCore || {};
     };
   };
 
+  // --- WIDGET HELPER UTILITIES ---
+
+  core.getDescendantIds = function(habitId, habitsList) {
+    const habits = habitsList || (core.state && Array.isArray(core.state.habits) ? core.state.habits : []);
+    const ids = [habitId];
+    const children = habits.filter(h => h.parentId === habitId);
+    children.forEach(c => ids.push(...core.getDescendantIds(c.id, habits)));
+    return ids;
+  };
+
+  core.reorderHabitsInState = function(fromId, toId, habitsList) {
+    const habits = habitsList || (core.state && Array.isArray(core.state.habits) ? core.state.habits : null);
+    if (!habits) return null;
+    const fromIdx = habits.findIndex(h => h.id === fromId);
+    const toIdx = habits.findIndex(h => h.id === toId);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return null;
+
+    const [moved] = habits.splice(fromIdx, 1);
+    habits.splice(toIdx, 0, moved);
+    if (core.saveState && !habitsList) core.saveState();
+    return moved;
+  };
+
   // --- SERVICE WORKER WIDGET SYNC ---
 
   core.updatePWAWidgets = function() {

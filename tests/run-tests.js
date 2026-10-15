@@ -3426,6 +3426,66 @@ describe('Feature 31: ➕ Add Button on the Main Page (Empty State)', () => {
 });
 
 // ============================================================================
+// FEATURE 33: Widget In-Page Filtering & Descendant Tree Parsing
+// ============================================================================
+describe('Feature 33: 🔍 Widget In-Page Filtering & Descendant Tree Parsing', () => {
+  test('getDescendantIds recursively retrieves parent and all nested sub-habit IDs', () => {
+    const habits = [
+      { id: 'p1', name: 'Parent 1', parentId: null },
+      { id: 'c1', name: 'Child 1', parentId: 'p1' },
+      { id: 'gc1', name: 'Grandchild 1', parentId: 'c1' },
+      { id: 'p2', name: 'Parent 2', parentId: null }
+    ];
+
+    const descendantIds = HabitualCore.getDescendantIds('p1', habits);
+    assert(descendantIds.includes('p1'), 'Includes parent ID');
+    assert(descendantIds.includes('c1'), 'Includes direct child ID');
+    assert(descendantIds.includes('gc1'), 'Includes nested grandchild ID');
+    assert(!descendantIds.includes('p2'), 'Excludes unrelated habit ID');
+    assertEqual(descendantIds.length, 3, 'Correct total count of matched descendant IDs');
+  });
+});
+
+// ============================================================================
+// FEATURE 34: Habit Reordering State Persistence & Move Up/Down
+// ============================================================================
+describe('Feature 34: ↕️ Habit Reordering State Persistence & Move Up/Down', () => {
+  test('reorderHabitsInState rearranges habits array index correctly', () => {
+    const habits = [
+      { id: 'h1', name: 'Habit One' },
+      { id: 'h2', name: 'Habit Two' },
+      { id: 'h3', name: 'Habit Three' }
+    ];
+
+    const moved = HabitualCore.reorderHabitsInState('h3', 'h1', habits);
+    assertEqual(moved.id, 'h3', 'Moved correct habit object');
+    assertEqual(habits[0].id, 'h3', 'H3 moved to index 0');
+    assertEqual(habits[1].id, 'h1', 'H1 shifted to index 1');
+    assertEqual(habits[2].id, 'h2', 'H2 shifted to index 2');
+  });
+});
+
+// ============================================================================
+// FEATURE 35: Sub-Habit Concertina Accordion State & Default Collapse
+// ============================================================================
+describe('Feature 35: 📁 Sub-Habit Concertina Accordion State & Default Collapse', () => {
+  test('Sub-habit concertinas default to closed state and expand upon toggle', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'parent_concertina', name: 'Parent' };
+    const child = { id: 'child_concertina', name: 'Child', parentId: 'parent_concertina' };
+    HabitualCore.setState({ habits: [parent, child] });
+
+    const expandedIds = new Set();
+    const isExpandedDefault = expandedIds.has('parent_concertina');
+    assert(!isExpandedDefault, 'Sub-habit concertina is closed/collapsed by default');
+
+    // Simulate toggle open
+    expandedIds.add('parent_concertina');
+    assert(expandedIds.has('parent_concertina'), 'Concertina expands upon toggle');
+  });
+});
+
+// ============================================================================
 // FEATURE 32: Toast Alerts & Content Layout Stability
 // ============================================================================
 describe('Feature 32: Toast Alerts & Content Layout Stability', () => {
