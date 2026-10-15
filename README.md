@@ -127,3 +127,9 @@ Open `http://localhost:8080` in your browser.
 ```bash
 npx firebase deploy
 ```
+
+---
+
+## 💬 Feedback, Feature Requests & Bug Reports
+
+We welcome feedback, bug reports, and feature suggestions! Please submit them via the [GitHub Issues Queue](https://github.com/marcus7777/habitual/issues).
