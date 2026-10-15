@@ -5,24 +5,13 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.STORAGE_KEY = 'habitual_tracker_v1';
   core.CURRENT_YEAR = new Date().getFullYear();
-  core.COLOR_PALETTE = ['green', 'blue', 'purple', 'orange', 'crimson', 'cyan', 'emerald', 'amber', 'indigo', 'rose'];
-
-  core.PRESET_THEME_HEX = {
-    green: '#39d353',
-    blue: '#388bfd',
-    purple: '#a855f7',
-    orange: '#f97316',
-    crimson: '#fb7185',
-    cyan: '#22d3ee',
-    emerald: '#34d399',
-    amber: '#f59e0b',
-    indigo: '#818cf8',
-    rose: '#f43f5e'
-  };
+  const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global);
+  core.COLOR_PALETTE = (typeof globalScope.colors === 'function') ? globalScope.colors() : ['#795548', '#E67C73', '#D50000', '#F4511E', '#EF6C00', '#F09300', '#009688', '#0B8043', '#7CB342', '#33B679'];
 
   core.state = {
     habits: [],
     deletedHabitIds: [],
+    remoteHashHistory: [],
     selectedHabitId: 'all',
     selectedYear: core.CURRENT_YEAR,
     showQuickLogOnStartup: false,
@@ -34,6 +23,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.state = {
       habits: [],
       deletedHabitIds: [],
+      remoteHashHistory: [],
       selectedHabitId: 'all',
       selectedYear: core.CURRENT_YEAR,
       showQuickLogOnStartup: false,
@@ -91,20 +81,22 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.getDefaultColorForId = function(id) {
-    if (!id) return 'green';
     const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global);
     if (typeof globalScope.colourFromString === 'function') {
-      return globalScope.colourFromString(id);
+      return globalScope.colourFromString(id || 'default');
     }
-    return 'green';
+    return '#795548';
   };
 
   core.getHabitHexColor = function(habit) {
-    const defaultColour = core.getDefaultColorForId(habit ? habit.id : 'default');
-    const defaultHex = defaultColour.startsWith('#') ? defaultColour : (core.PRESET_THEME_HEX[defaultColour] || core.PRESET_THEME_HEX.green);
+    const defaultHex = core.getDefaultColorForId(habit ? habit.id : 'default');
     if (!habit || !habit.colorTheme) return defaultHex;
     if (habit.colorTheme.startsWith('#')) return habit.colorTheme;
-    return core.PRESET_THEME_HEX[habit.colorTheme] || defaultHex;
+    const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global);
+    if (typeof globalScope.colourFromString === 'function') {
+      return globalScope.colourFromString(habit.colorTheme);
+    }
+    return habit.colorTheme;
   };
 
   core.getAncestryChain = function(habitId) {
@@ -411,9 +403,11 @@ window.HabitualCore = window.HabitualCore || {};
       core.showToast(`⏳ Pre-logged "${habit.name}" for ${core.formatPrettyDate(dateKey)}! We'll double-check with you on that day.`, 'info');
     }
 
-    // 1. Optimistically update UI first
-    if (core.updateHabitCard && core.updateHabitCard(habitId)) {
-      // Surgical update completed
+    // 1. Optimistically patch UI first via surgical DOM diffing
+    if (core.patchUI && core.patchUI(habitId, dateKey)) {
+      // Surgical DOM update completed without full layout re-render
+    } else if (core.updateHabitCard && core.updateHabitCard(habitId)) {
+      // Habit card updated
     } else if (core.renderAll) {
       core.renderAll();
     }

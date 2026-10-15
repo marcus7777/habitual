@@ -168,8 +168,9 @@
         });
 
         describe('Feature 5: 🎨 Color Themes & Custom HEX Color Picker', () => {
-          test('Preset Themes and Custom HEX normalizer', () => {
-            assertEqual(core.PRESET_THEME_HEX.green, '#39d353');
+          test('COLOR_PALETTE and Custom HEX normalizer', () => {
+            assertTrue(Array.isArray(core.COLOR_PALETTE));
+            assertTrue(core.COLOR_PALETTE.length > 0);
             assertEqual(core.normalizeHex('#f00'), '#ff0000');
           });
           test('getCustomThemeLevels generates 4 gradient levels', () => {

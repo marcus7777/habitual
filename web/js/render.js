@@ -9,6 +9,79 @@ window.HabitualCore = window.HabitualCore || {};
     core.renderHeatmapsGallery();
   };
 
+  core.patchHeatmapCard = function(habitId, dateKey) {
+    if (!habitId) return false;
+    const cards = document.querySelectorAll(`.heatmap-card[data-habit-id="${habitId}"]`);
+    if (cards.length === 0) return false;
+
+    const isAll = habitId === 'all';
+    const isGroup = habitId.startsWith('group_');
+    const habit = (!isAll && !isGroup) ? core.state.habits.find(h => h.id === habitId) : null;
+
+    cards.forEach(card => {
+      // 1. Update day square in-place if dateKey is supplied
+      if (dateKey) {
+        const squares = card.querySelectorAll(`.day-square[data-date="${dateKey}"]`);
+        const cellData = core.getCellData ? core.getCellData(dateKey, isAll ? 'all' : (isGroup ? habitId : habit)) : null;
+        if (cellData) {
+          squares.forEach(sq => {
+            const isCellCompleted = cellData.isCompleted || (cellData.ratio && cellData.ratio > 0);
+            sq.className = `day-square ${isCellCompleted ? 'completed' : ''} ${cellData.isCursor ? 'cursor-day' : ''} ${cellData.hasNote ? 'has-note' : ''}`;
+            sq.style.backgroundColor = cellData.bgColor || '';
+            if (cellData.hasNote) {
+              if (typeof sq.setAttribute === 'function') sq.setAttribute('data-has-note', 'true');
+            } else {
+              if (typeof sq.removeAttribute === 'function') sq.removeAttribute('data-has-note');
+            }
+          });
+        }
+      }
+
+      // 2. In-place update for count badge
+      const countBadge = card.querySelector('.badge-count');
+      if (countBadge) {
+        const target = isAll ? 'all' : (isGroup ? habitId : habit);
+        const stats = core.calculateYearStatsForTarget(target, core.state.selectedYear);
+        if (stats) {
+          if (stats.isMonthly) countBadge.textContent = `${stats.totalCount} of 12 months met in ${core.state.selectedYear}`;
+          else if (stats.isWeekly) countBadge.textContent = `${stats.totalCount} of 52 weeks met in ${core.state.selectedYear}`;
+          else countBadge.textContent = (habit && habit.type === 'negative') ? `${stats.totalCount} clean days in ${core.state.selectedYear}` : `${stats.totalCount} in ${core.state.selectedYear}`;
+        }
+      }
+
+      // 3. In-place update for streak badge
+      const streakBadge = card.querySelector('.badge-streak');
+      if (streakBadge) {
+        const target = isAll ? 'all' : (isGroup ? habitId : habit);
+        const streakData = core.calculateStreakForTarget(target);
+        if (streakData && streakData.current > 0) {
+          if (streakData.isMonthly) streakBadge.textContent = `🔥 ${streakData.current} mo${streakData.current === 1 ? '' : 's'}`;
+          else if (streakData.isWeekly) streakBadge.textContent = `🔥 ${streakData.current} wk${streakData.current === 1 ? '' : 's'}`;
+          else streakBadge.textContent = `🔥 ${streakData.current} d`;
+          streakBadge.style.display = 'inline-flex';
+        } else {
+          streakBadge.style.display = 'none';
+        }
+      }
+    });
+
+    return true;
+  };
+
+  core.patchUI = function(habitId, dateKey) {
+    if (!habitId) return false;
+    let patched = false;
+    patched = core.patchHeatmapCard(habitId, dateKey) || patched;
+    patched = core.patchHeatmapCard('all', dateKey) || patched;
+    if (habitId && habitId !== 'all') {
+      const targetHabit = core.state.habits.find(h => h.id === habitId);
+      if (targetHabit && targetHabit.parentId) {
+        patched = core.patchHeatmapCard(targetHabit.parentId, dateKey) || patched;
+      }
+    }
+    return patched;
+  };
+
   core.renderViewNavigation = function(route) {
     const viewNav = document.getElementById('view-navigation');
     if (!viewNav) return;

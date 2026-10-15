@@ -109,6 +109,7 @@ function createMockElement(tagName) {
     },
     setAttribute: (k, v) => { attributes[k] = String(v); },
     getAttribute: (k) => attributes[k] || null,
+    removeAttribute: (k) => { delete attributes[k]; },
     appendChild: (child) => { child.parentElement = elem; children.push(child); return child; },
     closest: function(sel) {
       let curr = elem;
@@ -276,7 +277,7 @@ describe('Feature 1: 📊 7x52 Heatmap Grid & Date Shading Logic', () => {
   });
 
   test('Heatmap Ratio Calculation scales continuous alpha based on completion ratio', () => {
-    const habit = { id: 'h1', dailyTarget: 4, type: 'positive', colorTheme: 'green' }; // #39d353
+    const habit = { id: 'h1', dailyTarget: 4, type: 'positive', colorTheme: '#39d353' }; // #39d353
 
     assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.0), '#39d35300', '0 ratio returns transparent hex');
     assertEqual(HabitualCore.getHabitHexWithAlpha(habit, 0.25), '#39d35359', '1/4 ratio returns floor 22 + scaled alpha hex');
@@ -455,10 +456,10 @@ describe('Feature 4: 🌲 Hierarchical Sub-Habits & Dependency Rules', () => {
 // FEATURE 5: 🎨 COLOR THEMES & CUSTOM HEX COLOR PICKER
 // ============================================================================
 describe('Feature 5: 🎨 Color Themes & Custom HEX Color Picker', () => {
-  test('Preset Themes return expected color HEX values', () => {
-    assertEqual(HabitualCore.PRESET_THEME_HEX.green, '#39d353');
-    assertEqual(HabitualCore.PRESET_THEME_HEX.blue, '#388bfd');
-    assertEqual(HabitualCore.PRESET_THEME_HEX.purple, '#a855f7');
+  test('COLOR_PALETTE provides Google Calendar hex colors', () => {
+    assert(Array.isArray(HabitualCore.COLOR_PALETTE), 'COLOR_PALETTE is an array');
+    assert(HabitualCore.COLOR_PALETTE.length > 0, 'COLOR_PALETTE is not empty');
+    assert(HabitualCore.COLOR_PALETTE[0].startsWith('#'), 'COLOR_PALETTE entries are hex colors');
   });
 
   test('Custom HEX parser and normalizer handles # and short hex', () => {
@@ -881,7 +882,7 @@ describe('Feature 12: ⏸️ Paused Habits in Edit Dialogue', () => {
 // ============================================================================
 describe('Feature 13: 🎨 255-Level Transparency Combined Heatmap', () => {
   test('getHabitHexWithAlpha generates 8-character hex color with transparency based on target completion ratio', () => {
-    const habit = { id: 'h1', name: 'Exercise', colorTheme: 'green' }; // green hex #39d353
+    const habit = { id: 'h1', name: 'Exercise', colorTheme: '#39d353' }; // green hex #39d353
 
     // 100% target met (ratio = 1.0) -> alpha 255 -> ff
     const hexFull = HabitualCore.getHabitHexWithAlpha(habit, 1.0);
@@ -897,8 +898,8 @@ describe('Feature 13: 🎨 255-Level Transparency Combined Heatmap', () => {
   });
 
   test('getCellData includes 8-character hex colors with transparency for active habits in combined heatmap', () => {
-    const habit1 = { id: 'h1', name: 'Exercise', type: 'positive', dailyTarget: 2, colorTheme: 'green', logs: { '2026-10-02': { count: 1 } } }; // ratio 0.5 -> #39d35380
-    const habit2 = { id: 'h2', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: 'blue', logs: { '2026-10-02': { count: 1 } } };  // ratio 1.0 -> #388bfdff
+    const habit1 = { id: 'h1', name: 'Exercise', type: 'positive', dailyTarget: 2, colorTheme: '#39d353', logs: { '2026-10-02': { count: 1 } } }; // ratio 0.5 -> #39d35380
+    const habit2 = { id: 'h2', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: '#388bfd', logs: { '2026-10-02': { count: 1 } } };  // ratio 1.0 -> #388bfdff
 
     HabitualCore.setState({
       habits: [habit1, habit2],
@@ -918,15 +919,15 @@ describe('Feature 13: 🎨 255-Level Transparency Combined Heatmap', () => {
   });
 
   test('buildSvgHeatmapGrid renders valid SVG markup for all habits combined view with linear-gradients', () => {
-    const habit1 = { id: 'h1', name: 'Exercise', type: 'positive', dailyTarget: 2, colorTheme: 'green', logs: { '2026-10-02': { count: 1 } } };
-    const habit2 = { id: 'h2', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: 'blue', logs: { '2026-10-02': { count: 1 } } };
+    const habit1 = { id: 'h1', name: 'Exercise', type: 'positive', dailyTarget: 2, colorTheme: '#39d353', logs: { '2026-10-02': { count: 1 } } };
+    const habit2 = { id: 'h2', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: '#388bfd', logs: { '2026-10-02': { count: 1 } } };
     HabitualCore.setState({
       habits: [habit1, habit2],
       selectedHabitId: 'all',
       selectedYear: 2026
     });
 
-    const svgHTML = HabitualCore.buildSvgHeatmapGrid(null, 2026, 'all', 'green', null);
+    const svgHTML = HabitualCore.buildSvgHeatmapGrid(null, 2026, 'all', '#39d353', null);
     assert(svgHTML.startsWith('<svg'), 'Starts with SVG tag');
     assert(svgHTML.includes('<defs>'), 'Contains definitions for linear gradients');
     assert(svgHTML.includes('<linearGradient'), 'Contains a linearGradient tag');
@@ -1417,8 +1418,8 @@ describe('Feature 21: ✂️ Cut-off Top Right Corner Note Indicator', () => {
   });
 
   test('buildHeatmapCard sets background-color with 11 alpha hint for uncompleted day squares', () => {
-    const habit = { id: 'reading', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: 'green', logs: {} };
-    const card = HabitualCore.buildHeatmapCard(habit, 2026, 'green', '2026-10-03');
+    const habit = { id: 'reading', name: 'Reading', type: 'positive', dailyTarget: 1, colorTheme: '#39d353', logs: {} };
+    const card = HabitualCore.buildHeatmapCard(habit, 2026, '#39d353', '2026-10-03');
     const html = card.innerHTML;
     assert(html.includes('background-color: #39d35311;'), 'Uncompleted day square receives #39d35311 hint background');
   });
@@ -3602,6 +3603,90 @@ describe('Feature 37: Multi-Device Habit Deletion Sync & Tombstoning', () => {
 
     global.confirm = origConfirm;
     if (global.window) global.window.confirm = origConfirm;
+  });
+});
+
+// ============================================================================
+// FEATURE 38: Overwrite Protection, Passphrase Hash Verification & Surgical DOM Patching
+// ============================================================================
+describe('Feature 38: Overwrite Protection, Passphrase Hash Verification & Surgical DOM Patching', () => {
+  test('validateChannelAccess rejects when decryption fails on existing document', async () => {
+    const origInit = HabitualCore.SyncTargets.Firestore.init;
+    const origGet = HabitualCore.SyncTargets.Firestore.getSyncCode;
+
+    HabitualCore.SyncTargets.Firestore.init = () => Promise.resolve();
+    HabitualCore.SyncTargets.Firestore.getSyncCode = () => 'test_code_38';
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: () => ({
+        doc: () => ({
+          get: () => Promise.resolve({
+            exists: true,
+            data: () => ({ ciphertext: 'invalid_cipher_text' })
+          })
+        })
+      })
+    };
+
+    let rejected = false;
+    try {
+      await HabitualCore.SyncTargets.Firestore.validateChannelAccess('test_code_38', 'wrong_passphrase');
+    } catch (e) {
+      rejected = true;
+    }
+
+    assertEqual(rejected, true, 'validateChannelAccess rejects when remote doc decryption fails');
+
+    HabitualCore.SyncTargets.Firestore.init = origInit;
+    HabitualCore.SyncTargets.Firestore.getSyncCode = origGet;
+  });
+
+  test('updatePassphrase re-encrypts payload and verifies matching data hashes', async () => {
+    HabitualCore.resetState();
+    HabitualCore.state.habits = [{ id: 'hab_hash_1', name: 'Hash Habit' }];
+    HabitualCore.SyncManager.settings.passphrase = 'Old_Secret_123';
+
+    const success = await HabitualCore.SyncManager.updatePassphrase('New_Secret_456');
+
+    assertEqual(success, true, 'updatePassphrase returns true on verified re-encryption');
+    assertEqual(HabitualCore.SyncManager.settings.passphrase, 'New_Secret_456', 'SyncManager passphrase updated in settings');
+  });
+
+  test('patchHeatmapCard updates specific day-square attributes in-place', () => {
+    const mockCard = createMockElement('div');
+    mockCard.setAttribute('data-habit-id', 'hab_patch_1');
+
+    const mockSquare = createMockElement('div');
+    mockSquare.setAttribute('data-date', '2026-10-15');
+    mockSquare.className = 'day-square';
+    mockSquare.style = {};
+
+    mockCard.querySelectorAll = (selector) => {
+      if (selector.includes('data-date="2026-10-15"')) return [mockSquare];
+      return [];
+    };
+    mockCard.querySelector = () => null;
+
+    const origQSA = global.document.querySelectorAll;
+    global.document.querySelectorAll = (selector) => {
+      if (selector.includes('data-habit-id="hab_patch_1"')) return [mockCard];
+      return [];
+    };
+
+    HabitualCore.resetState();
+    HabitualCore.state.habits = [{
+      id: 'hab_patch_1',
+      name: 'Patch Habit',
+      dailyTarget: 1,
+      frequencyType: 'daily',
+      logs: { '2026-10-15': { count: 1, note: 'Tested patch' } }
+    }];
+
+    const patched = HabitualCore.patchHeatmapCard('hab_patch_1', '2026-10-15');
+
+    assertEqual(patched, true, 'patchHeatmapCard returns true when card DOM element is found and updated');
+    assertEqual(mockSquare.className.includes('completed'), true, 'day-square class updated to completed');
+
+    global.document.querySelectorAll = origQSA;
   });
 });
 

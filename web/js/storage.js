@@ -502,6 +502,7 @@ window.HabitualCore = window.HabitualCore || {};
       updatedAt: Date.now(),
       habits: (core.state.habits || []).map(h => core._serializeHabit(h)),
       deletedHabitIds: (deleted && deleted.length > 0) ? Array.from(new Set(deleted)) : [],
+      remoteHashHistory: (core.state.remoteHashHistory || []).slice(0, 30),
       selectedHabitId: core.state.selectedHabitId || 'all',
       selectedYear: core.state.selectedYear || core.CURRENT_YEAR,
       showQuickLogOnStartup: core.state.showQuickLogOnStartup || false
@@ -534,6 +535,18 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.applyPayloadToState = function(parsed) {
     if (!parsed) return;
+
+    if (parsed.remoteHashHistory && Array.isArray(parsed.remoteHashHistory)) {
+      const hashMap = new Map();
+      [...(core.state.remoteHashHistory || []), ...parsed.remoteHashHistory].forEach(item => {
+        if (item && item.hash) {
+          if (!hashMap.has(item.hash) || (item.timestamp || 0) > (hashMap.get(item.hash).timestamp || 0)) {
+            hashMap.set(item.hash, item);
+          }
+        }
+      });
+      core.state.remoteHashHistory = Array.from(hashMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 30);
+    }
 
     if (parsed.deletedHabitIds && parsed.deletedHabitIds.length > 0) {
       const mergedDeleted = new Set([
@@ -1232,6 +1245,35 @@ window.HabitualCore = window.HabitualCore || {};
         });
       },
 
+      validateChannelAccess: function(syncCodeParam, passphraseParam) {
+        const self = this;
+        const syncCode = syncCodeParam || this.getSyncCode();
+        const passphrase = passphraseParam || core.SyncManager.settings.passphrase;
+
+        if (!passphrase || passphrase.trim().length === 0) {
+          return Promise.reject(new Error('Master Passphrase required to access channel.'));
+        }
+
+        return this.init().then(function() {
+          return self.db.collection('habit_data').doc(syncCode).get();
+        }).then(function(doc) {
+          if (!doc || !doc.exists) {
+            return { isValid: true, isNew: true, payload: null };
+          }
+          const data = doc.data();
+          if (!data || !data.ciphertext) {
+            return { isValid: true, isNew: true, payload: null };
+          }
+          return core.E2EE.decrypt(data.ciphertext, passphrase).then(function(payload) {
+            return { isValid: true, isNew: false, payload: payload };
+          }).catch(function(err) {
+            const errMsg = '❌ Cannot write to channel: Existing channel data cannot be decrypted with current Master Passphrase!';
+            if (core.showToast) core.showToast(errMsg, 'error');
+            return Promise.reject(new Error(errMsg));
+          });
+        });
+      },
+
       lastUploadedPayloadStr: null,
 
       uploadBackup: function(encryptedText) {
@@ -1364,6 +1406,21 @@ window.HabitualCore = window.HabitualCore || {};
 
           core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remotePayload) {
             if (!remotePayload) return;
+
+            const remoteHash = data.hashOfdata || data.hashOfData || data.dataHash || data.data_hash || data.hash;
+            const remoteTs = (data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : Date.now();
+            const snapshotAgeMs = Math.max(0, Date.now() - remoteTs);
+
+            if (!core.state.remoteHashHistory) core.state.remoteHashHistory = [];
+            if (remoteHash && !core.state.remoteHashHistory.some(x => x.hash === remoteHash)) {
+              core.state.remoteHashHistory.unshift({
+                hash: remoteHash,
+                timestamp: remoteTs,
+                ageMs: snapshotAgeMs
+              });
+              core.state.remoteHashHistory = core.state.remoteHashHistory.slice(0, 30);
+            }
+
             const localPayload = core.getPayloadFromState();
             const merged = core.mergeStatePayloads(localPayload, remotePayload);
 
@@ -1771,18 +1828,59 @@ window.HabitualCore = window.HabitualCore || {};
       }
     },
 
-    setPassphrase: function(passphrase) {
-      this.settings.passphrase = passphrase;
-      localStorage.setItem('habitual_sync_passphrase', passphrase);
-      if (this.isTargetEnabled('firestore')) {
-        core.SyncTargets.Firestore.stopLiveSync();
-        if (passphrase) {
-          if (!core.isSyncPage()) {
-            core.SyncTargets.Firestore.startLiveSync();
-          }
-          this.postToFirestoreIfReady();
-        }
+    updatePassphrase: function(newPassphrase) {
+      const self = this;
+      const trimmedNew = (newPassphrase || '').trim();
+
+      if (!trimmedNew) {
+        const err = new Error('⚠️ Passphrase cannot be empty.');
+        if (core.showToast) core.showToast(err.message, 'warning');
+        return Promise.reject(err);
       }
+
+      // Step 1: Compute canonical hash of current local payload before changing passphrase
+      const payload = core.getPayloadFromState();
+      const oldDataHash = core.computeDataHash(payload);
+
+      // Step 2: Re-encrypt payload using new passphrase
+      return core.E2EE.encrypt(payload, trimmedNew).then(function(newCipher) {
+        // Step 3: Decrypt newly generated ciphertext with new passphrase to verify hash consistency
+        return core.E2EE.decrypt(newCipher, trimmedNew).then(function(decryptedPayload) {
+          const newDataHash = core.computeDataHash(decryptedPayload);
+
+          if (oldDataHash !== newDataHash) {
+            const hashErr = new Error('❌ Passphrase update aborted: Data hash mismatch after re-encryption!');
+            if (core.showToast) core.showToast(hashErr.message, 'error');
+            return Promise.reject(hashErr);
+          }
+
+          // Step 4: Hashes match! Update stored passphrase and clear cached E2EE keys
+          self.settings.passphrase = trimmedNew;
+          localStorage.setItem('habitual_sync_passphrase', trimmedNew);
+          if (core.E2EE && core.E2EE._keyCache) {
+            core.E2EE._keyCache.clear();
+          }
+
+          // Step 5: Write re-encrypted backup to Firestore if sync enabled
+          if (self.isTargetEnabled('firestore')) {
+            core.SyncTargets.Firestore.stopLiveSync();
+            return core.SyncTargets.Firestore.uploadBackup(newCipher).then(function() {
+              if (!core.isSyncPage()) {
+                core.SyncTargets.Firestore.startLiveSync();
+              }
+              if (core.showToast) core.showToast('🔑 Master Passphrase updated and verified across sync targets!', 'success');
+              return true;
+            });
+          } else {
+            if (core.showToast) core.showToast('🔑 Master Passphrase updated and verified locally!', 'success');
+            return Promise.resolve(true);
+          }
+        });
+      });
+    },
+
+    setPassphrase: function(passphrase) {
+      return this.updatePassphrase(passphrase);
     },
 
     _broadcastTimer: null,
