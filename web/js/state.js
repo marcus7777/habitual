@@ -22,6 +22,7 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.state = {
     habits: [],
+    deletedHabitIds: [],
     selectedHabitId: 'all',
     selectedYear: core.CURRENT_YEAR,
     showQuickLogOnStartup: false,
@@ -32,6 +33,7 @@ window.HabitualCore = window.HabitualCore || {};
   core.resetState = function() {
     core.state = {
       habits: [],
+      deletedHabitIds: [],
       selectedHabitId: 'all',
       selectedYear: core.CURRENT_YEAR,
       showQuickLogOnStartup: false,

@@ -2602,6 +2602,11 @@ window.HabitualCore = window.HabitualCore || {};
       core.state.habits = core.state.habits.filter(h => h.id !== habitId);
       subHabits.forEach(sub => { sub.parentId = habit.parentId || null; });
 
+      if (!core.state.deletedHabitIds) core.state.deletedHabitIds = [];
+      if (!core.state.deletedHabitIds.includes(habitId)) {
+        core.state.deletedHabitIds.push(habitId);
+      }
+
       const route = core.parseHash ? core.parseHash() : { view: 'home' };
       if (route.view === 'habit' && route.habitId === habitId) {
         if (habit.parentId) core.navigateTo(`#/habit/${habit.parentId}`);

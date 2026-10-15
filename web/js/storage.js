@@ -496,10 +496,12 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.getPayloadFromState = function() {
+    const deleted = core.state.deletedHabitIds;
     return {
       version: 2,
       updatedAt: Date.now(),
       habits: (core.state.habits || []).map(h => core._serializeHabit(h)),
+      deletedHabitIds: (deleted && deleted.length > 0) ? Array.from(new Set(deleted)) : [],
       selectedHabitId: core.state.selectedHabitId || 'all',
       selectedYear: core.state.selectedYear || core.CURRENT_YEAR,
       showQuickLogOnStartup: core.state.showQuickLogOnStartup || false
@@ -511,11 +513,13 @@ window.HabitualCore = window.HabitualCore || {};
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
     const cutoffKey = core.formatDateKey ? core.formatDateKey(cutoffDate) : '2020-01-01';
 
+    const deleted = core.state.deletedHabitIds;
     const delta = {
       version: 2,
       updatedAt: Date.now(),
       isDelta: true,
-      habits: (core.state.habits || []).map(h => core._serializeHabit(h, cutoffKey))
+      habits: (core.state.habits || []).map(h => core._serializeHabit(h, cutoffKey)),
+      deletedHabitIds: (deleted && deleted.length > 0) ? Array.from(new Set(deleted)) : []
     };
 
     if (core.state.selectedHabitId && core.state.selectedHabitId !== 'all') {
@@ -530,7 +534,24 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.applyPayloadToState = function(parsed) {
     if (!parsed) return;
-    core.state.habits = (parsed.habits || []).map(h => {
+
+    if (parsed.deletedHabitIds && parsed.deletedHabitIds.length > 0) {
+      const mergedDeleted = new Set([
+        ...(core.state.deletedHabitIds || []),
+        ...parsed.deletedHabitIds
+      ]);
+      core.state.deletedHabitIds = Array.from(mergedDeleted);
+    }
+
+    const hasDeleted = core.state.deletedHabitIds && core.state.deletedHabitIds.length > 0;
+    const deletedSet = hasDeleted ? new Set(core.state.deletedHabitIds) : null;
+
+    let rawHabits = parsed.habits || [];
+    if (hasDeleted) {
+      rawHabits = rawHabits.filter(h => h && h.id && !deletedSet.has(h.id));
+    }
+
+    core.state.habits = rawHabits.map(h => {
       const id = h.id;
       const derivedName = core.deriveNameFromId(id);
       const derivedColor = core.getDefaultColorForId(id);
@@ -806,12 +827,25 @@ window.HabitualCore = window.HabitualCore || {};
     if (!localPayload) return remotePayload;
     if (!remotePayload) return localPayload;
 
+    const localDel = (localPayload && localPayload.deletedHabitIds) || [];
+    const remoteDel = (remotePayload && remotePayload.deletedHabitIds) || [];
+    const hasDeleted = localDel.length > 0 || remoteDel.length > 0;
+
+    let mergedDeletedHabitIds = [];
+    let deletedSet = null;
+
+    if (hasDeleted) {
+      mergedDeletedHabitIds = Array.from(new Set([...localDel, ...remoteDel]));
+      deletedSet = new Set(mergedDeletedHabitIds);
+    }
+
     const merged = {
       version: 2,
       updatedAt: Math.max(localPayload.updatedAt || 0, remotePayload.updatedAt || 0),
       selectedHabitId: localPayload.selectedHabitId || remotePayload.selectedHabitId || 'all',
       selectedYear: localPayload.selectedYear || remotePayload.selectedYear || core.CURRENT_YEAR,
       showQuickLogOnStartup: localPayload.showQuickLogOnStartup || remotePayload.showQuickLogOnStartup || false,
+      deletedHabitIds: mergedDeletedHabitIds,
       habits: []
     };
 
@@ -820,6 +854,7 @@ window.HabitualCore = window.HabitualCore || {};
     const processHabitList = function(habits, isRemote) {
       (habits || []).forEach(function(h) {
         if (!h.id) return;
+        if (deletedSet && deletedSet.has(h.id)) return;
         if (!habitMap.has(h.id)) {
           habitMap.set(h.id, JSON.parse(JSON.stringify(h)));
         } else {
