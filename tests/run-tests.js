@@ -181,7 +181,8 @@ HabitualCore.resetState = function() {
     habits: [],
     selectedHabitId: 'all',
     selectedYear: HabitualCore.CURRENT_YEAR,
-    showQuickLogOnStartup: false
+    showQuickLogOnStartup: false,
+    backgroundSync: false
   };
 };
 
@@ -3482,6 +3483,22 @@ describe('Feature 35: 📁 Sub-Habit Concertina Accordion State & Default Collap
     // Simulate toggle open
     expandedIds.add('parent_concertina');
     assert(expandedIds.has('parent_concertina'), 'Concertina expands upon toggle');
+  });
+});
+
+// ============================================================================
+// FEATURE 36: Background Sync & Version-Check Web Worker Settings
+// ============================================================================
+describe('Feature 36: 🔄 Background Sync & Version-Check Web Worker Settings', () => {
+  test('Background sync is off by default and toggle updates state', () => {
+    HabitualCore.resetState();
+    assertEqual(HabitualCore.state.backgroundSync, false, 'Background sync is false by default');
+
+    HabitualCore.setBackgroundSync(true);
+    assertEqual(HabitualCore.state.backgroundSync, true, 'Background sync toggles to true');
+
+    HabitualCore.setBackgroundSync(false);
+    assertEqual(HabitualCore.state.backgroundSync, false, 'Background sync toggles back to false');
   });
 });
 

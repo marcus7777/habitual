@@ -25,7 +25,19 @@ window.HabitualCore = window.HabitualCore || {};
     selectedHabitId: 'all',
     selectedYear: core.CURRENT_YEAR,
     showQuickLogOnStartup: false,
+    backgroundSync: false,
     expandedHabitIds: new Set()
+  };
+
+  core.resetState = function() {
+    core.state = {
+      habits: [],
+      selectedHabitId: 'all',
+      selectedYear: core.CURRENT_YEAR,
+      showQuickLogOnStartup: false,
+      backgroundSync: false,
+      expandedHabitIds: new Set()
+    };
   };
 
   core.activeCalendarHabit = null;

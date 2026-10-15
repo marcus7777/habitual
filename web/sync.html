@@ -229,6 +229,20 @@
           </div>
         </div>
 
+        <!-- Section 5.5: Background Sync & Version Polling -->
+        <div id="section-background-sync" class="data-option-card highlight-card">
+          <div class="data-option-info">
+            <h4>🔄 Background Sync & Version Polling</h4>
+            <p class="muted-text">Keep local storage updated and check for new releases in the background (Off by default).</p>
+          </div>
+          <div class="p2p-controls">
+            <label class="switch-toggle" title="Toggle Background Sync">
+              <input type="checkbox" id="chk-background-sync">
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+
         <!-- Section 6: PWA & Platform Widgets -->
         <div class="data-option-card">
           <div class="data-option-info">
@@ -255,7 +269,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.21.22</p>
+      <p>Habitual &bull; v1.21.23</p>
     </footer>
   </div>
 
@@ -270,5 +284,25 @@
   <script src="js/render.js" defer></script>
   <script src="js/ui.js" defer></script>
   <script src="app.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        if (window.HabitualCore) {
+          if (HabitualCore.loadState) HabitualCore.loadState();
+          if (HabitualCore.initBackgroundWorker) HabitualCore.initBackgroundWorker();
+
+          const chkBg = document.getElementById('chk-background-sync');
+          if (chkBg && HabitualCore.state) {
+            chkBg.checked = Boolean(HabitualCore.state.backgroundSync);
+            chkBg.addEventListener('change', () => {
+              if (HabitualCore.setBackgroundSync) {
+                HabitualCore.setBackgroundSync(chkBg.checked);
+              }
+            });
+          }
+        }
+      }, 200);
+    });
+  </script>
 </body>
 </html>

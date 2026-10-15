@@ -1629,6 +1629,60 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  // --- BACKGROUND WORKER & VERSION POLLING ---
+  let backgroundWorker = null;
+
+  core.initBackgroundWorker = function() {
+    if (window.Worker && !backgroundWorker) {
+      try {
+        backgroundWorker = new Worker('js/sync.worker.js');
+        const backgroundSync = core.state && core.state.backgroundSync ? true : false;
+        const syncCode = (core.SyncManager && core.SyncManager.settings) ? core.SyncManager.settings.collection : null;
+        const passphrase = (core.SyncManager && core.SyncManager.settings) ? core.SyncManager.settings.passphrase : null;
+
+        backgroundWorker.postMessage({
+          type: 'INIT',
+          data: {
+            backgroundSync: backgroundSync,
+            syncCode: syncCode,
+            passphrase: passphrase,
+            version: '1.21.22'
+          }
+        });
+
+        backgroundWorker.onmessage = function(e) {
+          const { type, version } = e.data || {};
+          if (type === 'VERSION_UPDATE_AVAILABLE') {
+            if (core.showToast) {
+              core.showToast(`New version v${version} available! Refresh to update.`);
+            }
+          } else if (type === 'PERFORM_SYNC_REQUEST') {
+            if (core.SyncManager && typeof core.SyncManager.pullRemoteSnapshot === 'function') {
+              core.SyncManager.pullRemoteSnapshot();
+            }
+          }
+        };
+      } catch (err) {
+        // Fallback gracefully
+      }
+    }
+  };
+
+  core.setBackgroundSync = function(enabled) {
+    if (!core.state) core.state = {};
+    core.state.backgroundSync = Boolean(enabled);
+    if (core.saveState) core.saveState();
+    if (backgroundWorker) {
+      backgroundWorker.postMessage({
+        type: 'SET_BACKGROUND_SYNC',
+        data: { enabled: core.state.backgroundSync }
+      });
+    }
+    if (core.showToast) {
+      core.showToast(`Background sync ${core.state.backgroundSync ? 'enabled' : 'disabled'}.`);
+    }
+  };
+
 
   // --- SYNC MANAGER ORCHESTRATOR ---
   core.SyncManager = {
