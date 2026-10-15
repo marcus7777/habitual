@@ -3568,6 +3568,44 @@ describe('Feature 32: Toast Alerts & Content Layout Stability', () => {
 });
 
 // ============================================================================
+// FEATURE 37: Multi-Device Habit Deletion Sync & Tombstoning
+// ============================================================================
+describe('Feature 37: Multi-Device Habit Deletion Sync & Tombstoning', () => {
+  test('deleteHabit adds habitId to deletedHabitIds and mergeStatePayloads propagates deletion', () => {
+    HabitualCore.resetState();
+    const habit1 = { id: 'hab_to_del_1', name: 'Habit One' };
+    const habit2 = { id: 'hab_keep_2', name: 'Habit Two' };
+    HabitualCore.state.habits = [habit1, habit2];
+
+    const origConfirm = global.confirm;
+    global.confirm = () => true;
+    if (global.window) global.window.confirm = () => true;
+
+    HabitualCore.deleteHabit('hab_to_del_1');
+
+    assertEqual(HabitualCore.state.habits.length, 1, 'Habit 1 removed from local state');
+    assertEqual(HabitualCore.state.deletedHabitIds.includes('hab_to_del_1'), true, 'Habit 1 ID added to deletedHabitIds');
+
+    // Simulate Device B receiving payload from Device A
+    const localDeviceBPayload = {
+      habits: [{ id: 'hab_to_del_1', name: 'Habit One' }, { id: 'hab_keep_2', name: 'Habit Two' }],
+      deletedHabitIds: []
+    };
+
+    const remoteDeviceAPayload = HabitualCore.getPayloadFromState();
+
+    const merged = HabitualCore.mergeStatePayloads(localDeviceBPayload, remoteDeviceAPayload);
+
+    assertEqual(merged.habits.length, 1, 'Merged payload filters out deleted habit');
+    assertEqual(merged.habits[0].id, 'hab_keep_2', 'Remaining habit in merged state is Habit Two');
+    assertEqual(merged.deletedHabitIds.includes('hab_to_del_1'), true, 'Merged payload retains deletedHabitIds tombstone');
+
+    global.confirm = origConfirm;
+    if (global.window) global.window.confirm = origConfirm;
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);

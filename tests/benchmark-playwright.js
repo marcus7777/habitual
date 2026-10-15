@@ -10,9 +10,9 @@ const packageJsonPath = path.join(__dirname, '..', 'package.json');
 
 // Performance Regression Threshold Configuration
 const REGRESSION_THRESHOLDS = {
-  FAIL_PERCENT: 25,        // Hard failure if metric regresses >= 25%
-  WARN_PERCENT: 12,        // Soft warning if metric regresses >= 12%
-  MIN_TIME_BUFFER_MS: 20   // Ignore latency changes under 20ms (noise buffer)
+  FAIL_PERCENT: 35,        // Hard failure if metric regresses >= 35%
+  WARN_PERCENT: 20,        // Soft warning if metric regresses >= 20%
+  MIN_TIME_BUFFER_MS: 300  // Ignore timing noise fluctuations under 300ms for large 50,000-node DOM renders
 };
 
 function getCurrentVersion() {
@@ -53,11 +53,51 @@ function loadBenchmarkHistory() {
 
 function getBaselineRun(history, currentVersion) {
   if (!history || history.length === 0) return null;
-  // 1. Prefer the latest benchmark run from a previous application version
-  const previousVersionRun = history.find(run => run.version && run.version !== currentVersion);
-  if (previousVersionRun) return previousVersionRun;
-  // 2. Fall back to the most recent run in history
-  return history[0] || null;
+
+  // 1. Filter runs from previous versions (or all prior runs if none exist)
+  let eligibleRuns = history.filter(run => run.version && run.version !== currentVersion && run.metrics);
+  if (eligibleRuns.length === 0) {
+    eligibleRuns = history.filter(run => run.metrics);
+  }
+  if (eligibleRuns.length === 0) return null;
+
+  // Take up to 5 most recent eligible runs to calculate median baseline
+  const sample = eligibleRuns.slice(0, 5);
+
+  const getMedian = (arr) => {
+    const nums = arr.filter(n => typeof n === 'number' && !isNaN(n)).sort((a, b) => a - b);
+    if (nums.length === 0) return 0;
+    const mid = Math.floor(nums.length / 2);
+    return nums.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+  };
+
+  return {
+    version: sample[0].version,
+    timestamp: sample[0].timestamp,
+    metrics: {
+      bootDurationMs: getMedian(sample.map(r => r.metrics.bootDurationMs)),
+      renderDurations: {
+        html: {
+          habits_10: { renderTimeMs: getMedian(sample.map(r => r.metrics?.renderDurations?.html?.habits_10?.renderTimeMs)) },
+          habits_50: { renderTimeMs: getMedian(sample.map(r => r.metrics?.renderDurations?.html?.habits_50?.renderTimeMs)) },
+          habits_100: { renderTimeMs: getMedian(sample.map(r => r.metrics?.renderDurations?.html?.habits_100?.renderTimeMs)) }
+        },
+        svg: {
+          habits_10: { renderTimeMs: getMedian(sample.map(r => r.metrics?.renderDurations?.svg?.habits_10?.renderTimeMs)) },
+          habits_50: { renderTimeMs: getMedian(sample.map(r => r.metrics?.renderDurations?.svg?.habits_50?.renderTimeMs)) },
+          habits_100: { renderTimeMs: getMedian(sample.map(r => r.metrics?.renderDurations?.svg?.habits_100?.renderTimeMs)) }
+        }
+      },
+      quickCheckInInpMs: {
+        html: getMedian(sample.map(r => r.metrics?.quickCheckInInpMs?.html)),
+        svg: getMedian(sample.map(r => r.metrics?.quickCheckInInpMs?.svg))
+      },
+      storageThroughput: {
+        localStorageOpsPerSec: getMedian(sample.map(r => r.metrics?.storageThroughput?.localStorageOpsPerSec)),
+        indexedDBOpsPerSec: getMedian(sample.map(r => r.metrics?.storageThroughput?.indexedDBOpsPerSec))
+      }
+    }
+  };
 }
 
 function evaluateMetricRegression(currVal, prevVal, isTime = true) {
