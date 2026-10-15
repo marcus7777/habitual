@@ -163,6 +163,11 @@ async function main() {
     console.log(` [✓] Updated web/sw.js -> habitual-v${newVersion}`);
   }
 
+  // 5. Update web/version.json
+  const versionJsonPath = path.join(webDir, 'version.json');
+  fs.writeFileSync(versionJsonPath, JSON.stringify({ version: newVersion }, null, 2) + '\n', 'utf8');
+  console.log(` [✓] Updated web/version.json -> ${newVersion}`);
+
   console.log(`\nSuccessfully bumped version to ${newVersion}!`);
 }
 
