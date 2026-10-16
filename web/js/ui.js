@@ -2610,31 +2610,65 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  core.tombstoneAndRemoveHabits = function(idsToDelete) {
+    const ids = Array.isArray(idsToDelete) ? idsToDelete : [idsToDelete];
+    if (ids.length === 0) return;
+    const idsSet = new Set(ids);
+    core.state.habits = core.state.habits.filter(h => !idsSet.has(h.id));
+    if (!core.state.deletedHabitIds) core.state.deletedHabitIds = [];
+    for (let i = 0; i < ids.length; i++) {
+      if (!core.state.deletedHabitIds.includes(ids[i])) {
+        core.state.deletedHabitIds.push(ids[i]);
+      }
+    }
+  };
+
   core.deleteHabit = function(habitId) {
     const habit = core.state.habits.find(h => h.id === habitId);
     if (!habit) return;
     const subHabits = core.state.habits.filter(h => h.parentId === habitId);
-    let msg = `Are you sure you want to delete "${habit.name}"?`;
-    if (subHabits.length > 0) msg += ` Its ${subHabits.length} sub-habit(s) will become top-level habits.`;
 
-    if (confirm(msg)) {
-      core.state.habits = core.state.habits.filter(h => h.id !== habitId);
-      subHabits.forEach(sub => { sub.parentId = habit.parentId || null; });
+    let deleteSubHabits = false;
+    let confirmed = false;
 
-      if (!core.state.deletedHabitIds) core.state.deletedHabitIds = [];
-      if (!core.state.deletedHabitIds.includes(habitId)) {
-        core.state.deletedHabitIds.push(habitId);
+    if (subHabits.length > 0) {
+      const msg = `Are you sure you want to delete "${habit.name}"?\n\nIt has ${subHabits.length} sub-habit(s).\n\n• Click OK to delete "${habit.name}" AND all its sub-habits.\n• Click Cancel to options for keeping sub-habits.`;
+      if (confirm(msg)) {
+        confirmed = true;
+        deleteSubHabits = true;
+      } else {
+        const msg2 = `Do you want to keep the sub-habits (promote them to top-level habits)?\n\n• Click OK to keep/promote sub-habits.\n• Click Cancel to abort deletion entirely.`;
+        if (confirm(msg2)) {
+          confirmed = true;
+          deleteSubHabits = false;
+        } else {
+          confirmed = false;
+        }
+      }
+    } else {
+      if (confirm(`Are you sure you want to delete "${habit.name}"?`)) {
+        confirmed = true;
+      }
+    }
+
+    if (confirmed) {
+      if (deleteSubHabits) {
+        const allIdsToDelete = core.getAllDescendantIds ? core.getAllDescendantIds(habitId) : [habitId];
+        core.tombstoneAndRemoveHabits(allIdsToDelete);
+      } else {
+        core.tombstoneAndRemoveHabits(habitId);
+        subHabits.forEach(sub => { sub.parentId = habit.parentId || null; });
       }
 
       const route = core.parseHash ? core.parseHash() : { view: 'home' };
-      if (route.view === 'habit' && route.habitId === habitId) {
-        if (habit.parentId) core.navigateTo(`#/habit/${habit.parentId}`);
+      if (route.view === 'habit' && (route.habitId === habitId || (deleteSubHabits && route.habitId))) {
+        if (habit.parentId && !deleteSubHabits) core.navigateTo(`#/habit/${habit.parentId}`);
         else core.navigateTo('#/');
       } else {
         if (core.renderAll) core.renderAll();
       }
       if (core.saveState) core.saveState();
-      core.showToast(`Deleted "${habit.name}"`);
+      core.showToast(deleteSubHabits ? `Deleted "${habit.name}" and its sub-habits` : `Deleted "${habit.name}"`);
     }
   };
 
