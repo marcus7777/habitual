@@ -3569,6 +3569,55 @@ describe('Feature 32: Toast Alerts & Content Layout Stability', () => {
 });
 
 // ============================================================================
+// ISSUE #21: Offer Deletion of Sub-Habits when deleting Parent Habit
+// ============================================================================
+describe('Issue #21: Offer Deletion of Sub-Habits', () => {
+  test('deleteHabit offers option to delete parent and all its sub-habits', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'p_del', name: 'Parent', parentId: null, logs: {} };
+    const child = { id: 'c_del', name: 'Child', parentId: 'p_del', logs: {} };
+    HabitualCore.setState({ habits: [parent, child], deletedHabitIds: [] });
+
+    const origConfirm = global.confirm;
+    let confirmCount = 0;
+    global.confirm = () => {
+      confirmCount++;
+      return true; // OK to delete parent AND sub-habits
+    };
+
+    HabitualCore.deleteHabit('p_del');
+    global.confirm = origConfirm;
+
+    assertEqual(HabitualCore.state.habits.length, 0, 'Both parent and child deleted when OK chosen');
+    assert(HabitualCore.state.deletedHabitIds.includes('p_del'), 'Parent ID in deletedHabitIds');
+    assert(HabitualCore.state.deletedHabitIds.includes('c_del'), 'Child ID in deletedHabitIds');
+  });
+
+  test('deleteHabit offers option to keep/promote sub-habits when parent is deleted', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'p_keep', name: 'Parent', parentId: null, logs: {} };
+    const child = { id: 'c_promote', name: 'Child', parentId: 'p_keep', logs: {} };
+    HabitualCore.setState({ habits: [parent, child], deletedHabitIds: [] });
+
+    const origConfirm = global.confirm;
+    let confirmCall = 0;
+    global.confirm = () => {
+      confirmCall++;
+      if (confirmCall === 1) return false; // Cancel parent+sub deletion
+      if (confirmCall === 2) return true;  // OK to keep sub-habits (promote them)
+      return false;
+    };
+
+    HabitualCore.deleteHabit('p_keep');
+    global.confirm = origConfirm;
+
+    assertEqual(HabitualCore.state.habits.length, 1, 'Only parent deleted, child kept');
+    assertEqual(HabitualCore.state.habits[0].id, 'c_promote', 'Child remains in state');
+    assertEqual(HabitualCore.state.habits[0].parentId, null, 'Child promoted to top-level habit (parentId = null)');
+  });
+});
+
+// ============================================================================
 // FEATURE 37: Multi-Device Habit Deletion Sync & Tombstoning
 // ============================================================================
 describe('Feature 37: Multi-Device Habit Deletion Sync & Tombstoning', () => {

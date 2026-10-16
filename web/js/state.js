@@ -5,8 +5,8 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.STORAGE_KEY = 'habitual_tracker_v1';
   core.CURRENT_YEAR = new Date().getFullYear();
-  const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global);
-  core.COLOR_PALETTE = (typeof globalScope.colors === 'function') ? globalScope.colors() : ['#795548', '#E67C73', '#D50000', '#F4511E', '#EF6C00', '#F09300', '#009688', '#0B8043', '#7CB342', '#33B679'];
+  core.globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global);
+  core.COLOR_PALETTE = (typeof core.globalScope.colors === 'function') ? core.globalScope.colors() : ['#795548', '#E67C73', '#D50000', '#F4511E', '#EF6C00', '#F09300', '#009688', '#0B8043', '#7CB342', '#33B679'];
 
   core.state = {
     habits: [],
@@ -81,9 +81,8 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.getDefaultColorForId = function(id) {
-    const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global);
-    if (typeof globalScope.colourFromString === 'function') {
-      return globalScope.colourFromString(id || 'default');
+    if (typeof core.globalScope.colourFromString === 'function') {
+      return core.globalScope.colourFromString(id || 'default');
     }
     return '#795548';
   };
@@ -92,23 +91,23 @@ window.HabitualCore = window.HabitualCore || {};
     const defaultHex = core.getDefaultColorForId(habit ? habit.id : 'default');
     if (!habit || !habit.colorTheme) return defaultHex;
     if (habit.colorTheme.startsWith('#')) return habit.colorTheme;
-    const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global);
-    if (typeof globalScope.colourFromString === 'function') {
-      return globalScope.colourFromString(habit.colorTheme);
+    if (typeof core.globalScope.colourFromString === 'function') {
+      return core.globalScope.colourFromString(habit.colorTheme);
     }
     return habit.colorTheme;
   };
 
   core.getAncestryChain = function(habitId) {
+    if (!habitId) return [];
+    const habits = (core.state && core.state.habits) ? core.state.habits : [];
+    let cur = habits.find(h => h.id === habitId);
+    if (!cur) return [];
     const chain = [];
-    let cur = core.state.habits.find(h => h.id === habitId);
-    const visited = new Set();
-    while (cur && !visited.has(cur.id)) {
-      visited.add(cur.id);
-      chain.unshift(cur);
-      cur = cur.parentId ? core.state.habits.find(h => h.id === cur.parentId) : null;
+    while (cur && !chain.includes(cur)) {
+      chain.push(cur);
+      cur = cur.parentId ? habits.find(h => h.id === cur.parentId) : null;
     }
-    return chain;
+    return chain.reverse();
   };
 
   core.getAllDescendantIds = function(habitId) {
