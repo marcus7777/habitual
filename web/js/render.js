@@ -525,16 +525,30 @@ window.HabitualCore = window.HabitualCore || {};
     let theme = 'green';
     let safeName = 'all_habits';
 
-    if (habitId && habitId !== 'all' && !habitId.startsWith('group_')) {
-      target = core.state.habits.find(h => h.id === habitId);
-      if (!target) return;
-      cardHabitId = target.id;
-      theme = target.colorTheme || 'green';
-      safeName = target.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    if (habitId && habitId !== 'all') {
+      const cleanId = String(habitId).replace(/^group_/, '');
+      const rawHabit = core.state.habits.find(h => h.id === cleanId);
+      if (!rawHabit) return;
+      cardHabitId = rawHabit.id;
+      theme = rawHabit.colorTheme || 'green';
+      safeName = rawHabit.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+      const descendantIds = core.getAllDescendantIds ? core.getAllDescendantIds(rawHabit.id) : [rawHabit.id];
+      if (descendantIds.length > 1) {
+        target = {
+          isGroup: true,
+          habit: rawHabit,
+          title: rawHabit.name,
+          habitIds: descendantIds,
+          colorTheme: rawHabit.colorTheme
+        };
+      } else {
+        target = rawHabit;
+      }
     }
 
-    // We reuse the buildSvgHeatmapGrid function
-    let svgString = core.buildSvgHeatmapGrid(target, year, cardHabitId, theme, target);
+    const habitForGrid = target && target.isGroup ? target.habit : target;
+    let svgString = core.buildSvgHeatmapGrid(target, year, cardHabitId, theme, habitForGrid);
 
     // Add XML namespace
     svgString = svgString.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
