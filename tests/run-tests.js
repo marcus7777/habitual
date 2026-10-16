@@ -1002,6 +1002,51 @@ describe('Feature 14: 📁 Home Page Parent Habit & Sub-Habits Combined Heatmap'
     assertEqual(topLevelHabits.length, 1, 'Only 1 main top-level habit exists');
     assertEqual(state.habits.length, 3, 'Total habits count is 3 including sub-habits');
   });
+
+  test('downloadHeatmapSVG includes sub-habits when exporting SVG for parent habit', () => {
+    const parentHabit = { id: 'health_svg', name: 'Health Routine', type: 'positive', dailyTarget: 1, colorTheme: '#009688', logs: { '2026-10-02': { count: 1 } } };
+    const subHabit = { id: 'health_svg_running', name: 'Morning Run', parentId: 'health_svg', type: 'positive', dailyTarget: 1, colorTheme: '#f4511e', logs: { '2026-10-02': { count: 1 } } };
+
+    HabitualCore.setState({
+      habits: [parentHabit, subHabit],
+      selectedHabitId: 'all',
+      selectedYear: 2026
+    });
+
+    let generatedSvg = null;
+    const origCreateObjectURL = global.URL.createObjectURL || (() => 'blob:mock');
+    global.URL.createObjectURL = (blob) => 'blob:mock_svg_url';
+
+    const origRemoveChild = global.document.body.removeChild;
+    global.document.body.removeChild = function() {};
+
+    const origCreateElement = global.document.createElement;
+    global.document.createElement = function(tag) {
+      const elem = origCreateElement(tag);
+      if (tag === 'a') {
+        elem.click = function() {};
+      }
+      return elem;
+    };
+
+    const origBlob = global.Blob || function() {};
+    global.Blob = function(parts, options) {
+      generatedSvg = parts.join('');
+      return { size: generatedSvg.length };
+    };
+
+    try {
+      HabitualCore.downloadHeatmapSVG('health_svg', 2026);
+      assert(generatedSvg !== null, 'Generated SVG string is not null');
+      assert(generatedSvg.includes('linearGradient'), 'SVG includes linearGradient for parent + sub-habit combination');
+      assert(generatedSvg.includes('data-habits-done="Health Routine, Morning Run"'), 'SVG contains data-habits-done with both parent and sub-habit names');
+    } finally {
+      global.document.body.removeChild = origRemoveChild;
+      global.Blob = origBlob;
+      global.URL.createObjectURL = origCreateObjectURL;
+      global.document.createElement = origCreateElement;
+    }
+  });
 });
 
 // FEATURE 15: 📅 DATE NAVIGATOR ARROWS, LONG-PRESS & FUTURE DATE REMINDERS
