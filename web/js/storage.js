@@ -1186,10 +1186,9 @@ window.HabitualCore = window.HabitualCore || {};
 
       _enableOfflinePersistence: function(db) {
         if (!db || db._persistenceEnabled) return;
+        db._persistenceEnabled = true;
         if (typeof db.enablePersistence === 'function') {
-          db.enablePersistence({ synchronizeTabs: true }).then(function() {
-            db._persistenceEnabled = true;
-          }).catch(function(err) {
+          db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
             // Ignore error if already enabled in another tab or unsupported
           });
         }
@@ -1197,8 +1196,6 @@ window.HabitualCore = window.HabitualCore || {};
 
       init: function() {
         if (this.db) {
-          this._setupEmulatorIfRequested(this.db);
-          this._enableOfflinePersistence(this.db);
           return Promise.resolve(this.db);
         }
         const self = this;
