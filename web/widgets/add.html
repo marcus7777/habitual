@@ -384,7 +384,7 @@
               const habitId = btn.getAttribute('data-habit-id');
               const todayKey = payload.dateKey;
               if (habitId && HabitualCore.toggleHabitForDate) {
-                HabitualCore.toggleHabitForDate(habitId, todayKey);
+                HabitualCore.toggleHabitForDate(habitId, todayKey, btn);
                 if (HabitualCore.showToast) HabitualCore.showToast('Logged progress via Quick Add Widget!');
                 renderQuickAddWidget();
               }

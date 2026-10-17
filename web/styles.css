@@ -2535,12 +2535,19 @@ input:checked + .slider:before {
   box-shadow: var(--shadow-sm);
   padding: 0;
   flex-shrink: 0;
+  position: relative;
+  perspective: 600px;
+  transform-style: preserve-3d;
 }
 
 .quick-log-icon {
   font-size: 1.25rem;
   font-weight: 800;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
 }
 
 .btn-card-quick-log:hover {
@@ -2555,6 +2562,88 @@ input:checked + .slider:before {
 
 .btn-card-quick-log.goal-met {
   animation: tickPulse 0.35s ease-out;
+}
+
+/* 3D Z-Axis Saving & Floating Badge Animations */
+.quick-add-pop-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--accent-green, #39d353);
+  background: var(--bg-card, #161b22);
+  border: 1px solid var(--border-color, #30363d);
+  padding: 1px 6px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 100;
+  animation: floatPlusOne 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes floatPlusOne {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.6) translateZ(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -10px) scale(1.2) translateZ(30px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -28px) scale(0.9) translateZ(10px);
+  }
+}
+
+.btn-card-quick-log.is-saving,
+.widget-quick-log-btn.is-saving,
+.quick-log-btn.is-saving {
+  pointer-events: none;
+  box-shadow: 0 0 16px var(--accent-blue-glow, rgba(56, 139, 253, 0.5));
+}
+
+.btn-card-quick-log.is-saving .quick-log-icon,
+.btn-card-quick-log.is-saving svg,
+.widget-quick-log-btn.is-saving .quick-log-icon,
+.widget-quick-log-btn.is-saving svg,
+.quick-log-btn.is-saving .quick-log-icon,
+.quick-log-btn.is-saving svg {
+  animation: quickSpin3D 0.75s ease-in-out infinite;
+  display: inline-block;
+  transform-origin: center center;
+}
+
+@keyframes quickSpin3D {
+  0% {
+    transform: perspective(400px) rotateY(0deg) translateZ(0px) scale(1);
+  }
+  50% {
+    transform: perspective(400px) rotateY(180deg) translateZ(24px) scale(1.22);
+  }
+  100% {
+    transform: perspective(400px) rotateY(360deg) translateZ(0px) scale(1);
+  }
+}
+
+.btn-card-quick-log.just-saved,
+.widget-quick-log-btn.just-saved,
+.quick-log-btn.just-saved {
+  animation: saveSuccessPop3D 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes saveSuccessPop3D {
+  0% {
+    transform: perspective(400px) scale(0.85) translateZ(-10px);
+  }
+  50% {
+    transform: perspective(400px) scale(1.25) translateZ(32px) rotateX(-10deg);
+    box-shadow: 0 0 20px rgba(57, 211, 83, 0.6);
+  }
+  100% {
+    transform: perspective(400px) scale(1) translateZ(0px) rotateX(0deg);
+  }
 }
 
 @keyframes tickPulse {
@@ -3049,6 +3138,9 @@ input:checked + .slider:before {
   flex-shrink: 0;
   padding: 0;
   box-shadow: var(--shadow-sm);
+  position: relative;
+  perspective: 600px;
+  transform-style: preserve-3d;
 }
 
 .widget-quick-log-btn:hover {

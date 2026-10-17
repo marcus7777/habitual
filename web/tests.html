@@ -186,6 +186,28 @@
             core.toggleHabitForDate('read', '2026-10-02');
             assertEqual(core.getState().habits[0].logs['2026-10-02'].count, 1);
           });
+
+          test('toggleHabitForDate attaches .is-saving and floating +1 badge to target button', () => {
+            core.setState({ habits: [{ id: 'spin_test', type: 'positive', logs: {} }] });
+            const btn = document.createElement('button');
+            btn.className = 'btn-card-quick-log';
+            core.toggleHabitForDate('spin_test', '2026-10-02', btn);
+            assert(btn.classList.contains('is-saving'), 'Button has .is-saving class during log toggle');
+            const badge = btn.querySelector('.quick-add-pop-badge');
+            assert(badge !== null, 'Button spawns floating +1 badge');
+            assertEqual(badge.textContent, '+1', 'Floating badge displays +1 text');
+          });
+
+          test('toggleHabitForDate transitions to .just-saved class on completion', (done) => {
+            core.setState({ habits: [{ id: 'pop_test', type: 'positive', logs: {} }] });
+            const btn = document.createElement('button');
+            btn.className = 'btn-card-quick-log';
+            core.toggleHabitForDate('pop_test', '2026-10-02', btn);
+            setTimeout(() => {
+              assert(btn.classList.contains('just-saved'), 'Button transitioned to .just-saved after save completion');
+              done();
+            }, 180);
+          });
         });
 
         describe('Feature 7: ⌛ Past History Backfilling', () => {

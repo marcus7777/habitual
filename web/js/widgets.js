@@ -352,7 +352,7 @@ window.HabitualCore = window.HabitualCore || {};
         const habitId = btn.getAttribute('data-habit-id');
         const todayKey = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
         if (habitId && core.toggleHabitForDate) {
-          core.toggleHabitForDate(habitId, todayKey);
+          core.toggleHabitForDate(habitId, todayKey, btn);
           if (core.showToast) core.showToast('Logged progress via Quick Add Widget!');
           core.renderWidgetsGallery();
         }

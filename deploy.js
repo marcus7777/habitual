@@ -95,6 +95,8 @@ async function deploy() {
     console.log(`========================================`);
 
     const playwrightScripts = [
+      { cmd: 'node tests/test-quick-add-responsiveness-playwright.js', desc: 'Playwright: Instant Quick Add Button Responsiveness Test (<100ms)' },
+      { cmd: 'node tests/test-all-settings-sync-playwright.js', desc: 'Playwright: All Settings & Habit Reordering Sync E2E Test' },
       { cmd: 'node tests/test-multi-device-sync-playwright.js', desc: 'Playwright: Multi-Device Sync E2E Test' },
       { cmd: 'node tests/test-color-sync-playwright.js', desc: 'Playwright: Habit Color Sync E2E Test' },
       { cmd: 'node tests/test-share-roundtrip-playwright.js', desc: 'Playwright: Share & Sync Roundtrip E2E Test' },

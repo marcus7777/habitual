@@ -379,9 +379,29 @@ window.HabitualCore = window.HabitualCore || {};
     return false;
   };
 
-  core.toggleHabitForDate = function(habitId, dateKey) {
+  core.toggleHabitForDate = function(habitId, dateKey, targetBtn = null) {
     const habit = core.state.habits.find(h => h.id === habitId);
     if (!habit) return;
+
+    // Resolve target button element if not explicitly passed
+    let btn = targetBtn;
+    if (!btn && typeof document !== 'undefined') {
+      btn = document.querySelector(`.btn-card-quick-log[data-habit-id="${habitId}"], .widget-quick-log-btn[data-action-habit-id="${habitId}"], .quick-log-btn[data-action-habit-id="${habitId}"]`);
+    }
+
+    // Spawn floating +1 badge animation
+    if (btn && btn.appendChild) {
+      const badge = document.createElement('span');
+      badge.className = 'quick-add-pop-badge';
+      badge.textContent = '+1';
+      btn.appendChild(badge);
+      setTimeout(() => { if (badge.parentNode) badge.parentNode.removeChild(badge); }, 700);
+    }
+
+    if (btn && btn.classList) {
+      btn.classList.add('is-saving');
+    }
+
     if (!habit.logs) habit.logs = {};
     const currentLog = habit.logs[dateKey];
     const currentCount = currentLog ? currentLog.count : 0;
@@ -410,11 +430,30 @@ window.HabitualCore = window.HabitualCore || {};
     } else if (core.renderAll) {
       core.renderAll();
     }
+
+    // Handle async save Promise for 3D spin state resolution
+    const handleSaveDone = () => {
+      if (btn && btn.classList) {
+        btn.classList.remove('is-saving');
+        btn.classList.add('just-saved');
+        setTimeout(() => {
+          if (btn && btn.classList) btn.classList.remove('just-saved');
+        }, 450);
+      }
+    };
+
+    let savePromise = null;
     // 2. Persist to storage asynchronously
     if (core.saveLog) {
-      core.saveLog(habitId, dateKey, newCount, currentNote, logObj.unverified);
+      savePromise = core.saveLog(habitId, dateKey, newCount, currentNote, logObj.unverified);
     } else if (core.saveState) {
-      core.saveState();
+      savePromise = core.saveState();
+    }
+
+    if (savePromise && typeof savePromise.then === 'function') {
+      savePromise.then(handleSaveDone).catch(handleSaveDone);
+    } else {
+      setTimeout(handleSaveDone, 120);
     }
 
     if (core.checkPendingVerifications) {

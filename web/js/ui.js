@@ -1324,7 +1324,7 @@ window.HabitualCore = window.HabitualCore || {};
 
         const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
 
-        core.toggleHabitForDate(habitId, targetDate);
+        core.toggleHabitForDate(habitId, targetDate, quickLogBtn);
         return;
       }
 
@@ -1471,7 +1471,7 @@ window.HabitualCore = window.HabitualCore || {};
        const btn = e.target.closest('[data-action-habit-id]');
        if (btn) {
          e.stopPropagation();
-         core.toggleHabitForDate(btn.dataset.actionHabitId, btn.dataset.actionDateKey);
+         core.toggleHabitForDate(btn.dataset.actionHabitId, btn.dataset.actionDateKey, btn);
          return;
        }
 
@@ -1698,7 +1698,7 @@ window.HabitualCore = window.HabitualCore || {};
 
         const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
 
-        core.toggleHabitForDate(habitId, targetDate);
+        core.toggleHabitForDate(habitId, targetDate, btn);
       });
     });
 
