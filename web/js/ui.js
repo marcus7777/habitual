@@ -3304,10 +3304,11 @@ window.HabitualCore = window.HabitualCore || {};
           const habitColor = payload.colorTheme || core.getDefaultColorForId(col);
           const hasRemoteChildren = Boolean(payload.children && Array.isArray(payload.children) && payload.children.length > 0);
 
-          let existing = core.state.habits.find(h => h.sharing && (h.sharing.collection === col || h.sharing.docId === col));
+          const canonicalId = payload.habitId || payload.id || ('shared_' + core.idFromName(habitName) + '_' + Date.now().toString(36));
+          let existing = core.state.habits.find(h => h.id === canonicalId || (h.sharing && (h.sharing.collection === col || h.sharing.docId === col)));
           if (!existing) {
             existing = {
-              id: 'shared_' + core.idFromName(habitName) + '_' + Date.now().toString(36),
+              id: canonicalId,
               name: habitName,
               type: payload.type || 'positive',
               description: payload.description || '',

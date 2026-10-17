@@ -208,6 +208,19 @@
               done();
             }, 180);
           });
+
+          test('toggleHabitForDate post-animation state reverts cleanly to refresh state', (done) => {
+            core.setState({ habits: [{ id: 'reload_test', type: 'positive', logs: {} }] });
+            const btn = document.createElement('button');
+            btn.className = 'btn-card-quick-log';
+            core.toggleHabitForDate('reload_test', '2026-10-02', btn);
+            setTimeout(() => {
+              assert(!btn.classList.contains('is-saving'), 'is-saving removed post-animation');
+              assert(!btn.classList.contains('just-saved'), 'just-saved removed post-animation');
+              assert(btn.querySelector('.quick-add-pop-badge') === null, 'floating badge removed post-animation');
+              done();
+            }, 600);
+          });
         });
 
         describe('Feature 7: ⌛ Past History Backfilling', () => {
