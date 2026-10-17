@@ -127,6 +127,8 @@
               <button id="btn-gen-firestore-code" class="btn btn-secondary btn-sm">New Code</button>
               <button id="btn-copy-firestore-code" class="btn btn-secondary btn-sm" style="display: none;">Copy Code</button>
               <button id="btn-copy-sync-link" class="btn btn-secondary btn-sm" style="display: none;">📋 Copy Sync Link</button>
+              <button id="btn-firestore-chirp-code" class="btn btn-secondary btn-sm" title="Broadcast Firestore Sync Code via Sound">🔊 Chirp Code</button>
+              <button id="btn-firestore-chirp-listen" class="btn btn-secondary btn-sm" title="Listen for Firestore Sync Code via Microphone">🎙️ Listen Chirp</button>
             </div>
             <p class="muted-text text-xs" style="margin: 0 0 0.8rem 0;">Share this channel code and master passphrase to sync across devices.</p>
 
@@ -139,56 +141,32 @@
           </div>
         </div>
 
-        <!-- Section 3: Peer-to-Peer (WebRTC) Real-Time Sync -->
-        <div id="section-p2p-sync">
-          <div class="data-option-card">
-            <div class="data-option-info">
-              <h4>⚡ Peer-to-Peer (WebRTC) Sync</h4>
-              <p class="muted-text">Sync live updates between active devices.</p>
-            </div>
-            <div class="p2p-controls">
-              <label class="switch-toggle" title="Toggle P2P Sync">
-                <input type="checkbox" id="chk-sync-p2p">
-                <span class="slider round"></span>
-              </label>
-              <button id="btn-p2p-pair" class="btn btn-secondary btn-sm">Generate Pair Code</button>
+        <!-- Section 3: Acoustic Sound Sync (No Network Needed) -->
+        <div id="section-acoustic-sync" class="data-option-card" style="flex-direction: column; align-items: flex-start;">
+          <div class="data-option-info">
+            <h4>📻 Acoustic Sound Sync</h4>
+            <p class="muted-text">Transmit data via audio waves (speaker & mic, no network required).</p>
+          </div>
+          <div class="btn-group-row" style="margin-top: 0.6rem; margin-bottom: 0.5rem;">
+            <button id="btn-acoustic-broadcast-delta" class="btn btn-secondary btn-sm">🔊 Broadcast Delta (Past 7 Days)</button>
+            <button id="btn-acoustic-broadcast-full" class="btn btn-secondary btn-sm">🔊 Broadcast Full State</button>
+            <button id="btn-acoustic-receive" class="btn btn-primary btn-sm">🎙️ Receive Sound Data</button>
+          </div>
+          <div id="acoustic-progress-bar-container" class="hidden" style="margin-top: 0.5rem; width: 100%;">
+            <div style="font-size: 0.8rem; margin-bottom: 0.2rem;" id="acoustic-status-label">Listening for sound data...</div>
+            <div class="progress-track">
+              <div id="acoustic-progress-bar" class="progress-bar-fill"></div>
             </div>
           </div>
 
-          <div id="p2p-pairing-box" class="data-subpanel hidden">
-            <h5 class="subpanel-heading">📱 Pairing Code: <span id="p2p-code-display" class="badge-code">------</span> <button id="btn-p2p-chirp-code" class="btn btn-secondary btn-sm" style="margin-left: 0.5rem;" title="Broadcast Code via Sound">🔊 Chirp Code</button></h5>
-            <div class="p2p-input-row">
-              <input type="text" id="input-p2p-remote-code" class="form-control-sm code-input" placeholder="Enter 6-digit remote code" aria-label="Remote Peer Pairing Code">
-              <button id="btn-p2p-connect" class="btn btn-primary btn-sm">Connect Peer</button>
-              <button id="btn-p2p-chirp-listen" class="btn btn-secondary btn-sm" title="Listen for Code via Microphone">🎙️ Listen Chirp</button>
+          <!-- Mic Input Volume Meter -->
+          <div id="mic-meter-container" class="hidden mic-meter-box" style="width: 100%;">
+            <div class="mic-meter-header">
+              <span>🎙️ Mic Level Indicator</span>
+              <span id="mic-volume-percent">0%</span>
             </div>
-          </div>
-
-          <!-- Subpanel: Acoustic Sound Sync Fallback (No WebRTC / Network Needed) -->
-          <div class="data-subpanel" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
-            <h5 class="subpanel-heading">📻 Acoustic Sound Sync (Fallback / No Network Needed)</h5>
-            <p class="muted-text text-xs" style="margin-bottom: 0.5rem;">Transmit data via audio waves (speaker & mic).</p>
-            <div class="btn-group-row" style="margin-bottom: 0.5rem;">
-              <button id="btn-acoustic-broadcast-delta" class="btn btn-secondary btn-sm">🔊 Broadcast Delta (Past 7 Days)</button>
-              <button id="btn-acoustic-broadcast-full" class="btn btn-secondary btn-sm">🔊 Broadcast Full State</button>
-              <button id="btn-acoustic-receive" class="btn btn-primary btn-sm">🎙️ Receive Sound Data</button>
-            </div>
-            <div id="acoustic-progress-bar-container" class="hidden" style="margin-top: 0.5rem;">
-              <div style="font-size: 0.8rem; margin-bottom: 0.2rem;" id="acoustic-status-label">Listening for sound data...</div>
-              <div class="progress-track">
-                <div id="acoustic-progress-bar" class="progress-bar-fill"></div>
-              </div>
-            </div>
-
-            <!-- Mic Input Volume Meter -->
-            <div id="mic-meter-container" class="hidden mic-meter-box">
-              <div class="mic-meter-header">
-                <span>🎙️ Mic Level Indicator</span>
-                <span id="mic-volume-percent">0%</span>
-              </div>
-              <div class="mic-meter-track">
-                <div id="mic-volume-level" class="mic-meter-fill"></div>
-              </div>
+            <div class="mic-meter-track">
+              <div id="mic-volume-level" class="mic-meter-fill"></div>
             </div>
           </div>
         </div>
@@ -269,7 +247,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.21.38</p>
+      <p>Habitual &bull; v1.22.9</p>
     </footer>
   </div>
 

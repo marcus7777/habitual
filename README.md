@@ -59,7 +59,7 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 ### ☁️ Storage Engines, Cloud Sync & E2EE
 - **Granular Storage ($O(1)$ Writes)**: High-performance IndexedDB persistence with debounced coalescing. Switchable storage engines (`localStorage`, `IndexedDB`).
 - **End-to-End Encryption**: Zero-Knowledge AES-256-GCM encryption client-side using Web Crypto API.
-- **Multi-Target Live Sync**: Live sync across devices using Encrypted Firestore Cloud Sync, WebRTC P2P, and Acoustic Sound Sync.
+- **Multi-Target Live Sync**: Live sync across devices using Encrypted Firestore Cloud Sync and Acoustic Sound Sync.
 - **Shared Habit Deletion**: Deleting a shared habit unlinks and removes it locally from your device while keeping the remote Firestore document intact for other collaborators.
 
 ---

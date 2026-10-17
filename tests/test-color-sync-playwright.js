@@ -224,7 +224,10 @@ async function runColorSyncPlaywrightTests() {
 
       if (nameInput) nameInput.value = name;
       if (colorSelect) colorSelect.value = '#039BE5';
-      if (enableSharing) enableSharing.checked = true;
+      if (enableSharing) {
+        enableSharing.checked = true;
+        enableSharing.dispatchEvent(new Event('change'));
+      }
       if (docInput) docInput.value = docId;
       if (passInput) passInput.value = pass;
 
@@ -273,11 +276,11 @@ async function runColorSyncPlaywrightTests() {
 
     // Device 1 updates shared habit color to Grape (#8E24AA)
     console.log('  -> Updating shared habit color on Device 1 to Grape (#8E24AA)...');
-    await page1.evaluate(({ id }) => {
+    await page1.evaluate(async ({ id }) => {
       const habit = window.HabitualCore.state.habits.find(h => h.id === id);
       if (habit) {
         habit.colorTheme = '#8E24AA';
-        window.HabitualCore.saveHabit(habit);
+        await window.HabitualCore.saveHabit(habit);
       }
     }, { id: sharedHabitId });
 

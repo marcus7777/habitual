@@ -2622,6 +2622,59 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     const decodedStr = String.fromCharCode.apply(null, decoded);
     assertEqual(decodedStr, 'HAB:A1B2C3', 'GGwave decoded string matches original audio payload');
   });
+
+  test('AudioSync emitCodeChirp and listenForCodeChirp encode and decode Firestore Sync Code', async () => {
+    await HabitualCore.AudioSync.init();
+    const syncCode = 'HAB-SYNC99';
+
+    let chirpStarted = false;
+    global.AudioContext = class {
+      constructor() { this.sampleRate = 48000; this.state = 'running'; }
+      resume() { return Promise.resolve(); }
+      createBuffer(channels, length, sampleRate) { return { length, getChannelData: () => new Float32Array(length) }; }
+      createBufferSource() { return { buffer: null, connect: () => {}, start: () => { chirpStarted = true; } }; }
+    };
+
+    await HabitualCore.AudioSync.emitCodeChirp(syncCode);
+    assert(chirpStarted === true, 'emitCodeChirp starts WebAudio buffer playback');
+
+    const syncHtmlPath = path.join(__dirname, '../web/sync.html');
+    assert(fs.existsSync(syncHtmlPath), 'web/sync.html exists');
+    const syncHtml = fs.readFileSync(syncHtmlPath, 'utf8');
+    assert(syncHtml.includes('btn-firestore-chirp-code'), 'sync.html contains btn-firestore-chirp-code');
+    assert(syncHtml.includes('btn-firestore-chirp-listen'), 'sync.html contains btn-firestore-chirp-listen');
+  });
+
+  test('Local user habit setting edit (e.g. showStreak) updates habit.updatedAt and overrides older remote Firestore data after time delay', async () => {
+    const initialHabit = {
+      id: 'meditation',
+      name: 'Meditation',
+      showStreak: false,
+      createdAt: '2026-10-01',
+      updatedAt: Date.now() - 5000
+    };
+    HabitualCore.state.habits = [initialHabit];
+
+    const remoteOldPayload = {
+      version: 2,
+      updatedAt: Date.now() - 5000,
+      habits: [JSON.parse(JSON.stringify(initialHabit))]
+    };
+
+    await new Promise(r => setTimeout(r, 50));
+
+    initialHabit.showStreak = true;
+    await HabitualCore.saveHabit(initialHabit);
+
+    assert(initialHabit.updatedAt > (Date.now() - 1000), 'saveHabit updated habit.updatedAt to current timestamp');
+
+    const localPayload = HabitualCore.getPayloadFromState();
+    const mergedPayload = HabitualCore.mergeStatePayloads(localPayload, remoteOldPayload);
+
+    const mergedHabit = mergedPayload.habits.find(h => h.id === 'meditation');
+    assert(mergedHabit !== undefined, 'Merged habit exists');
+    assertEqual(mergedHabit.showStreak, true, 'User preference (showStreak: true) is preserved and overrides older Firestore data');
+  });
 });
 
 // ============================================================================
