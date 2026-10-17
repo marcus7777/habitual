@@ -670,19 +670,19 @@ window.HabitualCore = window.HabitualCore || {};
       console.warn('LocalStorage save fallback warning:', e);
     }
 
+    if (!skipRemoteSync) {
+      // Synchronize all shared habits to Firebase at the exact same time
+      if (core.SyncTargets && core.SyncTargets.Firestore && typeof core.SyncTargets.Firestore.syncAllSharedHabits === 'function') {
+        core.SyncTargets.Firestore.syncAllSharedHabits();
+      }
+      if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
+        core.SyncManager.broadcastWriteDebounced(payload, 300);
+      }
+    }
+
     // Persist to active driver (IndexedDB or LocalStorage)
     const driver = core.getDriver();
-    driver.setItem(core.STORAGE_KEY, payloadStr).then(function() {
-      if (!skipRemoteSync) {
-        // Synchronize all shared habits to Firebase at the exact same time
-        if (core.SyncTargets && core.SyncTargets.Firestore && typeof core.SyncTargets.Firestore.syncAllSharedHabits === 'function') {
-          core.SyncTargets.Firestore.syncAllSharedHabits();
-        }
-        if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
-          core.SyncManager.broadcastWriteDebounced(payload, 300);
-        }
-      }
-    }).catch(function(err) {
+    driver.setItem(core.STORAGE_KEY, payloadStr).catch(function(err) {
       console.error('Failed to save state to driver:', err);
     });
   };
@@ -917,8 +917,15 @@ window.HabitualCore = window.HabitualCore || {};
       });
     };
 
-    processHabitList(localPayload.habits, false);
-    processHabitList(remotePayload.habits, true);
+    const localIsNewer = (localPayload.updatedAt || 0) >= (remotePayload.updatedAt || 0);
+
+    if (localIsNewer) {
+      processHabitList(localPayload.habits, false);
+      processHabitList(remotePayload.habits, true);
+    } else {
+      processHabitList(remotePayload.habits, true);
+      processHabitList(localPayload.habits, false);
+    }
 
     merged.habits = Array.from(habitMap.values());
     return merged;
@@ -1335,8 +1342,19 @@ window.HabitualCore = window.HabitualCore || {};
         if (core.isSyncPage()) return Promise.resolve(null);
         const self = this;
         const passphrase = core.SyncManager.settings.passphrase;
-        if (!passphrase || this.isListening) return Promise.resolve(null);
+        if (!passphrase) return Promise.resolve(null);
         const syncCode = this.getSyncCode();
+
+        if (this.isListening && this._activeSyncCode === syncCode && this._activePassphrase === passphrase) {
+          return Promise.resolve(null);
+        }
+
+        if (this.isListening) {
+          this.stopLiveSync();
+        }
+
+        this._activeSyncCode = syncCode;
+        this._activePassphrase = passphrase;
 
         return this.init().then(function() {
           self.isListening = true;
@@ -1360,7 +1378,7 @@ window.HabitualCore = window.HabitualCore || {};
 
               if (data.ciphertext === self.lastSentCiphertext) return;
 
-              if (data.updatedAt && data.updatedAt.toMillis && data.updatedAt.toMillis() <= self.lastUpdatedServerTime) {
+              if (data.updatedAt && data.updatedAt.toMillis && data.updatedAt.toMillis() < self.lastUpdatedServerTime) {
                 return;
               }
               if (data.updatedAt && data.updatedAt.toMillis) {
@@ -1810,7 +1828,9 @@ window.HabitualCore = window.HabitualCore || {};
           if (!core.isSyncPage()) {
             core.SyncTargets.Firestore.startLiveSync();
           }
-          this.postToFirestoreIfReady();
+          if (core.state.habits && core.state.habits.length > 0) {
+            this.postToFirestoreIfReady();
+          }
         } else {
           core.SyncTargets.Firestore.stopLiveSync();
         }

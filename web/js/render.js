@@ -63,6 +63,56 @@ window.HabitualCore = window.HabitualCore || {};
           streakBadge.style.display = 'none';
         }
       }
+
+      // 4. In-place update for Quick Log button
+      const quickLogBtn = card.querySelector('.btn-card-quick-log');
+      if (quickLogBtn && habit) {
+        const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
+        const logs = habit.logs || {};
+        const count = logs[cursorDateStr] ? (logs[cursorDateStr].count || 0) : 0;
+        const target = habit.dailyTarget || 1;
+        const ratio = count / target;
+        const isGoalMet = ratio >= 1.0;
+
+        const hexColor = core.getHabitHexColor ? core.getHabitHexColor(habit) : '#33B679';
+        let bgStyle = '';
+        if (isGoalMet) {
+          bgStyle = `background-color: ${hexColor}; border-color: ${hexColor}; color: #ffffff;`;
+        } else {
+          const alphaHex = core.getHabitHexWithAlpha ? core.getHabitHexWithAlpha(habit, Math.max(0.18, ratio * 0.85)) : hexColor;
+          bgStyle = `background-color: ${alphaHex}; border-color: ${hexColor}; color: var(--text-main);`;
+        }
+
+        const tickIcon = '<svg class="icon-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        const plusIcon = '<svg class="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+        const iconHTML = isGoalMet ? tickIcon : plusIcon;
+
+        const isSaving = quickLogBtn.classList.contains('is-saving');
+        const justSaved = quickLogBtn.classList.contains('just-saved');
+        quickLogBtn.className = `btn-card-quick-log ${isGoalMet ? 'goal-met' : ''} ${isSaving ? 'is-saving' : ''} ${justSaved ? 'just-saved' : ''}`.replace(/\s+/g, ' ').trim();
+        quickLogBtn.setAttribute('data-goal-met', isGoalMet ? 'true' : 'false');
+        quickLogBtn.style.cssText = bgStyle;
+
+        const iconContainer = quickLogBtn.querySelector('.quick-log-icon');
+        if (iconContainer) {
+          iconContainer.innerHTML = iconHTML;
+        }
+
+        const isUpcoming = cursorDateStr > core.getTodayKey();
+        const formattedCursorDate = core.formatPrettyDate ? core.formatPrettyDate(cursorDateStr) : cursorDateStr;
+        let tooltipText = '';
+        if (isUpcoming) {
+          tooltipText = isGoalMet
+            ? `${core.escapeHTML(habit.name)}: Upcoming Goal Pre-logged (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
+            : `${core.escapeHTML(habit.name)}: Upcoming (${count}/${target} pre-logged) on ${formattedCursorDate}. Click to pre-log.`;
+        } else {
+          tooltipText = isGoalMet
+            ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
+            : `${core.escapeHTML(habit.name)}: ${count}/${target} completed on ${formattedCursorDate}. Click to log +1.`;
+        }
+        quickLogBtn.title = tooltipText;
+        quickLogBtn.setAttribute('aria-label', tooltipText);
+      }
     });
 
     return true;
