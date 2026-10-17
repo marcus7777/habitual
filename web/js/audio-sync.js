@@ -57,7 +57,7 @@ window.HabitualCore = window.HabitualCore || {};
       return this.audioCtx;
     },
 
-    // --- PAIR CODE CHIRP (1-SECOND SOUND) ---
+    // --- FIRESTORE SYNC CODE CHIRP (1-SECOND SOUND) ---
     emitCodeChirp: async function(code) {
       await this.init();
       const ctx = this.getAudioContext();
@@ -78,7 +78,7 @@ window.HabitualCore = window.HabitualCore || {};
       src.connect(ctx.destination);
       src.start();
 
-      if (core.showToast) core.showToast('🔊 Emitting Sound Chirp...', 'info');
+      if (core.showToast) core.showToast('🔊 Emitting Sync Code Chirp...', 'info');
       return new Promise(resolve => src.onended = resolve);
     },
 
@@ -120,7 +120,7 @@ window.HabitualCore = window.HabitualCore || {};
         onCountdown(0);
       }
 
-      if (core.showToast) core.showToast('🎙️ Listening for Sound Chirp...', 'info');
+      if (core.showToast) core.showToast('🎙️ Listening for Sync Code Chirp...', 'info');
 
       return new Promise((resolve, reject) => {
         let isDone = false;
@@ -173,6 +173,8 @@ window.HabitualCore = window.HabitualCore || {};
         processor.connect(ctx.destination);
       });
     },
+
+
 
     // --- GZIP COMPRESSION HELPERS ---
     compressJSON: async function(jsonObj) {

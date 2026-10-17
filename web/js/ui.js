@@ -736,57 +736,69 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    // P2P Controls
-    const chkP2P = document.getElementById('chk-sync-p2p');
-    if (chkP2P) {
-      chkP2P.checked = core.SyncManager.isTargetEnabled('p2p');
-      chkP2P.addEventListener('change', (e) => {
-        core.SyncManager.toggleTarget('p2p', e.target.checked);
-      });
-    }
-
-    const btnP2PPair = document.getElementById('btn-p2p-pair');
-    const p2pBox = document.getElementById('p2p-pairing-box');
-    const p2pCodeDisplay = document.getElementById('p2p-code-display');
-    if (btnP2PPair) {
-      btnP2PPair.addEventListener('click', () => {
-        const session = core.SyncTargets.P2P.initSession();
-        if (p2pCodeDisplay) p2pCodeDisplay.textContent = session.code;
-        if (p2pBox) p2pBox.classList.remove('hidden');
-      });
-    }
-
-    const btnP2PConnect = document.getElementById('btn-p2p-connect');
-    const inputP2PRemote = document.getElementById('input-p2p-remote-code');
-    if (btnP2PConnect && inputP2PRemote) {
-      btnP2PConnect.addEventListener('click', () => {
-        const code = inputP2PRemote.value.trim();
-        if (code.length === 6) {
-          core.SyncTargets.P2P.connectWithCode(code).then(() => {
-            if (core.showToast) core.showToast('P2P Peer paired successfully!');
-          });
-        } else {
-          alert('Please enter a 6-digit pair code.');
-        }
-      });
-    }
-
-    // --- ACOUSTIC SOUND SYNC HANDLERS ---
-    const btnChirpCode = document.getElementById('btn-p2p-chirp-code');
-    if (btnChirpCode && p2pCodeDisplay) {
-      btnChirpCode.addEventListener('click', () => {
-        const code = p2pCodeDisplay.textContent.trim();
-        if (code && code !== '------') {
+    const btnFirestoreChirpCode = document.getElementById('btn-firestore-chirp-code');
+    if (btnFirestoreChirpCode) {
+      btnFirestoreChirpCode.addEventListener('click', () => {
+        const code = (inputFirestoreCode ? inputFirestoreCode.value.trim() : '') || (core.SyncTargets && core.SyncTargets.Firestore ? core.SyncTargets.Firestore.getSyncCode() : '');
+        if (code) {
           core.AudioSync.emitCodeChirp(code).catch(err => {
             console.error('Chirp emit error:', err);
             alert('Failed to emit sound chirp: ' + err.message);
           });
         } else {
-          alert('Please click "Generate Pair Code" first.');
+          alert('Please enter or generate a Firestore Sync Code first.');
         }
       });
     }
 
+    const btnFirestoreChirpListen = document.getElementById('btn-firestore-chirp-listen');
+    if (btnFirestoreChirpListen && inputFirestoreCode) {
+      btnFirestoreChirpListen.addEventListener('click', () => {
+        const origText = btnFirestoreChirpListen.textContent;
+        btnFirestoreChirpListen.disabled = true;
+
+        const handleCountdown = (cd) => {
+          if (cd > 0) {
+            btnFirestoreChirpListen.textContent = `🎙️ Mic Active! (${cd}s)`;
+          } else {
+            btnFirestoreChirpListen.textContent = '🎙️ Listening...';
+          }
+        };
+
+        core.AudioSync.listenForCodeChirp(20000, updateMicMeter, handleCountdown).then(code => {
+          btnFirestoreChirpListen.textContent = origText;
+          btnFirestoreChirpListen.disabled = false;
+          inputFirestoreCode.value = code;
+          updateMicMeter(0);
+
+          if (btnSaveFirestoreCode) {
+            btnSaveFirestoreCode.click();
+          } else {
+            const currentPassphrase = core.SyncManager.settings.passphrase;
+            const formatted = core.SyncTargets.Firestore.setSyncCode(code);
+            inputFirestoreCode.value = formatted;
+            updateFirestoreCopyBtnVisibility();
+            if (currentPassphrase) {
+              core.SyncTargets.Firestore.validateChannelAccess(formatted, currentPassphrase).then(() => {
+                if (!core.SyncManager.isTargetEnabled('firestore')) {
+                  core.SyncManager.toggleTarget('firestore', true);
+                  if (chkFirestore) chkFirestore.checked = true;
+                }
+                core.SyncManager.postToFirestoreIfReady();
+                core.SyncManager.pullAndMergeAll();
+              });
+            }
+          }
+        }).catch(err => {
+          btnFirestoreChirpListen.textContent = origText;
+          btnFirestoreChirpListen.disabled = false;
+          updateMicMeter(0);
+          if (core.showToast) core.showToast(err.message, 'error');
+        });
+      });
+    }
+
+    // --- ACOUSTIC SOUND SYNC HANDLERS ---
     const micMeterContainer = document.getElementById('mic-meter-container');
     const micVolumeLevel = document.getElementById('mic-volume-level');
     const micVolumePercent = document.getElementById('mic-volume-percent');
@@ -802,35 +814,6 @@ window.HabitualCore = window.HabitualCore || {};
         }
       }
     };
-
-    const btnChirpListen = document.getElementById('btn-p2p-chirp-listen');
-    if (btnChirpListen && inputP2PRemote && btnP2PConnect) {
-      btnChirpListen.addEventListener('click', () => {
-        const origText = btnChirpListen.textContent;
-        btnChirpListen.disabled = true;
-
-        const handleCountdown = (cd) => {
-          if (cd > 0) {
-            btnChirpListen.textContent = `🎙️ Mic Active! (${cd}s)`;
-          } else {
-            btnChirpListen.textContent = '🎙️ Listening...';
-          }
-        };
-
-        core.AudioSync.listenForCodeChirp(20000, updateMicMeter, handleCountdown).then(code => {
-          btnChirpListen.textContent = origText;
-          btnChirpListen.disabled = false;
-          inputP2PRemote.value = code;
-          updateMicMeter(0);
-          btnP2PConnect.click(); // Auto-trigger connect
-        }).catch(err => {
-          btnChirpListen.textContent = origText;
-          btnChirpListen.disabled = false;
-          updateMicMeter(0);
-          if (core.showToast) core.showToast(err.message, 'error');
-        });
-      });
-    }
 
     const btnBroadcastDelta = document.getElementById('btn-acoustic-broadcast-delta');
     const btnBroadcastFull = document.getElementById('btn-acoustic-broadcast-full');
@@ -2526,6 +2509,7 @@ window.HabitualCore = window.HabitualCore || {};
           }
         }
 
+        habit.updatedAt = Date.now();
         if (previousHideFromAll !== hideFromAll) {
           const descendantIds = core.getAllDescendantIds(habit.id);
           descendantIds.forEach(descId => {
@@ -2564,7 +2548,7 @@ window.HabitualCore = window.HabitualCore || {};
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + core.idFromName(name),
         name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
-        dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, logs: backfilledLogs
+        dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, updatedAt: Date.now(), logs: backfilledLogs
       };
       if (colorTheme) {
         newHabit.colorTheme = colorTheme;

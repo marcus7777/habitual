@@ -437,7 +437,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit.colorTheme) {
       const normTheme = habit.colorTheme.startsWith('#') ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
       const normDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
-      if (normTheme !== normDerived) h.colorTheme = habit.colorTheme;
+      if (normTheme !== normDerived || (habit.sharing && habit.sharing.enabled)) h.colorTheme = habit.colorTheme;
     }
 
     if (habit.type && habit.type !== 'positive') h.type = habit.type;
@@ -658,7 +658,7 @@ window.HabitualCore = window.HabitualCore || {};
     });
   };
 
-  core.saveState = function() {
+  core.saveState = function(skipRemoteSync) {
     const payload = core.getPayloadFromState();
     const payloadStr = JSON.stringify(payload);
 
@@ -673,12 +673,14 @@ window.HabitualCore = window.HabitualCore || {};
     // Persist to active driver (IndexedDB or LocalStorage)
     const driver = core.getDriver();
     driver.setItem(core.STORAGE_KEY, payloadStr).then(function() {
-      // Synchronize all shared habits to Firebase at the exact same time
-      if (core.SyncTargets && core.SyncTargets.Firestore && typeof core.SyncTargets.Firestore.syncAllSharedHabits === 'function') {
-        core.SyncTargets.Firestore.syncAllSharedHabits();
-      }
-      if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
-        core.SyncManager.broadcastWriteDebounced(payload, 300);
+      if (!skipRemoteSync) {
+        // Synchronize all shared habits to Firebase at the exact same time
+        if (core.SyncTargets && core.SyncTargets.Firestore && typeof core.SyncTargets.Firestore.syncAllSharedHabits === 'function') {
+          core.SyncTargets.Firestore.syncAllSharedHabits();
+        }
+        if (core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
+          core.SyncManager.broadcastWriteDebounced(payload, 300);
+        }
       }
     }).catch(function(err) {
       console.error('Failed to save state to driver:', err);
@@ -706,18 +708,22 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.saveHabit = function(habit) {
+    if (habit) habit.updatedAt = Date.now();
     // Always update local storage and Firebase at the exact same time
     core.saveState();
+    let firestorePromise = Promise.resolve(true);
     if (core.SyncTargets && core.SyncTargets.Firestore && habit && habit.sharing && habit.sharing.enabled) {
-      core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(e) {
+      firestorePromise = core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(e) {
         console.warn('Auto upload per-habit backup on saveHabit error:', e);
       });
     }
     const driver = core.getDriver();
     if (driver && typeof driver.saveHabit === 'function') {
-      return Promise.resolve(driver.saveHabit(habit));
+      return firestorePromise.then(function() {
+        return driver.saveHabit(habit);
+      });
     }
-    return Promise.resolve(true);
+    return firestorePromise;
   };
 
   core.saveSettings = function(settings) {
@@ -1015,6 +1021,7 @@ window.HabitualCore = window.HabitualCore || {};
     const todayStr = core.getTodayKey ? core.getTodayKey() : '';
     const payload = {
       habitId: habit.id,
+      updatedAt: habit.updatedAt || Date.now(),
       name: habit.name,
       type: habit.type || 'positive',
       description: habit.description || '',
@@ -1030,7 +1037,7 @@ window.HabitualCore = window.HabitualCore || {};
       customTarget: habit.customTarget || 1,
       customInterval: habit.customInterval || 3,
       customUnit: habit.customUnit || 'days',
-      colorTheme: habit.colorTheme || undefined,
+      colorTheme: habit.colorTheme || (core.getHabitHexColor ? core.getHabitHexColor(habit) : undefined),
       showStreak: habit.showStreak,
       showCount: habit.showCount,
       showDuration: habit.showDuration,
@@ -1066,7 +1073,7 @@ window.HabitualCore = window.HabitualCore || {};
           customTarget: child.customTarget || 1,
           customInterval: child.customInterval || 3,
           customUnit: child.customUnit || 'days',
-          colorTheme: child.colorTheme || undefined,
+          colorTheme: child.colorTheme || (core.getHabitHexColor ? core.getHabitHexColor(child) : undefined),
           showStreak: child.showStreak,
           showCount: child.showCount,
           showDuration: child.showDuration,
@@ -1082,32 +1089,8 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
 
-  // --- SYNC TARGET CLIENTS (P2P, Google Drive, Dropbox, WebDAV) ---
+  // --- SYNC TARGET CLIENTS (Google Drive, Dropbox, WebDAV) ---
   core.SyncTargets = {
-    P2P: {
-      connectedChannel: null,
-      code: null,
-      initSession: function() {
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        this.code = code;
-        return {
-          code: code,
-          qrData: 'habitual-sync:' + code
-        };
-      },
-      connectWithCode: function(targetCode) {
-        this.code = targetCode;
-        return Promise.resolve({ success: true, connectedCode: targetCode });
-      },
-      sendPayload: function(encryptedString) {
-        if (this.connectedChannel && this.connectedChannel.readyState === 'open') {
-          this.connectedChannel.send(encryptedString);
-          return Promise.resolve(true);
-        }
-        return Promise.resolve(false);
-      }
-    },
-
     // --- FIRESTORE E2EE CLOUD SYNC (collection: habit_data) ---
     Firestore: {
       db: null,
@@ -1433,7 +1416,7 @@ window.HabitualCore = window.HabitualCore || {};
             const mergedStr = JSON.stringify(merged.habits || []);
 
             core.applyPayloadToState(merged);
-            core.saveState();
+            core.saveState(true);
             if (core.renderAll) core.renderAll();
 
             if (currentStr !== mergedStr && core.showToast) {
@@ -1632,7 +1615,8 @@ window.HabitualCore = window.HabitualCore || {};
                 }
 
                 if (updated) {
-                  core.saveState();
+                  targetHabit.updatedAt = remoteHabit.updatedAt || ((data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : Date.now());
+                  core.saveState(true);
                   if (core.renderAll) core.renderAll();
                   if (core.showToast) core.showToast(`⚡ Shared habit "${targetHabit.name}" updated!`, 'info');
                 }
@@ -1890,13 +1874,13 @@ window.HabitualCore = window.HabitualCore || {};
 
     _broadcastTimer: null,
 
-    broadcastWriteDebounced: function(payload, delay) {
+    broadcastWriteDebounced: function(customPayload, delay) {
       const self = this;
       const waitTime = typeof delay === 'number' ? delay : 600;
       if (this._broadcastTimer) clearTimeout(this._broadcastTimer);
       this._broadcastTimer = setTimeout(function() {
         self._broadcastTimer = null;
-        self.broadcastWrite(payload || core.getPayloadFromState());
+        self.broadcastWrite(core.getPayloadFromState());
       }, waitTime);
     },
 
@@ -1905,9 +1889,6 @@ window.HabitualCore = window.HabitualCore || {};
       if (this.settings.enabledTargets.length === 0) return;
 
       core.E2EE.encrypt(payload, this.settings.passphrase).then(function(encrypted) {
-        if (self.isTargetEnabled('p2p')) {
-          core.SyncTargets.P2P.sendPayload(encrypted);
-        }
         if (self.isTargetEnabled('firestore')) {
           core.SyncTargets.Firestore.uploadBackup(encrypted).catch(e => console.warn('Firestore Sync Error:', e));
         }
