@@ -708,6 +708,11 @@ window.HabitualCore = window.HabitualCore || {};
   core.saveHabit = function(habit) {
     // Always update local storage and Firebase at the exact same time
     core.saveState();
+    if (core.SyncTargets && core.SyncTargets.Firestore && habit && habit.sharing && habit.sharing.enabled) {
+      core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(e) {
+        console.warn('Auto upload per-habit backup on saveHabit error:', e);
+      });
+    }
     const driver = core.getDriver();
     if (driver && typeof driver.saveHabit === 'function') {
       return Promise.resolve(driver.saveHabit(habit));
