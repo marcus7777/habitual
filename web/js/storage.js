@@ -917,15 +917,8 @@ window.HabitualCore = window.HabitualCore || {};
       });
     };
 
-    const localIsNewer = (localPayload.updatedAt || 0) >= (remotePayload.updatedAt || 0);
-
-    if (localIsNewer) {
-      processHabitList(localPayload.habits, false);
-      processHabitList(remotePayload.habits, true);
-    } else {
-      processHabitList(remotePayload.habits, true);
-      processHabitList(localPayload.habits, false);
-    }
+    processHabitList(localPayload.habits, false);
+    processHabitList(remotePayload.habits, true);
 
     merged.habits = Array.from(habitMap.values());
     return merged;
@@ -1483,7 +1476,7 @@ window.HabitualCore = window.HabitualCore || {};
               const data = doc.data();
               if (!data || !data.ciphertext) return;
 
-              const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)));
+              const targetHabit = core.state.habits.find(h => (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)) || h.id === habitId);
               const remoteHash = data.hashOfdata || data.hashOfData || data.dataHash || data.data_hash || data.hash;
 
               if (remoteHash && targetHabit) {
@@ -1496,7 +1489,7 @@ window.HabitualCore = window.HabitualCore || {};
 
               core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remoteHabit) {
                 if (!remoteHabit) return;
-                const targetHabit = core.state.habits.find(h => h.id === habitId || (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)));
+                const targetHabit = core.state.habits.find(h => (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)) || h.id === habitId);
                 if (!targetHabit) return;
 
                 let updated = false;

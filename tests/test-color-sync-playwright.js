@@ -294,8 +294,9 @@ async function runColorSyncPlaywrightTests() {
       await page2.waitForTimeout(300);
       actualSharedDevice2Color = await page2.evaluate((docId) => {
         const h = window.HabitualCore.state.habits.find(x => x.sharing && (x.sharing.collection === docId || x.sharing.docId === docId));
-        return h ? h.colorTheme : null;
+        return h ? window.HabitualCore.getHabitHexColor(h) : null;
       }, SHARED_DOC_ID);
+
       if (actualSharedDevice2Color === '#8E24AA') {
         sharedColorUpdatedOnDevice2 = true;
         break;

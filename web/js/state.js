@@ -437,7 +437,15 @@ window.HabitualCore = window.HabitualCore || {};
         btn.classList.remove('is-saving');
         btn.classList.add('just-saved');
         setTimeout(() => {
-          if (btn && btn.classList) btn.classList.remove('just-saved');
+          if (btn && btn.classList) {
+            btn.classList.remove('just-saved');
+            btn.querySelectorAll('.quick-add-pop-badge').forEach(el => el.remove());
+          }
+          if (core.patchUI) {
+            core.patchUI(habitId, dateKey);
+          } else if (core.updateHabitCard) {
+            core.updateHabitCard(habitId);
+          }
         }, 450);
       }
     };

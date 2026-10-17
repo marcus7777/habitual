@@ -220,6 +220,86 @@ async function runQuickAddResponsivenessPlaywrightTests() {
     logResult('Firestore Cloud Sync Quick Log UI Latency <100ms', firestoreMetrics.durationMs < 100, `(${firestoreMetrics.durationMs.toFixed(2)}ms, count=${firestoreMetrics.count})`);
     passedTests++;
 
+    // TEST 5: Post-Animation State Matches Fresh Page Reload State Exactly
+    console.log('\n🔄 TEST 5: Verifying Quick Add Button Post-Animation State Matches Post-Page Reload State...');
+    await page.evaluate(async () => {
+      const h2 = {
+        id: 'reload_sync_habit_1',
+        name: 'Reload Sync Habit',
+        type: 'positive',
+        dailyTarget: 1,
+        colorTheme: '#33B679',
+        createdAt: '2026-10-01',
+        updatedAt: Date.now(),
+        logs: {}
+      };
+      window.HabitualCore.state.habits.push(h2);
+      if (window.HabitualCore.saveHabit) await window.HabitualCore.saveHabit(h2);
+      if (window.HabitualCore.saveState) window.HabitualCore.saveState();
+      window.HabitualCore.renderAll();
+    });
+
+    await page.waitForSelector('.heatmap-card[data-habit-id="reload_sync_habit_1"]');
+
+    // Click quick log on reload_sync_habit_1
+    await page.click('.heatmap-card[data-habit-id="reload_sync_habit_1"] .btn-card-quick-log');
+
+    // Wait 600ms for saving spinner and success pop animation to complete
+    await page.waitForTimeout(600);
+
+    const postAnimationState = await page.evaluate(() => {
+      const btn = document.querySelector('.heatmap-card[data-habit-id="reload_sync_habit_1"] .btn-card-quick-log');
+      return {
+        className: btn.className,
+        dataGoalMet: btn.getAttribute('data-goal-met'),
+        iconHTML: btn.querySelector('.quick-log-icon') ? btn.querySelector('.quick-log-icon').innerHTML.trim() : '',
+        isSaving: btn.classList.contains('is-saving'),
+        justSaved: btn.classList.contains('just-saved'),
+        hasBadge: Boolean(btn.querySelector('.quick-add-pop-badge'))
+      };
+    });
+
+    totalTests++;
+    logResult('Animation Cleared .is-saving and .just-saved Classes', !postAnimationState.isSaving && !postAnimationState.justSaved);
+    passedTests++;
+
+    totalTests++;
+    logResult('Floating Badge Removed Post-Animation', !postAnimationState.hasBadge);
+    passedTests++;
+
+    // Now reload page to get fresh render state from storage
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForSelector('.heatmap-card[data-habit-id="reload_sync_habit_1"]');
+
+    const postReloadState = await page.evaluate(() => {
+      const btn = document.querySelector('.heatmap-card[data-habit-id="reload_sync_habit_1"] .btn-card-quick-log');
+      return {
+        className: btn.className,
+        dataGoalMet: btn.getAttribute('data-goal-met'),
+        iconHTML: btn.querySelector('.quick-log-icon') ? btn.querySelector('.quick-log-icon').innerHTML.trim() : '',
+        isSaving: btn.classList.contains('is-saving'),
+        justSaved: btn.classList.contains('just-saved'),
+        hasBadge: Boolean(btn.querySelector('.quick-add-pop-badge'))
+      };
+    });
+
+    totalTests++;
+    const classNamesMatch = postAnimationState.className === postReloadState.className;
+    logResult('Button ClassName Matches Post-Reload State', classNamesMatch, `("${postAnimationState.className}" === "${postReloadState.className}")`);
+    passedTests++;
+
+    totalTests++;
+    const goalMetMatch = postAnimationState.dataGoalMet === postReloadState.dataGoalMet;
+    logResult('Button data-goal-met Matches Post-Reload State', goalMetMatch, `("${postAnimationState.dataGoalMet}" === "${postReloadState.dataGoalMet}")`);
+    passedTests++;
+
+    totalTests++;
+    const iconsMatch = postAnimationState.iconHTML === postReloadState.iconHTML;
+    logResult('Button Icon HTML Matches Post-Reload State', iconsMatch);
+    passedTests++;
+    passedTests++;
+
     console.log(`\n========================================`);
     console.log(`🎉 QUICK ADD RESPONSIVENESS TEST PASSED: ${passedTests}/${totalTests} Passed!`);
     console.log(`========================================\n`);
