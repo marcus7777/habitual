@@ -389,17 +389,13 @@ window.HabitualCore = window.HabitualCore || {};
       btn = document.querySelector(`.btn-card-quick-log[data-habit-id="${habitId}"], .widget-quick-log-btn[data-action-habit-id="${habitId}"], .quick-log-btn[data-action-habit-id="${habitId}"]`);
     }
 
-    // Spawn floating +1 badge animation
+    // Spawn subtle floating +1 badge for instant feedback
     if (btn && btn.appendChild) {
       const badge = document.createElement('span');
       badge.className = 'quick-add-pop-badge';
       badge.textContent = '+1';
       btn.appendChild(badge);
-      setTimeout(() => { if (badge.parentNode) badge.parentNode.removeChild(badge); }, 700);
-    }
-
-    if (btn && btn.classList) {
-      btn.classList.add('is-saving');
+      setTimeout(() => { if (badge.parentNode) badge.parentNode.removeChild(badge); }, 500);
     }
 
     if (!habit.logs) habit.logs = {};
@@ -422,46 +418,20 @@ window.HabitualCore = window.HabitualCore || {};
       core.showToast(`⏳ Pre-logged "${habit.name}" for ${core.formatPrettyDate(dateKey)}! We'll double-check with you on that day.`, 'info');
     }
 
-    // 1. Optimistically patch UI first via surgical DOM diffing
+    // 1. Instantly patch UI synchronously
     if (core.patchUI && core.patchUI(habitId, dateKey)) {
-      // Surgical DOM update completed without full layout re-render
+      // Surgical DOM update completed instantly
     } else if (core.updateHabitCard && core.updateHabitCard(habitId)) {
       // Habit card updated
     } else if (core.renderAll) {
       core.renderAll();
     }
 
-    // Handle async save Promise for 3D spin state resolution
-    const handleSaveDone = () => {
-      if (btn && btn.classList) {
-        btn.classList.remove('is-saving');
-        btn.classList.add('just-saved');
-        setTimeout(() => {
-          if (btn && btn.classList) {
-            btn.classList.remove('just-saved');
-            btn.querySelectorAll('.quick-add-pop-badge').forEach(el => el.remove());
-          }
-          if (core.patchUI) {
-            core.patchUI(habitId, dateKey);
-          } else if (core.updateHabitCard) {
-            core.updateHabitCard(habitId);
-          }
-        }, 450);
-      }
-    };
-
-    let savePromise = null;
-    // 2. Persist to storage asynchronously
+    // 2. Persist to storage asynchronously in background
     if (core.saveLog) {
-      savePromise = core.saveLog(habitId, dateKey, newCount, currentNote, logObj.unverified);
+      core.saveLog(habitId, dateKey, newCount, currentNote, logObj.unverified);
     } else if (core.saveState) {
-      savePromise = core.saveState();
-    }
-
-    if (savePromise && typeof savePromise.then === 'function') {
-      savePromise.then(handleSaveDone).catch(handleSaveDone);
-    } else {
-      setTimeout(handleSaveDone, 120);
+      core.saveState();
     }
 
     if (core.checkPendingVerifications) {

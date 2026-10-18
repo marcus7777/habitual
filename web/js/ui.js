@@ -116,6 +116,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.initUI = function() {
+    if (!core.elements) core.elements = {};
     core.mouseX = -1;
     core.mouseY = -1;
 
@@ -123,7 +124,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.heatmapsGallery = document.getElementById('heatmaps-gallery');
     core.elements.customTooltip = document.getElementById('custom-tooltip');
 
-    if (typeof window !== 'undefined' && window.addEventListener) {
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('scroll', () => { if (core.elements.customTooltip && !core.elements.customTooltip.classList.contains('hidden')) core.elements.customTooltip.classList.add('hidden'); }, { passive: true });
       window.addEventListener('resize', () => { if (core.elements.customTooltip && !core.elements.customTooltip.classList.contains('hidden')) core.elements.customTooltip.classList.add('hidden'); }, { passive: true });
       window.addEventListener('mousemove', (e) => {
@@ -182,7 +183,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.modalLogNote = document.getElementById('modal-log-note');
     core.elements.modalLogShowOnStartup = document.getElementById('modal-log-show-on-startup');
 
-    if (core.elements.modalLogDateInput) {
+    if (core.elements.modalLogDateInput && typeof core.elements.modalLogDateInput.addEventListener === 'function') {
       core.elements.modalLogDateInput.addEventListener('change', (e) => {
         if (e.target.value) { core.activeLogDateKey = e.target.value; core.loadLogModalValues(); }
       });
@@ -190,11 +191,11 @@ window.HabitualCore = window.HabitualCore || {};
 
     const btnDatePrev = document.getElementById('btn-modal-date-prev');
     const btnDateNext = document.getElementById('btn-modal-date-next');
-    if (btnDatePrev) btnDatePrev.addEventListener('click', () => core.shiftModalLogDate(-1));
-    if (btnDateNext) btnDateNext.addEventListener('click', () => core.shiftModalLogDate(1));
+    if (btnDatePrev && typeof btnDatePrev.addEventListener === 'function') btnDatePrev.addEventListener('click', () => core.shiftModalLogDate(-1));
+    if (btnDateNext && typeof btnDateNext.addEventListener === 'function') btnDateNext.addEventListener('click', () => core.shiftModalLogDate(1));
 
     const btnIcsReminder = document.getElementById('btn-modal-ics-reminder');
-    if (btnIcsReminder) {
+    if (btnIcsReminder && typeof btnIcsReminder.addEventListener === 'function') {
       btnIcsReminder.addEventListener('click', () => {
         const habitId = core.elements.modalLogHabitSelect ? core.elements.modalLogHabitSelect.value : null;
         const habit = core.state.habits.find(h => h.id === habitId);
@@ -202,7 +203,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (core.elements.modalLogShowOnStartup) {
+    if (core.elements.modalLogShowOnStartup && typeof core.elements.modalLogShowOnStartup.addEventListener === 'function') {
       core.elements.modalLogShowOnStartup.addEventListener('change', (e) => {
         core.state.showQuickLogOnStartup = e.target.checked;
         if (core.saveState) core.saveState();
@@ -218,14 +219,14 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.habitHistoryFrequency = document.getElementById('habit-history-frequency');
     core.elements.habitHistoryInstances = document.getElementById('habit-history-instances');
 
-    if (core.elements.habitEnableBackfill && core.elements.backfillOptionsContainer) {
+    if (core.elements.habitEnableBackfill && typeof core.elements.habitEnableBackfill.addEventListener === 'function' && core.elements.backfillOptionsContainer) {
       core.elements.habitEnableBackfill.addEventListener('change', (e) => {
         if (e.target.checked) core.elements.backfillOptionsContainer.classList.remove('hidden');
         else core.elements.backfillOptionsContainer.classList.add('hidden');
       });
     }
 
-    if (core.elements.calendarColorSelect) {
+    if (core.elements.calendarColorSelect && typeof core.elements.calendarColorSelect.addEventListener === 'function') {
       core.elements.calendarColorSelect.addEventListener('change', (e) => {
         const hex = e.target.value;
         if (hex) {
@@ -238,7 +239,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (core.elements.customColorPicker) {
+    if (core.elements.customColorPicker && typeof core.elements.customColorPicker.addEventListener === 'function') {
       core.elements.customColorPicker.addEventListener('input', (e) => {
         const color = e.target.value;
         if (core.elements.customColorHex) core.elements.customColorHex.value = color;
@@ -249,7 +250,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (core.elements.customColorHex) {
+    if (core.elements.customColorHex && typeof core.elements.customColorHex.addEventListener === 'function') {
       core.elements.customColorHex.addEventListener('input', (e) => {
         let val = e.target.value.trim();
         if (core.parseHexColor(val)) {
@@ -264,32 +265,36 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const modalCalendarClose = document.getElementById('modal-calendar-close');
-    if (modalCalendarClose) modalCalendarClose.addEventListener('click', () => {
+    if (modalCalendarClose && typeof modalCalendarClose.addEventListener === 'function') modalCalendarClose.addEventListener('click', () => {
       if (core.elements.modalCalendarPicker) core.elements.modalCalendarPicker.classList.add('hidden');
       core.toggleModalScrollLock(false);
     });
 
     const btnCalendarCancel = document.getElementById('btn-calendar-cancel');
-    if (btnCalendarCancel) btnCalendarCancel.addEventListener('click', () => {
+    if (btnCalendarCancel && typeof btnCalendarCancel.addEventListener === 'function') btnCalendarCancel.addEventListener('click', () => {
       if (core.elements.modalCalendarPicker) core.elements.modalCalendarPicker.classList.add('hidden');
       core.toggleModalScrollLock(false);
     });
 
-    document.querySelectorAll('.quick-date-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const daysAgo = parseInt(btn.dataset.daysAgo, 10) || 0;
-        const targetDateKey = core.getDaysAgoKey(daysAgo);
-        core.elements.modalCalendarPicker.classList.add('hidden');
-        core.openLogModal(targetDateKey, core.activeCalendarHabit ? core.activeCalendarHabit.id : null);
+    if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
+      document.querySelectorAll('.quick-date-btn').forEach(btn => {
+        if (btn && typeof btn.addEventListener === 'function') {
+          btn.addEventListener('click', () => {
+            const daysAgo = parseInt(btn.dataset.daysAgo, 10) || 0;
+            const targetDateKey = core.getDaysAgoKey(daysAgo);
+            if (core.elements.modalCalendarPicker) core.elements.modalCalendarPicker.classList.add('hidden');
+            core.openLogModal(targetDateKey, core.activeCalendarHabit ? core.activeCalendarHabit.id : null);
+          });
+        }
       });
-    });
+    }
 
     const btnCalendarSubmit = document.getElementById('btn-calendar-submit');
-    if (btnCalendarSubmit) {
+    if (btnCalendarSubmit && typeof btnCalendarSubmit.addEventListener === 'function') {
       btnCalendarSubmit.addEventListener('click', () => {
-        const customDateVal = core.elements.calendarInputDate.value;
+        const customDateVal = core.elements.calendarInputDate ? core.elements.calendarInputDate.value : '';
         if (customDateVal) {
-          core.elements.modalCalendarPicker.classList.add('hidden');
+          if (core.elements.modalCalendarPicker) core.elements.modalCalendarPicker.classList.add('hidden');
           core.openLogModal(customDateVal, core.activeCalendarHabit ? core.activeCalendarHabit.id : null);
         }
       });
@@ -309,7 +314,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.btnHeaderMenu = document.getElementById('btn-header-menu');
     core.elements.headerMenuContent = document.getElementById('header-menu-content');
 
-    if (core.elements.btnHeaderMenu && core.elements.headerMenuContent) {
+    if (core.elements.btnHeaderMenu && typeof core.elements.btnHeaderMenu.addEventListener === 'function' && core.elements.headerMenuContent) {
       core.elements.btnHeaderMenu.addEventListener('click', (e) => {
         e.stopPropagation();
         const isHidden = core.elements.headerMenuContent.classList.toggle('hidden');
@@ -324,50 +329,49 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const menuAddHabit = document.getElementById('menu-btn-add-habit');
-    if (menuAddHabit) menuAddHabit.addEventListener('click', () => { if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden'); core.openHabitModal(); });
+    if (menuAddHabit && typeof menuAddHabit.addEventListener === 'function') menuAddHabit.addEventListener('click', () => { if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden'); core.openHabitModal(); });
 
     const menuQuickLog = document.getElementById('menu-btn-quick-log');
-    if (menuQuickLog) menuQuickLog.addEventListener('click', () => {
+    if (menuQuickLog && typeof menuQuickLog.addEventListener === 'function') menuQuickLog.addEventListener('click', () => {
       if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
       const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
       core.openLogModal(targetDate);
     });
 
     const menuWidgets = document.getElementById('menu-btn-open-widgets');
-    if (menuWidgets) menuWidgets.addEventListener('click', () => {
+    if (menuWidgets && typeof menuWidgets.addEventListener === 'function') menuWidgets.addEventListener('click', () => {
       if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
       core.openWidgetsModal();
     });
 
     const menuDataModal = document.getElementById('menu-btn-data-modal');
-    if (menuDataModal) menuDataModal.addEventListener('click', () => {
-    if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
-    core.elements.modalData.classList.remove('hidden');
-    core.toggleModalScrollLock(true);
-    core.state.selectedYear = core.CURRENT_YEAR;
-    if (core.renderAll) core.renderAll();
+    if (menuDataModal && typeof menuDataModal.addEventListener === 'function') menuDataModal.addEventListener('click', () => {
+      if (core.elements.headerMenuContent) core.elements.headerMenuContent.classList.add('hidden');
+      if (core.elements.modalData) core.elements.modalData.classList.remove('hidden');
+      core.toggleModalScrollLock(true);
+      core.state.selectedYear = core.CURRENT_YEAR;
+      if (core.renderAll) core.renderAll();
 
-    // Explicitly update select and toggle the sync panel when the modal opens
-    if (selectStorageEngine) {
-      selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
-    }
-    if (typeof toggleOrbitDBSyncPanel === 'function') {
-        toggleOrbitDBSyncPanel();
-    }
-  });
+      if (selectStorageEngine) {
+        selectStorageEngine.value = core.activeStorageEngine || 'localStorage';
+      }
+      if (typeof toggleOrbitDBSyncPanel === 'function') {
+          toggleOrbitDBSyncPanel();
+      }
+    });
 
     const modalHabitClose = document.getElementById('modal-habit-close');
-    if (modalHabitClose) modalHabitClose.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden'); core.toggleModalScrollLock(false); });
+    if (modalHabitClose && typeof modalHabitClose.addEventListener === 'function') modalHabitClose.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden'); core.toggleModalScrollLock(false); });
 
     const btnCancelHabit = document.getElementById('btn-cancel-habit');
-    if (btnCancelHabit) btnCancelHabit.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden'); core.toggleModalScrollLock(false); });
+    if (btnCancelHabit && typeof btnCancelHabit.addEventListener === 'function') btnCancelHabit.addEventListener('click', () => { core.pendingQuickLogAfterHabit = false; if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden'); core.toggleModalScrollLock(false); });
 
-    if (core.elements.modalPauseClose) core.elements.modalPauseClose.addEventListener('click', () => core.closePauseModal());
-    if (core.elements.btnCancelPause) core.elements.btnCancelPause.addEventListener('click', () => core.closePauseModal());
-    if (core.elements.btnConfirmPause) core.elements.btnConfirmPause.addEventListener('click', () => core.handleConfirmPause());
+    if (core.elements.modalPauseClose && typeof core.elements.modalPauseClose.addEventListener === 'function') core.elements.modalPauseClose.addEventListener('click', () => core.closePauseModal());
+    if (core.elements.btnCancelPause && typeof core.elements.btnCancelPause.addEventListener === 'function') core.elements.btnCancelPause.addEventListener('click', () => core.closePauseModal());
+    if (core.elements.btnConfirmPause && typeof core.elements.btnConfirmPause.addEventListener === 'function') core.elements.btnConfirmPause.addEventListener('click', () => core.handleConfirmPause());
 
     const formPause = document.getElementById('form-pause-habit');
-    if (formPause) {
+    if (formPause && typeof formPause.addEventListener === 'function') {
       formPause.addEventListener('submit', (e) => {
         e.preventDefault();
         core.handleConfirmPause();
@@ -375,13 +379,16 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const modalLogClose = document.getElementById('modal-log-close');
-    if (modalLogClose) modalLogClose.addEventListener('click', () => { if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden'); core.toggleModalScrollLock(false); });
+    if (modalLogClose && typeof modalLogClose.addEventListener === 'function') modalLogClose.addEventListener('click', () => { if (core.elements.modalLog) core.elements.modalLog.classList.add('hidden'); core.toggleModalScrollLock(false); });
 
     const modalDataClose = document.getElementById('modal-data-close');
-    if (modalDataClose) modalDataClose.addEventListener('click', () => { if (core.elements.modalData) core.elements.modalData.classList.add('hidden'); core.toggleModalScrollLock(false); });
+    if (modalDataClose && typeof modalDataClose.addEventListener === 'function') modalDataClose.addEventListener('click', () => { if (core.elements.modalData) core.elements.modalData.classList.add('hidden'); core.toggleModalScrollLock(false); });
 
     const toastCloseBtn = document.getElementById('toast-close');
-    if (toastCloseBtn) toastCloseBtn.addEventListener('click', () => document.getElementById('toast-banner').classList.add('hidden'));
+    if (toastCloseBtn && typeof toastCloseBtn.addEventListener === 'function') toastCloseBtn.addEventListener('click', () => {
+      const banner = document.getElementById('toast-banner');
+      if (banner) banner.classList.add('hidden');
+    });
 
     const handleCSVUpload = (e) => {
       const file = e.target.files[0];
@@ -396,30 +403,30 @@ window.HabitualCore = window.HabitualCore || {};
     };
 
     const inputModalCsv = document.getElementById('input-modal-csv');
-    if (inputModalCsv) inputModalCsv.addEventListener('change', handleCSVUpload);
+    if (inputModalCsv && typeof inputModalCsv.addEventListener === 'function') inputModalCsv.addEventListener('change', handleCSVUpload);
 
-    if (core.elements.formHabit) core.elements.formHabit.addEventListener('submit', core.handleHabitFormSubmit);
+    if (core.elements.formHabit && typeof core.elements.formHabit.addEventListener === 'function') core.elements.formHabit.addEventListener('submit', core.handleHabitFormSubmit);
 
     const btnCounterMinus = document.getElementById('btn-counter-minus');
-    if (btnCounterMinus) btnCounterMinus.addEventListener('click', () => {
-      let val = parseInt(core.elements.modalLogCount.value, 10) || 0;
-      if (val > 0) core.elements.modalLogCount.value = val - 1;
+    if (btnCounterMinus && typeof btnCounterMinus.addEventListener === 'function') btnCounterMinus.addEventListener('click', () => {
+      let val = parseInt(core.elements.modalLogCount ? core.elements.modalLogCount.value : 0, 10) || 0;
+      if (val > 0 && core.elements.modalLogCount) core.elements.modalLogCount.value = val - 1;
     });
 
     const btnCounterPlus = document.getElementById('btn-counter-plus');
-    if (btnCounterPlus) btnCounterPlus.addEventListener('click', () => {
-      let val = parseInt(core.elements.modalLogCount.value, 10) || 0;
-      core.elements.modalLogCount.value = val + 1;
+    if (btnCounterPlus && typeof btnCounterPlus.addEventListener === 'function') btnCounterPlus.addEventListener('click', () => {
+      let val = parseInt(core.elements.modalLogCount ? core.elements.modalLogCount.value : 0, 10) || 0;
+      if (core.elements.modalLogCount) core.elements.modalLogCount.value = val + 1;
     });
 
     const btnSaveLog = document.getElementById('btn-save-log');
-    if (btnSaveLog) btnSaveLog.addEventListener('click', core.handleSaveLog);
+    if (btnSaveLog && typeof btnSaveLog.addEventListener === 'function') btnSaveLog.addEventListener('click', core.handleSaveLog);
 
     const btnHeaderVerify = document.getElementById('btn-header-verify-checkin');
-    if (btnHeaderVerify) btnHeaderVerify.addEventListener('click', () => core.openVerifyLogsModal());
+    if (btnHeaderVerify && typeof btnHeaderVerify.addEventListener === 'function') btnHeaderVerify.addEventListener('click', () => core.openVerifyLogsModal());
 
     const btnVerifyAll = document.getElementById('btn-verify-all');
-    if (btnVerifyAll) btnVerifyAll.addEventListener('click', () => core.verifyAllLogs());
+    if (btnVerifyAll && typeof btnVerifyAll.addEventListener === 'function') btnVerifyAll.addEventListener('click', () => core.verifyAllLogs());
 
     const btnVerifyLater = document.getElementById('btn-verify-later');
     const modalVerifyClose = document.getElementById('modal-verify-close');
@@ -428,10 +435,10 @@ window.HabitualCore = window.HabitualCore || {};
       if (modalVerifyEl) modalVerifyEl.classList.add('hidden');
       core.toggleModalScrollLock(false);
     };
-    if (btnVerifyLater) btnVerifyLater.addEventListener('click', closeVerifyModal);
-    if (modalVerifyClose) modalVerifyClose.addEventListener('click', closeVerifyModal);
+    if (btnVerifyLater && typeof btnVerifyLater.addEventListener === 'function') btnVerifyLater.addEventListener('click', closeVerifyModal);
+    if (modalVerifyClose && typeof modalVerifyClose.addEventListener === 'function') modalVerifyClose.addEventListener('click', closeVerifyModal);
 
-    if (core.elements.yearSelector) {
+    if (core.elements.yearSelector && typeof core.elements.yearSelector.addEventListener === 'function') {
       core.elements.yearSelector.addEventListener('change', (e) => {
         core.state.selectedYear = parseInt(e.target.value, 10);
         if (core.renderAll) core.renderAll();
@@ -446,7 +453,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const btnMigrateEngine = document.getElementById('btn-migrate-engine');
-    if (btnMigrateEngine) {
+    if (btnMigrateEngine && typeof btnMigrateEngine.addEventListener === 'function') {
       btnMigrateEngine.addEventListener('click', function() {
         const target = selectStorageEngine ? selectStorageEngine.value : 'localStorage';
         if (target === core.activeStorageEngine) {
@@ -525,11 +532,11 @@ window.HabitualCore = window.HabitualCore || {};
     updatePassphraseStatusUI();
     updateSyncPagePassphraseAndQRUI();
 
-    if (inputPassphrase) {
+    if (inputPassphrase && typeof inputPassphrase.addEventListener === 'function') {
       inputPassphrase.addEventListener('input', updateSyncPagePassphraseAndQRUI);
     }
 
-    if (btnToggleShowPassphrase && inputPassphrase) {
+    if (btnToggleShowPassphrase && inputPassphrase && typeof btnToggleShowPassphrase.addEventListener === 'function') {
       btnToggleShowPassphrase.addEventListener('click', () => {
         const isPassword = inputPassphrase.type === 'password';
         inputPassphrase.type = isPassword ? 'text' : 'password';
@@ -538,7 +545,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnGenPassphrase && inputPassphrase) {
+    if (btnGenPassphrase && inputPassphrase && typeof btnGenPassphrase.addEventListener === 'function') {
       btnGenPassphrase.addEventListener('click', () => {
         const strongPwd = core.generateRandomPassword ? core.generateRandomPassword(20) : Math.random().toString(36).slice(-10);
         inputPassphrase.value = strongPwd;
@@ -551,7 +558,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const btnSavePassphrase = document.getElementById('btn-save-passphrase');
-    if (btnSavePassphrase && inputPassphrase) {
+    if (btnSavePassphrase && inputPassphrase && typeof btnSavePassphrase.addEventListener === 'function') {
       btnSavePassphrase.addEventListener('click', () => {
         const val = inputPassphrase.value.trim();
         if (!val) {
@@ -600,7 +607,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
     updateFirestoreCodeUIState();
 
-    if (chkFirestore) {
+    if (chkFirestore && typeof chkFirestore.addEventListener === 'function') {
       chkFirestore.addEventListener('change', (e) => {
         if (e.target.checked) {
           const currentPassphrase = core.SyncManager.settings.passphrase;
@@ -632,7 +639,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (inputFirestoreCode) {
+    if (inputFirestoreCode && typeof inputFirestoreCode.addEventListener === 'function') {
       inputFirestoreCode.addEventListener('input', () => {
         updateFirestoreCopyBtnVisibility();
       });
@@ -670,7 +677,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnSaveFirestoreCode && inputFirestoreCode) {
+    if (btnSaveFirestoreCode && inputFirestoreCode && typeof btnSaveFirestoreCode.addEventListener === 'function') {
       btnSaveFirestoreCode.addEventListener('click', () => {
         const val = inputFirestoreCode.value.trim();
         if (!val) {
@@ -704,7 +711,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnGenFirestoreCode && inputFirestoreCode) {
+    if (btnGenFirestoreCode && inputFirestoreCode && typeof btnGenFirestoreCode.addEventListener === 'function') {
       btnGenFirestoreCode.addEventListener('click', () => {
         const currentPassphrase = core.SyncManager.settings.passphrase;
         if (!currentPassphrase || currentPassphrase.trim().length === 0) {
@@ -727,7 +734,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnCopyFirestoreCode && inputFirestoreCode) {
+    if (btnCopyFirestoreCode && inputFirestoreCode && typeof btnCopyFirestoreCode.addEventListener === 'function') {
       btnCopyFirestoreCode.addEventListener('click', () => {
         if (!inputFirestoreCode.value) return;
         navigator.clipboard.writeText(inputFirestoreCode.value).then(() => {
@@ -737,7 +744,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const btnFirestoreChirpCode = document.getElementById('btn-firestore-chirp-code');
-    if (btnFirestoreChirpCode) {
+    if (btnFirestoreChirpCode && typeof btnFirestoreChirpCode.addEventListener === 'function') {
       btnFirestoreChirpCode.addEventListener('click', () => {
         const code = (inputFirestoreCode ? inputFirestoreCode.value.trim() : '') || (core.SyncTargets && core.SyncTargets.Firestore ? core.SyncTargets.Firestore.getSyncCode() : '');
         if (code) {
@@ -752,7 +759,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const btnFirestoreChirpListen = document.getElementById('btn-firestore-chirp-listen');
-    if (btnFirestoreChirpListen && inputFirestoreCode) {
+    if (btnFirestoreChirpListen && inputFirestoreCode && typeof btnFirestoreChirpListen.addEventListener === 'function') {
       btnFirestoreChirpListen.addEventListener('click', () => {
         const origText = btnFirestoreChirpListen.textContent;
         btnFirestoreChirpListen.disabled = true;
@@ -828,7 +835,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (acousticStatusLabel) acousticStatusLabel.textContent = label || `${percent}%`;
     };
 
-    if (btnBroadcastDelta) {
+    if (btnBroadcastDelta && typeof btnBroadcastDelta.addEventListener === 'function') {
       btnBroadcastDelta.addEventListener('click', () => {
         btnBroadcastDelta.disabled = true;
         updateAcousticProgress(0, 'Broadcasting Delta Sound...');
@@ -847,7 +854,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnBroadcastFull) {
+    if (btnBroadcastFull && typeof btnBroadcastFull.addEventListener === 'function') {
       btnBroadcastFull.addEventListener('click', () => {
         btnBroadcastFull.disabled = true;
         updateAcousticProgress(0, 'Broadcasting Full Sound...');
@@ -866,7 +873,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnAcousticReceive) {
+    if (btnAcousticReceive && typeof btnAcousticReceive.addEventListener === 'function') {
       btnAcousticReceive.addEventListener('click', () => {
         btnAcousticReceive.disabled = true;
 
@@ -894,11 +901,9 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-
-
     // Manual Trigger Sync
     const btnTriggerSync = document.getElementById('btn-trigger-sync');
-    if (btnTriggerSync) {
+    if (btnTriggerSync && typeof btnTriggerSync.addEventListener === 'function') {
       btnTriggerSync.addEventListener('click', () => {
         core.SyncManager.pullAndMergeAll().then((res) => {
           if (!res.merged && core.showToast) {
@@ -921,13 +926,13 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const btnExportJson = document.getElementById('btn-export-json');
-    if (btnExportJson) btnExportJson.addEventListener('click', core.exportDataJSON);
+    if (btnExportJson && typeof btnExportJson.addEventListener === 'function') btnExportJson.addEventListener('click', core.exportDataJSON);
 
     const inputImportJson = document.getElementById('input-import-json');
-    if (inputImportJson) inputImportJson.addEventListener('change', core.importDataJSON);
+    if (inputImportJson && typeof inputImportJson.addEventListener === 'function') inputImportJson.addEventListener('change', core.importDataJSON);
 
     const btnResetData = document.getElementById('btn-reset-data');
-    if (btnResetData) btnResetData.addEventListener('click', () => {
+    if (btnResetData && typeof btnResetData.addEventListener === 'function') btnResetData.addEventListener('click', () => {
       if (confirm('Are you sure you want to delete ALL habits and history? This cannot be undone.')) {
         localStorage.removeItem(core.STORAGE_KEY);
         core.state.habits = [];
@@ -1032,7 +1037,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
     };
 
-    if (btnUp) {
+    if (btnUp && typeof btnUp.addEventListener === 'function') {
       btnUp.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1041,7 +1046,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnDown) {
+    if (btnDown && typeof btnDown.addEventListener === 'function') {
       btnDown.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1050,7 +1055,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnLeft) {
+    if (btnLeft && typeof btnLeft.addEventListener === 'function') {
       btnLeft.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1059,7 +1064,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnRight) {
+    if (btnRight && typeof btnRight.addEventListener === 'function') {
       btnRight.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1068,7 +1073,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnToday) {
+    if (btnToday && typeof btnToday.addEventListener === 'function') {
       btnToday.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1079,20 +1084,20 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
-    if (btnAction) {
+    if (btnAction && typeof btnAction.addEventListener === 'function') {
       btnAction.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         triggerHaptic();
         const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : (core.getTodayKey ? core.getTodayKey() : '');
-        const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) || core.hoveredCard || (core.elements && core.elements.heatmapsGallery ? core.elements.heatmapsGallery.querySelector('.heatmap-card') : null);
+        const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) || core.hoveredCard || (core.elements && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.querySelector === 'function' ? core.elements.heatmapsGallery.querySelector('.heatmap-card') : null);
         if (hoveredCard) {
           const quickLogBtn = hoveredCard.querySelector('.btn-card-quick-log');
-          if (quickLogBtn) {
+          if (quickLogBtn && typeof quickLogBtn.click === 'function') {
             quickLogBtn.click();
           } else {
-            const habitId = hoveredCard.getAttribute('data-habit-id') || hoveredCard.getAttribute('data-habit-id-raw');
-            if (habitId && habitId !== 'all') {
+            const habitId = hoveredCard.getAttribute ? (hoveredCard.getAttribute('data-habit-id') || hoveredCard.getAttribute('data-habit-id-raw')) : null;
+            if (habitId && habitId !== 'all' && core.openLogModal) {
               core.toggleHabitForDate(habitId, targetDate);
             } else if (core.openLogModal) {
               core.openLogModal(targetDate);
@@ -1188,7 +1193,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.showCursorTooltip = function(autoHideMs = 1200) {
-    if (!core.elements || !core.elements.heatmapsGallery) return;
+    if (!core.elements || !core.elements.heatmapsGallery || typeof core.elements.heatmapsGallery.querySelectorAll !== 'function') return;
 
     const allCursorSquares = Array.from(core.elements.heatmapsGallery.querySelectorAll('.day-square.cursor-day'));
     if (allCursorSquares.length === 0) return;
@@ -1252,7 +1257,7 @@ window.HabitualCore = window.HabitualCore || {};
   core.attachHeatmapSquareEvents = function() {
     // SINGLE DELEGATED EVENT LISTENER ON THE GALLERY CONTAINER
     const gallery = core.elements.heatmapsGallery;
-    if (gallery._eventsAttached) return; // Prevent attaching multiple times
+    if (!gallery || typeof gallery.addEventListener !== 'function' || gallery._eventsAttached) return; // Prevent attaching multiple times
     gallery._eventsAttached = true;
 
     let longPressTimer = null, startX = 0, startY = 0;
@@ -1483,14 +1488,16 @@ window.HabitualCore = window.HabitualCore || {};
        }
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-menu-toggle').forEach(btn => {
+    const safeQueryGallery = (sel) => (core.elements && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.querySelectorAll === 'function') ? core.elements.heatmapsGallery.querySelectorAll(sel) : [];
+
+    safeQueryGallery('.btn-card-menu-toggle').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const dropdown = btn.closest('.card-context-menu-dropdown');
         if (!dropdown) return;
         const menu = dropdown.querySelector('.card-menu-content');
         if (!menu) return;
-        core.elements.heatmapsGallery.querySelectorAll('.card-menu-content').forEach(m => {
+        safeQueryGallery('.card-menu-content').forEach(m => {
           if (m !== menu) {
             m.classList.add('hidden');
             const otherCard = m.closest('.heatmap-card');
@@ -1507,7 +1514,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.drag-handle').forEach(handle => {
+    safeQueryGallery('.drag-handle').forEach(handle => {
       let arrowsWasOpen = false;
 
       handle.addEventListener('pointerdown', () => {
@@ -1523,7 +1530,7 @@ window.HabitualCore = window.HabitualCore || {};
         const arrows = container.querySelector('.drag-arrows');
         if (!arrows) return;
 
-        core.elements.heatmapsGallery.querySelectorAll('.drag-arrows').forEach(arr => {
+        safeQueryGallery('.drag-arrows').forEach(arr => {
           if (arr !== arrows) arr.classList.add('hidden');
         });
 
@@ -1542,7 +1549,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.drag-arrows').forEach(arrows => {
+    safeQueryGallery('.drag-arrows').forEach(arrows => {
       arrows.addEventListener('focusout', (e) => {
         const container = arrows.closest('.drag-handle-container');
         if (e.relatedTarget && container && container.contains(e.relatedTarget)) {
@@ -1552,7 +1559,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-move-up, .btn-move-down').forEach(btn => {
+    safeQueryGallery('.btn-move-up, .btn-move-down').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -1587,17 +1594,17 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.card-context-menu-dropdown') && core.elements.heatmapsGallery) {
-        core.elements.heatmapsGallery.querySelectorAll('.card-menu-content').forEach(m => m.classList.add('hidden'));
-        core.elements.heatmapsGallery.querySelectorAll('.heatmap-card.menu-open').forEach(c => c.classList.remove('menu-open'));
-        core.elements.heatmapsGallery.querySelectorAll('.heatmap-group-wrapper.menu-open').forEach(w => w.classList.remove('menu-open'));
+      if (!e.target.closest('.card-context-menu-dropdown') && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.querySelectorAll === 'function') {
+        safeQueryGallery('.card-menu-content').forEach(m => m.classList.add('hidden'));
+        safeQueryGallery('.heatmap-card.menu-open').forEach(c => c.classList.remove('menu-open'));
+        safeQueryGallery('.heatmap-group-wrapper.menu-open').forEach(w => w.classList.remove('menu-open'));
       }
-      if (!e.target.closest('.drag-handle-container') && core.elements.heatmapsGallery) {
-        core.elements.heatmapsGallery.querySelectorAll('.drag-arrows').forEach(arr => arr.classList.add('hidden'));
+      if (!e.target.closest('.drag-handle-container') && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.querySelectorAll === 'function') {
+        safeQueryGallery('.drag-arrows').forEach(arr => arr.classList.add('hidden'));
       }
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-add-sub').forEach(btn => {
+    safeQueryGallery('.btn-card-add-sub').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const menu = btn.closest('.card-menu-content');
@@ -1610,7 +1617,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-edit').forEach(btn => {
+    safeQueryGallery('.btn-card-edit').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const menu = btn.closest('.card-menu-content');
@@ -1624,7 +1631,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-download-svg').forEach(btn => {
+    safeQueryGallery('.btn-card-download-svg').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const menu = btn.closest('.card-menu-content');
@@ -1639,7 +1646,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-pause').forEach(btn => {
+    safeQueryGallery('.btn-card-pause').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const menu = btn.closest('.card-menu-content');
@@ -1666,7 +1673,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-delete').forEach(btn => {
+    safeQueryGallery('.btn-card-delete').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const menu = btn.closest('.card-menu-content');
@@ -1679,7 +1686,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-toggle-concertina, .btn-put-away').forEach(btn => {
+    safeQueryGallery('.btn-toggle-concertina, .btn-put-away').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -1688,25 +1695,11 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-quick-log').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const habitId = btn.dataset.habitId;
-
-        if (!habitId) return;
-
-        const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
-
-        core.toggleHabitForDate(habitId, targetDate, btn);
-      });
-    });
-
-    core.elements.heatmapsGallery.querySelectorAll('.card-title-link').forEach(el => {
+    safeQueryGallery('.card-title-link').forEach(el => {
       el.addEventListener('click', (e) => e.stopPropagation());
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-stop-sharing').forEach(btn => {
+    safeQueryGallery('.btn-card-stop-sharing').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const habitId = btn.dataset.habitId;
@@ -1714,7 +1707,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    core.elements.heatmapsGallery.querySelectorAll('.btn-card-share').forEach(btn => {
+    safeQueryGallery('.btn-card-share').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const habitId = btn.dataset.habitId;
@@ -1813,7 +1806,9 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.attachCardDragAndDropHandlers = function() {
     let draggedHabitId = null;
-    const cards = core.elements.heatmapsGallery.querySelectorAll('.heatmap-card.draggable-card');
+    const gallery = core.elements.heatmapsGallery;
+    if (!gallery || typeof gallery.querySelectorAll !== 'function') return;
+    const cards = gallery.querySelectorAll('.heatmap-card.draggable-card');
     cards.forEach(card => {
       card.addEventListener('dragstart', (e) => {
         draggedHabitId = card.dataset.habitId;
@@ -1923,7 +1918,11 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.openHabitModal = function(habitToEdit = null, defaultParentId = null) {
-    if (core.elements.formHabit) core.elements.formHabit.reset();
+    if (!core.elements || (!core.elements.habitModal && !core.elements.modalHabit)) {
+      if (core.initUI) core.initUI();
+    }
+    const formEl = (core.elements && core.elements.formHabit) ? core.elements.formHabit : document.getElementById('form-habit');
+    if (formEl && typeof formEl.reset === 'function') formEl.reset();
     const selectedParentId = habitToEdit ? (habitToEdit.parentId || '') : (defaultParentId || '');
     const parentSelect = document.getElementById('habit-parent');
     if (parentSelect) parentSelect.innerHTML = core.buildParentSelectOptions(habitToEdit ? habitToEdit.id : null, selectedParentId);
@@ -2009,7 +2008,8 @@ window.HabitualCore = window.HabitualCore || {};
         if (mColorChk) mColorChk.checked = habitToEdit.colorWholeMonth !== false;
       } else if (freqType === 'specific_days') {
         const targetDays = habitToEdit.targetDays || [1, 3, 5];
-        const checkboxes = core.elements.formHabit.querySelectorAll('input[name="target-days"]');
+        const formEl = core.elements.formHabit || document.getElementById('form-habit');
+        const checkboxes = (formEl && typeof formEl.querySelectorAll === 'function') ? formEl.querySelectorAll('input[name="target-days"]') : [];
         checkboxes.forEach(chk => { chk.checked = targetDays.includes(parseInt(chk.value, 10)); });
         const colorChk = document.getElementById('habit-specific-color-whole-week');
         if (colorChk) colorChk.checked = habitToEdit.colorWholeWeek !== false;
@@ -2031,7 +2031,8 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.habitHistoryFrequency) core.elements.habitHistoryFrequency.value = 'frequent';
       if (core.elements.habitHistoryInstances) core.elements.habitHistoryInstances.value = '1';
 
-      const typeRadio = core.elements.formHabit.querySelector(`input[name="habit-type"][value="${habitToEdit.type || 'positive'}"]`);
+      const formEl = core.elements.formHabit || document.getElementById('form-habit');
+      const typeRadio = (formEl && typeof formEl.querySelector === 'function') ? formEl.querySelector(`input[name="habit-type"][value="${habitToEdit.type || 'positive'}"]`) : null;
       if (typeRadio) typeRadio.checked = true;
 
       const rawColor = habitToEdit.colorTheme || core.getDefaultColorForId(habitToEdit.id);
@@ -2181,7 +2182,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    const typeRadios = core.elements.formHabit ? core.elements.formHabit.querySelectorAll('input[name="habit-type"]') : [];
+    const typeRadios = (core.elements.formHabit && typeof core.elements.formHabit.querySelectorAll === 'function') ? core.elements.formHabit.querySelectorAll('input[name="habit-type"]') : [];
     typeRadios.forEach(radio => { radio.onchange = core.updateBackfillWordingUI; });
     core.updateBackfillWordingUI();
     updateParentDependencyUI();
@@ -2252,8 +2253,9 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.updateColorDropdownDefault = function(derivedIdOrName) {
-    const derivedColor = core.getDefaultColorForId(derivedIdOrName || 'default');
-    const normalizedDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
+    const derivedColor = (typeof core.getDefaultColorForId === 'function') ? core.getDefaultColorForId(derivedIdOrName || 'default') : '#33B679';
+    const normFn = (typeof core.normalizeHex === 'function') ? core.normalizeHex : function(x) { return x; };
+    const normalizedDerived = derivedColor.startsWith('#') ? normFn(derivedColor) : derivedColor;
     const select = document.getElementById('habit-calendar-color-select');
     if (!select || !select.options) return normalizedDerived;
 
@@ -2323,7 +2325,8 @@ window.HabitualCore = window.HabitualCore || {};
     if (excludeId) core.getAllDescendantIds(excludeId).forEach(id => invalidIds.add(id));
 
     function appendHabitOptions(parentId = null, depth = 0) {
-      const children = core.state.habits.filter(h => (h.parentId || null) === parentId);
+      const habitsList = (core.state && core.state.habits) ? core.state.habits : [];
+      const children = habitsList.filter(h => (h.parentId || null) === parentId);
       children.forEach(h => {
         if (invalidIds.has(h.id)) return;
         const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
@@ -2339,7 +2342,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.updateBackfillWordingUI = function() {
-    const typeRadio = core.elements.formHabit ? core.elements.formHabit.querySelector('input[name="habit-type"]:checked') : null;
+    const typeRadio = (core.elements.formHabit && typeof core.elements.formHabit.querySelector === 'function') ? core.elements.formHabit.querySelector('input[name="habit-type"]:checked') : (typeof document !== 'undefined' && typeof document.querySelector === 'function' ? document.querySelector('input[name="habit-type"]:checked') : null);
     const isNegative = typeRadio ? typeRadio.value === 'negative' : false;
 
     const titleEl = document.getElementById('backfill-checkbox-title');
@@ -2385,25 +2388,38 @@ window.HabitualCore = window.HabitualCore || {};
 
     const id = getVal('habit-id') || (document.getElementById('habit-id') ? document.getElementById('habit-id').value : '');
     const name = (getVal('habit-name') || (document.getElementById('habit-name') ? document.getElementById('habit-name').value : '')).trim();
-    const typeRadio = formEl ? formEl.querySelector('input[name="habit-type"]:checked') : null;
+    const typeRadio = (formEl && typeof formEl.querySelector === 'function') ? formEl.querySelector('input[name="habit-type"]:checked') : null;
     const type = typeRadio ? typeRadio.value : (getVal('habit-type') || 'positive');
     const description = (getVal('habit-description') || (document.getElementById('habit-description') ? document.getElementById('habit-description').value : '')).trim();
     const category = (getVal('habit-category') || (document.getElementById('habit-category') ? document.getElementById('habit-category').value : '')).trim();
     const dailyTargetInput = document.getElementById('habit-daily-target');
     const dailyTarget = parseInt(getVal('habit-daily-target') || (dailyTargetInput ? dailyTargetInput.value : '1'), 10) || 1;
-    const colorRadio = formEl ? formEl.querySelector('input[name="habit-color"]:checked') : null;
+    const colorRadio = (formEl && typeof formEl.querySelector === 'function') ? formEl.querySelector('input[name="habit-color"]:checked') : null;
     const selectedColorRadio = colorRadio ? colorRadio.value : (getVal('habit-color') || 'green');
     const parentIdVal = (getVal('habit-parent') || (document.getElementById('habit-parent') ? document.getElementById('habit-parent').value : '')).trim();
     const parentId = parentIdVal ? parentIdVal : null;
     const parentDepSelect = document.getElementById('habit-parent-dependency');
     const parentDependency = parentId ? (getVal('habit-parent-dependency') || (parentDepSelect ? parentDepSelect.value : 'none')) : 'none';
-    const showStreak = core.elements.habitShowStreak ? core.elements.habitShowStreak.checked : hasVal('habit-show-streak');
-    const showCount = core.elements.habitShowCount ? core.elements.habitShowCount.checked : (hasVal('habit-show-count') || true);
-    const showDuration = core.elements.habitShowDuration ? core.elements.habitShowDuration.checked : hasVal('habit-show-duration');
-    const hideFromAll = core.elements.habitHideFromAll ? core.elements.habitHideFromAll.checked : hasVal('habit-hide-from-all');
-    const isPaused = core.elements.habitIsPaused ? core.elements.habitIsPaused.checked : hasVal('habit-is-paused');
-    const hideHeatmapWhenPaused = core.elements.habitHideHeatmapWhenPaused ? core.elements.habitHideHeatmapWhenPaused.checked : hasVal('habit-hide-heatmap-when-paused');
-    const hideHeatmap = core.elements.habitHideHeatmap ? core.elements.habitHideHeatmap.checked : hasVal('habit-hide-heatmap');
+    const showStreakInput = core.elements.habitShowStreak || document.getElementById('habit-show-streak');
+    const showStreak = (showStreakInput && typeof showStreakInput.checked === 'boolean') ? showStreakInput.checked : hasVal('habit-show-streak');
+
+    const showCountInput = core.elements.habitShowCount || document.getElementById('habit-show-count');
+    const showCount = (showCountInput && typeof showCountInput.checked === 'boolean') ? showCountInput.checked : (hasVal('habit-show-count') || true);
+
+    const showDurationInput = core.elements.habitShowDuration || document.getElementById('habit-show-duration');
+    const showDuration = (showDurationInput && typeof showDurationInput.checked === 'boolean') ? showDurationInput.checked : hasVal('habit-show-duration');
+
+    const hideFromAllInput = core.elements.habitHideFromAll || document.getElementById('habit-hide-from-all');
+    const hideFromAll = (hideFromAllInput && typeof hideFromAllInput.checked === 'boolean') ? hideFromAllInput.checked : hasVal('habit-hide-from-all');
+
+    const isPausedInput = core.elements.habitIsPaused || document.getElementById('habit-is-paused');
+    const isPaused = (isPausedInput && typeof isPausedInput.checked === 'boolean') ? isPausedInput.checked : hasVal('habit-is-paused');
+
+    const hideHeatmapWhenPausedInput = core.elements.habitHideHeatmapWhenPaused || document.getElementById('habit-hide-heatmap-when-paused');
+    const hideHeatmapWhenPaused = (hideHeatmapWhenPausedInput && typeof hideHeatmapWhenPausedInput.checked === 'boolean') ? hideHeatmapWhenPausedInput.checked : hasVal('habit-hide-heatmap-when-paused');
+
+    const hideHeatmapInput = core.elements.habitHideHeatmap || document.getElementById('habit-hide-heatmap');
+    const hideHeatmap = (hideHeatmapInput && typeof hideHeatmapInput.checked === 'boolean') ? hideHeatmapInput.checked : hasVal('habit-hide-heatmap');
 
     const freqSelect = document.getElementById('habit-frequency-type');
     const freqType = getVal('habit-frequency-type') || (freqSelect ? freqSelect.value : 'daily');
@@ -2421,7 +2437,7 @@ window.HabitualCore = window.HabitualCore || {};
       const chk = document.getElementById('habit-color-whole-month');
       colorWholeMonth = chk ? chk.checked : hasVal('habit-color-whole-month');
     } else if (freqType === 'specific_days') {
-      const checkedBtns = formEl ? Array.from(formEl.querySelectorAll('input[name="target-days"]:checked')) : [];
+      const checkedBtns = (formEl && typeof formEl.querySelectorAll === 'function') ? Array.from(formEl.querySelectorAll('input[name="target-days"]:checked')) : [];
       targetDays = checkedBtns.map(cb => parseInt(cb.value, 10));
       if (targetDays.length === 0) targetDays = [1];
       weeklyTarget = targetDays.length;
@@ -2440,13 +2456,17 @@ window.HabitualCore = window.HabitualCore || {};
     const pickerInput = document.getElementById('habit-custom-color-picker');
     const pickerVal = (pickerInput && pickerInput.value) ? pickerInput.value : (getVal('habit-custom-color-picker') || '');
 
-    const derivedIdKey = id || (parentId ? parentId + '_' : '') + core.idFromName(name) || name || 'default';
-    const derivedDefaultColor = core.getDefaultColorForId(derivedIdKey);
-    const normalizedDerived = derivedDefaultColor.startsWith('#') ? core.normalizeHex(derivedDefaultColor) : derivedDefaultColor;
+    const idFn = (typeof core.idFromName === 'function') ? core.idFromName : function(n) { return 'habit_' + String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+    const derivedIdKey = id || (parentId ? parentId + '_' : '') + idFn(name) || name || 'default';
+    const defaultColorFn = (typeof core.getDefaultColorForId === 'function') ? core.getDefaultColorForId : function() { return '#33B679'; };
+    const derivedDefaultColor = defaultColorFn(derivedIdKey);
+    const normFn = (typeof core.normalizeHex === 'function') ? core.normalizeHex : function(x) { return x; };
+    const normalizedDerived = derivedDefaultColor.startsWith('#') ? normFn(derivedDefaultColor) : derivedDefaultColor;
 
     const chosenColor = calVal || hexVal || pickerVal;
-    let colorTheme = (chosenColor && core.parseHexColor(chosenColor))
-      ? core.normalizeHex(chosenColor)
+    const parseHexFn = (typeof core.parseHexColor === 'function') ? core.parseHexColor : function(x) { return x; };
+    let colorTheme = (chosenColor && parseHexFn(chosenColor))
+      ? normFn(chosenColor)
       : normalizedDerived;
 
     if (colorTheme && colorTheme.toUpperCase() === normalizedDerived.toUpperCase()) {
@@ -2536,7 +2556,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
     } else {
       let backfilledLogs = {};
-      let createdAtKey = core.getTodayKey();
+      let createdAtKey = (typeof core.getTodayKey === 'function') ? core.getTodayKey() : new Date().toISOString().split('T')[0];
       if (core.elements.habitEnableBackfill && core.elements.habitEnableBackfill.checked) {
         const durationVal = (core.elements.habitHistoryStartDate && core.elements.habitHistoryStartDate.value) ? core.elements.habitHistoryStartDate.value : (core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30');
         const frequencyVal = core.elements.habitHistoryFrequency ? core.elements.habitHistoryFrequency.value : 'frequent';
@@ -2545,9 +2565,11 @@ window.HabitualCore = window.HabitualCore || {};
         backfilledLogs = result.logs;
         createdAtKey = result.startDateKey;
       }
+      const idGen = (typeof core.idFromName === 'function') ? core.idFromName : function(n) { return 'habit_' + String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      const todayKeyGen = (typeof core.getTodayKey === 'function') ? core.getTodayKey : function() { return new Date().toISOString().split('T')[0]; };
       const newHabit = {
-        id: (parentId ? parentId + '_' : '') + core.idFromName(name),
-        name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: core.getTodayKey(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
+        id: (parentId ? parentId + '_' : '') + idGen(name),
+        name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: todayKeyGen(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, updatedAt: Date.now(), logs: backfilledLogs
       };
       if (colorTheme) {
@@ -2557,6 +2579,8 @@ window.HabitualCore = window.HabitualCore || {};
         newHabit.sharing = sharingConfig;
       }
       savedTargetHabit = newHabit;
+      if (!core.state) core.state = { habits: [] };
+      if (!Array.isArray(core.state.habits)) core.state.habits = [];
       core.state.habits.push(newHabit);
       core.state.selectedHabitId = newHabit.id;
     }

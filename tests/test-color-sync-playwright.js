@@ -249,7 +249,6 @@ async function runColorSyncPlaywrightTests() {
     console.log('  -> Device 2 joining shared habit via shared URL hash & confirming modal...');
     await page2.evaluate(({ docId, pass }) => {
       window.location.hash = `#share?col=${docId}&pwd=${pass}`;
-      window.HabitualCore.checkURLHashForSharedHabit();
     }, { docId: SHARED_DOC_ID, pass: SHARED_PASS });
 
     // Wait for the modal to load the remote habit payload from Firestore

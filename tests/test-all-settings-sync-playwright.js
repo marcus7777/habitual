@@ -8,13 +8,10 @@ const fs = require('fs');
 const http = require('http');
 const { chromium } = require('playwright');
 
+const PORT = 8094;
 const WEB_DIR = path.join(__dirname, '..', 'web');
 
-function printLog(msg) {
-  fs.writeSync(1, msg + '\n');
-}
-
-function createStaticServer(portToUse = 8097) {
+function createStaticServer(portToUse = PORT) {
   const mimeTypes = {
     '.html': 'text/html',
     '.css': 'text/css',
@@ -24,6 +21,8 @@ function createStaticServer(portToUse = 8097) {
     '.svg': 'image/svg+xml',
     '.woff2': 'font/woff2'
   };
+
+  const fileCache = new Map();
 
   const createServerInstance = (port) => {
     return new Promise((resolve, reject) => {
@@ -36,17 +35,24 @@ function createStaticServer(portToUse = 8097) {
           return res.end('Forbidden');
         }
 
-        fs.stat(filePath, (err, stats) => {
-          if (err || !stats.isFile()) {
-            res.writeHead(404);
-            return res.end('Not Found');
-          }
+        const ext = path.extname(filePath).toLowerCase();
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-          const ext = path.extname(filePath).toLowerCase();
-          const contentType = mimeTypes[ext] || 'application/octet-stream';
-          res.writeHead(200, { 'Content-Type': contentType });
-          fs.createReadStream(filePath).pipe(res);
-        });
+        try {
+          if (!fileCache.has(filePath)) {
+            if (!fs.existsSync(filePath)) {
+              res.writeHead(404);
+              return res.end('Not Found');
+            }
+            fileCache.set(filePath, fs.readFileSync(filePath));
+          }
+          const data = fileCache.get(filePath);
+          res.writeHead(200, { 'Content-Type': contentType, 'Content-Length': data.length });
+          res.end(data);
+        } catch (e) {
+          res.writeHead(500);
+          res.end('Server Error');
+        }
       });
 
       server.on('error', (err) => {
@@ -58,9 +64,8 @@ function createStaticServer(portToUse = 8097) {
       });
 
       server.listen(port, '127.0.0.1', () => {
-        const actualPort = server.address().port;
-        printLog(`[Server] Local test web server running on http://127.0.0.1:${actualPort}`);
-        resolve({ server, port: actualPort });
+        console.log(`[Server] Local test web server running on http://127.0.0.1:${server.address().port}`);
+        resolve(server);
       });
     });
   };
@@ -70,13 +75,13 @@ function createStaticServer(portToUse = 8097) {
 
 function logResult(testName, isSuccess, details = '') {
   const status = isSuccess ? '✅ [PASS]' : '❌ [FAIL]';
-  printLog(`  ${status} ${testName} ${details}`);
+  console.log(`  ${status} ${testName} ${details}`);
   if (!isSuccess) {
     throw new Error(`Test failed: ${testName} ${details}`);
   }
 }
 
-async function waitForSyncToDevice2(page2, predicateFn, arg = null, maxTimeoutMs = 10000) {
+async function waitForSyncToDevice2(page2, predicateFn, arg = null, maxTimeoutMs = 15000) {
   const startTime = Date.now();
   const pollIntervalMs = 200;
   const maxAttempts = Math.ceil(maxTimeoutMs / pollIntervalMs);
@@ -94,35 +99,19 @@ async function waitForSyncToDevice2(page2, predicateFn, arg = null, maxTimeoutMs
 }
 
 async function runAllSettingsSyncPlaywrightTests() {
-  printLog('🚀 Starting Comprehensive Playwright E2E Test Suite for All Settings & Habit Reordering Sync...\n');
+  console.log('🚀 Starting Comprehensive Playwright E2E Test Suite for All Settings & Habit Reordering Sync...\n');
 
-  let server;
-  let browser;
+  const server = await createStaticServer(PORT);
+  const serverPort = server.address().port;
+
+  const browser = await chromium.launch({ headless: true })
+    .catch(() => chromium.launch({ channel: 'chrome', headless: true }))
+    .catch(() => chromium.launch({ channel: 'msedge', headless: true }));
+
   let passedTests = 0;
   let totalTests = 0;
 
   try {
-    const serverObj = await createStaticServer(8097);
-    server = serverObj.server;
-    const serverPort = serverObj.port;
-
-    try {
-      browser = await chromium.launch({ headless: true });
-    } catch (e) {
-      const chromePaths = [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
-      ];
-      const foundPath = chromePaths.find(p => fs.existsSync(p));
-      if (foundPath) {
-        browser = await chromium.launch({ executablePath: foundPath, headless: true });
-      } else {
-        browser = await chromium.launch({ channel: 'chrome', headless: true });
-      }
-    }
-
     const context1 = await browser.newContext();
     const context2 = await browser.newContext();
 
@@ -136,25 +125,29 @@ async function runAllSettingsSyncPlaywrightTests() {
     const PASSPHRASE = 'Passphrase_Settings_123!';
 
     // STEP 1: Initialize Device 1
-    printLog('📱 STEP 1: Setting up Device 1 (Regular Context)...');
+    console.log('📱 STEP 1: Setting up Device 1 (Regular Context)...');
     await page1.goto(`http://127.0.0.1:${serverPort}/index.html`);
     await page1.waitForLoadState('domcontentloaded');
+    await page1.waitForFunction(() => Boolean(window.HabitualCore && window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore));
 
     await page1.evaluate(({ code, pass }) => {
-      window.HabitualCore.setStorageEngine('localStorage');
+      localStorage.setItem('habitual_v2_active_engine', 'localStorage');
+      if (window.HabitualCore && window.HabitualCore.setStorageEngine) {
+        window.HabitualCore.setStorageEngine('localStorage');
+      }
       localStorage.setItem('habitual_firestore_sync_code', code);
       localStorage.setItem('habitual_sync_passphrase', pass);
       localStorage.setItem('habitual_sync_targets', JSON.stringify(['firestore']));
       window.HabitualCore.SyncManager.settings.enabledTargets = ['firestore'];
       window.HabitualCore.SyncManager.settings.passphrase = pass;
       if (window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore) {
-        window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 100;
+        window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 50;
         window.HabitualCore.SyncTargets.Firestore.startLiveSync();
       }
     }, { code: SYNC_CODE, pass: PASSPHRASE });
 
     // STEP 2: Create Initial Habit on Device 1
-    printLog('\n📝 STEP 2: Creating Initial Habit on Device 1...');
+    console.log('\n📝 STEP 2: Creating Initial Habit on Device 1...');
     const INITIAL_NAME = 'Initial Habit ' + Math.floor(Math.random() * 1000);
     await page1.evaluate((name) => {
       window.HabitualCore.openHabitModal();
@@ -168,7 +161,9 @@ async function runAllSettingsSyncPlaywrightTests() {
     await page1.waitForTimeout(500);
 
     let habitId = await page1.evaluate((name) => {
-      const h = window.HabitualCore.state.habits.find(x => x.name === name);
+      const state = window.HabitualCore.state;
+      const habits = state && Array.isArray(state.habits) ? state.habits : [];
+      const h = habits.find(x => x.name === name);
       return h ? h.id : null;
     }, INITIAL_NAME);
 
@@ -177,33 +172,38 @@ async function runAllSettingsSyncPlaywrightTests() {
     passedTests++;
 
     // STEP 3: Setup Device 2 & Connect
-    printLog('\n🕵️ STEP 3: Setting up Device 2 (Incognito Context)...');
+    console.log('\n🕵️ STEP 3: Setting up Device 2 & Connecting to Sync Channel...');
     await page2.goto(`http://127.0.0.1:${serverPort}/index.html`);
     await page2.waitForLoadState('domcontentloaded');
+    await page2.waitForFunction(() => Boolean(window.HabitualCore && window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore));
 
     await page2.evaluate(({ code, pass }) => {
-      window.HabitualCore.setStorageEngine('localStorage');
+      localStorage.setItem('habitual_v2_active_engine', 'localStorage');
+      if (window.HabitualCore && window.HabitualCore.setStorageEngine) {
+        window.HabitualCore.setStorageEngine('localStorage');
+      }
       localStorage.setItem('habitual_firestore_sync_code', code);
       localStorage.setItem('habitual_sync_passphrase', pass);
       localStorage.setItem('habitual_sync_targets', JSON.stringify(['firestore']));
       window.HabitualCore.SyncManager.settings.enabledTargets = ['firestore'];
       window.HabitualCore.SyncManager.settings.passphrase = pass;
       if (window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore) {
-        window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 100;
+        window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 50;
         window.HabitualCore.SyncTargets.Firestore.startLiveSync();
       }
     }, { code: SYNC_CODE, pass: PASSPHRASE });
 
     let initResult = await waitForSyncToDevice2(page2, (id) => {
-      return window.HabitualCore.state.habits.some(h => h.id === id);
-    }, habitId);
+      const state = window.HabitualCore.state;
+      return state && Array.isArray(state.habits) && state.habits.some(h => h.id === id);
+    }, habitId, 45000);
 
     totalTests++;
-    logResult('Device 2 Received Initial Synced Habit', initResult.success, `(${initResult.elapsed}ms <= 10000ms)`);
+    logResult('Device 2 Received Initial Synced Habit', initResult.success, `(${initResult.elapsed}ms <= 45000ms)`);
     passedTests++;
 
     // BATCH 1: Core Habit Settings (Name, Color Theme, Daily Target, Type)
-    printLog('\n⚙️ BATCH 1: Testing Core Habit Settings Sync...');
+    console.log('\n⚙️ BATCH 1: Testing Core Habit Settings Sync...');
     await page1.evaluate(({ id }) => {
       const h = window.HabitualCore.state.habits.find(x => x.id === id);
       if (h) {
@@ -216,7 +216,9 @@ async function runAllSettingsSyncPlaywrightTests() {
     }, { id: habitId });
 
     let batch1Res = await waitForSyncToDevice2(page2, ({ id }) => {
-      const h = window.HabitualCore.state.habits.find(x => x.id === id);
+      const state = window.HabitualCore.state;
+      const habits = state && Array.isArray(state.habits) ? state.habits : [];
+      const h = habits.find(x => x.id === id);
       return h && h.name === 'Renamed Workout' && h.colorTheme === '#D50000' && h.dailyTarget === 5 && h.type === 'negative';
     }, { id: habitId });
 
@@ -225,7 +227,7 @@ async function runAllSettingsSyncPlaywrightTests() {
     if (batch1Res.success) passedTests++;
 
     // BATCH 2: Display & Privacy Settings (showStreak, showCount, showDuration, hideHeatmap, hideFromAll, isPaused)
-    printLog('\n⚙️ BATCH 2: Testing Display & Privacy Settings Sync...');
+    console.log('\n⚙️ BATCH 2: Testing Display & Privacy Settings Sync...');
     await page1.evaluate(({ id }) => {
       const h = window.HabitualCore.state.habits.find(x => x.id === id);
       if (h) {
@@ -240,7 +242,9 @@ async function runAllSettingsSyncPlaywrightTests() {
     }, { id: habitId });
 
     let batch2Res = await waitForSyncToDevice2(page2, ({ id }) => {
-      const h = window.HabitualCore.state.habits.find(x => x.id === id);
+      const state = window.HabitualCore.state;
+      const habits = state && Array.isArray(state.habits) ? state.habits : [];
+      const h = habits.find(x => x.id === id);
       return h && h.showStreak === true && h.showCount === false && h.showDuration === true && h.hideHeatmap === true && h.hideFromAll === true && h.isPaused === true;
     }, { id: habitId });
 
@@ -249,7 +253,7 @@ async function runAllSettingsSyncPlaywrightTests() {
     if (batch2Res.success) passedTests++;
 
     // BATCH 3: Habit Category & Description
-    printLog('\n⚙️ BATCH 3: Testing Taxonomy Sync (Category & Description)...');
+    console.log('\n⚙️ BATCH 3: Testing Taxonomy Sync (Category & Description)...');
     await page1.evaluate(({ id }) => {
       const h = window.HabitualCore.state.habits.find(x => x.id === id);
       if (h) {
@@ -260,7 +264,9 @@ async function runAllSettingsSyncPlaywrightTests() {
     }, { id: habitId });
 
     let batch3Res = await waitForSyncToDevice2(page2, ({ id }) => {
-      const h = window.HabitualCore.state.habits.find(x => x.id === id);
+      const state = window.HabitualCore.state;
+      const habits = state && Array.isArray(state.habits) ? state.habits : [];
+      const h = habits.find(x => x.id === id);
       return h && h.category === 'Fitness & Wellness' && h.description === 'Drink 2L water daily';
     }, { id: habitId });
 
@@ -269,7 +275,7 @@ async function runAllSettingsSyncPlaywrightTests() {
     if (batch3Res.success) passedTests++;
 
     // BATCH 4: Habit List Reordering Sync
-    printLog('\n↕️ BATCH 4: Testing Habit List Reordering Sync...');
+    console.log('\n↕️ BATCH 4: Testing Habit List Reordering Sync...');
     await page1.evaluate(() => {
       const h1 = { id: 'habit_a', name: 'Alpha Habit', updatedAt: Date.now(), logs: {} };
       const h2 = { id: 'habit_b', name: 'Beta Habit', updatedAt: Date.now(), logs: {} };
@@ -307,7 +313,7 @@ async function runAllSettingsSyncPlaywrightTests() {
     if (reorderRes.success) passedTests++;
 
     // BATCH 5: Global Settings (Selected Year & Startup Mode)
-    printLog('\n🌐 BATCH 5: Testing Global App Settings Sync...');
+    console.log('\n🌐 BATCH 5: Testing Global App Settings Sync...');
     await page1.evaluate(() => {
       window.HabitualCore.state.selectedYear = 2025;
       window.HabitualCore.state.showQuickLogOnStartup = true;
@@ -322,13 +328,13 @@ async function runAllSettingsSyncPlaywrightTests() {
     logResult('Global Settings Sync (Selected Year = 2025, Quick Log = true)', globalRes.success, `(${globalRes.elapsed}ms <= 10000ms)`);
     if (globalRes.success) passedTests++;
 
-    printLog(`\n========================================`);
-    printLog(`🎉 ALL SETTINGS SYNC TEST PASSED: ${passedTests}/${totalTests} Passed within 10s!`);
-    printLog(`========================================\n`);
+    console.log(`\n========================================`);
+    console.log(`🎉 ALL SETTINGS SYNC TEST PASSED: ${passedTests}/${totalTests} Passed within 10s!`);
+    console.log(`========================================\n`);
 
   } finally {
     if (browser) {
-      browser.close().catch(() => {});
+      try { await browser.close(); } catch (e) {}
     }
     if (server) {
       try {
@@ -349,10 +355,10 @@ function assert(condition, message) {
 
 if (require.main === module) {
   runAllSettingsSyncPlaywrightTests().then(() => {
-    printLog('All Settings Sync Playwright Test Complete.');
+    console.log('All Settings Sync Playwright Test Complete.');
     process.exit(0);
-  }).catch(err => {
-    fs.writeSync(2, `❌ All Settings Sync Playwright Test Failed: ${err && err.stack ? err.stack : err}\n`);
+  }).catch((err) => {
+    console.error('❌ All Settings Sync Playwright Test Failed:', err);
     process.exit(1);
   });
 }

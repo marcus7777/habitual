@@ -19,6 +19,8 @@ const mockLocalStorage = (() => {
 
 global.window = global.window || {};
 global.window.location = global.window.location || { hash: '#/', toString: () => '#/' };
+global.window.addEventListener = global.window.addEventListener || (() => {});
+global.window.removeEventListener = global.window.removeEventListener || (() => {});
 global.window.HabitualCore = global.window.HabitualCore || {};
 
 function createMockElement(tagName) {
@@ -1322,7 +1324,7 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     const quickLogBtn = card.querySelector('.btn-card-quick-log');
     assert(quickLogBtn !== null, 'Card contains .btn-card-quick-log button');
     assert(quickLogBtn.classList.contains('goal-met'), 'Button has goal-met class');
-    assert(quickLogBtn.textContent.includes('✓'), 'Button content contains tick mark ✓ when goal is reached');
+    assert((quickLogBtn.outerHTML && quickLogBtn.outerHTML.includes('icon-tick')) || (quickLogBtn.innerHTML && quickLogBtn.innerHTML.includes('icon-tick')) || (quickLogBtn.textContent && quickLogBtn.textContent.includes('icon-tick')) || quickLogBtn.textContent.includes('✓'), 'Button content contains tick mark ✓ when goal is reached');
   });
 
   test('btn-card-quick-log displays plus sign when goal is not yet reached', () => {
@@ -1334,7 +1336,7 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     const quickLogBtn = card.querySelector('.btn-card-quick-log');
     assert(quickLogBtn !== null, 'Card contains .btn-card-quick-log button');
     assert(!quickLogBtn.classList.contains('goal-met'), 'Button does not have goal-met class');
-    assert(quickLogBtn.textContent.includes('+'), 'Button displays + symbol when goal is unfulfilled');
+    assert((quickLogBtn.outerHTML && quickLogBtn.outerHTML.includes('icon-plus')) || (quickLogBtn.innerHTML && quickLogBtn.innerHTML.includes('icon-plus')) || (quickLogBtn.textContent && quickLogBtn.textContent.includes('icon-plus')) || quickLogBtn.textContent.includes('+'), 'Button displays + symbol when goal is unfulfilled');
   });
 
   test('toggleHabitForDate increments progress directly when goal not met', () => {

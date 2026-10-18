@@ -85,7 +85,8 @@ async function runQuickAddResponsivenessPlaywrightTests() {
     const HABIT_NAME = 'Instant Quick Log Habit';
 
     // Create a habit for testing
-    await page.evaluate((name) => {
+    await page.evaluate(async (name) => {
+      window.HabitualCore.setStorageEngine('localStorage');
       const h = {
         id: 'instant_quick_log_habit_1',
         name: name,
@@ -96,8 +97,7 @@ async function runQuickAddResponsivenessPlaywrightTests() {
         updatedAt: Date.now(),
         logs: {}
       };
-      window.HabitualCore.state.habits = [h];
-      window.HabitualCore.saveHabit(h);
+      await window.HabitualCore.saveHabit(h);
       window.HabitualCore.renderAll();
     }, HABIT_NAME);
 
@@ -107,6 +107,22 @@ async function runQuickAddResponsivenessPlaywrightTests() {
     console.log('⚡ TEST 1: Measuring Quick Log Button Click UI Response Delta...');
 
     const clickMetrics = await page.evaluate(async () => {
+      window.HabitualCore.setStorageEngine('localStorage');
+      let habit = window.HabitualCore.state.habits.find(x => x.id === 'instant_quick_log_habit_1');
+      if (!habit) {
+        habit = {
+          id: 'instant_quick_log_habit_1',
+          name: HABIT_NAME,
+          type: 'positive',
+          dailyTarget: 1,
+          colorTheme: '#33B679',
+          createdAt: '2026-10-01',
+          updatedAt: Date.now(),
+          logs: {}
+        };
+        window.HabitualCore.state.habits.push(habit);
+      }
+
       const btn = document.querySelector('.heatmap-card[data-habit-id="instant_quick_log_habit_1"] .btn-card-quick-log');
       if (!btn) return { found: false };
 
@@ -118,9 +134,12 @@ async function runQuickAddResponsivenessPlaywrightTests() {
       const dataGoalMet = btn.getAttribute('data-goal-met') === 'true';
       const hasTickIcon = Boolean(btn.querySelector('.icon-tick'));
 
-      const todayKey = window.HabitualCore.getTodayKey();
+      const todayKey = (window.HabitualCore && window.HabitualCore.getTodayKey) ? window.HabitualCore.getTodayKey() : new Date().toISOString().split('T')[0];
       const todaySquare = document.querySelector(`.heatmap-card[data-habit-id="instant_quick_log_habit_1"] .day-square[data-date="${todayKey}"]`);
       const squareCompleted = todaySquare ? todaySquare.classList.contains('completed') : false;
+
+      const attrId = btn.getAttribute('data-habit-id');
+      const debugLogs = habit ? habit.logs : null;
 
       return {
         found: true,
@@ -128,7 +147,9 @@ async function runQuickAddResponsivenessPlaywrightTests() {
         hasGoalMetClass,
         dataGoalMet,
         hasTickIcon,
-        squareCompleted
+        squareCompleted,
+        debugLogs,
+        attrId
       };
     });
 
@@ -142,7 +163,7 @@ async function runQuickAddResponsivenessPlaywrightTests() {
     passedTests++;
 
     totalTests++;
-    logResult('Quick Add Button Gained .goal-met Class', clickMetrics.hasGoalMetClass);
+    logResult('Quick Add Button Gained .goal-met Class', clickMetrics.hasGoalMetClass, `(attrId=${clickMetrics.attrId}, dataGoalMet=${clickMetrics.dataGoalMet}, debugLogs=${JSON.stringify(clickMetrics.debugLogs)})`);
     passedTests++;
 
     totalTests++;
@@ -220,8 +241,8 @@ async function runQuickAddResponsivenessPlaywrightTests() {
     logResult('Firestore Cloud Sync Quick Log UI Latency <100ms', firestoreMetrics.durationMs < 100, `(${firestoreMetrics.durationMs.toFixed(2)}ms, count=${firestoreMetrics.count})`);
     passedTests++;
 
-    // TEST 5: Post-Animation State Matches Fresh Page Reload State Exactly
-    console.log('\n🔄 TEST 5: Verifying Quick Add Button Post-Animation State Matches Post-Page Reload State...');
+    // TEST 5: Instant Button State Matches Post-Page Reload State Exactly
+    console.log('\n🔄 TEST 5: Verifying Quick Add Button Instant State Matches Post-Page Reload State...');
     await page.evaluate(async () => {
       const h2 = {
         id: 'reload_sync_habit_1',
@@ -234,7 +255,6 @@ async function runQuickAddResponsivenessPlaywrightTests() {
         logs: {}
       };
       window.HabitualCore.state.habits.push(h2);
-      if (window.HabitualCore.saveHabit) await window.HabitualCore.saveHabit(h2);
       if (window.HabitualCore.saveState) window.HabitualCore.saveState();
       window.HabitualCore.renderAll();
     });
@@ -244,28 +264,15 @@ async function runQuickAddResponsivenessPlaywrightTests() {
     // Click quick log on reload_sync_habit_1
     await page.click('.heatmap-card[data-habit-id="reload_sync_habit_1"] .btn-card-quick-log');
 
-    // Wait 600ms for saving spinner and success pop animation to complete
-    await page.waitForTimeout(600);
-
-    const postAnimationState = await page.evaluate(() => {
+    // Instantly capture button DOM state
+    const instantState = await page.evaluate(() => {
       const btn = document.querySelector('.heatmap-card[data-habit-id="reload_sync_habit_1"] .btn-card-quick-log');
       return {
         className: btn.className,
         dataGoalMet: btn.getAttribute('data-goal-met'),
-        iconHTML: btn.querySelector('.quick-log-icon') ? btn.querySelector('.quick-log-icon').innerHTML.trim() : '',
-        isSaving: btn.classList.contains('is-saving'),
-        justSaved: btn.classList.contains('just-saved'),
-        hasBadge: Boolean(btn.querySelector('.quick-add-pop-badge'))
+        iconHTML: btn.querySelector('.quick-log-icon') ? btn.querySelector('.quick-log-icon').innerHTML.trim() : ''
       };
     });
-
-    totalTests++;
-    logResult('Animation Cleared .is-saving and .just-saved Classes', !postAnimationState.isSaving && !postAnimationState.justSaved);
-    passedTests++;
-
-    totalTests++;
-    logResult('Floating Badge Removed Post-Animation', !postAnimationState.hasBadge);
-    passedTests++;
 
     // Now reload page to get fresh render state from storage
     await page.reload();
@@ -277,27 +284,23 @@ async function runQuickAddResponsivenessPlaywrightTests() {
       return {
         className: btn.className,
         dataGoalMet: btn.getAttribute('data-goal-met'),
-        iconHTML: btn.querySelector('.quick-log-icon') ? btn.querySelector('.quick-log-icon').innerHTML.trim() : '',
-        isSaving: btn.classList.contains('is-saving'),
-        justSaved: btn.classList.contains('just-saved'),
-        hasBadge: Boolean(btn.querySelector('.quick-add-pop-badge'))
+        iconHTML: btn.querySelector('.quick-log-icon') ? btn.querySelector('.quick-log-icon').innerHTML.trim() : ''
       };
     });
 
     totalTests++;
-    const classNamesMatch = postAnimationState.className === postReloadState.className;
-    logResult('Button ClassName Matches Post-Reload State', classNamesMatch, `("${postAnimationState.className}" === "${postReloadState.className}")`);
+    const classNamesMatch = instantState.className === postReloadState.className;
+    logResult('Button ClassName Matches Post-Reload State', classNamesMatch, `("${instantState.className}" === "${postReloadState.className}")`);
     passedTests++;
 
     totalTests++;
-    const goalMetMatch = postAnimationState.dataGoalMet === postReloadState.dataGoalMet;
-    logResult('Button data-goal-met Matches Post-Reload State', goalMetMatch, `("${postAnimationState.dataGoalMet}" === "${postReloadState.dataGoalMet}")`);
+    const goalMetMatch = instantState.dataGoalMet === postReloadState.dataGoalMet;
+    logResult('Button data-goal-met Matches Post-Reload State', goalMetMatch, `("${instantState.dataGoalMet}" === "${postReloadState.dataGoalMet}")`);
     passedTests++;
 
     totalTests++;
-    const iconsMatch = postAnimationState.iconHTML === postReloadState.iconHTML;
+    const iconsMatch = instantState.iconHTML === postReloadState.iconHTML;
     logResult('Button Icon HTML Matches Post-Reload State', iconsMatch);
-    passedTests++;
     passedTests++;
 
     console.log(`\n========================================`);
