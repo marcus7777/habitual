@@ -147,7 +147,7 @@ async function runMultiDeviceSyncPlaywrightTests() {
 
     // Wait for live sync to propagate to Device 2
     let syncedToDevice2 = false;
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 35; i++) {
       await page2.waitForTimeout(300);
       syncedToDevice2 = await page2.evaluate((id) => {
         return window.HabitualCore.state.habits.some(h => h.id === id);

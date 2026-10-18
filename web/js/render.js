@@ -4,7 +4,7 @@ window.HabitualCore = window.HabitualCore || {};
   'use strict';
 
   core.renderAll = function() {
-    if (!core.elements.yearSelector || !core.elements.heatmapsGallery) return;
+    if (!core.elements || !core.elements.yearSelector || !core.elements.heatmapsGallery) return;
     core.renderYearSelector();
     core.renderHeatmapsGallery();
   };
@@ -67,7 +67,7 @@ window.HabitualCore = window.HabitualCore || {};
       // 4. In-place update for Quick Log button
       const quickLogBtn = card.querySelector('.btn-card-quick-log');
       if (quickLogBtn && habit) {
-        const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
+        const cursorDateStr = dateKey || (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
         const logs = habit.logs || {};
         const count = logs[cursorDateStr] ? (logs[cursorDateStr].count || 0) : 0;
         const target = habit.dailyTarget || 1;
@@ -87,9 +87,7 @@ window.HabitualCore = window.HabitualCore || {};
         const plusIcon = '<svg class="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
         const iconHTML = isGoalMet ? tickIcon : plusIcon;
 
-        const isSaving = quickLogBtn.classList.contains('is-saving');
-        const justSaved = quickLogBtn.classList.contains('just-saved');
-        quickLogBtn.className = `btn-card-quick-log ${isGoalMet ? 'goal-met' : ''} ${isSaving ? 'is-saving' : ''} ${justSaved ? 'just-saved' : ''}`.replace(/\s+/g, ' ').trim();
+        quickLogBtn.className = `btn-card-quick-log ${isGoalMet ? 'goal-met' : ''}`;
         quickLogBtn.setAttribute('data-goal-met', isGoalMet ? 'true' : 'false');
         quickLogBtn.style.cssText = bgStyle;
 
@@ -197,7 +195,8 @@ window.HabitualCore = window.HabitualCore || {};
   core.getAvailableYears = function() {
     const yearsSet = new Set();
     yearsSet.add(core.CURRENT_YEAR);
-    core.state.habits.forEach(h => {
+    const habits = (core.state && core.state.habits) ? core.state.habits : [];
+    habits.forEach(h => {
       if (h.logs) {
         Object.keys(h.logs).forEach(dateStr => {
           const y = parseInt(dateStr.split('-')[0], 10);
@@ -210,12 +209,16 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.renderYearSelector = function() {
     const years = core.getAvailableYears();
-    if (!years.includes(core.state.selectedYear)) {
+    const selYear = (core.state && core.state.selectedYear) ? core.state.selectedYear : (core.CURRENT_YEAR || new Date().getFullYear());
+    if (core.state && !years.includes(selYear)) {
       core.state.selectedYear = years[0];
     }
-    core.elements.yearSelector.innerHTML = years
-      .map(y => `<option value="${y}" ${y === core.state.selectedYear ? 'selected' : ''}>${y}</option>`)
-      .join('');
+    const activeYear = (core.state && core.state.selectedYear) ? core.state.selectedYear : selYear;
+    if (core.elements && core.elements.yearSelector) {
+      core.elements.yearSelector.innerHTML = years
+        .map(y => `<option value="${y}" ${y === activeYear ? 'selected' : ''}>${y}</option>`)
+        .join('');
+    }
   };
 
   core.toggleConcertina = function(habitId) {
@@ -299,7 +302,7 @@ window.HabitualCore = window.HabitualCore || {};
     const route = core.parseHash ? core.parseHash() : { view: 'home', habitId: null };
     core.renderViewNavigation(route);
 
-    if (core.state.habits.length === 0) {
+    if (!core.state || !core.state.habits || core.state.habits.length === 0) {
       core.elements.heatmapsGallery.innerHTML = `
         <div class="empty-placeholder">
           <p style="font-size: 1.1rem; color: var(--text-muted); margin-bottom: 12px;">No habits yet! Start tracking your visual progression.</p>
@@ -631,7 +634,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.buildHeatmapCard = function(targetOrNull, year) {
-    const todayStr = core.getTodayKey();
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
     const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
     const isAll = targetOrNull === null;
     const isGroup = targetOrNull && targetOrNull.isGroup;
@@ -646,10 +649,10 @@ window.HabitualCore = window.HabitualCore || {};
     const theme = isAll ? 'green' : (isCustomHex ? 'custom' : (colorTheme || 'green'));
     const isNegative = habit && habit.type === 'negative';
 
-    const isCardFocused = core.focusedDayState.habitId === cardHabitId && core.focusedDayState.dateStr;
+    const isCardFocused = core.focusedDayState && core.focusedDayState.habitId === cardHabitId && core.focusedDayState.dateStr;
 
-    const streakData = core.calculateStreakForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit));
-    const stats = core.calculateYearStatsForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit), year);
+    const streakData = core.calculateStreakForTarget ? core.calculateStreakForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit)) : { current: 0, longest: 0 };
+    const stats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit), year) : { activeDaysCount: 0, totalCount: 0 };
 
     const isTopLevelGroup = isGroup && habit && !habit.parentId;
     const isDraggable = (!isAll && (!isGroup || isTopLevelGroup));
@@ -713,11 +716,12 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    const colorHex = isAll ? '#39d353' : core.getHabitHexColor(habit || targetOrNull);
+    const colorHex = isAll ? '#39d353' : (core.getHabitHexColor ? core.getHabitHexColor(habit || targetOrNull) : '#33B679');
 
-    let titleContent = core.escapeHTML(titleText);
+    const safeTitle = core.escapeHTML ? core.escapeHTML(titleText) : titleText;
+    let titleContent = safeTitle;
     if (habit && !isCurrentOpenPage) {
-      titleContent = `<a href="#/habit/${habit.id}" class="card-title-link" title="Open ${core.escapeHTML(titleText)}">${core.escapeHTML(titleText)}</a>`;
+      titleContent = `<a href="#/habit/${habit.id}" class="card-title-link" title="Open ${safeTitle}">${safeTitle}</a>`;
     }
 
     const habitTabHTML = `
@@ -753,37 +757,41 @@ window.HabitualCore = window.HabitualCore || {};
 
     let bigLogButtonHTML = '';
     if (habit) {
-      const cellData = core.getCellData(cursorDateStr, habit, todayStr);
+      const cellData = core.getCellData ? core.getCellData(cursorDateStr, habit, todayStr) : { ratio: (habit.logs && habit.logs[cursorDateStr] && habit.logs[cursorDateStr].count) ? 1.0 : 0 };
       const ratio = Math.min(1.0, Math.max(0, cellData.ratio || 0));
       const isGoalMet = ratio >= 1.0;
-      const hexColor = core.getHabitHexColor(habit);
+      const hexColor = core.getHabitHexColor ? core.getHabitHexColor(habit) : '#33B679';
 
       const log = (habit.logs && habit.logs[cursorDateStr]) ? habit.logs[cursorDateStr] : null;
       const count = log ? log.count : 0;
       const target = Math.max(1, habit.dailyTarget || 1);
 
-      let iconHTML = isGoalMet ? '✓' : '+';
+      const tickIcon = '<svg class="icon-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      const plusIcon = '<svg class="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      const iconHTML = isGoalMet ? tickIcon : plusIcon;
 
       let bgStyle = '';
       if (isGoalMet) {
-        bgStyle = `background-color: ${hexColor}; color: #ffffff; border-color: ${hexColor}; box-shadow: 0 0 12px ${core.getHabitHexWithAlpha(habit, 0.5)};`;
+        const glowHex = core.getHabitHexWithAlpha ? core.getHabitHexWithAlpha(habit, 0.5) : hexColor;
+        bgStyle = `background-color: ${hexColor}; color: #ffffff; border-color: ${hexColor}; box-shadow: 0 0 12px ${glowHex};`;
       } else {
-        const alphaHex = core.getHabitHexWithAlpha(habit, Math.max(0.18, ratio * 0.85));
+        const alphaHex = core.getHabitHexWithAlpha ? core.getHabitHexWithAlpha(habit, Math.max(0.18, ratio * 0.85)) : hexColor;
         bgStyle = `background-color: ${alphaHex}; border-color: ${hexColor}; color: var(--text-main);`;
       }
 
       const isUpcoming = cursorDateStr > todayStr;
-      const formattedCursorDate = core.formatPrettyDate(cursorDateStr);
+      const formattedCursorDate = core.formatPrettyDate ? core.formatPrettyDate(cursorDateStr) : cursorDateStr;
 
+      const safeName = core.escapeHTML ? core.escapeHTML(habit.name) : habit.name;
       let tooltipText = '';
       if (isUpcoming) {
         tooltipText = isGoalMet
-          ? `${core.escapeHTML(habit.name)}: Upcoming Goal Pre-logged (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
-          : `${core.escapeHTML(habit.name)}: Upcoming (${count}/${target} pre-logged) on ${formattedCursorDate}. Click to pre-log.`;
+          ? `${safeName}: Upcoming Goal Pre-logged (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
+          : `${safeName}: Upcoming (${count}/${target} pre-logged) on ${formattedCursorDate}. Click to pre-log.`;
       } else {
         tooltipText = isGoalMet
-          ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
-          : `${core.escapeHTML(habit.name)}: ${count}/${target} completed on ${formattedCursorDate}. Click to log +1.`;
+          ? `${safeName}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
+          : `${safeName}: ${count}/${target} completed on ${formattedCursorDate}. Click to log +1.`;
       }
 
       bigLogButtonHTML = `

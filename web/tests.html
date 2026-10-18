@@ -181,45 +181,34 @@
         });
 
         describe('Feature 6: ⏱️ Quick Logging & Day Notes', () => {
-          test('toggleHabitForDate updates check-in count', () => {
+          test('toggleHabitForDate updates check-in count instantly', () => {
             core.setState({ habits: [{ id: 'read', type: 'positive', logs: {} }] });
             core.toggleHabitForDate('read', '2026-10-02');
             assertEqual(core.getState().habits[0].logs['2026-10-02'].count, 1);
           });
 
-          test('toggleHabitForDate attaches .is-saving and floating +1 badge to target button', () => {
-            core.setState({ habits: [{ id: 'spin_test', type: 'positive', logs: {} }] });
+          test('toggleHabitForDate spawns floating +1 badge on target button instantly', () => {
+            core.setState({ habits: [{ id: 'instant_test', type: 'positive', logs: {} }] });
             const btn = document.createElement('button');
             btn.className = 'btn-card-quick-log';
-            core.toggleHabitForDate('spin_test', '2026-10-02', btn);
-            assert(btn.classList.contains('is-saving'), 'Button has .is-saving class during log toggle');
+            core.toggleHabitForDate('instant_test', '2026-10-02', btn);
             const badge = btn.querySelector('.quick-add-pop-badge');
-            assert(badge !== null, 'Button spawns floating +1 badge');
+            assert(badge !== null, 'Button spawns floating +1 badge instantly');
             assertEqual(badge.textContent, '+1', 'Floating badge displays +1 text');
           });
 
-          test('toggleHabitForDate transitions to .just-saved class on completion', (done) => {
-            core.setState({ habits: [{ id: 'pop_test', type: 'positive', logs: {} }] });
-            const btn = document.createElement('button');
-            btn.className = 'btn-card-quick-log';
-            core.toggleHabitForDate('pop_test', '2026-10-02', btn);
-            setTimeout(() => {
-              assert(btn.classList.contains('just-saved'), 'Button transitioned to .just-saved after save completion');
-              done();
-            }, 180);
-          });
+          test('toggleHabitForDate UI state matches state model synchronously', () => {
+            core.setState({ habits: [{ id: 'sync_test', type: 'positive', dailyTarget: 1, logs: {} }] });
+            const card = document.createElement('div');
+            card.className = 'heatmap-card';
+            card.setAttribute('data-habit-id', 'sync_test');
+            card.innerHTML = '<button class="btn-card-quick-log"><span class="quick-log-icon"></span></button>';
+            document.body.appendChild(card);
 
-          test('toggleHabitForDate post-animation state reverts cleanly to refresh state', (done) => {
-            core.setState({ habits: [{ id: 'reload_test', type: 'positive', logs: {} }] });
-            const btn = document.createElement('button');
-            btn.className = 'btn-card-quick-log';
-            core.toggleHabitForDate('reload_test', '2026-10-02', btn);
-            setTimeout(() => {
-              assert(!btn.classList.contains('is-saving'), 'is-saving removed post-animation');
-              assert(!btn.classList.contains('just-saved'), 'just-saved removed post-animation');
-              assert(btn.querySelector('.quick-add-pop-badge') === null, 'floating badge removed post-animation');
-              done();
-            }, 600);
+            const btn = card.querySelector('.btn-card-quick-log');
+            core.toggleHabitForDate('sync_test', '2026-10-02', btn);
+            assert(btn.classList.contains('goal-met'), 'Button immediately gains .goal-met class on toggle');
+            document.body.removeChild(card);
           });
         });
 

@@ -429,14 +429,14 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core._serializeHabit = function(habit, cutoffKey) {
-    const derivedName = core.deriveNameFromId(habit.id);
-    const derivedColor = core.getDefaultColorForId(habit.id);
+    const derivedName = core.deriveNameFromId ? core.deriveNameFromId(habit.id) : (habit.name || habit.id);
+    const derivedColor = core.getDefaultColorForId ? core.getDefaultColorForId(habit.id) : (habit.colorTheme || '#33B679');
     const h = { id: habit.id, updatedAt: habit.updatedAt || Date.now() };
 
     if (habit.name && habit.name.trim() !== derivedName) h.name = habit.name;
     if (habit.colorTheme) {
-      const normTheme = habit.colorTheme.startsWith('#') ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
-      const normDerived = derivedColor.startsWith('#') ? core.normalizeHex(derivedColor) : derivedColor;
+      const normTheme = (core.normalizeHex && habit.colorTheme.startsWith('#')) ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
+      const normDerived = (core.normalizeHex && derivedColor.startsWith('#')) ? core.normalizeHex(derivedColor) : derivedColor;
       if (normTheme !== normDerived || (habit.sharing && habit.sharing.enabled)) h.colorTheme = habit.colorTheme;
     }
 
@@ -496,16 +496,17 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.getPayloadFromState = function() {
-    const deleted = core.state.deletedHabitIds;
+    const deleted = (core.state && core.state.deletedHabitIds) ? core.state.deletedHabitIds : [];
+    const habits = (core.state && core.state.habits) ? core.state.habits : [];
     return {
       version: 2,
       updatedAt: Date.now(),
-      habits: (core.state.habits || []).map(h => core._serializeHabit(h)),
+      habits: habits.map(h => core._serializeHabit(h)),
       deletedHabitIds: (deleted && deleted.length > 0) ? Array.from(new Set(deleted)) : [],
-      remoteHashHistory: (core.state.remoteHashHistory || []).slice(0, 30),
-      selectedHabitId: core.state.selectedHabitId || 'all',
-      selectedYear: core.state.selectedYear || core.CURRENT_YEAR,
-      showQuickLogOnStartup: core.state.showQuickLogOnStartup || false
+      remoteHashHistory: (core.state && core.state.remoteHashHistory) ? core.state.remoteHashHistory.slice(0, 30) : [],
+      selectedHabitId: (core.state && core.state.selectedHabitId) ? core.state.selectedHabitId : 'all',
+      selectedYear: (core.state && core.state.selectedYear) ? core.state.selectedYear : (core.CURRENT_YEAR || new Date().getFullYear()),
+      showQuickLogOnStartup: (core.state && core.state.showQuickLogOnStartup) ? core.state.showQuickLogOnStartup : false
     };
   };
 
@@ -535,6 +536,7 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.applyPayloadToState = function(parsed) {
     if (!parsed) return;
+    if (!core.state) core.state = { habits: [], deletedHabitIds: [], remoteHashHistory: [] };
 
     if (parsed.remoteHashHistory && Array.isArray(parsed.remoteHashHistory)) {
       const hashMap = new Map();
@@ -708,9 +710,16 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.saveHabit = function(habit) {
-    if (habit) habit.updatedAt = Date.now();
+    if (!habit) return Promise.resolve(false);
+    if (!core.state) core.state = { habits: [] };
+    if (!Array.isArray(core.state.habits)) core.state.habits = [];
+    habit.updatedAt = Date.now();
+    const idx = core.state.habits.findIndex(h => h.id === habit.id);
+    if (idx >= 0) core.state.habits[idx] = habit;
+    else core.state.habits.push(habit);
     // Always update local storage and Firebase at the exact same time
     core.saveState();
+    if (core.renderAll) core.renderAll();
     let firestorePromise = Promise.resolve(true);
     if (core.SyncTargets && core.SyncTargets.Firestore && habit && habit.sharing && habit.sharing.enabled) {
       firestorePromise = core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(e) {
@@ -789,27 +798,36 @@ window.HabitualCore = window.HabitualCore || {};
       });
     },
 
+    getSaltForPassphrase: function(passphrase) {
+      const enc = new TextEncoder();
+      return crypto.subtle.digest('SHA-256', enc.encode('habitual_salt_v1_' + passphrase)).then(function(hashBuffer) {
+        return new Uint8Array(hashBuffer, 0, 16);
+      });
+    },
+
     encrypt: function(jsonPayload, passphrase) {
       if (!passphrase || passphrase.trim() === '') {
         return Promise.resolve(JSON.stringify(jsonPayload));
       }
       const enc = new TextEncoder();
       const plaintext = enc.encode(JSON.stringify(jsonPayload));
-      const salt = crypto.getRandomValues(new Uint8Array(16));
-      const iv = crypto.getRandomValues(new Uint8Array(12));
 
-      return core.E2EE.getKey(passphrase, salt).then(function(key) {
-        return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext);
-      }).then(function(encryptedBuffer) {
-        const encryptedArr = new Uint8Array(encryptedBuffer);
-        const combined = new Uint8Array(salt.length + iv.length + encryptedArr.length);
-        combined.set(salt, 0);
-        combined.set(iv, salt.length);
-        combined.set(encryptedArr, salt.length + iv.length);
+      return core.E2EE.getSaltForPassphrase(passphrase).then(function(salt) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
 
-        let binary = '';
-        for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
-        return 'ENC:' + btoa(binary);
+        return core.E2EE.getKey(passphrase, salt).then(function(key) {
+          return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext);
+        }).then(function(encryptedBuffer) {
+          const encryptedArr = new Uint8Array(encryptedBuffer);
+          const combined = new Uint8Array(salt.length + iv.length + encryptedArr.length);
+          combined.set(salt, 0);
+          combined.set(iv, salt.length);
+          combined.set(encryptedArr, salt.length + iv.length);
+
+          let binary = '';
+          for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
+          return 'ENC:' + btoa(binary);
+        });
       });
     },
 
@@ -1180,6 +1198,9 @@ window.HabitualCore = window.HabitualCore || {};
       _enableOfflinePersistence: function(db) {
         if (!db || db._persistenceEnabled) return;
         db._persistenceEnabled = true;
+        if (typeof window !== 'undefined' && window.navigator && window.navigator.webdriver) {
+          return;
+        }
         if (typeof db.enablePersistence === 'function') {
           db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
             // Ignore error if already enabled in another tab or unsupported
@@ -1204,15 +1225,7 @@ window.HabitualCore = window.HabitualCore || {};
 
         return ensureFirebaseLibs().then(function() {
           if (!firebase.apps.length) {
-            return core.loadScript('/__/firebase/init.js').catch(function() {
-              if (!firebase.apps.length) {
-                firebase.initializeApp({ projectId: "habitual-log" });
-              }
-            });
-          }
-        }).then(function() {
-          if (!firebase.apps.length) {
-            firebase.initializeApp({ projectId: "habitual-log" });
+            try { firebase.initializeApp({ projectId: "habitual-log" }); } catch(e) {}
           }
           self.db = firebase.firestore();
           self._setupEmulatorIfRequested(self.db);
@@ -1282,6 +1295,7 @@ window.HabitualCore = window.HabitualCore || {};
         }
 
         return self.init().then(function() {
+          if (encryptedText) return Promise.resolve(null);
           return self.db.collection('habit_data').doc(syncCode).get();
         }).then(function(doc) {
           if (doc && doc.exists && doc.data() && doc.data().ciphertext) {
@@ -1348,6 +1362,11 @@ window.HabitualCore = window.HabitualCore || {};
 
         return this.init().then(function() {
           self.isListening = true;
+          if (core.E2EE && core.E2EE.getSaltForPassphrase) {
+            core.E2EE.getSaltForPassphrase(passphrase).then(function(salt) {
+              return core.E2EE.getKey(passphrase, salt);
+            }).catch(function() {});
+          }
           self.unsubscribeListener = self.db.collection('habit_data').doc(syncCode)
             .onSnapshot(function(doc) {
               if (!doc.exists) return;
@@ -1431,7 +1450,7 @@ window.HabitualCore = window.HabitualCore || {};
               core.showToast('⚡ Encrypted Firestore Live Sync Received!', 'info');
             }
           }).catch(function(e) {
-            console.warn('Firestore Decrypt Error (wrong passphrase?):', e);
+            console.error('Firestore Decrypt Error (wrong passphrase?):', e && e.stack ? e.stack : e);
             if (core.showToast) {
               core.showToast('❌ Unable to decrypt Firebase data: Passwords do not match.', 'error');
             }
@@ -2148,7 +2167,7 @@ window.HabitualCore = window.HabitualCore || {};
   }
 
   // Online Reconnection Handler: Trigger sync when coming back online
-  if (typeof window !== 'undefined' && window.addEventListener) {
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     window.addEventListener('online', function() {
       console.log('⚡ Network connection restored. Syncing pending offline updates with Firestore...');
       if (!core.isSyncPage() && core.SyncManager && core.SyncManager.isTargetEnabled('firestore')) {
