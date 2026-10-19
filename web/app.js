@@ -34,6 +34,10 @@ window.HabitualCore = window.HabitualCore || {};
 
         if (core.renderAll) core.renderAll();
 
+        if (core.setupMidnightRollover) {
+          core.setupMidnightRollover();
+        }
+
         if (core.checkPendingVerifications) {
           core.checkPendingVerifications();
         }

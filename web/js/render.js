@@ -660,8 +660,10 @@ window.HabitualCore = window.HabitualCore || {};
     const canMove = siblings.length > 1;
     const isDraggable = (!isAll && (!isGroup || isTopLevelGroup) && canMove);
 
+    const isSelectedHabit = core.state && core.state.selectedHabitId === cardHabitId;
+
     const card = document.createElement('div');
-    card.className = `heatmap-card theme-${theme} ${isDraggable ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
+    card.className = `heatmap-card theme-${theme} ${isDraggable ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''} ${isSelectedHabit ? 'selected selected-habit' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
     card.setAttribute('data-habit-id', cardHabitId);
 
     if (isDraggable) {
