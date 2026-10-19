@@ -4087,6 +4087,60 @@ describe('Feature 39: 🟡 Issue #24 Updating Habits Keyboard Navigation & Yello
 });
 
 // ============================================================================
+// FEATURE 40: 📋 TODO PAGE, COUNTDOWN TIMER & MULTI-TARGET TASK ITEMS
+// ============================================================================
+describe('Feature 40: 📋 Todo Page, Countdown Timer & Multi-Target Task Items', () => {
+  test('getTodayRemainingTime calculates remaining hours and minutes until midnight', () => {
+    const timeInfo = HabitualCore.getTodayRemainingTime();
+    assert(timeInfo !== undefined, 'getTodayRemainingTime returns time object');
+    assert(typeof timeInfo.hours === 'number', 'timeInfo.hours is a number');
+    assert(typeof timeInfo.minutes === 'number', 'timeInfo.minutes is a number');
+    assert(typeof timeInfo.seconds === 'number', 'timeInfo.seconds is a number');
+    assert(typeof timeInfo.formattedString === 'string', 'timeInfo.formattedString is a string');
+  });
+
+  test('getTodayTodoList expands multi-target habits into distinct task items', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    HabitualCore.setState({
+      habits: [
+        { id: 'swim', name: 'Swim', type: 'positive', dailyTarget: 2, logs: { [today]: { count: 1 } } },
+        { id: 'read', name: 'Read Book', type: 'positive', dailyTarget: 1, logs: {} }
+      ]
+    });
+
+    const todoList = HabitualCore.getTodayTodoList();
+    assertEqual(todoList.length, 3, 'getTodayTodoList returns 3 items (2 Swim + 1 Read)');
+
+    // First Swim instance is completed
+    assertEqual(todoList[0].habitId, 'swim', 'First item is Swim');
+    assertEqual(todoList[0].instanceIndex, 1, 'First Swim instance index is 1');
+    assertEqual(todoList[0].isCompleted, true, 'First Swim instance is completed');
+
+    // Second Swim instance is uncompleted
+    assertEqual(todoList[1].habitId, 'swim', 'Second item is Swim');
+    assertEqual(todoList[1].instanceIndex, 2, 'Second Swim instance index is 2');
+    assertEqual(todoList[1].isCompleted, false, 'Second Swim instance is uncompleted');
+
+    // Read item is uncompleted
+    assertEqual(todoList[2].habitId, 'read', 'Third item is Read');
+    assertEqual(todoList[2].isCompleted, false, 'Read item is uncompleted');
+  });
+
+  test('web/todo.html file exists and links styles.css and core scripts', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const todoPath = path.join(__dirname, '../web/todo.html');
+    assert(fs.existsSync(todoPath), 'web/todo.html file exists');
+
+    const content = fs.readFileSync(todoPath, 'utf8');
+    assert(content.includes('styles.css'), 'todo.html links styles.css');
+    assert(content.includes('js/ui.js'), 'todo.html links ui.js');
+    assert(content.includes('todo-countdown'), 'todo.html includes countdown container');
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);

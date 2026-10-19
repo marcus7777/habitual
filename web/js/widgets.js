@@ -460,4 +460,83 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  // --- TODO PAGE COUNTDOWN & TASK LIST HELPERS ---
+
+  core.getTodayRemainingTime = function() {
+    const now = new Date();
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const diffMs = Math.max(0, endOfDay.getTime() - now.getTime());
+
+    const totalSec = Math.floor(diffMs / 1000);
+    const hours = Math.floor(totalSec / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    const seconds = totalSec % 60;
+
+    const formattedString = `${hours}h ${minutes}m ${seconds}s`;
+
+    return {
+      hours,
+      minutes,
+      seconds,
+      formattedString
+    };
+  };
+
+  core.getTodayTodoList = function() {
+    const todayKey = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+    const habits = (core.state && Array.isArray(core.state.habits)) ? core.state.habits : [];
+
+    const todoItems = [];
+
+    const orderedHabits = [];
+    const visited = new Set();
+
+    function addHabitTree(habit, depth) {
+      if (!habit || visited.has(habit.id)) return;
+      visited.add(habit.id);
+
+      if (!habit.isPaused) {
+        orderedHabits.push({ habit, depth });
+      }
+
+      const children = habits.filter(h => h.parentId === habit.id);
+      children.forEach(child => addHabitTree(child, depth + 1));
+    }
+
+    const topLevel = habits.filter(h => !h.parentId);
+    topLevel.forEach(parent => addHabitTree(parent, 0));
+    habits.forEach(h => {
+      if (!visited.has(h.id)) addHabitTree(h, h.parentId ? 1 : 0);
+    });
+
+    orderedHabits.forEach(({ habit: h, depth }) => {
+      const dateObj = core.parseDateKey ? core.parseDateKey(todayKey) : new Date();
+      if (core.isHabitActiveOnDate && !core.isHabitActiveOnDate(h, dateObj)) {
+        return;
+      }
+
+      const log = (h.logs && h.logs[todayKey]) ? h.logs[todayKey] : null;
+      const count = log ? (log.count || 0) : 0;
+      const target = h.type === 'negative' ? 1 : Math.max(1, h.dailyTarget || 1);
+
+      for (let i = 1; i <= target; i++) {
+        const isCompleted = h.type === 'negative' ? (count === 0) : (count >= i);
+        todoItems.push({
+          habitId: h.id,
+          habitName: h.name,
+          colorTheme: h.colorTheme || 'green',
+          instanceIndex: i,
+          totalTarget: target,
+          isCompleted: isCompleted,
+          dateKey: todayKey,
+          icon: h.type === 'negative' ? '🛑' : '🎯',
+          type: h.type || 'positive',
+          depth: depth
+        });
+      }
+    });
+
+    return todoItems;
+  };
+
 })(window.HabitualCore);
