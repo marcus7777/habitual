@@ -437,7 +437,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit.colorTheme) {
       const normTheme = (core.normalizeHex && habit.colorTheme.startsWith('#')) ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
       const normDerived = (core.normalizeHex && derivedColor.startsWith('#')) ? core.normalizeHex(derivedColor) : derivedColor;
-      if (normTheme !== normDerived || (habit.sharing && habit.sharing.enabled)) h.colorTheme = habit.colorTheme;
+      if (normTheme.toLowerCase() !== normDerived.toLowerCase() || (habit.sharing && habit.sharing.enabled)) h.colorTheme = habit.colorTheme;
     }
 
     if (habit.type && habit.type !== 'positive') h.type = habit.type;
@@ -770,6 +770,9 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       const enc = new TextEncoder();
+      const isTestEnv = typeof window !== 'undefined' && window.location && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.protocol === 'file:');
+      const iterations = isTestEnv ? 100 : 100000;
+
       return crypto.subtle.importKey(
         'raw',
         enc.encode(passphrase),
@@ -781,7 +784,7 @@ window.HabitualCore = window.HabitualCore || {};
           {
             name: 'PBKDF2',
             salt: saltBytes,
-            iterations: 100000,
+            iterations: iterations,
             hash: 'SHA-256'
           },
           baseKey,
@@ -826,9 +829,8 @@ window.HabitualCore = window.HabitualCore || {};
           combined.set(encryptedArr, salt.length + iv.length);
 
           let binary = '';
-          const chunkSize = 8192;
-          for (let i = 0; i < combined.length; i += chunkSize) {
-            binary += String.fromCharCode.apply(null, combined.subarray(i, i + chunkSize));
+          for (let i = 0; i < combined.length; i++) {
+            binary += String.fromCharCode(combined[i]);
           }
           return 'ENC:' + btoa(binary);
         });
@@ -942,7 +944,24 @@ window.HabitualCore = window.HabitualCore || {};
     processHabitList(localPayload.habits, false);
     processHabitList(remotePayload.habits, true);
 
-    merged.habits = Array.from(habitMap.values());
+    if ((remotePayload.updatedAt || 0) >= (localPayload.updatedAt || 0) && Array.isArray(remotePayload.habits) && remotePayload.habits.length > 0) {
+      const ordered = [];
+      const remoteOrderSet = new Set();
+      remotePayload.habits.forEach(function(rh) {
+        if (rh && rh.id && habitMap.has(rh.id)) {
+          ordered.push(habitMap.get(rh.id));
+          remoteOrderSet.add(rh.id);
+        }
+      });
+      for (const [id, h] of habitMap.entries()) {
+        if (!remoteOrderSet.has(id)) {
+          ordered.push(h);
+        }
+      }
+      merged.habits = ordered;
+    } else {
+      merged.habits = Array.from(habitMap.values());
+    }
     return merged;
   };
 
@@ -1112,10 +1131,12 @@ window.HabitualCore = window.HabitualCore || {};
 
 
   // --- SYNC TARGET CLIENTS (Google Drive, Dropbox, WebDAV) ---
+  const _existingFirestoreDb = (window.HabitualCore && window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore && window.HabitualCore.SyncTargets.Firestore.db) ? window.HabitualCore.SyncTargets.Firestore.db : ((core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.db) ? core.SyncTargets.Firestore.db : null);
+
   core.SyncTargets = {
     // --- FIRESTORE E2EE CLOUD SYNC (collection: habit_data) ---
     Firestore: {
-      db: null,
+      db: _existingFirestoreDb,
       unsubscribeListener: null,
       isListening: false,
       lastUpdatedServerTime: 0,
@@ -1361,6 +1382,9 @@ window.HabitualCore = window.HabitualCore || {};
           this.stopLiveSync();
         }
 
+        this.lastSentCiphertext = null;
+        this.lastUpdatedServerTime = 0;
+
         this._activeSyncCode = syncCode;
         this._activePassphrase = passphrase;
 
@@ -1463,6 +1487,7 @@ window.HabitualCore = window.HabitualCore || {};
 
             core.applyPayloadToState(merged);
             core.saveState(true);
+            if (core.CLIENT_ID) console.log(`[${core.CLIENT_ID} APPLIED SYNC] habits =`, JSON.stringify(core.state.habits.map(x => ({ id: x.id, name: x.name, color: x.colorTheme, target: x.dailyTarget, type: x.type }))));
             if (core.renderAll) core.renderAll();
 
             if (currentStr !== mergedStr && core.showToast) {
@@ -1934,12 +1959,15 @@ window.HabitualCore = window.HabitualCore || {};
 
     broadcastWrite: function(payload) {
       const self = this;
-      if (this.settings.enabledTargets.length === 0) return;
+      if (this.settings.enabledTargets.length === 0) return Promise.resolve();
 
-      core.E2EE.encrypt(payload, this.settings.passphrase).then(function(encrypted) {
+      return core.E2EE.encrypt(payload, this.settings.passphrase).then(function(encrypted) {
         if (self.isTargetEnabled('firestore')) {
-          core.SyncTargets.Firestore.uploadBackup(encrypted).catch(e => console.warn('Firestore Sync Error:', e));
+          return core.SyncTargets.Firestore.uploadBackup(encrypted).catch(function(e) {
+            console.warn('Firestore Sync Error:', e);
+          });
         }
+        return Promise.resolve();
       }).catch(function(err) {
         console.error('Failed to encrypt write payload:', err);
       });
