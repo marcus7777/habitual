@@ -3840,6 +3840,115 @@ describe('Feature 38: Overwrite Protection, Passphrase Hash Verification & Surgi
 });
 
 // ============================================================================
+// ISSUE #22: Handle Icon Display & Mobile Directional Arrows Logic
+// ============================================================================
+describe('Issue #22: ↕️ Handle Icon Visibility & Mobile Reorder Arrows', () => {
+  test('Handle icon is hidden when habit card is the only item in a list', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [{ id: 'single_habit_1', name: 'Single Habit', parentId: null }]
+    });
+
+    const card = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[0], 2026);
+    const inner = card.innerHTML;
+
+    assert(!inner.includes('drag-handle'), 'Single habit card does NOT render drag handle icon');
+    assert(!card.classList.contains('draggable-card'), 'Single habit card does NOT have draggable-card class');
+  });
+
+  test('Handle icon is displayed when there are multiple habits in a list', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'multi_habit_1', name: 'Habit One', parentId: null },
+        { id: 'multi_habit_2', name: 'Habit Two', parentId: null }
+      ]
+    });
+
+    const card1 = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[0], 2026);
+    const card2 = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[1], 2026);
+
+    assert(card1.innerHTML.includes('drag-handle'), 'First habit card renders drag handle');
+    assert(card2.innerHTML.includes('drag-handle'), 'Second habit card renders drag handle');
+    assert(card1.classList.contains('draggable-card'), 'First habit card has draggable-card class');
+    assert(card2.classList.contains('draggable-card'), 'Second habit card has draggable-card class');
+  });
+
+  test('First habit in list renders ONLY move down arrow (▼) and NO move up arrow (▲)', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'first_h', name: 'First Habit', parentId: null },
+        { id: 'second_h', name: 'Second Habit', parentId: null }
+      ]
+    });
+
+    const card = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[0], 2026);
+    const inner = card.innerHTML;
+
+    assert(inner.includes('btn-move-down'), 'First habit card renders btn-move-down arrow');
+    assert(!inner.includes('btn-move-up'), 'First habit card does NOT render btn-move-up arrow');
+  });
+
+  test('Last habit in list renders ONLY move up arrow (▲) and NO move down arrow (▼)', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'first_h', name: 'First Habit', parentId: null },
+        { id: 'last_h', name: 'Last Habit', parentId: null }
+      ]
+    });
+
+    const card = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[1], 2026);
+    const inner = card.innerHTML;
+
+    assert(inner.includes('btn-move-up'), 'Last habit card renders btn-move-up arrow');
+    assert(!inner.includes('btn-move-down'), 'Last habit card does NOT render btn-move-down arrow');
+  });
+
+  test('Middle habit in list renders BOTH move up (▲) and move down (▼) arrows', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'h1', name: 'Habit 1', parentId: null },
+        { id: 'h2', name: 'Habit 2', parentId: null },
+        { id: 'h3', name: 'Habit 3', parentId: null }
+      ]
+    });
+
+    const card = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[1], 2026);
+    const inner = card.innerHTML;
+
+    assert(inner.includes('btn-move-up'), 'Middle habit card renders btn-move-up arrow');
+    assert(inner.includes('btn-move-down'), 'Middle habit card renders btn-move-down arrow');
+  });
+
+  test('Sub-habits handle visibility & directional arrows match sub-habit sibling count', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'parent_1', name: 'Parent Habit', parentId: null };
+    const singleSub = { id: 'sub_only', name: 'Sub Only', parentId: 'parent_1' };
+    HabitualCore.setState({ habits: [parent, singleSub] });
+
+    const subCardSingle = HabitualCore.buildHeatmapCard(singleSub, 2026);
+    assert(!subCardSingle.innerHTML.includes('drag-handle'), 'Single sub-habit under parent does NOT render drag handle');
+
+    const subTwo = { id: 'sub_two', name: 'Sub Two', parentId: 'parent_1' };
+    HabitualCore.setState({ habits: [parent, singleSub, subTwo] });
+
+    const subCardFirst = HabitualCore.buildHeatmapCard(singleSub, 2026);
+    const subCardSecond = HabitualCore.buildHeatmapCard(subTwo, 2026);
+
+    assert(subCardFirst.innerHTML.includes('drag-handle'), 'First of 2 sub-habits renders drag handle');
+    assert(subCardFirst.innerHTML.includes('btn-move-down'), 'First sub-habit renders btn-move-down');
+    assert(!subCardFirst.innerHTML.includes('btn-move-up'), 'First sub-habit does NOT render btn-move-up');
+
+    assert(subCardSecond.innerHTML.includes('drag-handle'), 'Second of 2 sub-habits renders drag handle');
+    assert(subCardSecond.innerHTML.includes('btn-move-up'), 'Second sub-habit renders btn-move-up');
+    assert(!subCardSecond.innerHTML.includes('btn-move-down'), 'Second sub-habit does NOT render btn-move-down');
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);

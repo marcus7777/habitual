@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "updatedAt": 1792311605689,
+  "habits": [
+    {
+      "id": "dailyReading769",
+      "updatedAt": 1792311598383,
+      "name": "Daily Reading 769",
+      "colorTheme": "#616161",
+      "category": "General",
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-10-18",
+      "logs": {
+        "2026-10-18": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "deletedHabitIds": [],
+  "remoteHashHistory": [],
+  "selectedHabitId": "dailyReading769",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false
+}
