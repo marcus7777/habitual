@@ -539,4 +539,56 @@ window.HabitualCore = window.HabitualCore || {};
     return todoItems;
   };
 
+  core.getUpcomingEvents = function() {
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+    const habits = (core.state && Array.isArray(core.state.habits)) ? core.state.habits : [];
+    const upcoming = [];
+
+    habits.forEach(h => {
+      if (h.isPaused) return;
+      if (h.logs) {
+        Object.keys(h.logs).forEach(dateKey => {
+          if (dateKey > todayStr) {
+            const log = h.logs[dateKey];
+            if (log && (log.count > 0 || (log.note && log.note.trim() !== ''))) {
+              upcoming.push({
+                habitId: h.id,
+                habitName: h.name,
+                colorTheme: h.colorTheme || 'green',
+                dateKey: dateKey,
+                formattedDate: core.formatPrettyDate ? core.formatPrettyDate(dateKey) : dateKey,
+                count: log.count || 0,
+                note: log.note || '',
+                isUpcomingEvent: true,
+                isCompleted: true,
+                icon: '📅'
+              });
+            }
+          }
+        });
+      }
+    });
+
+    upcoming.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+    return upcoming;
+  };
+
+  core.getTodoListData = function() {
+    const upcomingEvents = core.getUpcomingEvents();
+    if (upcomingEvents.length > 0) {
+      return {
+        mode: 'upcoming',
+        items: upcomingEvents
+      };
+    }
+
+    const todayItems = core.getTodayTodoList();
+    const uncompletedTodayItems = todayItems.filter(item => !item.isCompleted);
+
+    return {
+      mode: 'today_uncompleted',
+      items: uncompletedTodayItems.length > 0 ? uncompletedTodayItems : todayItems
+    };
+  };
+
 })(window.HabitualCore);

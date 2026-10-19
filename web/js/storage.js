@@ -717,9 +717,10 @@ window.HabitualCore = window.HabitualCore || {};
     const idx = core.state.habits.findIndex(h => h.id === habit.id);
     if (idx >= 0) core.state.habits[idx] = habit;
     else core.state.habits.push(habit);
-    // Always update local storage and Firebase at the exact same time
     core.saveState();
-    if (core.renderAll) core.renderAll();
+    if (core.renderAll) {
+      try { core.renderAll(); } catch (e) { console.warn('renderAll error in saveHabit:', e); }
+    }
     let firestorePromise = Promise.resolve(true);
     if (core.SyncTargets && core.SyncTargets.Firestore && habit && habit.sharing && habit.sharing.enabled) {
       firestorePromise = core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(e) {
@@ -825,7 +826,10 @@ window.HabitualCore = window.HabitualCore || {};
           combined.set(encryptedArr, salt.length + iv.length);
 
           let binary = '';
-          for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
+          const chunkSize = 8192;
+          for (let i = 0; i < combined.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, combined.subarray(i, i + chunkSize));
+          }
           return 'ENC:' + btoa(binary);
         });
       });
@@ -904,8 +908,8 @@ window.HabitualCore = window.HabitualCore || {};
           const existingUpdated = existing.updatedAt || 0;
           const incomingUpdated = h.updatedAt || 0;
 
-          if (incomingUpdated > existingUpdated) {
-            // Keep newer metadata but merge logs
+          if (incomingUpdated >= existingUpdated) {
+            // Keep newer/equal remote metadata but merge logs
             const mergedLogs = Object.assign({}, existing.logs || {}, h.logs || {});
             Object.keys(mergedLogs).forEach(function(dateKey) {
               const el = (existing.logs || {})[dateKey] || { count: 0, note: '' };
@@ -1387,11 +1391,19 @@ window.HabitualCore = window.HabitualCore || {};
 
               if (data.ciphertext === self.lastSentCiphertext) return;
 
-              if (data.updatedAt && data.updatedAt.toMillis && data.updatedAt.toMillis() < self.lastUpdatedServerTime) {
+              const remoteTs = (function(val) {
+                if (!val) return 0;
+                if (typeof val === 'number') return val;
+                if (typeof val.toMillis === 'function') return val.toMillis();
+                if (typeof val.toDate === 'function') return val.toDate().getTime();
+                return 0;
+              })(data.updatedAt);
+
+              if (remoteTs && remoteTs < self.lastUpdatedServerTime) {
                 return;
               }
-              if (data.updatedAt && data.updatedAt.toMillis) {
-                self.lastUpdatedServerTime = data.updatedAt.toMillis();
+              if (remoteTs) {
+                self.lastUpdatedServerTime = remoteTs;
               }
 
               // Queue snapshot for rate-limited / throttled processing
@@ -1420,10 +1432,17 @@ window.HabitualCore = window.HabitualCore || {};
           if (!data || !data.ciphertext) return;
 
           core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remotePayload) {
+            if (core.CLIENT_ID) console.log(`[${core.CLIENT_ID}] DECRYPTED REMOTE PAYLOAD habits =`, JSON.stringify((remotePayload ? remotePayload.habits : []).map(x => ({ id: x.id, name: x.name }))));
             if (!remotePayload) return;
 
             const remoteHash = data.hashOfdata || data.hashOfData || data.dataHash || data.data_hash || data.hash;
-            const remoteTs = (data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : Date.now();
+            const remoteTs = (function(val) {
+              if (!val) return Date.now();
+              if (typeof val === 'number') return val;
+              if (typeof val.toMillis === 'function') return val.toMillis();
+              if (typeof val.toDate === 'function') return val.toDate().getTime();
+              return Date.now();
+            })(data.updatedAt);
             const snapshotAgeMs = Math.max(0, Date.now() - remoteTs);
 
             if (!core.state.remoteHashHistory) core.state.remoteHashHistory = [];

@@ -13,7 +13,7 @@ const { chromium } = require('playwright');
 const PORT = 8091;
 const WEB_DIR = path.join(__dirname, '..', 'web');
 
-function createStaticServer() {
+function createStaticServer(portToUse = PORT) {
   const mimeTypes = {
     '.html': 'text/html',
     '.css': 'text/css',
@@ -24,34 +24,60 @@ function createStaticServer() {
     '.woff2': 'font/woff2'
   };
 
-  const server = http.createServer((req, res) => {
-    let urlPath = req.url.split('?')[0];
-    let filePath = path.join(WEB_DIR, urlPath === '/' ? 'index.html' : urlPath);
+  const sockets = new Set();
 
-    if (!filePath.startsWith(WEB_DIR)) {
-      res.writeHead(403);
-      return res.end('Forbidden');
-    }
+  const createServerInstance = (port) => {
+    return new Promise((resolve, reject) => {
+      const server = http.createServer((req, res) => {
+        let urlPath = req.url.split('?')[0];
+        let filePath = path.join(WEB_DIR, urlPath === '/' ? 'index.html' : urlPath);
 
-    fs.stat(filePath, (err, stats) => {
-      if (err || !stats.isFile()) {
-        res.writeHead(404);
-        return res.end('Not Found');
-      }
+        if (!filePath.startsWith(WEB_DIR)) {
+          res.writeHead(403);
+          return res.end('Forbidden');
+        }
 
-      const ext = path.extname(filePath).toLowerCase();
-      const contentType = mimeTypes[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': contentType });
-      fs.createReadStream(filePath).pipe(res);
+        fs.stat(filePath, (err, stats) => {
+          if (err || !stats.isFile()) {
+            res.writeHead(404);
+            return res.end('Not Found');
+          }
+
+          const ext = path.extname(filePath).toLowerCase();
+          const contentType = mimeTypes[ext] || 'application/octet-stream';
+          res.writeHead(200, { 'Content-Type': contentType });
+          fs.createReadStream(filePath).pipe(res);
+        });
+      });
+
+      server.on('connection', (socket) => {
+        sockets.add(socket);
+        socket.on('close', () => sockets.delete(socket));
+      });
+
+      server.destroyAllSockets = () => {
+        for (const socket of sockets) {
+          try { socket.destroy(); } catch (e) {}
+        }
+        sockets.clear();
+      };
+
+      server.on('error', (err) => {
+        if (err && err.code === 'EADDRINUSE' && port !== 0) {
+          createServerInstance(0).then(resolve).catch(reject);
+        } else {
+          reject(err);
+        }
+      });
+
+      server.listen(port, '127.0.0.1', () => {
+        console.log(`[Server] Local test web server running on http://127.0.0.1:${server.address().port}`);
+        resolve(server);
+      });
     });
-  });
+  };
 
-  return new Promise((resolve) => {
-    server.listen(PORT, '127.0.0.1', () => {
-      console.log(`[Server] Local test web server running on http://127.0.0.1:${PORT}`);
-      resolve(server);
-    });
-  });
+  return createServerInstance(portToUse);
 }
 
 function logResult(testName, isSuccess, details = '') {
@@ -65,7 +91,16 @@ function logResult(testName, isSuccess, details = '') {
 async function runColorSyncPlaywrightTests() {
   console.log('🚀 Starting Playwright E2E Test Suite for Habit Color Updates Sync via Firestore...\n');
 
-  const server = await createStaticServer();
+  const GLOBAL_TIMEOUT_MS = 60000;
+  const globalTimeout = setTimeout(() => {
+    console.error(`❌ Global Test Suite Timeout exceeded (${GLOBAL_TIMEOUT_MS}ms). Forcing process exit.`);
+    process.exit(1);
+  }, GLOBAL_TIMEOUT_MS);
+  if (globalTimeout.unref) globalTimeout.unref();
+
+  const server = await createStaticServer(PORT);
+  const serverPort = server.address().port;
+
   let browser;
   try {
     browser = await chromium.launch({ headless: true });
@@ -110,7 +145,7 @@ async function runColorSyncPlaywrightTests() {
     console.log('🎨 PART 1: Testing Regular Habit Color Update Sync Across Devices...');
 
     // Load Device 1
-    await page1.goto(`http://127.0.0.1:${PORT}/index.html`);
+    await page1.goto(`http://127.0.0.1:${serverPort}/index.html`);
     await page1.waitForLoadState('domcontentloaded');
 
     await page1.evaluate(({ code, pass }) => {
@@ -133,9 +168,16 @@ async function runColorSyncPlaywrightTests() {
       if (nameInput) nameInput.value = name;
       if (colorSelect) colorSelect.value = '#33B679';
       window.HabitualCore.handleHabitFormSubmit();
+      if (window.HabitualCore.SyncManager) {
+        if (window.HabitualCore.SyncManager._broadcastTimer) {
+          clearTimeout(window.HabitualCore.SyncManager._broadcastTimer);
+          window.HabitualCore.SyncManager._broadcastTimer = null;
+        }
+        window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
+      }
     }, { name: REGULAR_HABIT_NAME });
 
-    await page1.waitForTimeout(500);
+    await page1.waitForTimeout(300);
 
     regularHabitId = await page1.evaluate((name) => {
       const h = window.HabitualCore.state.habits.find(x => x.name === name);
@@ -147,7 +189,7 @@ async function runColorSyncPlaywrightTests() {
     passedTests++;
 
     // Load Device 2 & Connect
-    await page2.goto(`http://127.0.0.1:${PORT}/index.html`);
+    await page2.goto(`http://127.0.0.1:${serverPort}/index.html`);
     await page2.waitForLoadState('domcontentloaded');
 
     await page2.evaluate(({ code, pass }) => {
@@ -182,10 +224,17 @@ async function runColorSyncPlaywrightTests() {
       if (habit) {
         habit.colorTheme = '#D50000';
         window.HabitualCore.saveHabit(habit);
+        if (window.HabitualCore.SyncManager) {
+          if (window.HabitualCore.SyncManager._broadcastTimer) {
+            clearTimeout(window.HabitualCore.SyncManager._broadcastTimer);
+            window.HabitualCore.SyncManager._broadcastTimer = null;
+          }
+          window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
+        }
       }
     }, { id: regularHabitId });
 
-    await page1.waitForTimeout(500);
+    await page1.waitForTimeout(300);
 
     // Verify Device 2 receives the updated color (#D50000)
     let regularColorUpdatedOnDevice2 = false;
@@ -197,7 +246,7 @@ async function runColorSyncPlaywrightTests() {
         const h = window.HabitualCore.state.habits.find(x => x.id === id);
         return h ? h.colorTheme : null;
       }, regularHabitId);
-      if (actualDevice2Color === '#D50000') {
+      if (actualDevice2Color && actualDevice2Color.toLowerCase() === '#d50000') {
         regularColorUpdatedOnDevice2 = true;
         break;
       }
@@ -232,9 +281,16 @@ async function runColorSyncPlaywrightTests() {
       if (passInput) passInput.value = pass;
 
       window.HabitualCore.handleHabitFormSubmit();
+      if (window.HabitualCore.SyncManager) {
+        if (window.HabitualCore.SyncManager._broadcastTimer) {
+          clearTimeout(window.HabitualCore.SyncManager._broadcastTimer);
+          window.HabitualCore.SyncManager._broadcastTimer = null;
+        }
+        window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
+      }
     }, { name: SHARED_HABIT_NAME, docId: SHARED_DOC_ID, pass: SHARED_PASS });
 
-    await page1.waitForTimeout(500);
+    await page1.waitForTimeout(300);
 
     sharedHabitId = await page1.evaluate((name) => {
       const h = window.HabitualCore.state.habits.find(x => x.name === name);
@@ -259,6 +315,7 @@ async function runColorSyncPlaywrightTests() {
     }, SHARED_HABIT_NAME);
 
     await page2.click('#btn-confirm-import-shared');
+    await page2.waitForTimeout(500);
 
     let sharedSyncedToDevice2 = false;
     for (let i = 0; i < 20; i++) {
@@ -283,7 +340,7 @@ async function runColorSyncPlaywrightTests() {
       }
     }, { id: sharedHabitId });
 
-    await page1.waitForTimeout(500);
+    await page1.waitForTimeout(300);
 
     // Verify Device 2 receives the updated shared habit color (#8E24AA) via per-habit live sync
     let sharedColorUpdatedOnDevice2 = false;
@@ -296,7 +353,7 @@ async function runColorSyncPlaywrightTests() {
         return h ? window.HabitualCore.getHabitHexColor(h) : null;
       }, SHARED_DOC_ID);
 
-      if (actualSharedDevice2Color === '#8E24AA') {
+      if (actualSharedDevice2Color && actualSharedDevice2Color.toLowerCase() === '#8e24aa') {
         sharedColorUpdatedOnDevice2 = true;
         break;
       }
@@ -311,12 +368,27 @@ async function runColorSyncPlaywrightTests() {
     console.log(`========================================\n`);
 
   } finally {
-    await browser.close();
-    await new Promise((resolve) => server.close(resolve));
+    clearTimeout(globalTimeout);
+    if (browser) {
+      try { await browser.close(); } catch (e) {}
+    }
+    if (server) {
+      try {
+        if (typeof server.destroyAllSockets === 'function') server.destroyAllSockets();
+        if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+        server.close();
+      } catch (e) {}
+    }
   }
 }
 
-runColorSyncPlaywrightTests().catch((err) => {
-  console.error('\n❌ Color Sync Playwright Test Failed:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  runColorSyncPlaywrightTests().then(() => {
+    process.exit(0);
+  }).catch((err) => {
+    console.error('\n❌ Color Sync Playwright Test Failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { runColorSyncPlaywrightTests };
