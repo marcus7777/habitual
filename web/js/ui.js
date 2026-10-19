@@ -185,7 +185,11 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (core.elements.modalLogDateInput && typeof core.elements.modalLogDateInput.addEventListener === 'function') {
       core.elements.modalLogDateInput.addEventListener('change', (e) => {
-        if (e.target.value) { core.activeLogDateKey = e.target.value; core.loadLogModalValues(); }
+        if (e.target.value) {
+          core.activeLogDateKey = e.target.value;
+          if (core.setCursorDateKey) core.setCursorDateKey(e.target.value, true);
+          core.loadLogModalValues();
+        }
       });
     }
 
@@ -992,16 +996,16 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (key === 'ArrowLeft' || lowerKey === 'a') {
         e.preventDefault();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-7);
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
       } else if (key === 'ArrowRight' || lowerKey === 'd') {
         e.preventDefault();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(7);
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
       } else if (key === 'ArrowUp' || lowerKey === 'w') {
         e.preventDefault();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
+        if (core.navigateSelectedHabit) core.navigateSelectedHabit(-1);
       } else if (key === 'ArrowDown' || lowerKey === 's') {
         e.preventDefault();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
+        if (core.navigateSelectedHabit) core.navigateSelectedHabit(1);
       } else if (key === 'Enter') {
         const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) ||
                             core.hoveredCard ||
@@ -1042,7 +1046,7 @@ window.HabitualCore = window.HabitualCore || {};
         e.preventDefault();
         e.stopPropagation();
         triggerHaptic();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
+        if (core.navigateSelectedHabit) core.navigateSelectedHabit(-1);
       });
     }
 
@@ -1051,7 +1055,7 @@ window.HabitualCore = window.HabitualCore || {};
         e.preventDefault();
         e.stopPropagation();
         triggerHaptic();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
+        if (core.navigateSelectedHabit) core.navigateSelectedHabit(1);
       });
     }
 
@@ -1060,7 +1064,7 @@ window.HabitualCore = window.HabitualCore || {};
         e.preventDefault();
         e.stopPropagation();
         triggerHaptic();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-7);
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
       });
     }
 
@@ -1069,7 +1073,7 @@ window.HabitualCore = window.HabitualCore || {};
         e.preventDefault();
         e.stopPropagation();
         triggerHaptic();
-        if (core.moveCursorDateByDays) core.moveCursorDateByDays(7);
+        if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
       });
     }
 
@@ -1079,7 +1083,7 @@ window.HabitualCore = window.HabitualCore || {};
         e.stopPropagation();
         triggerHaptic();
         if (core.setCursorDateKey && core.getTodayKey) {
-          core.setCursorDateKey(core.getTodayKey());
+          core.setCursorDateKey(core.getTodayKey(), true);
         }
       });
     }
@@ -1318,6 +1322,21 @@ window.HabitualCore = window.HabitualCore || {};
       const card = e.target.closest('.heatmap-card');
       if (!card) return; // Only process clicks inside cards
 
+      const clickedHabitId = card.getAttribute('data-habit-id');
+      if (clickedHabitId && core.state) {
+        core.state.selectedHabitId = clickedHabitId;
+        const allCards = gallery.querySelectorAll('.heatmap-card');
+        allCards.forEach(c => {
+          if (c.getAttribute('data-habit-id') === clickedHabitId) {
+            c.classList.add('selected');
+            c.classList.add('selected-habit');
+          } else {
+            c.classList.remove('selected');
+            c.classList.remove('selected-habit');
+          }
+        });
+      }
+
       // 1. Handle Quick Log Button clicks via Delegation
       const quickLogBtn = e.target.closest('.btn-card-quick-log');
       if (quickLogBtn) {
@@ -1428,14 +1447,13 @@ window.HabitualCore = window.HabitualCore || {};
         e.stopPropagation();
         if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
 
-        const cardHabitId = card.getAttribute('data-habit-id') || 'all';
-        let targetHabitId = cardHabitId;
+        let targetHabitId = cardHabitId || 'all';
         const sqHabitId = sq.getAttribute('data-habit-id');
         if (sqHabitId && sqHabitId !== 'all' && !sqHabitId.startsWith('group_')) targetHabitId = sqHabitId;
         const targetDate = sq.getAttribute('data-date');
 
         if (targetDate && core.setCursorDateKey) {
-          core.setCursorDateKey(targetDate);
+          core.setCursorDateKey(targetDate, true);
         }
         core.openLogModal(targetDate, targetHabitId);
         return; // Important: Return early so we don't trigger the card expansion below
@@ -1453,9 +1471,8 @@ window.HabitualCore = window.HabitualCore || {};
         return;
       }
 
-      const cardHabitId = card.getAttribute('data-habit-id') || 'all';
       const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
-      core.openLogModal(targetDate, cardHabitId);
+      core.openLogModal(targetDate, cardHabitId || 'all');
     });
 
     // Delegated event listeners for focused toolbar inputs and buttons
@@ -1467,6 +1484,7 @@ window.HabitualCore = window.HabitualCore || {};
           const newYear = parseInt(newDate.split('-')[0], 10);
           if (newYear && newYear !== core.state.selectedYear && core.getAvailableYears().includes(newYear)) core.state.selectedYear = newYear;
           core.focusedDayState.dateStr = newDate;
+          if (core.setCursorDateKey) core.setCursorDateKey(newDate, true);
           if (core.renderAll) core.renderAll();
         }
       }
@@ -2759,7 +2777,7 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.openLogModal = function(dateStr, preferredHabitId = null) {
     if (dateStr && core.getCursorDateKey && core.getCursorDateKey() !== dateStr) {
-      if (core.setCursorDateKey) core.setCursorDateKey(dateStr);
+      if (core.setCursorDateKey) core.setCursorDateKey(dateStr, true);
     }
     core.activeLogDateKey = dateStr;
     if (core.state.habits.length === 0) {
@@ -2805,6 +2823,7 @@ window.HabitualCore = window.HabitualCore || {};
     const d = core.parseDateKey(core.activeLogDateKey);
     d.setDate(d.getDate() + days);
     core.activeLogDateKey = core.formatDateKey(d);
+    if (core.setCursorDateKey) core.setCursorDateKey(core.activeLogDateKey, true);
     if (core.elements.modalLogDateInput) core.elements.modalLogDateInput.value = core.activeLogDateKey;
     core.loadLogModalValues();
   };

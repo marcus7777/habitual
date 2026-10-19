@@ -20,6 +20,8 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.resetState = function() {
+    core.cursorDateKey = null;
+    core.hasMovedCursor = false;
     core.state = {
       habits: [],
       deletedHabitIds: [],
@@ -211,6 +213,9 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.cursorDateKey = null;
+  core.hasMovedCursor = false;
+  core.lastTodayKey = null;
+  core.midnightTimer = null;
 
   core.getCursorDateKey = function() {
     if (!core.cursorDateKey) {
@@ -219,8 +224,11 @@ window.HabitualCore = window.HabitualCore || {};
     return core.cursorDateKey;
   };
 
-  core.setCursorDateKey = function(dateStr) {
+  core.setCursorDateKey = function(dateStr, isUserAction = false) {
     if (!dateStr) return;
+    if (isUserAction) {
+      core.hasMovedCursor = true;
+    }
     const isNew = core.cursorDateKey !== dateStr;
     core.cursorDateKey = dateStr;
     const year = parseInt(dateStr.split('-')[0], 10);
@@ -242,7 +250,131 @@ window.HabitualCore = window.HabitualCore || {};
     const d = core.parseDateKey(currentKey);
     d.setDate(d.getDate() + days);
     const newKey = core.formatDateKey(d);
-    core.setCursorDateKey(newKey);
+    core.setCursorDateKey(newKey, true);
+  };
+
+  core.navigateSelectedHabit = function(direction) {
+    let habitIds = [];
+    const gallery = core.elements && core.elements.heatmapsGallery;
+    if (gallery && typeof gallery.querySelectorAll === 'function') {
+      const cards = Array.from(gallery.querySelectorAll('.heatmap-card'));
+      cards.forEach(c => {
+        const id = c.getAttribute('data-habit-id');
+        if (id && !habitIds.includes(id)) habitIds.push(id);
+      });
+    }
+
+    if (habitIds.length === 0 && core.state && Array.isArray(core.state.habits)) {
+      const topLevel = core.state.habits.filter(h => !h.parentId);
+      const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
+      if (topLevel.length > 1 && habitsInAll.length > 0) {
+        habitIds.push('all');
+      }
+      topLevel.forEach(h => {
+        if (!habitIds.includes(h.id)) habitIds.push(h.id);
+      });
+      if (habitIds.length === 0) {
+        core.state.habits.forEach(h => {
+          if (!habitIds.includes(h.id)) habitIds.push(h.id);
+        });
+      }
+    }
+
+    if (habitIds.length === 0) return;
+
+    let currentIndex = habitIds.indexOf(core.state.selectedHabitId);
+    if (currentIndex === -1) {
+      currentIndex = direction > 0 ? -1 : habitIds.length;
+    }
+
+    let nextIndex = currentIndex + direction;
+    if (nextIndex < 0) nextIndex = 0;
+    if (nextIndex >= habitIds.length) nextIndex = habitIds.length - 1;
+
+    const newSelectedId = habitIds[nextIndex];
+    core.state.selectedHabitId = newSelectedId;
+
+    if (gallery && typeof gallery.querySelectorAll === 'function') {
+      const cards = gallery.querySelectorAll('.heatmap-card');
+      cards.forEach(c => {
+        const cId = c.getAttribute('data-habit-id');
+        if (cId === newSelectedId) {
+          c.classList.add('selected');
+          c.classList.add('selected-habit');
+          if (typeof c.scrollIntoView === 'function') {
+            c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+        } else {
+          c.classList.remove('selected');
+          c.classList.remove('selected-habit');
+        }
+      });
+    }
+  };
+
+  core.selectNextHabit = function() {
+    core.navigateSelectedHabit(1);
+  };
+
+  core.selectPreviousHabit = function() {
+    core.navigateSelectedHabit(-1);
+  };
+
+  core.checkMidnightRollover = function() {
+    const currentToday = core.getTodayKey();
+    if (!core.lastTodayKey) {
+      core.lastTodayKey = currentToday;
+      return false;
+    }
+    if (currentToday !== core.lastTodayKey) {
+      core.lastTodayKey = currentToday;
+      if (!core.hasMovedCursor) {
+        core.setCursorDateKey(currentToday, false);
+      }
+      if (core.renderAll) {
+        core.renderAll();
+      }
+      return true;
+    }
+    return false;
+  };
+
+  core.scheduleMidnightTimer = function() {
+    if (core.midnightTimer) {
+      clearTimeout(core.midnightTimer);
+      core.midnightTimer = null;
+    }
+    if (typeof window === 'undefined' || typeof setTimeout === 'undefined') return;
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const delay = Math.max(1000, nextMidnight.getTime() - now.getTime() + 100);
+    core.midnightTimer = setTimeout(function() {
+      core.checkMidnightRollover();
+      core.scheduleMidnightTimer();
+    }, delay);
+  };
+
+  core.setupMidnightRollover = function() {
+    core.lastTodayKey = core.getTodayKey();
+    core.scheduleMidnightTimer();
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      if (!core._midnightVisibilityListenerRegistered) {
+        core._midnightVisibilityListenerRegistered = true;
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible') {
+            core.checkMidnightRollover();
+          }
+        });
+      }
+    }
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      if (!core._midnightFocusListenerRegistered) {
+        core._midnightFocusListenerRegistered = true;
+        window.addEventListener('focus', function() {
+          core.checkMidnightRollover();
+        });
+      }
+    }
   };
 
   core.getDaysAgoKey = function(daysAgo) {

@@ -620,6 +620,13 @@ body.dark-theme {
   box-shadow: 0 0 16px rgba(88, 166, 255, 0.25);
 }
 
+/* Selected Habit Mode (Yellow Border) */
+.heatmap-card.selected,
+.heatmap-card.selected-habit {
+  border-color: var(--accent-gold, #f1e05a) !important;
+  box-shadow: 0 0 12px rgba(241, 224, 90, 0.35);
+}
+
 .heatmap-card.focused .heatmap-card-header,
 .heatmap-card.focused .heatmap-footer {
   display: flex;

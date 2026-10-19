@@ -1883,23 +1883,14 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
 
     assert(typeof keydownListener === 'function', 'keydown listener was registered');
 
-    // Test 'w' key (up 1 day = -1 day)
-    keydownListener({ key: 'w', preventDefault: () => {} });
-    const yesterday = HabitualCore.getDaysAgoKey(1);
-    assertEqual(HabitualCore.getCursorDateKey(), yesterday, "'w' key moves cursor up 1 day");
-
-    // Test 's' key (down 1 day = +1 day)
-    keydownListener({ key: 's', preventDefault: () => {} });
-    assertEqual(HabitualCore.getCursorDateKey(), today, "'s' key moves cursor down 1 day");
-
-    // Test 'a' key (left 1 week = -7 days)
+    // Test 'a' key (left = -1 day)
     keydownListener({ key: 'a', preventDefault: () => {} });
-    const lastWeek = HabitualCore.getDaysAgoKey(7);
-    assertEqual(HabitualCore.getCursorDateKey(), lastWeek, "'a' key moves cursor left 1 week");
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+    assertEqual(HabitualCore.getCursorDateKey(), yesterday, "'a' key moves cursor left 1 day");
 
-    // Test 'd' key (right 1 week = +7 days)
+    // Test 'd' key (right = +1 day)
     keydownListener({ key: 'd', preventDefault: () => {} });
-    assertEqual(HabitualCore.getCursorDateKey(), today, "'d' key moves cursor right 1 week");
+    assertEqual(HabitualCore.getCursorDateKey(), today, "'d' key moves cursor right 1 day");
 
     // Test Enter key on hovered card
     let clicked = false;
@@ -1976,23 +1967,14 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
 
     const dummyEvent = { preventDefault: () => {}, stopPropagation: () => {} };
 
-    // Test Up button (-1 day)
-    buttonListeners['btn-arrow-up'](dummyEvent);
-    const yesterday = HabitualCore.getDaysAgoKey(1);
-    assertEqual(HabitualCore.getCursorDateKey(), yesterday, 'Up button moves cursor up 1 day');
-
-    // Test Down button (+1 day)
-    buttonListeners['btn-arrow-down'](dummyEvent);
-    assertEqual(HabitualCore.getCursorDateKey(), today, 'Down button moves cursor down 1 day');
-
-    // Test Left button (-7 days)
+    // Test Left button (-1 day)
     buttonListeners['btn-arrow-left'](dummyEvent);
-    const lastWeek = HabitualCore.getDaysAgoKey(7);
-    assertEqual(HabitualCore.getCursorDateKey(), lastWeek, 'Left button moves cursor left 1 week');
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+    assertEqual(HabitualCore.getCursorDateKey(), yesterday, 'Left button moves cursor left 1 day');
 
-    // Test Right button (+7 days)
+    // Test Right button (+1 day)
     buttonListeners['btn-arrow-right'](dummyEvent);
-    assertEqual(HabitualCore.getCursorDateKey(), today, 'Right button moves cursor right 1 week');
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Right button moves cursor right 1 day');
 
     // Test Today button
     HabitualCore.setCursorDateKey('2026-01-01');
@@ -3945,6 +3927,162 @@ describe('Issue #22: ↕️ Handle Icon Visibility & Mobile Reorder Arrows', () 
     assert(subCardSecond.innerHTML.includes('drag-handle'), 'Second of 2 sub-habits renders drag handle');
     assert(subCardSecond.innerHTML.includes('btn-move-up'), 'Second sub-habit renders btn-move-up');
     assert(!subCardSecond.innerHTML.includes('btn-move-down'), 'Second sub-habit does NOT render btn-move-down');
+  });
+});
+
+// ============================================================================
+// ISSUE #23: Midnight Date Rollover & Automatic Cursor Advancement
+// ============================================================================
+describe('Issue #23: 🌙 Midnight Date Rollover & Automatic Cursor Advancement', () => {
+  test('checkMidnightRollover advances cursorDateKey when hasMovedCursor is false', () => {
+    HabitualCore.resetState();
+    HabitualCore.hasMovedCursor = false;
+    HabitualCore.lastTodayKey = '2026-10-18';
+    HabitualCore.cursorDateKey = '2026-10-18';
+
+    // Mock getTodayKey to return new day
+    const origGetToday = HabitualCore.getTodayKey;
+    HabitualCore.getTodayKey = () => '2026-10-19';
+
+    let renderCalled = false;
+    const origRender = HabitualCore.renderAll;
+    HabitualCore.renderAll = () => { renderCalled = true; };
+
+    const result = HabitualCore.checkMidnightRollover();
+
+    assertEqual(result, true, 'checkMidnightRollover returned true when date changed');
+    assertEqual(HabitualCore.lastTodayKey, '2026-10-19', 'lastTodayKey updated to 2026-10-19');
+    assertEqual(HabitualCore.getCursorDateKey(), '2026-10-19', 'cursorDateKey updated automatically to new day when hasMovedCursor is false');
+    assertEqual(renderCalled, true, 'renderAll invoked on date change');
+
+    HabitualCore.getTodayKey = origGetToday;
+    HabitualCore.renderAll = origRender;
+  });
+
+  test('checkMidnightRollover preserves cursorDateKey when hasMovedCursor is true', () => {
+    HabitualCore.resetState();
+    HabitualCore.lastTodayKey = '2026-10-18';
+    HabitualCore.setCursorDateKey('2026-10-15', true); // User manually moved cursor to 2026-10-15
+    assertEqual(HabitualCore.hasMovedCursor, true, 'hasMovedCursor is true after user date selection');
+
+    // Mock getTodayKey to return new day
+    const origGetToday = HabitualCore.getTodayKey;
+    HabitualCore.getTodayKey = () => '2026-10-19';
+
+    let renderCalled = false;
+    const origRender = HabitualCore.renderAll;
+    HabitualCore.renderAll = () => { renderCalled = true; };
+
+    const result = HabitualCore.checkMidnightRollover();
+
+    assertEqual(result, true, 'checkMidnightRollover returned true on day transition');
+    assertEqual(HabitualCore.lastTodayKey, '2026-10-19', 'lastTodayKey updated to 2026-10-19');
+    assertEqual(HabitualCore.getCursorDateKey(), '2026-10-15', 'cursorDateKey remains on user-selected 2026-10-15');
+    assertEqual(renderCalled, true, 'renderAll invoked to refresh UI today highlights');
+
+    HabitualCore.getTodayKey = origGetToday;
+    HabitualCore.renderAll = origRender;
+  });
+
+  test('moveCursorDateByDays sets hasMovedCursor to true', () => {
+    HabitualCore.resetState();
+    HabitualCore.hasMovedCursor = false;
+    HabitualCore.cursorDateKey = '2026-10-19';
+
+    HabitualCore.moveCursorDateByDays(-1);
+
+    assertEqual(HabitualCore.hasMovedCursor, true, 'moveCursorDateByDays flagged hasMovedCursor = true');
+    assertEqual(HabitualCore.getCursorDateKey(), '2026-10-18', 'cursor shifted to yesterday');
+  });
+
+  test('setupMidnightRollover initializes state and registers visibility/focus listeners', () => {
+    HabitualCore.resetState();
+    HabitualCore.lastTodayKey = null;
+
+    let visListenerRegistered = false;
+    let focusListenerRegistered = false;
+
+    const origAddDoc = global.document.addEventListener;
+    const origAddWin = global.window.addEventListener;
+
+    global.document.addEventListener = (evt, fn) => {
+      if (evt === 'visibilitychange') visListenerRegistered = true;
+      if (origAddDoc) origAddDoc(evt, fn);
+    };
+
+    global.window.addEventListener = (evt, fn) => {
+      if (evt === 'focus') focusListenerRegistered = true;
+      if (origAddWin) origAddWin(evt, fn);
+    };
+
+    HabitualCore.setupMidnightRollover();
+
+    assert(HabitualCore.lastTodayKey !== null, 'setupMidnightRollover initialized lastTodayKey');
+    assert(HabitualCore.midnightTimer !== null, 'setupMidnightRollover scheduled midnight timer');
+    assert(visListenerRegistered === true, 'Registered visibilitychange listener');
+    assert(focusListenerRegistered === true, 'Registered window focus listener');
+
+    if (HabitualCore.midnightTimer) {
+      clearTimeout(HabitualCore.midnightTimer);
+      HabitualCore.midnightTimer = null;
+    }
+
+    global.document.addEventListener = origAddDoc;
+    global.window.addEventListener = origAddWin;
+  });
+});
+
+// ============================================================================
+// FEATURE 39: 🟡 ISSUE #24 UPDATING HABITS KEYBOARD NAVIGATION & YELLOW BORDER
+// ============================================================================
+describe('Feature 39: 🟡 Issue #24 Updating Habits Keyboard Navigation & Yellow Border', () => {
+  test('Left and Right arrow keys move cursor date by -1 and +1 day', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'getCursorDateKey starts on today');
+
+    HabitualCore.moveCursorDateByDays(-1);
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+    assertEqual(HabitualCore.getCursorDateKey(), yesterday, 'Left arrow key moves cursor date back 1 day');
+
+    HabitualCore.moveCursorDateByDays(1);
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Right arrow key moves cursor date forward 1 day');
+  });
+
+  test('Up and Down arrow keys change selected habit ID using navigateSelectedHabit', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'h1', name: 'Meditation', type: 'positive' },
+        { id: 'h2', name: 'Exercise', type: 'positive' }
+      ],
+      selectedHabitId: 'all'
+    });
+
+    assertEqual(HabitualCore.state.selectedHabitId, 'all', 'Initial selectedHabitId is all');
+
+    // Down arrow moves selection to next habit (h1)
+    HabitualCore.navigateSelectedHabit(1);
+    assertEqual(HabitualCore.state.selectedHabitId, 'h1', 'Down arrow selects first habit h1');
+
+    // Down arrow moves selection to next habit (h2)
+    HabitualCore.navigateSelectedHabit(1);
+    assertEqual(HabitualCore.state.selectedHabitId, 'h2', 'Down arrow selects second habit h2');
+
+    // Up arrow moves selection to previous habit (h1)
+    HabitualCore.navigateSelectedHabit(-1);
+    assertEqual(HabitualCore.state.selectedHabitId, 'h1', 'Up arrow selects previous habit h1');
+  });
+
+  test('buildHeatmapCard renders selected class on card matching selectedHabitId', () => {
+    HabitualCore.resetState();
+    const habit = { id: 'water', name: 'Drink Water', type: 'positive', dailyTarget: 1, logs: {} };
+    HabitualCore.state.selectedHabitId = 'water';
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    const className = card.className || '';
+
+    assert(className.includes('selected') || (card.classList && card.classList.contains('selected')), 'Card includes selected class for selectedHabitId');
   });
 });
 
