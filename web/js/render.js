@@ -26,13 +26,28 @@ window.HabitualCore = window.HabitualCore || {};
         if (cellData) {
           squares.forEach(sq => {
             const isCellCompleted = cellData.isCompleted || (cellData.ratio && cellData.ratio > 0);
-            sq.className = `day-square ${isCellCompleted ? 'completed' : ''} ${cellData.isCursor ? 'cursor-day' : ''} ${cellData.hasNote ? 'has-note' : ''}`;
+            sq.className = `day-square ${isCellCompleted ? 'completed' : ''} ${cellData.isCursor ? 'cursor-day' : ''} ${cellData.hasNote ? 'has-note' : ''} square-pop`;
             sq.style.backgroundColor = cellData.bgColor || '';
             if (cellData.hasNote) {
               if (typeof sq.setAttribute === 'function') sq.setAttribute('data-has-note', 'true');
             } else {
               if (typeof sq.removeAttribute === 'function') sq.removeAttribute('data-has-note');
             }
+
+            let tooltipText = dateKey;
+            if (cellData.count !== undefined) {
+              tooltipText += `: ${cellData.count} check-in${cellData.count === 1 ? '' : 's'}`;
+            }
+            if (cellData.note) {
+              tooltipText += ` (${cellData.note})`;
+            }
+            if (typeof sq.setAttribute === 'function') sq.setAttribute('title', tooltipText);
+
+            setTimeout(() => {
+              if (sq && sq.classList && typeof sq.classList.remove === 'function') {
+                sq.classList.remove('square-pop');
+              }
+            }, 300);
           });
         }
       }

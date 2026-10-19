@@ -982,6 +982,16 @@ body.dark-theme {
   outline: 1px dashed #f85149 !important;
 }
 
+@keyframes squarePop {
+  0% { transform: scale(1.45); z-index: 25; filter: brightness(1.35); }
+  50% { transform: scale(1.2); z-index: 25; }
+  100% { transform: scale(1); z-index: 1; }
+}
+
+.day-square.square-pop {
+  animation: squarePop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
 /* Heatmap Footer Legend */
 .heatmap-footer {
   display: flex;

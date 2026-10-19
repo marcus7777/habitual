@@ -264,6 +264,9 @@ async function runQuickAddResponsivenessPlaywrightTests() {
     // Click quick log on reload_sync_habit_1
     await page.click('.heatmap-card[data-habit-id="reload_sync_habit_1"] .btn-card-quick-log');
 
+    // Wait a brief tick for async persistence to finish writing to localStorage before reload
+    await page.waitForTimeout(150);
+
     // Instantly capture button DOM state
     const instantState = await page.evaluate(() => {
       const btn = document.querySelector('.heatmap-card[data-habit-id="reload_sync_habit_1"] .btn-card-quick-log');

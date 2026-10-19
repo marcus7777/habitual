@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Today's To-Do List - Habitual</title>
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      background-color: var(--bg-app, #0d1117);
+      color: var(--text-main, #f0f6fc);
+      font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .todo-app-container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .todo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent-blue, #58a6ff);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      padding: 6px 12px;
+      background: var(--bg-card, #161b22);
+      border: 1px solid var(--border-color, #30363d);
+      border-radius: var(--radius-md, 6px);
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .btn-back:hover {
+      background: var(--bg-card-hover, #1c2128);
+      border-color: var(--accent-blue, #58a6ff);
+    }
+
+    .todo-countdown-card {
+      background: var(--bg-card, #161b22);
+      border: 1px solid var(--border-color, #30363d);
+      border-radius: var(--radius-lg, 10px);
+      padding: 20px 24px;
+      text-align: center;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .todo-countdown-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted, #8b949e);
+      margin-bottom: 8px;
+    }
+
+    .todo-countdown-timer {
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--accent-gold, #f1e05a);
+      margin: 4px 0;
+      letter-spacing: 0.04em;
+    }
+
+    .todo-countdown-subtext {
+      font-size: 0.85rem;
+      color: var(--text-muted, #8b949e);
+    }
+
+    .todo-list-card {
+      background: var(--bg-card, #161b22);
+      border: 1px solid var(--border-color, #30363d);
+      border-radius: var(--radius-lg, 10px);
+      padding: 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .todo-list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle, #21262d);
+      margin-bottom: 12px;
+    }
+
+    .todo-list-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-main, #f0f6fc);
+    }
+
+    .todo-progress-badge {
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      background: var(--bg-pill, #21262d);
+      border-radius: 12px;
+      color: var(--accent-green, #3fb950);
+    }
+
+    .todo-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-app, #0d1117);
+      border: 1px solid var(--border-color, #30363d);
+      border-radius: var(--radius-md, 6px);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .todo-item:hover {
+      border-color: var(--accent-blue, #58a6ff);
+      background: var(--bg-card-hover, #1c2128);
+    }
+
+    .todo-item.completed {
+      opacity: 0.6;
+      border-color: var(--border-subtle, #21262d);
+      background: var(--bg-app, #0d1117);
+    }
+
+    .todo-item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .todo-checkbox {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--text-muted, #8b949e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      color: transparent;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .todo-item.completed .todo-checkbox {
+      border-color: var(--accent-green, #3fb950);
+      background: var(--accent-green, #3fb950);
+      color: #0d1117;
+    }
+
+    .todo-item-text {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text-main, #f0f6fc);
+      transition: all 0.25s ease;
+    }
+
+    .todo-item.completed .todo-item-text {
+      text-decoration: line-through;
+      color: var(--text-muted, #8b949e);
+    }
+
+    .todo-target-badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--bg-pill, #21262d);
+      color: var(--text-muted, #8b949e);
+    }
+
+    .todo-empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted, #8b949e);
+    }
+  </style>
+</head>
+<body>
+  <div class="todo-app-container">
+    <div class="todo-header">
+      <a href="index.html" class="btn-back">← Home</a>
+      <h1 style="margin:0; font-size: 1.3rem;">📋 Today's To-Do List</h1>
+      <div></div>
+    </div>
+
+    <!-- Countdown Timer Card -->
+    <div class="todo-countdown-card">
+      <div class="todo-countdown-title">⏰ Time Remaining Today</div>
+      <div class="todo-countdown-timer" id="todo-countdown">--h --m --s</div>
+      <div class="todo-countdown-subtext">Hours left to complete your remaining goals before midnight</div>
+    </div>
+
+    <!-- Task List Card -->
+    <div class="todo-list-card">
+      <div class="todo-list-header">
+        <div class="todo-list-title">Today's Tasks</div>
+        <div class="todo-progress-badge" id="todo-progress">0/0 Done</div>
+      </div>
+      <div class="todo-items-list" id="todo-items-container">
+        <div class="todo-empty-state">Loading tasks...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/colours.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/widgets.js"></script>
+  <script>
+    (function() {
+      const core = window.HabitualCore || {};
+
+      function updateCountdown() {
+        const timerEl = document.getElementById('todo-countdown');
+        if (!timerEl) return;
+        if (core.getTodayRemainingTime) {
+          const info = core.getTodayRemainingTime();
+          timerEl.textContent = info.formattedString;
+        }
+      }
+
+      function renderTodoListUI() {
+        const container = document.getElementById('todo-items-container');
+        const progressEl = document.getElementById('todo-progress');
+        const titleEl = document.querySelector('.todo-list-title');
+        if (!container) return;
+
+        if (!core.getTodoListData && !core.getTodayTodoList) {
+          container.innerHTML = '<div class="todo-empty-state">Core widget helpers not loaded.</div>';
+          return;
+        }
+
+        const todoData = core.getTodoListData ? core.getTodoListData() : { mode: 'today_uncompleted', items: core.getTodayTodoList() };
+        const items = todoData.items || [];
+        const isUpcomingMode = todoData.mode === 'upcoming';
+
+        if (titleEl) {
+          titleEl.textContent = isUpcomingMode ? "📅 Upcoming Events" : "📋 Uncompleted Tasks Today";
+        }
+
+        if (progressEl) {
+          progressEl.textContent = isUpcomingMode
+            ? `${items.length} Upcoming Event${items.length === 1 ? '' : 's'}`
+            : `${items.length} Task${items.length === 1 ? '' : 's'} Remaining`;
+        }
+
+        if (items.length === 0) {
+          container.innerHTML = '<div class="todo-empty-state">🎉 All tasks for today are complete and no upcoming events!</div>';
+          return;
+        }
+
+        container.innerHTML = '';
+        items.forEach(item => {
+          const itemEl = document.createElement('div');
+          itemEl.className = `todo-item ${item.isCompleted ? 'completed' : ''}`;
+
+          const instanceLabel = (!isUpcomingMode && item.totalTarget > 1) ? ` (${item.instanceIndex}/${item.totalTarget})` : '';
+          const subBadge = isUpcomingMode
+            ? `<div class="todo-target-badge">${item.formattedDate || item.dateKey}</div>`
+            : (item.totalTarget > 1 ? `<div class="todo-target-badge">${item.instanceIndex} of ${item.totalTarget}</div>` : '');
+
+          const noteText = item.note ? `<div style="font-size: 0.8rem; color: var(--text-dim, #8f9aa9); margin-top: 2px;">💬 ${core.escapeHTML ? core.escapeHTML(item.note) : item.note}</div>` : '';
+
+          itemEl.innerHTML = `
+            <div class="todo-item-left">
+              <div class="todo-checkbox">${item.isCompleted ? '✓' : ''}</div>
+              <div>
+                <div class="todo-item-text">${item.icon} ${core.escapeHTML ? core.escapeHTML(item.habitName) : item.habitName}${instanceLabel}</div>
+                ${noteText}
+              </div>
+            </div>
+            ${subBadge}
+          `;
+
+          itemEl.addEventListener('click', () => {
+            if (core.toggleHabitForDate) {
+              core.toggleHabitForDate(item.habitId, item.dateKey);
+              renderTodoListUI();
+            }
+          });
+
+          container.appendChild(itemEl);
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        if (core.loadState) {
+          core.loadState();
+        }
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+        renderTodoListUI();
+      });
+    })();
+  </script>
+</body>
+</html>

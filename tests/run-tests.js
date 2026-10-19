@@ -4127,6 +4127,39 @@ describe('Feature 40: 📋 Todo Page, Countdown Timer & Multi-Target Task Items'
     assertEqual(todoList[2].isCompleted, false, 'Read item is uncompleted');
   });
 
+  test('getUpcomingEvents retrieves future pre-logged events and getTodoListData selects upcoming if present', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    const futureDate = '2026-12-25';
+
+    HabitualCore.setState({
+      habits: [
+        { id: 'party', name: 'Christmas Party', type: 'positive', logs: { [futureDate]: { count: 1, note: 'Holiday dinner' } } },
+        { id: 'run', name: 'Morning Run', type: 'positive', dailyTarget: 1, logs: {} }
+      ]
+    });
+
+    const upcoming = HabitualCore.getUpcomingEvents();
+    assertEqual(upcoming.length, 1, 'getUpcomingEvents returns 1 future event');
+    assertEqual(upcoming[0].habitId, 'party', 'Upcoming event habit is party');
+    assertEqual(upcoming[0].dateKey, futureDate, 'Upcoming event date is 2026-12-25');
+
+    const todoData = HabitualCore.getTodoListData();
+    assertEqual(todoData.mode, 'upcoming', 'getTodoListData mode is upcoming when future events exist');
+    assertEqual(todoData.items.length, 1, 'getTodoListData items contains the upcoming event');
+
+    // When there are NO future events, getTodoListData mode is today_uncompleted
+    HabitualCore.setState({
+      habits: [
+        { id: 'run', name: 'Morning Run', type: 'positive', dailyTarget: 1, logs: {} }
+      ]
+    });
+    const todoDataToday = HabitualCore.getTodoListData();
+    assertEqual(todoDataToday.mode, 'today_uncompleted', 'getTodoListData mode falls back to today_uncompleted when no upcoming events exist');
+    assertEqual(todoDataToday.items.length, 1, 'getTodoListData contains today uncompleted task');
+    assertEqual(todoDataToday.items[0].habitId, 'run', 'Task item is Morning Run');
+  });
+
   test('web/todo.html file exists and links styles.css and core scripts', () => {
     const fs = require('fs');
     const path = require('path');

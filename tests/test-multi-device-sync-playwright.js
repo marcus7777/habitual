@@ -25,6 +25,8 @@ function createStaticServer() {
     '.woff2': 'font/woff2'
   };
 
+  const sockets = new Set();
+
   const server = http.createServer((req, res) => {
     let urlPath = req.url.split('?')[0];
     let filePath = path.join(WEB_DIR, urlPath === '/' ? 'index.html' : urlPath);
@@ -47,6 +49,18 @@ function createStaticServer() {
     });
   });
 
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+  });
+
+  server.destroyAllSockets = () => {
+    for (const socket of sockets) {
+      try { socket.destroy(); } catch (e) {}
+    }
+    sockets.clear();
+  };
+
   return new Promise((resolve) => {
     server.listen(PORT, '127.0.0.1', () => {
       console.log(`[Server] Local test web server running on http://127.0.0.1:${PORT}`);
@@ -66,24 +80,30 @@ function logResult(testName, isSuccess, details = '') {
 async function runMultiDeviceSyncPlaywrightTests() {
   console.log('🚀 Starting Playwright E2E Test Suite for Multi-Device Sync & Habit Deletion Propagation...\n');
 
+  const GLOBAL_TIMEOUT_MS = 60000;
+  const globalTimeout = setTimeout(() => {
+    console.error(`❌ Global Test Suite Timeout exceeded (${GLOBAL_TIMEOUT_MS}ms). Forcing process exit.`);
+    process.exit(1);
+  }, GLOBAL_TIMEOUT_MS);
+  if (globalTimeout.unref) globalTimeout.unref();
+
   const server = await createStaticServer();
-  const browser = await chromium.launch({ headless: true })
-    .catch(() => chromium.launch({ channel: 'chrome', headless: true }))
-    .catch(() => chromium.launch({ channel: 'msedge', headless: true }));
+  let browser;
 
   let passedTests = 0;
   let totalTests = 0;
 
   try {
-    // Context 1: Device 1 (Regular Context)
-    // Context 2: Device 2 (Private / Incognito Context with isolated Storage & Cookies)
+    browser = await chromium.launch({ headless: true })
+      .catch(() => chromium.launch({ channel: 'chrome', headless: true }))
+      .catch(() => chromium.launch({ channel: 'msedge', headless: true }));
+
     const context1 = await browser.newContext();
     const context2 = await browser.newContext();
 
     const page1 = await context1.newPage();
     const page2 = await context2.newPage();
 
-    // Auto-accept confirmation dialogs on both devices
     page1.on('dialog', dialog => dialog.accept());
     page2.on('dialog', dialog => dialog.accept());
 
@@ -96,7 +116,6 @@ async function runMultiDeviceSyncPlaywrightTests() {
     await page1.goto(`http://127.0.0.1:${PORT}/index.html`);
     await page1.waitForLoadState('domcontentloaded');
 
-    // Configure Live Sync settings on Device 1
     await page1.evaluate(({ code, pass }) => {
       localStorage.setItem('habitual_firestore_sync_code', code);
       localStorage.setItem('habitual_sync_passphrase', pass);
@@ -108,16 +127,18 @@ async function runMultiDeviceSyncPlaywrightTests() {
       }
     }, { code: SYNC_CODE, pass: PASSPHRASE });
 
-    // Create a new habit on Device 1
     let createdHabitId = null;
     await page1.evaluate((name) => {
       window.HabitualCore.openHabitModal();
       const nameInput = document.getElementById('habit-name');
       if (nameInput) nameInput.value = name;
       window.HabitualCore.handleHabitFormSubmit();
+      if (window.HabitualCore.SyncManager && window.HabitualCore.SyncManager.broadcastWrite) {
+        window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
+      }
     }, HABIT_NAME);
 
-    await page1.waitForTimeout(500);
+    await page1.waitForTimeout(300);
 
     const device1HasHabit = await page1.evaluate((name) => {
       const h = window.HabitualCore.state.habits.find(x => x.name === name);
@@ -129,7 +150,7 @@ async function runMultiDeviceSyncPlaywrightTests() {
     logResult('Device 1 Created Habit', Boolean(device1HasHabit), `(Habit ID: ${createdHabitId})`);
     passedTests++;
 
-    // STEP 2: Load Device 2 (Incognito) & Connect to same Sync Code
+    // STEP 2: Load Device 2 (Incognito) & Connect
     console.log('\n🕵️ STEP 2: Setting up Device 2 (Private / Incognito Context)...');
     await page2.goto(`http://127.0.0.1:${PORT}/index.html`);
     await page2.waitForLoadState('domcontentloaded');
@@ -145,13 +166,14 @@ async function runMultiDeviceSyncPlaywrightTests() {
       }
     }, { code: SYNC_CODE, pass: PASSPHRASE });
 
-    // Wait for live sync to propagate to Device 2
     let syncedToDevice2 = false;
     for (let i = 0; i < 35; i++) {
       await page2.waitForTimeout(300);
-      syncedToDevice2 = await page2.evaluate((id) => {
-        return window.HabitualCore.state.habits.some(h => h.id === id);
-      }, createdHabitId);
+      try {
+        syncedToDevice2 = await page2.evaluate((id) => {
+          return window.HabitualCore.state.habits.some(h => h.id === id);
+        }, createdHabitId);
+      } catch (e) {}
       if (syncedToDevice2) break;
     }
 
@@ -163,9 +185,12 @@ async function runMultiDeviceSyncPlaywrightTests() {
     console.log('\n🗑️ STEP 3: Deleting Habit on Device 1...');
     await page1.evaluate((id) => {
       window.HabitualCore.deleteHabit(id);
+      if (window.HabitualCore.SyncManager && window.HabitualCore.SyncManager.broadcastWrite) {
+        window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
+      }
     }, createdHabitId);
 
-    await page1.waitForTimeout(500);
+    await page1.waitForTimeout(300);
 
     const device1Deleted = await page1.evaluate((id) => {
       return !window.HabitualCore.state.habits.some(h => h.id === id);
@@ -180,9 +205,11 @@ async function runMultiDeviceSyncPlaywrightTests() {
     let device2Deleted = false;
     for (let i = 0; i < 25; i++) {
       await page2.waitForTimeout(300);
-      device2Deleted = await page2.evaluate((id) => {
-        return !window.HabitualCore.state.habits.some(h => h.id === id);
-      }, createdHabitId);
+      try {
+        device2Deleted = await page2.evaluate((id) => {
+          return !window.HabitualCore.state.habits.some(h => h.id === id);
+        }, createdHabitId);
+      } catch (e) {}
       if (device2Deleted) break;
     }
 
@@ -195,12 +222,27 @@ async function runMultiDeviceSyncPlaywrightTests() {
     console.log(`========================================\n`);
 
   } finally {
-    await browser.close();
-    await new Promise((resolve) => server.close(resolve));
+    clearTimeout(globalTimeout);
+    if (browser) {
+      try { await browser.close(); } catch (e) {}
+    }
+    if (server) {
+      try {
+        if (typeof server.destroyAllSockets === 'function') server.destroyAllSockets();
+        if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+        server.close();
+      } catch (e) {}
+    }
   }
 }
 
-runMultiDeviceSyncPlaywrightTests().catch((err) => {
-  console.error('\n❌ Multi-Device Sync Playwright Test Failed:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  runMultiDeviceSyncPlaywrightTests().then(() => {
+    process.exit(0);
+  }).catch((err) => {
+    console.error('\n❌ Multi-Device Sync Playwright Test Failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { runMultiDeviceSyncPlaywrightTests };

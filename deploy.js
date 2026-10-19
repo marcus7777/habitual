@@ -44,12 +44,24 @@ function runStep(command, description, options = {}) {
   console.log(`🚀 ${description}`);
   console.log(`========================================\n`);
 
+  const timeoutMs = options.timeout || 120000; // 2 minutes default timeout per step to prevent hanging
+
   const result = spawnSync(command, {
     shell: true,
     stdio: 'inherit',
     cwd: rootDir,
+    timeout: timeoutMs,
     ...options
   });
+
+  if (result.error) {
+    if (result.error.code === 'ETIMEDOUT') {
+      console.error(`\n❌ Step timed out after ${timeoutMs}ms: ${description}`);
+    } else {
+      console.error(`\n❌ Step error: ${result.error.message}`);
+    }
+    return false;
+  }
 
   if (result.status !== 0) {
     console.error(`\n❌ Step failed: ${description}`);
