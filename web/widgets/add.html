@@ -206,18 +206,32 @@
               `;
             }
 
-            const cardHTML = `
-              <div class="widget-habit-card widget-habit-item draggable-card ${h.isSubhabit ? 'widget-subhabit-card' : ''}"
-                   draggable="true"
-                   data-habit-id="${h.id}"
-                   style="${indentStyle}">
+            // Find siblings sharing same parentId
+            const siblings = displayHabits.filter(c => (c.parentId || null) === (h.parentId || null));
+            const canMove = siblings.length > 1;
+            const siblingIndex = canMove ? siblings.findIndex(c => c.id === h.id) : -1;
+            const isFirst = siblingIndex === 0;
+            const isLast = siblingIndex === siblings.length - 1;
+
+            let dragHandleHTML = '';
+            if (canMove) {
+              dragHandleHTML = `
                 <div class="drag-handle-container">
                   <span class="widget-drag-handle" data-habit-id="${h.id}" title="Tap for reorder arrows, or drag to reorder">⋮⋮</span>
                   <div class="widget-drag-arrows drag-arrows hidden" data-habit-id="${h.id}">
-                    <button class="btn-order-move btn-move-up" data-habit-id="${h.id}" title="Move Up">▲ Move Up</button>
-                    <button class="btn-order-move btn-move-down" data-habit-id="${h.id}" title="Move Down">▼ Move Down</button>
+                    ${!isFirst ? `<button class="btn-order-move btn-move-up" data-habit-id="${h.id}" title="Move Up">▲ Move Up</button>` : ''}
+                    ${!isLast ? `<button class="btn-order-move btn-move-down" data-habit-id="${h.id}" title="Move Down">▼ Move Down</button>` : ''}
                   </div>
                 </div>
+              `;
+            }
+
+            const cardHTML = `
+              <div class="widget-habit-card widget-habit-item ${canMove ? 'draggable-card' : ''} ${h.isSubhabit ? 'widget-subhabit-card' : ''}"
+                   ${canMove ? 'draggable="true"' : ''}
+                   data-habit-id="${h.id}"
+                   style="${indentStyle}">
+                ${dragHandleHTML}
                 <div class="widget-habit-left">
                   <div class="habit-color-tab" style="background-color: ${habitColor}1a; border-color: ${habitColor}4d;">
                     <span class="color-tab-pill" style="background-color: ${habitColor}; box-shadow: 0 0 6px ${habitColor};"></span>

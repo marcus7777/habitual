@@ -655,7 +655,10 @@ window.HabitualCore = window.HabitualCore || {};
     const stats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit), year) : { activeDaysCount: 0, totalCount: 0 };
 
     const isTopLevelGroup = isGroup && habit && !habit.parentId;
-    const isDraggable = (!isAll && (!isGroup || isTopLevelGroup));
+    const parentIdFilter = habit ? habit.parentId : null;
+    const siblings = (habit || isTopLevelGroup) ? core.state.habits.filter(h => (h.parentId || null) === (parentIdFilter || null)) : [];
+    const canMove = siblings.length > 1;
+    const isDraggable = (!isAll && (!isGroup || isTopLevelGroup) && canMove);
 
     const card = document.createElement('div');
     card.className = `heatmap-card theme-${theme} ${isDraggable ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
@@ -806,7 +809,6 @@ window.HabitualCore = window.HabitualCore || {};
       const openMenuItem = !isCurrentOpenPage ? `<a href="#/habit/${habit.id}" class="card-menu-item">Open Habit Page</a>` : '';
       let dragHandleHTML = '';
       if (isDraggable) {
-        const siblings = core.state.habits.filter(h => h.parentId === habit.parentId);
         const siblingIndex = siblings.findIndex(h => h.id === habit.id);
         const isFirstSibling = siblingIndex === 0;
         const isLastSibling = siblingIndex === siblings.length - 1;

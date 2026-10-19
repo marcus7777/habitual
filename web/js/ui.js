@@ -1808,6 +1808,78 @@ window.HabitualCore = window.HabitualCore || {};
     let draggedHabitId = null;
     const gallery = core.elements.heatmapsGallery;
     if (!gallery || typeof gallery.querySelectorAll !== 'function') return;
+
+    // Attach click handlers for drag handles and move up/down arrows
+    gallery.querySelectorAll('.drag-handle').forEach(handle => {
+      let arrowsWasOpen = false;
+
+      handle.addEventListener('pointerdown', () => {
+        const container = handle.closest('.drag-handle-container');
+        const arrows = container ? container.querySelector('.drag-arrows') : null;
+        arrowsWasOpen = arrows && !arrows.classList.contains('hidden');
+      });
+
+      handle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const container = handle.closest('.drag-handle-container');
+        if (!container) return;
+        const arrows = container.querySelector('.drag-arrows');
+        if (!arrows) return;
+
+        gallery.querySelectorAll('.drag-arrows').forEach(arr => {
+          if (arr !== arrows) arr.classList.add('hidden');
+        });
+
+        if (arrowsWasOpen) {
+          arrows.classList.add('hidden');
+        } else {
+          arrows.classList.remove('hidden');
+          const firstBtn = arrows.querySelector('button');
+          if (firstBtn) {
+            firstBtn.focus();
+          } else {
+            arrows.focus();
+          }
+        }
+        arrowsWasOpen = false;
+      });
+    });
+
+    gallery.querySelectorAll('.btn-move-up, .btn-move-down').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const habitId = btn.dataset.habitId;
+        const isUp = btn.classList.contains('btn-move-up');
+
+        const habit = core.state.habits.find(h => h.id === habitId);
+        if (!habit) return;
+
+        const siblings = core.state.habits.filter(h => h.parentId === habit.parentId);
+        const siblingIndex = siblings.findIndex(h => h.id === habitId);
+
+        if (isUp && siblingIndex > 0) {
+          const prevSibling = siblings[siblingIndex - 1];
+          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
+          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
+          const newToIndex = core.state.habits.findIndex(h => h.id === prevSibling.id);
+          core.state.habits.splice(newToIndex, 0, movedHabit);
+          if (core.renderAll) core.renderAll();
+          if (core.saveState) core.saveState();
+        } else if (!isUp && siblingIndex < siblings.length - 1) {
+          const nextSibling = siblings[siblingIndex + 1];
+          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
+          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
+          const newToIndex = core.state.habits.findIndex(h => h.id === nextSibling.id);
+          core.state.habits.splice(newToIndex + 1, 0, movedHabit);
+          if (core.renderAll) core.renderAll();
+          if (core.saveState) core.saveState();
+        }
+      });
+    });
+
     const cards = gallery.querySelectorAll('.heatmap-card.draggable-card');
     cards.forEach(card => {
       card.addEventListener('dragstart', (e) => {
