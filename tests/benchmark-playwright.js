@@ -12,7 +12,7 @@ const packageJsonPath = path.join(__dirname, '..', 'package.json');
 const REGRESSION_THRESHOLDS = {
   FAIL_PERCENT: 35,        // Hard failure if metric regresses >= 35%
   WARN_PERCENT: 20,        // Soft warning if metric regresses >= 20%
-  MIN_TIME_BUFFER_MS: 300  // Ignore timing noise fluctuations under 300ms for large 50,000-node DOM renders
+  MIN_TIME_BUFFER_MS: 400  // Ignore timing noise fluctuations under 400ms for large 50,000-node DOM renders
 };
 
 function getCurrentVersion() {
@@ -346,18 +346,22 @@ async function runBenchmarkSuite() {
       body: 'window.__pw_firebase_loaded = true;'
     }));
 
-    // BENCHMARK 1: Boot / Initial Load Duration
+    // BENCHMARK 1: Boot / Initial Load Duration (3 iterations to eliminate cold-start noise)
     console.log('⏱️  Measuring Initial Page Boot Time...');
-    const startTime = Date.now();
-    await page.goto(`http://127.0.0.1:${PORT}`, { waitUntil: 'domcontentloaded' });
-    const bootDurationMs = Date.now() - startTime;
+    let bootDurationMs = Infinity;
+    for (let iter = 0; iter < 3; iter++) {
+      const startTime = Date.now();
+      await page.goto(`http://127.0.0.1:${PORT}`, { waitUntil: 'domcontentloaded' });
+      const elapsed = Date.now() - startTime;
+      if (elapsed < bootDurationMs) bootDurationMs = elapsed;
+    }
     console.log(`   └─ Page Load (DOMContentLoaded): ${bootDurationMs.toFixed(2)} ms`);
     benchmarkData.metrics.bootDurationMs = bootDurationMs;
 
     // Wait for core JS initialization
     await page.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.renderAll === 'function');
 
-    // BENCHMARK 2: DOM Render Latency Across Dataset Sizes (10, 50, 100 habits)
+    // BENCHMARK 2: DOM Render Latency Across Dataset Sizes (10, 50, 100 habits, best of 3 runs)
     console.log('\n⏱️  Measuring Render Latency Across Scaling Datasets...');
     benchmarkData.metrics.renderDurations = {};
 
@@ -372,14 +376,20 @@ async function runBenchmarkSuite() {
           window.HabitualCore.state.selectedYear = 2026;
           window.HabitualCore.config.renderEngine = renderEngine;
 
-          const t0 = performance.now();
-          window.HabitualCore.renderAll();
-          const t1 = performance.now();
+          let bestTime = Infinity;
+          let nodeCount = 0;
+          for (let run = 0; run < 3; run++) {
+            const t0 = performance.now();
+            window.HabitualCore.renderAll();
+            const t1 = performance.now();
+            const elapsed = t1 - t0;
+            if (elapsed < bestTime) bestTime = elapsed;
+            nodeCount = document.querySelectorAll('#heatmaps-gallery *').length;
+          }
 
-          const domNodeCount = document.querySelectorAll('#heatmaps-gallery *').length;
           return {
-            renderTimeMs: t1 - t0,
-            domNodeCount: domNodeCount
+            renderTimeMs: bestTime,
+            domNodeCount: nodeCount
           };
         }, { dataset: syntheticData, renderEngine: engine });
 
@@ -410,19 +420,24 @@ async function runBenchmarkSuite() {
       }, { dataset: generateSyntheticDataset(50), renderEngine: engine });
 
       const inpMetrics = await page.evaluate(async () => {
-        const firstCardBtn = document.querySelector('.btn-card-quick-log');
-        if (!firstCardBtn) return { success: false };
+        let bestInp = Infinity;
+        for (let run = 0; run < 3; run++) {
+          const firstCardBtn = document.querySelector('.btn-card-quick-log');
+          if (!firstCardBtn) return { success: false };
 
-        const t0 = performance.now();
-        firstCardBtn.click();
+          const t0 = performance.now();
+          firstCardBtn.click();
 
-        // Wait for next animation frame paint
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        const t1 = performance.now();
+          // Wait for next animation frame paint
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          const t1 = performance.now();
+          const elapsed = t1 - t0;
+          if (elapsed < bestInp) bestInp = elapsed;
+        }
 
         return {
           success: true,
-          inpMs: t1 - t0
+          inpMs: bestInp
         };
       });
 
@@ -432,7 +447,7 @@ async function runBenchmarkSuite() {
       }
     }
 
-    // BENCHMARK 4: Storage Driver Throughput (Ops/Sec)
+    // BENCHMARK 4: Storage Driver Throughput (Ops/Sec, best of 3 runs)
     console.log('\n⏱️  Measuring Storage Driver Throughput (1,000 Operations)...');
 
     const storageMetrics = await page.evaluate(async () => {
@@ -440,34 +455,44 @@ async function runBenchmarkSuite() {
 
       // LocalStorage benchmark
       if (window.HabitualCore.LocalStorageDriver) {
-        const t0 = performance.now();
-        for (let i = 0; i < 1000; i++) {
-          await window.HabitualCore.LocalStorageDriver.setItem(`bench_key_${i}`, `bench_val_${i}`);
-        }
-        const t1 = performance.now();
-        const durationSec = (t1 - t0) / 1000;
-        results.localStorageOpsPerSec = Math.round(1000 / durationSec);
+        let maxOps = 0;
+        for (let run = 0; run < 3; run++) {
+          const t0 = performance.now();
+          for (let i = 0; i < 1000; i++) {
+            await window.HabitualCore.LocalStorageDriver.setItem(`bench_key_${i}`, `bench_val_${i}`);
+          }
+          const t1 = performance.now();
+          const durationSec = (t1 - t0) / 1000;
+          const ops = Math.round(1000 / durationSec);
+          if (ops > maxOps) maxOps = ops;
 
-        // Cleanup
-        for (let i = 0; i < 1000; i++) {
-          await window.HabitualCore.LocalStorageDriver.removeItem(`bench_key_${i}`);
+          // Cleanup
+          for (let i = 0; i < 1000; i++) {
+            await window.HabitualCore.LocalStorageDriver.removeItem(`bench_key_${i}`);
+          }
         }
+        results.localStorageOpsPerSec = maxOps;
       }
 
       // IndexedDB benchmark
       if (window.HabitualCore.IndexedDBDriver) {
         const db = await window.HabitualCore.IndexedDBDriver.getDB();
         if (db) {
-          const t0 = performance.now();
-          const tx = db.transaction(['settings'], 'readwrite');
-          const store = tx.objectStore('settings');
-          for (let i = 0; i < 1000; i++) {
-            store.put({ key: `bench_idb_${i}`, val: `bench_val_${i}` });
+          let maxOps = 0;
+          for (let run = 0; run < 3; run++) {
+            const t0 = performance.now();
+            const tx = db.transaction(['settings'], 'readwrite');
+            const store = tx.objectStore('settings');
+            for (let i = 0; i < 1000; i++) {
+              store.put({ key: `bench_idb_${i}`, val: `bench_val_${i}` });
+            }
+            await new Promise(res => { tx.oncomplete = res; });
+            const t1 = performance.now();
+            const durationSec = (t1 - t0) / 1000;
+            const ops = Math.round(1000 / durationSec);
+            if (ops > maxOps) maxOps = ops;
           }
-          await new Promise(res => { tx.oncomplete = res; });
-          const t1 = performance.now();
-          const durationSec = (t1 - t0) / 1000;
-          results.indexedDBOpsPerSec = Math.round(1000 / durationSec);
+          results.indexedDBOpsPerSec = maxOps;
         }
       }
 

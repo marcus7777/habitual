@@ -83,6 +83,9 @@ async function runWidgetsPlaywrightTests() {
     });
     const page = await context.newPage();
 
+    await page.route('**/*sw.js*', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '// mock sw' }));
+    await page.route('**/*firebase*', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.__pw_firebase_loaded = true;' }));
+
     // Seed sample LocalStorage habit data for E2E widget tests
     await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {

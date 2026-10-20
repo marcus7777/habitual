@@ -789,6 +789,37 @@ window.HabitualCore = window.HabitualCore || {};
     return { count, ratio: count > 0 ? Math.min(1.0, count / dailyTarget) : 0, isRelapse: false, note, isTargetDay: false, hasNote, isUnverified };
   };
 
+  core.isHabitActiveOnDate = function(habit, dateObj) {
+    if (!habit) return false;
+    const dateStr = typeof dateObj === 'string' ? dateObj : core.formatDateKey(dateObj);
+    const date = typeof dateObj === 'string' ? core.parseDateKey(dateStr) : dateObj;
+    const dayOfWeek = date.getDay();
+
+    if (habit.createdAt && dateStr < habit.createdAt) {
+      return false;
+    }
+
+    if (habit.frequencyType === 'weekly') {
+      const anchorDay = (habit.targetDays && habit.targetDays.length > 0) ? habit.targetDays[0] : 1;
+      return dayOfWeek === anchorDay;
+    }
+    if (habit.frequencyType === 'monthly') {
+      const monthRange = core.getMonthRangeForDate(dateStr);
+      const targetDate = core.getTargetDayOfMonthDate(monthRange.year, monthRange.month, habit.monthlyDay || '1');
+      return dateStr === core.formatDateKey(targetDate);
+    }
+    if (habit.frequencyType === 'specific_days') {
+      const targetDays = habit.targetDays || [1, 3, 5];
+      return targetDays.includes(dayOfWeek);
+    }
+
+    if (!habit.dailyTarget && habit.logs && Object.keys(habit.logs).length > 0) {
+      return !!(habit.logs[dateStr]);
+    }
+
+    return true;
+  };
+
   core.calculateStreakForTarget = function(target) {
     const today = new Date();
     if (target !== 'all' && target && !target.habitIds && target.type === 'negative') {

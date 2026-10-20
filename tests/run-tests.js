@@ -4147,6 +4147,23 @@ describe('Feature 40: 📋 Todo Page, Countdown Timer & Multi-Target Task Items'
     assertEqual(HabitualCore.getUpcomingEvents, undefined, 'getUpcomingEvents is removed');
   });
 
+  test('getTodoListData excludes future created habits', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    const futureDate = '2026-12-25';
+
+    HabitualCore.setState({
+      habits: [
+        { id: 'futureHabit', name: 'New Year Habit', type: 'positive', dailyTarget: 1, createdAt: futureDate, logs: {} },
+        { id: 'todayHabit', name: 'Today Habit', type: 'positive', dailyTarget: 1, createdAt: today, logs: {} }
+      ]
+    });
+
+    const todoData = HabitualCore.getTodoListData();
+    assertEqual(todoData.items.length, 1, 'getTodoListData excludes future created habit');
+    assertEqual(todoData.items[0].habitId, 'todayHabit', 'Only today habit is included');
+  });
+
   test('web/todo.html file exists and links styles.css and core scripts', () => {
     const fs = require('fs');
     const path = require('path');
