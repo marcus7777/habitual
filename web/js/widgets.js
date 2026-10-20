@@ -510,6 +510,10 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     orderedHabits.forEach(({ habit: h, depth }) => {
+      if (h.createdAt && todayKey < h.createdAt) {
+        return;
+      }
+
       const dateObj = core.parseDateKey ? core.parseDateKey(todayKey) : new Date();
       if (core.isHabitActiveOnDate && !core.isHabitActiveOnDate(h, dateObj)) {
         return;
