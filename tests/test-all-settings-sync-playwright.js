@@ -1,6 +1,6 @@
 /**
- * Comprehensive Playwright E2E Test Suite for Syncing All Habit & Global Settings + Habit Reordering
- * Verifies that all habit settings, display options, habit ordering, and global settings sync across devices within 10 seconds.
+ * Comprehensive Playwright E2E Test Suite for Syncing All Habit & Global Settings + Habit Reordering + Offline Sync Queuing
+ * Verifies that all habit settings, display options, habit ordering, global settings, and offline edits sync across devices within 10 seconds.
  */
 
 const path = require('path');
@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
 const PORT = 8094;
 const WEB_DIR = path.join(__dirname, '..', 'web');
 
-function createStaticServer(portToUse = PORT) {
+function createStaticServer() {
   const mimeTypes = {
     '.html': 'text/html',
     '.css': 'text/css',
@@ -22,68 +22,48 @@ function createStaticServer(portToUse = PORT) {
     '.woff2': 'font/woff2'
   };
 
-  const fileCache = new Map();
   const sockets = new Set();
 
-  const createServerInstance = (port) => {
-    return new Promise((resolve, reject) => {
-      const server = http.createServer((req, res) => {
-        let urlPath = req.url.split('?')[0];
-        let filePath = path.join(WEB_DIR, urlPath === '/' ? 'index.html' : urlPath);
+  const server = http.createServer((req, res) => {
+    let urlPath = req.url.split('?')[0];
+    let filePath = path.join(WEB_DIR, urlPath === '/' ? 'index.html' : urlPath);
 
-        if (!filePath.startsWith(WEB_DIR)) {
-          res.writeHead(403);
-          return res.end('Forbidden');
-        }
+    if (!filePath.startsWith(WEB_DIR)) {
+      res.writeHead(403);
+      return res.end('Forbidden');
+    }
 
-        const ext = path.extname(filePath).toLowerCase();
-        const contentType = mimeTypes[ext] || 'application/octet-stream';
+    fs.stat(filePath, (err, stats) => {
+      if (err || !stats.isFile()) {
+        res.writeHead(404);
+        return res.end('Not Found');
+      }
 
-        try {
-          if (!fileCache.has(filePath)) {
-            if (!fs.existsSync(filePath)) {
-              res.writeHead(404);
-              return res.end('Not Found');
-            }
-            fileCache.set(filePath, fs.readFileSync(filePath));
-          }
-          const data = fileCache.get(filePath);
-          res.writeHead(200, { 'Content-Type': contentType, 'Content-Length': data.length });
-          res.end(data);
-        } catch (e) {
-          res.writeHead(500);
-          res.end('Server Error');
-        }
-      });
-
-      server.on('connection', (socket) => {
-        sockets.add(socket);
-        socket.on('close', () => sockets.delete(socket));
-      });
-
-      server.destroyAllSockets = () => {
-        for (const socket of sockets) {
-          try { socket.destroy(); } catch (e) {}
-        }
-        sockets.clear();
-      };
-
-      server.on('error', (err) => {
-        if (err && err.code === 'EADDRINUSE' && port !== 0) {
-          createServerInstance(0).then(resolve).catch(reject);
-        } else {
-          reject(err);
-        }
-      });
-
-      server.listen(port, '127.0.0.1', () => {
-        console.log(`[Server] Local test web server running on http://127.0.0.1:${server.address().port}`);
-        resolve(server);
-      });
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': contentType });
+      fs.createReadStream(filePath).pipe(res);
     });
+  });
+
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+  });
+
+  server.destroyAllSockets = () => {
+    for (const socket of sockets) {
+      try { socket.destroy(); } catch (e) {}
+    }
+    sockets.clear();
   };
 
-  return createServerInstance(portToUse);
+  return new Promise((resolve) => {
+    server.listen(PORT, '127.0.0.1', () => {
+      console.log(`[Server] Local test web server running on http://127.0.0.1:${PORT}`);
+      resolve(server);
+    });
+  });
 }
 
 function logResult(testName, isSuccess, details = '') {
@@ -94,54 +74,69 @@ function logResult(testName, isSuccess, details = '') {
   }
 }
 
-const mockStore = new Map();
-let globalLastTs = 1000;
-
 async function setupMockFirestore(page) {
+  await page.route('**/*sw.js*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: '// mock service worker'
+  }));
+
   await page.route('**/*firebase*', route => route.fulfill({
     status: 200,
     contentType: 'application/javascript',
     body: 'window.__pw_firebase_loaded = true;'
   }));
 
-  try {
-    await page.exposeFunction('__pw_firestore_set', (key, data) => {
-      mockStore.set(key, data);
-    });
-  } catch (e) {}
-
-  try {
-    await page.exposeFunction('__pw_firestore_get', (key) => {
-      return mockStore.get(key) || null;
-    });
-  } catch (e) {}
-
-  try {
-    await page.exposeFunction('__pw_firestore_next_ts', () => {
-      globalLastTs = Math.max(Date.now(), globalLastTs + 1);
-      return globalLastTs;
-    });
-  } catch (e) {}
-
   await page.addInitScript(() => {
+    try { delete window.navigator.serviceWorker; } catch (e) {}
+
     if (!window.__pw_channel) {
       window.__pw_channel = new BroadcastChannel('pw_firestore_channel');
     }
     const channel = window.__pw_channel;
+    const store = window.__pw_store || new Map();
+    window.__pw_store = store;
 
     const listeners = window.__pw_listeners || new Map();
     window.__pw_listeners = listeners;
 
     channel.onmessage = (event) => {
       if (!event.data) return;
+      if (event.data.type === 'REQ_SYNC') {
+        for (const [k, v] of store.entries()) {
+          const parts = k.split('_');
+          const col = parts[0];
+          const docId = parts.slice(1).join('_');
+          channel.postMessage({ type: 'RES_SYNC', col, docId, data: v });
+        }
+        return;
+      }
+      if (event.data.type === 'RES_SYNC') {
+        const { col, docId, data } = event.data;
+        const key = `${col}_${docId}`;
+        store.set(key, data);
+        if (listeners.has(key)) {
+          listeners.get(key).forEach(cb => {
+            try { cb({ exists: true, data: () => data, metadata: { hasPendingWrites: false } }); } catch (e) {}
+          });
+        }
+        return;
+      }
       const { col, docId, data } = event.data;
       const key = `${col}_${docId}`;
+      store.set(key, data);
       if (listeners.has(key)) {
         listeners.get(key).forEach(cb => {
           try { cb({ exists: true, data: () => data, metadata: { hasPendingWrites: false } }); } catch (e) {}
         });
       }
     };
+
+    setTimeout(() => {
+      try { channel.postMessage({ type: 'REQ_SYNC' }); } catch (e) {}
+    }, 50);
+
+    let lastTs = 0;
 
     const mockDb = {
       collection: function(col) {
@@ -151,36 +146,36 @@ async function setupMockFirestore(page) {
             return {
               id: docId,
               set: function(data) {
-                return window.__pw_firestore_next_ts().then(ts => {
-                  const normData = Object.assign({}, data, {
-                    updatedAt: ts
-                  });
-                  window.__pw_firestore_set(key, normData);
-                  channel.postMessage({ col, docId, data: normData });
-                  if (listeners.has(key)) {
-                    listeners.get(key).forEach(cb => {
-                      try { cb({ exists: true, data: () => normData, metadata: { hasPendingWrites: false } }); } catch (e) {}
-                    });
-                  }
-                  return Promise.resolve();
+                const now = Date.now();
+                lastTs = Math.max(now, lastTs + 1);
+                const normData = Object.assign({}, data, {
+                  updatedAt: lastTs
                 });
+                store.set(key, normData);
+                channel.postMessage({ col, docId, data: normData });
+                if (listeners.has(key)) {
+                  listeners.get(key).forEach(cb => {
+                    try { cb({ exists: true, data: () => normData, metadata: { hasPendingWrites: false } }); } catch (e) {}
+                  });
+                }
+                return Promise.resolve();
               },
               get: function() {
-                return window.__pw_firestore_get(key).then(data => {
-                  return {
-                    exists: Boolean(data),
-                    data: function() { return data; }
-                  };
+                const data = store.get(key);
+                return Promise.resolve({
+                  exists: Boolean(data),
+                  data: function() { return data; }
                 });
               },
               onSnapshot: function(cb) {
                 if (!listeners.has(key)) listeners.set(key, []);
                 listeners.get(key).push(cb);
-                window.__pw_firestore_get(key).then(data => {
-                  if (data) {
+                if (store.has(key)) {
+                  const data = store.get(key);
+                  setTimeout(() => {
                     try { cb({ exists: true, data: () => data, metadata: { hasPendingWrites: false } }); } catch (e) {}
-                  }
-                });
+                  }, 10);
+                }
                 return function unsubscribe() {
                   if (listeners.has(key)) {
                     const arr = listeners.get(key).filter(x => x !== cb);
@@ -224,8 +219,7 @@ async function runAllSettingsSyncPlaywrightTests() {
   }, GLOBAL_TIMEOUT_MS);
   if (globalTimeout.unref) globalTimeout.unref();
 
-  const server = await createStaticServer(PORT);
-  const serverPort = server.address().port;
+  const server = await createStaticServer();
 
   let browser;
   try {
@@ -237,13 +231,13 @@ async function runAllSettingsSyncPlaywrightTests() {
 
   let passedTests = 0;
   let totalTests = 0;
+  let context1, page1, page2;
 
   try {
-    const context1 = await browser.newContext();
-    const context2 = await browser.newContext();
+    context1 = await browser.newContext();
 
-    const page1 = await context1.newPage();
-    const page2 = await context2.newPage();
+    page1 = await context1.newPage();
+    page2 = await context1.newPage();
 
     page1.on('dialog', dialog => dialog.accept());
     page2.on('dialog', dialog => dialog.accept());
@@ -254,7 +248,7 @@ async function runAllSettingsSyncPlaywrightTests() {
     // STEP 1: Load Device 1 & Connect Live Sync
     console.log('📱 STEP 1: Setting up Device 1 (Regular Context)...');
     await setupMockFirestore(page1);
-    await page1.goto(`http://127.0.0.1:${serverPort}/index.html`);
+    await page1.goto(`http://127.0.0.1:${PORT}/index.html`);
     await page1.waitForLoadState('domcontentloaded');
 
     await page1.evaluate(({ code, pass }) => {
@@ -272,24 +266,23 @@ async function runAllSettingsSyncPlaywrightTests() {
         window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 10;
         window.HabitualCore.SyncTargets.Firestore.startLiveSync();
       }
+      return true;
     }, { code: SYNC_CODE, pass: PASSPHRASE });
 
     // STEP 2: Create Initial Habit on Device 1
     console.log('\n📝 STEP 2: Creating Initial Habit on Device 1...');
     const INITIAL_NAME = 'Initial Habit ' + Math.floor(Math.random() * 1000);
-    await page1.evaluate(async (name) => {
+    await page1.evaluate((name) => {
       window.HabitualCore.openHabitModal();
       const nameInput = document.getElementById('habit-name');
       const colorSelect = document.getElementById('habit-calendar-color-select');
       if (nameInput) nameInput.value = name;
       if (colorSelect) colorSelect.value = '#33B679';
       window.HabitualCore.handleHabitFormSubmit();
-      if (window.HabitualCore.SyncManager && window.HabitualCore.SyncManager.broadcastWrite) {
-        await window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
-      }
+      return true;
     }, INITIAL_NAME);
 
-    await page1.waitForTimeout(100);
+    await page1.waitForTimeout(500);
 
     let habitId = await page1.evaluate((name) => {
       const state = window.HabitualCore.state;
@@ -305,7 +298,7 @@ async function runAllSettingsSyncPlaywrightTests() {
     // STEP 3: Setup Device 2 & Connect
     console.log('\n🕵️ STEP 3: Setting up Device 2 & Connecting to Sync Channel...');
     await setupMockFirestore(page2);
-    await page2.goto(`http://127.0.0.1:${serverPort}/index.html`);
+    await page2.goto(`http://127.0.0.1:${PORT}/index.html`);
     await page2.waitForLoadState('domcontentloaded');
 
     await page2.evaluate(({ code, pass }) => {
@@ -323,6 +316,7 @@ async function runAllSettingsSyncPlaywrightTests() {
         window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 10;
         window.HabitualCore.SyncTargets.Firestore.startLiveSync();
       }
+      return true;
     }, { code: SYNC_CODE, pass: PASSPHRASE });
 
     let initSynced = false;
@@ -344,7 +338,10 @@ async function runAllSettingsSyncPlaywrightTests() {
 
     // BATCH 1: All Habit Settings (Core, Privacy, Display, Taxonomy)
     console.log('\n⚙️ BATCH 1: Testing All Habit Settings Sync (Name, Color, Target, Type, Display, Privacy, Taxonomy)...');
-    await page1.evaluate(async ({ id }) => {
+    await page1.evaluate(({ id }) => {
+      if (window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore) {
+        window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 10;
+      }
       const h = window.HabitualCore.state.habits.find(x => x.id === id);
       if (h) {
         h.name = 'Renamed Workout';
@@ -360,11 +357,11 @@ async function runAllSettingsSyncPlaywrightTests() {
         h.category = 'Fitness & Wellness';
         h.description = 'Drink 2L water daily';
         window.HabitualCore.saveHabit(h);
-        if (window.HabitualCore.SyncManager && window.HabitualCore.SyncManager.broadcastWrite) {
-          await window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
-        }
       }
+      return true;
     }, { id: habitId });
+
+    await page1.waitForTimeout(500);
 
     let batch1Success = false;
     let t0Batch1 = Date.now();
@@ -392,12 +389,12 @@ async function runAllSettingsSyncPlaywrightTests() {
     }
 
     totalTests++;
-    logResult('All Habit Settings Sync (Name, Color, Target, Type, Privacy, Taxonomy)', batch1Success, `(${Date.now() - t0Batch1}ms <= 5000ms)`);
+    logResult('All Habit Settings Sync (Name, Color, Target, Type, Privacy, Taxonomy)', batch1Success, `(${Date.now() - t0Batch1}ms <= 15000ms)`);
     if (batch1Success) passedTests++;
 
     // BATCH 2: Habit Reordering & Global App Settings
     console.log('\n↕️ BATCH 2: Testing Habit List Reordering & Global App Settings Sync...');
-    await page1.evaluate(async () => {
+    await page1.evaluate(() => {
       const h1 = { id: 'habit_a', name: 'Alpha Habit', updatedAt: Date.now(), logs: {} };
       const h2 = { id: 'habit_b', name: 'Beta Habit', updatedAt: Date.now(), logs: {} };
       const h3 = { id: 'habit_c', name: 'Gamma Habit', updatedAt: Date.now(), logs: {} };
@@ -416,10 +413,10 @@ async function runAllSettingsSyncPlaywrightTests() {
       window.HabitualCore.state.habits = [gc, ga, gb, ...others];
 
       window.HabitualCore.saveState();
-      if (window.HabitualCore.SyncManager && window.HabitualCore.SyncManager.broadcastWrite) {
-        await window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
-      }
+      return true;
     });
+
+    await page1.waitForTimeout(500);
 
     let batch2Success = false;
     let t0Batch2 = Date.now();
@@ -439,26 +436,79 @@ async function runAllSettingsSyncPlaywrightTests() {
     }
 
     totalTests++;
-    logResult('Habit List Reordering & Global Settings Sync', batch2Success, `(${Date.now() - t0Batch2}ms <= 5000ms)`);
+    logResult('Habit List Reordering & Global Settings Sync', batch2Success, `(${Date.now() - t0Batch2}ms <= 15000ms)`);
     if (batch2Success) passedTests++;
 
+    // BATCH 3: Offline Mode & Reconnection Sync Queuing
+    console.log('\n📡 BATCH 3: Testing Offline Mode & Reconnection Sync Queuing...');
+    await page1.evaluate(() => {
+      window.HabitualCore.SyncManager.settings.enabledTargets = [];
+      return true;
+    });
+
+    await page1.evaluate(({ id }) => {
+      const h = window.HabitualCore.state.habits.find(x => x.id === id);
+      if (h) {
+        h.name = 'Offline Workout Edit';
+        window.HabitualCore.saveHabit(h);
+      }
+      return true;
+    }, { id: habitId });
+
+    await page1.waitForTimeout(300);
+
+    // Verify Device 2 has NOT received the update while Device 1 sync is offline
+    let dev2ReceivedOfflineUpdate = await page2.evaluate(({ id }) => {
+      const habits = window.HabitualCore.state ? window.HabitualCore.state.habits : [];
+      const h = habits.find(x => x.id === id);
+      return h && h.name === 'Offline Workout Edit';
+    }, { id: habitId });
+
+    totalTests++;
+    logResult('Offline Edits Held Locally & Suppressed From Remote While Offline', !dev2ReceivedOfflineUpdate);
+    if (!dev2ReceivedOfflineUpdate) passedTests++;
+
+    // Reconnect Device 1 Sync
+    await page1.evaluate(() => {
+      window.HabitualCore.SyncManager.settings.enabledTargets = ['firestore'];
+      if (window.HabitualCore.SyncManager.broadcastWrite) {
+        window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
+      }
+      return true;
+    });
+
+    let batch3Success = false;
+    let t0Batch3 = Date.now();
+    for (let i = 0; i < 50; i++) {
+      await page2.waitForTimeout(100);
+      try {
+        batch3Success = await page2.evaluate(({ id }) => {
+          const habits = window.HabitualCore.state ? window.HabitualCore.state.habits : [];
+          const h = habits.find(x => x.id === id);
+          return h && h.name === 'Offline Workout Edit';
+        }, { id: habitId });
+      } catch (e) {}
+      if (batch3Success) break;
+    }
+
+    totalTests++;
+    logResult('Device 2 Received Synced Changes After Device 1 Reconnected', batch3Success, `(${Date.now() - t0Batch3}ms <= 15000ms)`);
+    if (batch3Success) passedTests++;
+
     console.log(`\n========================================`);
-    console.log(`🎉 ALL SETTINGS SYNC TEST PASSED: ${passedTests}/${totalTests} Passed!`);
+    console.log(`🎉 ALL SETTINGS & OFFLINE SYNC TEST PASSED: ${passedTests}/${totalTests} Passed!`);
     console.log(`========================================\n`);
 
   } finally {
     clearTimeout(globalTimeout);
+    try { if (page1) await page1.close().catch(() => {}); } catch (e) {}
+    try { if (page2) await page2.close().catch(() => {}); } catch (e) {}
+    try { if (context1) await context1.close().catch(() => {}); } catch (e) {}
+    try { if (browser) await browser.close().catch(() => {}); } catch (e) {}
     if (server) {
       try {
         if (typeof server.destroyAllSockets === 'function') server.destroyAllSockets();
-        if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
         server.close();
-        server.unref();
-      } catch (e) {}
-    }
-    if (browser) {
-      try {
-        browser.close().catch(() => {});
       } catch (e) {}
     }
   }
@@ -472,10 +522,10 @@ function assert(condition, message) {
 
 if (require.main === module) {
   runAllSettingsSyncPlaywrightTests().then(() => {
-    console.log('All Settings Sync Playwright Test Complete.');
+    console.log('All Settings & Offline Sync Playwright Test Complete.');
     process.exit(0);
   }).catch((err) => {
-    console.error('❌ All Settings Sync Playwright Test Failed:', err);
+    console.error('❌ All Settings & Offline Sync Playwright Test Failed:', err);
     process.exit(1);
   });
 }

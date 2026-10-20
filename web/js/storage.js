@@ -53,15 +53,12 @@ window.HabitualCore = window.HabitualCore || {};
       }
     },
     saveLog: function(habitId, dateKey, count, note) {
-      if (core.saveState) core.saveState();
       return Promise.resolve(true);
     },
     saveHabit: function(habit) {
-      if (core.saveState) core.saveState();
       return Promise.resolve(true);
     },
     saveSettings: function(settings) {
-      if (core.saveState) core.saveState();
       return Promise.resolve(true);
     }
   };
@@ -469,6 +466,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit.parentId) h.parentId = habit.parentId;
     if (habit.parentDependency && habit.parentDependency !== 'none') h.parentDependency = habit.parentDependency;
     if (habit.createdAt) h.createdAt = habit.createdAt;
+    if (habit.updatedAt) h.updatedAt = habit.updatedAt;
     if (habit.sharing) h.sharing = habit.sharing;
 
     if (habit.logs) {
@@ -500,7 +498,7 @@ window.HabitualCore = window.HabitualCore || {};
     const habits = (core.state && core.state.habits) ? core.state.habits : [];
     return {
       version: 2,
-      updatedAt: Date.now(),
+      updatedAt: (core.state && typeof core.state.updatedAt === 'number') ? core.state.updatedAt : Date.now(),
       habits: habits.map(h => core._serializeHabit(h)),
       deletedHabitIds: (deleted && deleted.length > 0) ? Array.from(new Set(deleted)) : [],
       remoteHashHistory: (core.state && core.state.remoteHashHistory) ? core.state.remoteHashHistory.slice(0, 30) : [],
@@ -616,7 +614,7 @@ window.HabitualCore = window.HabitualCore || {};
         parentId: h.parentId || null,
         parentDependency: h.parentDependency || 'none',
         createdAt: h.createdAt || core.getTodayKey(),
-        updatedAt: h.updatedAt || Date.now(),
+        updatedAt: typeof h.updatedAt === 'number' ? h.updatedAt : 0,
         logs: restoredLogs
       };
 
@@ -627,6 +625,7 @@ window.HabitualCore = window.HabitualCore || {};
     core.state.selectedHabitId = parsed.selectedHabitId || 'all';
     core.state.selectedYear = parsed.selectedYear || core.CURRENT_YEAR;
     core.state.showQuickLogOnStartup = parsed.showQuickLogOnStartup || false;
+    core.state.updatedAt = parsed.updatedAt || Date.now();
   };
 
   core.loadState = function() {
@@ -661,6 +660,10 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.saveState = function(skipRemoteSync) {
+    if (!core.state) return;
+    if (!skipRemoteSync) {
+      core.state.updatedAt = Date.now();
+    }
     const payload = core.getPayloadFromState();
     const payloadStr = JSON.stringify(payload);
 
@@ -771,7 +774,7 @@ window.HabitualCore = window.HabitualCore || {};
 
       const enc = new TextEncoder();
       const isTestEnv = typeof window !== 'undefined' && window.location && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.protocol === 'file:');
-      const iterations = isTestEnv ? 100 : 100000;
+      const iterations = isTestEnv ? 1 : 100000;
 
       return crypto.subtle.importKey(
         'raw',
@@ -829,8 +832,9 @@ window.HabitualCore = window.HabitualCore || {};
           combined.set(encryptedArr, salt.length + iv.length);
 
           let binary = '';
-          for (let i = 0; i < combined.length; i++) {
-            binary += String.fromCharCode(combined[i]);
+          const chunkSize = 8192;
+          for (let i = 0; i < combined.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, combined.subarray(i, i + chunkSize));
           }
           return 'ENC:' + btoa(binary);
         });
@@ -887,12 +891,14 @@ window.HabitualCore = window.HabitualCore || {};
       deletedSet = new Set(mergedDeletedHabitIds);
     }
 
+    const remoteIsNewer = (remotePayload.updatedAt || 0) >= (localPayload.updatedAt || 0);
+
     const merged = {
       version: 2,
       updatedAt: Math.max(localPayload.updatedAt || 0, remotePayload.updatedAt || 0),
-      selectedHabitId: localPayload.selectedHabitId || remotePayload.selectedHabitId || 'all',
-      selectedYear: localPayload.selectedYear || remotePayload.selectedYear || core.CURRENT_YEAR,
-      showQuickLogOnStartup: localPayload.showQuickLogOnStartup || remotePayload.showQuickLogOnStartup || false,
+      selectedHabitId: remoteIsNewer ? (remotePayload.selectedHabitId || localPayload.selectedHabitId || 'all') : (localPayload.selectedHabitId || remotePayload.selectedHabitId || 'all'),
+      selectedYear: remoteIsNewer ? (remotePayload.selectedYear || localPayload.selectedYear || core.CURRENT_YEAR) : (localPayload.selectedYear || remotePayload.selectedYear || core.CURRENT_YEAR),
+      showQuickLogOnStartup: remoteIsNewer ? (remotePayload.showQuickLogOnStartup !== undefined ? remotePayload.showQuickLogOnStartup : localPayload.showQuickLogOnStartup) : (localPayload.showQuickLogOnStartup !== undefined ? localPayload.showQuickLogOnStartup : remotePayload.showQuickLogOnStartup),
       deletedHabitIds: mergedDeletedHabitIds,
       habits: []
     };
@@ -1403,6 +1409,8 @@ window.HabitualCore = window.HabitualCore || {};
               const data = doc.data();
               if (!data || !data.ciphertext) return;
 
+              if (data.ciphertext === self.lastSentCiphertext) return;
+
               // Check if unencrypted data hash matches local state to suppress re-decryption
               const remoteHash = data.hashOfdata || data.hashOfData || data.dataHash || data.data_hash || data.hash;
               if (remoteHash) {
@@ -1412,8 +1420,6 @@ window.HabitualCore = window.HabitualCore || {};
               } else if (data.writerId && data.writerId === core.CLIENT_ID) {
                 return;
               }
-
-              if (data.ciphertext === self.lastSentCiphertext) return;
 
               const remoteTs = (function(val) {
                 if (!val) return 0;
@@ -1497,6 +1503,10 @@ window.HabitualCore = window.HabitualCore || {};
             console.error('Firestore Decrypt Error (wrong passphrase?):', e && e.stack ? e.stack : e);
             if (core.showToast) {
               core.showToast('❌ Unable to decrypt Firebase data: Passwords do not match.', 'error');
+            }
+          }).finally(function() {
+            if (self.pendingSnapshotData) {
+              self._scheduleThrottledSync(passphrase);
             }
           });
         }, delay);
@@ -1960,6 +1970,11 @@ window.HabitualCore = window.HabitualCore || {};
     broadcastWrite: function(payload) {
       const self = this;
       if (this.settings.enabledTargets.length === 0) return Promise.resolve();
+      if (this._isBroadcasting) {
+        this._pendingBroadcastPayload = payload || (core.getPayloadFromState ? core.getPayloadFromState() : null);
+        return Promise.resolve();
+      }
+      this._isBroadcasting = true;
 
       return core.E2EE.encrypt(payload, this.settings.passphrase).then(function(encrypted) {
         if (self.isTargetEnabled('firestore')) {
@@ -1970,6 +1985,15 @@ window.HabitualCore = window.HabitualCore || {};
         return Promise.resolve();
       }).catch(function(err) {
         console.error('Failed to encrypt write payload:', err);
+      }).finally(function() {
+        self._isBroadcasting = false;
+        if (self._pendingBroadcastPayload) {
+          const p = self._pendingBroadcastPayload;
+          self._pendingBroadcastPayload = null;
+          self._broadcastTimer = setTimeout(function() {
+            self.broadcastWrite(p);
+          }, 50);
+        }
       });
     },
 

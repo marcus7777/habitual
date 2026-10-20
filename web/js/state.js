@@ -794,11 +794,17 @@ window.HabitualCore = window.HabitualCore || {};
     if (target !== 'all' && target && !target.habitIds && target.type === 'negative') {
       let currentStreak = 0;
       let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      while (true) {
+      const creationDateKey = target.createdAt || '2020-01-01';
+      let safetyCounter = 0;
+      while (safetyCounter < 3650) {
         let key = core.formatDateKey(checkDate);
+        if (creationDateKey && key < creationDateKey && currentStreak > 0) break;
         let log = target.logs ? target.logs[key] : null;
-        if (!log || log.count === 0) { currentStreak++; checkDate.setDate(checkDate.getDate() - 1); }
-        else break;
+        if (!log || log.count === 0) {
+          currentStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+          safetyCounter++;
+        } else break;
       }
       return { current: currentStreak, isWeekly: false, isMonthly: false };
     }
