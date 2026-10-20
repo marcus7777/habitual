@@ -761,7 +761,7 @@ window.HabitualCore = window.HabitualCore || {};
         const isExpanded = core.state.expandedHabitIds && core.state.expandedHabitIds.has(habit.id);
         const arrowChar = isExpanded ? '▲' : '▼';
         const titleText = isExpanded ? 'Click to put away sub-habits' : `Click to view ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}`;
-        subhabitsBadgeHTML = `<button type="button" class="badge-subhabits btn-toggle-concertina" data-habit-id="${habit.id}" title="${titleText}">📁 ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'} <span class="concertina-arrow">${arrowChar}</span></button>`;
+        subhabitsBadgeHTML = `<button type="button" class="badge-subhabits btn-toggle-concertina" data-habit-id="${habit.id}" title="${titleText}">📁 ${directSubs.length} sub${directSubs.length === 1 ? '' : 's'} <span class="concertina-arrow">${arrowChar}</span></button>`;
       }
     }
 
