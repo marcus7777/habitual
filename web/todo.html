@@ -257,22 +257,19 @@
           return;
         }
 
-        const todoData = core.getTodoListData ? core.getTodoListData() : { mode: 'today_uncompleted', items: core.getTodayTodoList() };
+        const todoData = core.getTodoListData ? core.getTodoListData() : { mode: 'today_uncompleted', items: core.getTodayTodoList().filter(item => !item.isCompleted) };
         const items = todoData.items || [];
-        const isUpcomingMode = todoData.mode === 'upcoming';
 
         if (titleEl) {
-          titleEl.textContent = isUpcomingMode ? "📅 Upcoming Events" : "📋 Uncompleted Tasks Today";
+          titleEl.textContent = "📋 Uncompleted Tasks Today";
         }
 
         if (progressEl) {
-          progressEl.textContent = isUpcomingMode
-            ? `${items.length} Upcoming Event${items.length === 1 ? '' : 's'}`
-            : `${items.length} Task${items.length === 1 ? '' : 's'} Remaining`;
+          progressEl.textContent = `${items.length} Task${items.length === 1 ? '' : 's'} Remaining`;
         }
 
         if (items.length === 0) {
-          container.innerHTML = '<div class="todo-empty-state">🎉 All tasks for today are complete and no upcoming events!</div>';
+          container.innerHTML = '<div class="todo-empty-state">🎉 All tasks for today are complete!</div>';
           return;
         }
 
@@ -281,10 +278,8 @@
           const itemEl = document.createElement('div');
           itemEl.className = `todo-item ${item.isCompleted ? 'completed' : ''}`;
 
-          const instanceLabel = (!isUpcomingMode && item.totalTarget > 1) ? ` (${item.instanceIndex}/${item.totalTarget})` : '';
-          const subBadge = isUpcomingMode
-            ? `<div class="todo-target-badge">${item.formattedDate || item.dateKey}</div>`
-            : (item.totalTarget > 1 ? `<div class="todo-target-badge">${item.instanceIndex} of ${item.totalTarget}</div>` : '');
+          const instanceLabel = item.totalTarget > 1 ? ` (${item.instanceIndex}/${item.totalTarget})` : '';
+          const subBadge = item.totalTarget > 1 ? `<div class="todo-target-badge">${item.instanceIndex} of ${item.totalTarget}</div>` : '';
 
           const noteText = item.note ? `<div style="font-size: 0.8rem; color: var(--text-dim, #8f9aa9); margin-top: 2px;">💬 ${core.escapeHTML ? core.escapeHTML(item.note) : item.note}</div>` : '';
 

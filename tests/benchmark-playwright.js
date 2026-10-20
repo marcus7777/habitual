@@ -54,10 +54,13 @@ function loadBenchmarkHistory() {
 function getBaselineRun(history, currentVersion) {
   if (!history || history.length === 0) return null;
 
-  // 1. Filter runs from previous versions (or all prior runs if none exist)
-  let eligibleRuns = history.filter(run => run.version && run.version !== currentVersion && run.metrics);
+  // 1. Filter out outlier runs (e.g., boot duration > 3000ms caused by network stalls)
+  const validRuns = history.filter(run => run && run.metrics && (typeof run.metrics.bootDurationMs !== 'number' || run.metrics.bootDurationMs < 3000));
+
+  // 2. Filter runs from previous versions (or all prior valid runs if none exist)
+  let eligibleRuns = validRuns.filter(run => run.version && run.version !== currentVersion);
   if (eligibleRuns.length === 0) {
-    eligibleRuns = history.filter(run => run.metrics);
+    eligibleRuns = validRuns;
   }
   if (eligibleRuns.length === 0) return null;
 
@@ -261,7 +264,7 @@ function createStaticServer() {
   });
 
   return new Promise((resolve) => {
-    server.listen(PORT, '0.0.0.0', () => {
+    server.listen(PORT, '127.0.0.1', () => {
       resolve(server);
     });
   });
@@ -330,10 +333,23 @@ async function runBenchmarkSuite() {
 
     const page = await context.newPage();
 
+    // Mock network requests for external Firebase SDKs and Service Worker to prevent network stalls during benchmarks
+    await page.route('**/*sw.js*', route => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: '// mock service worker'
+    }));
+
+    await page.route('**/*firebase*', route => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: 'window.__pw_firebase_loaded = true;'
+    }));
+
     // BENCHMARK 1: Boot / Initial Load Duration
     console.log('⏱️  Measuring Initial Page Boot Time...');
     const startTime = Date.now();
-    await page.goto(`http://localhost:${PORT}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`http://127.0.0.1:${PORT}`, { waitUntil: 'domcontentloaded' });
     const bootDurationMs = Date.now() - startTime;
     console.log(`   └─ Page Load (DOMContentLoaded): ${bootDurationMs.toFixed(2)} ms`);
     benchmarkData.metrics.bootDurationMs = bootDurationMs;
