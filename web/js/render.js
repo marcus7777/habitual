@@ -210,6 +210,9 @@ window.HabitualCore = window.HabitualCore || {};
   core.getAvailableYears = function() {
     const yearsSet = new Set();
     yearsSet.add(core.CURRENT_YEAR);
+    if (core.state && core.state.selectedYear) {
+      yearsSet.add(core.state.selectedYear);
+    }
     const habits = (core.state && core.state.habits) ? core.state.habits : [];
     habits.forEach(h => {
       if (h.logs) {

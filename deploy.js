@@ -78,7 +78,7 @@ async function deploy() {
   const bumpType = positional[0] || '';
   const skipPush = flags.includes('--no-push');
   const skipDeploy = flags.includes('--no-deploy');
-  const skipPlaywright = flags.includes('--no-playwright') || flags.includes('--skip-playwright');
+  const skipPlaywright = flags.includes('--no-playwright') || flags.includes('--skip-playwright') || flags.includes('--offline');
 
   const oldVersion = getVersion();
 
