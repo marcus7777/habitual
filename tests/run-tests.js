@@ -2600,6 +2600,41 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     global.document.getElementById = origGetById;
   });
 
+  test('Personal Device QR & URL Sync Connection: checkURLHashForSyncConnection configures Master Password and Store Sync', async () => {
+    mockLocalStorage.removeItem('habitual_firestore_sync_code');
+    mockLocalStorage.removeItem('habitual_sync_passphrase');
+    mockLocalStorage.removeItem('habitual_sync_targets');
+    HabitualCore.SyncManager.settings.enabledTargets = [];
+    HabitualCore.SyncManager.settings.passphrase = '';
+
+    const testCode = 'HAB-DEV999';
+    const testPass = 'MasterKeyPersonal123!';
+
+    const origLocation = global.window.location;
+    const origShowToast = HabitualCore.showToast;
+
+    global.window.location = {
+      pathname: '/index.html',
+      search: '',
+      hash: `#sync?code=${encodeURIComponent(testCode)}&pass=${encodeURIComponent(testPass)}`
+    };
+
+    const toastHistory = [];
+    HabitualCore.showToast = (msg, type) => { toastHistory.push({ msg, type }); };
+
+    try {
+      HabitualCore.checkURLHashForSyncConnection();
+
+      assertEqual(HabitualCore.SyncManager.settings.passphrase, testPass, 'Master Passphrase extracted and set');
+      assertEqual(HabitualCore.SyncTargets.Firestore.getSyncCode(), testCode, 'Firestore Sync Code extracted and set');
+      assert(HabitualCore.SyncManager.isTargetEnabled('firestore'), 'Firestore Sync Target automatically enabled');
+      assert(toastHistory.some(t => t.msg.includes('Personal Device Connected')), 'Toast explicitly informs user of personal device connection');
+    } finally {
+      global.window.location = origLocation;
+      HabitualCore.showToast = origShowToast;
+    }
+  });
+
   test('Conditional localStorage write and direct object payload loading', async () => {
     const origEngine = HabitualCore.activeStorageEngine;
 

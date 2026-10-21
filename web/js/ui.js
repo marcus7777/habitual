@@ -532,6 +532,8 @@ window.HabitualCore = window.HabitualCore || {};
         if (btnCopySyncLink && btnCopySyncLink.style) btnCopySyncLink.style.display = 'none';
       }
     }
+    core.updatePassphraseStatusUI = updatePassphraseStatusUI;
+    core.updateSyncPagePassphraseAndQRUI = updateSyncPagePassphraseAndQRUI;
 
     updatePassphraseStatusUI();
     updateSyncPagePassphraseAndQRUI();
@@ -646,6 +648,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (inputFirestoreCode && typeof inputFirestoreCode.addEventListener === 'function') {
       inputFirestoreCode.addEventListener('input', () => {
         updateFirestoreCopyBtnVisibility();
+        updateSyncPagePassphraseAndQRUI();
       });
 
       // Paste event listener: automatically format, validate channel access, enable sync toggle if valid, and sync immediately
@@ -3182,13 +3185,33 @@ window.HabitualCore = window.HabitualCore || {};
       if (!code || !pass) return;
 
       if (core.SyncManager) {
-        core.SyncManager.setPassphrase(pass);
-        core.SyncManager.setFirestoreSyncCode(code);
-        core.SyncManager.setFirestoreEnabled(true);
+        core.SyncManager.settings.passphrase = pass;
+        localStorage.setItem('habitual_sync_passphrase', pass);
+        if (core.E2EE && core.E2EE._keyCache) core.E2EE._keyCache.clear();
+
+        if (core.SyncManager.setFirestoreSyncCode) {
+          core.SyncManager.setFirestoreSyncCode(code);
+        } else if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.setSyncCode) {
+          core.SyncTargets.Firestore.setSyncCode(code);
+        }
+        if (core.SyncManager.setFirestoreEnabled) {
+          core.SyncManager.setFirestoreEnabled(true);
+        } else if (core.SyncManager.toggleTarget) {
+          core.SyncManager.toggleTarget('firestore', true);
+        }
       }
 
       if (core.updateFirestoreCodeUIState) core.updateFirestoreCodeUIState();
-      if (core.showToast) core.showToast(`⚡ Device connected to sync channel ${code}!`, 'success');
+      if (core.updatePassphraseStatusUI) core.updatePassphraseStatusUI();
+      if (core.updateSyncPagePassphraseAndQRUI) core.updateSyncPagePassphraseAndQRUI();
+
+      if (core.showToast) {
+        core.showToast(`📲 Personal Device Connected! Master Password & Store Sync configured (Channel ${code}).`, 'success');
+      }
+
+      if (core.SyncManager && typeof core.SyncManager.pullAndMergeAll === 'function') {
+        core.SyncManager.pullAndMergeAll();
+      }
 
       if (window.history && window.history.replaceState) {
         const cleanUrl = window.location.pathname + window.location.search;

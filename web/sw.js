@@ -10,8 +10,6 @@ const ASSETS_TO_CACHE = [
   './app.js',
   './manifest.json',
   './favicon.svg',
-  './icon-192.png',
-  './icon-512.png',
   './js/colours.js',
   './js/state.js',
   './js/storage.js',
