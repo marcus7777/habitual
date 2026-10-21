@@ -99,10 +99,136 @@ async function runMultiDeviceSyncPlaywrightTests() {
       .catch(() => chromium.launch({ channel: 'msedge', headless: true }));
 
     const context1 = await browser.newContext();
-    const context2 = await browser.newContext();
+
+    await context1.route('**/*sw.js*', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '// mock sw' }));
+    await context1.route('**/*firebase*', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.__pw_firebase_loaded = true;' }));
+
+    const setupMockFirebase = async (page) => {
+      await page.addInitScript(() => {
+        try { delete window.navigator.serviceWorker; } catch (e) {}
+
+        if (!window.__pw_channel) {
+          window.__pw_channel = new BroadcastChannel('pw_firestore_channel');
+        }
+        const channel = window.__pw_channel;
+        const store = window.__pw_store || new Map();
+        window.__pw_store = store;
+
+        const listeners = window.__pw_listeners || new Map();
+        window.__pw_listeners = listeners;
+
+        channel.onmessage = (event) => {
+          if (!event.data) return;
+          if (event.data.type === 'REQ_SYNC') {
+            for (const [k, v] of store.entries()) {
+              const parts = k.split('_');
+              const col = parts[0];
+              const docId = parts.slice(1).join('_');
+              channel.postMessage({ type: 'RES_SYNC', col, docId, data: v });
+            }
+            return;
+          }
+          if (event.data.type === 'RES_SYNC') {
+            const { col, docId, data } = event.data;
+            const key = `${col}_${docId}`;
+            store.set(key, data);
+            if (listeners.has(key)) {
+              listeners.get(key).forEach(cb => {
+                try { cb({ exists: true, data: () => data, metadata: { hasPendingWrites: false } }); } catch (e) {}
+              });
+            }
+            return;
+          }
+          const { col, docId, data } = event.data;
+          const key = `${col}_${docId}`;
+          store.set(key, data);
+          if (listeners.has(key)) {
+            listeners.get(key).forEach(cb => {
+              try { cb({ exists: true, data: () => data, metadata: { hasPendingWrites: false } }); } catch (e) {}
+            });
+          }
+        };
+
+        setTimeout(() => {
+          try { channel.postMessage({ type: 'REQ_SYNC' }); } catch (e) {}
+        }, 50);
+
+        let lastTs = 0;
+
+        const mockDb = {
+          collection: function(col) {
+            return {
+              doc: function(docId) {
+                const key = `${col}_${docId}`;
+                return {
+                  id: docId,
+                  set: function(data) {
+                    const now = Date.now();
+                    lastTs = Math.max(now, lastTs + 1);
+                    const normData = Object.assign({}, data, {
+                      updatedAt: lastTs
+                    });
+                    store.set(key, normData);
+                    channel.postMessage({ col, docId, data: normData });
+                    if (listeners.has(key)) {
+                      listeners.get(key).forEach(cb => {
+                        try { cb({ exists: true, data: () => normData, metadata: { hasPendingWrites: false } }); } catch (e) {}
+                      });
+                    }
+                    return Promise.resolve();
+                  },
+                  get: function() {
+                    const data = store.get(key);
+                    return Promise.resolve({
+                      exists: Boolean(data),
+                      data: function() { return data; }
+                    });
+                  },
+                  onSnapshot: function(cb) {
+                    if (!listeners.has(key)) listeners.set(key, []);
+                    listeners.get(key).push(cb);
+                    if (store.has(key)) {
+                      const data = store.get(key);
+                      setTimeout(() => {
+                        try { cb({ exists: true, data: () => data, metadata: { hasPendingWrites: false } }); } catch (e) {}
+                      }, 10);
+                    }
+                    return function unsubscribe() {
+                      if (listeners.has(key)) {
+                        const arr = listeners.get(key).filter(x => x !== cb);
+                        listeners.set(key, arr);
+                      }
+                    };
+                  }
+                };
+              }
+            };
+          }
+        };
+
+        const mockFirebase = {
+          apps: [{ name: '[DEFAULT]' }],
+          initializeApp: function() { return {}; },
+          firestore: function() { return mockDb; }
+        };
+        mockFirebase.firestore.FieldValue = {
+          serverTimestamp: function() { return Date.now(); }
+        };
+
+        window.firebase = mockFirebase;
+
+        if (!window.HabitualCore) window.HabitualCore = {};
+        if (!window.HabitualCore.SyncTargets) window.HabitualCore.SyncTargets = {};
+        if (!window.HabitualCore.SyncTargets.Firestore) window.HabitualCore.SyncTargets.Firestore = {};
+        window.HabitualCore.SyncTargets.Firestore.db = mockDb;
+      });
+    };
 
     const page1 = await context1.newPage();
-    const page2 = await context2.newPage();
+    const page2 = await context1.newPage();
+
+    await setupMockFirebase(page1);
+    await setupMockFirebase(page2);
 
     page1.on('dialog', dialog => dialog.accept());
     page2.on('dialog', dialog => dialog.accept());
@@ -117,24 +243,26 @@ async function runMultiDeviceSyncPlaywrightTests() {
     await page1.waitForLoadState('domcontentloaded');
 
     await page1.evaluate(({ code, pass }) => {
+      window.HabitualCore.CLIENT_ID = 'cli_dev1_' + Math.random().toString(36).substring(2, 8);
       localStorage.setItem('habitual_firestore_sync_code', code);
       localStorage.setItem('habitual_sync_passphrase', pass);
       localStorage.setItem('habitual_sync_targets', JSON.stringify(['firestore']));
       window.HabitualCore.SyncManager.settings.enabledTargets = ['firestore'];
       window.HabitualCore.SyncManager.settings.passphrase = pass;
       if (window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore) {
+        window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 10;
         window.HabitualCore.SyncTargets.Firestore.startLiveSync();
       }
     }, { code: SYNC_CODE, pass: PASSPHRASE });
 
     let createdHabitId = null;
-    await page1.evaluate((name) => {
+    await page1.evaluate(async (name) => {
       window.HabitualCore.openHabitModal();
       const nameInput = document.getElementById('habit-name');
       if (nameInput) nameInput.value = name;
       window.HabitualCore.handleHabitFormSubmit();
       if (window.HabitualCore.SyncManager && window.HabitualCore.SyncManager.broadcastWrite) {
-        window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
+        await window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
       }
     }, HABIT_NAME);
 
@@ -156,12 +284,14 @@ async function runMultiDeviceSyncPlaywrightTests() {
     await page2.waitForLoadState('domcontentloaded');
 
     await page2.evaluate(({ code, pass }) => {
+      window.HabitualCore.CLIENT_ID = 'cli_dev2_' + Math.random().toString(36).substring(2, 8);
       localStorage.setItem('habitual_firestore_sync_code', code);
       localStorage.setItem('habitual_sync_passphrase', pass);
       localStorage.setItem('habitual_sync_targets', JSON.stringify(['firestore']));
       window.HabitualCore.SyncManager.settings.enabledTargets = ['firestore'];
       window.HabitualCore.SyncManager.settings.passphrase = pass;
       if (window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore) {
+        window.HabitualCore.SyncTargets.Firestore.minSyncInterval = 10;
         window.HabitualCore.SyncTargets.Firestore.startLiveSync();
       }
     }, { code: SYNC_CODE, pass: PASSPHRASE });
@@ -183,10 +313,10 @@ async function runMultiDeviceSyncPlaywrightTests() {
 
     // STEP 3: Delete Habit on Device 1
     console.log('\n🗑️ STEP 3: Deleting Habit on Device 1...');
-    await page1.evaluate((id) => {
+    await page1.evaluate(async (id) => {
       window.HabitualCore.deleteHabit(id);
       if (window.HabitualCore.SyncManager && window.HabitualCore.SyncManager.broadcastWrite) {
-        window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
+        await window.HabitualCore.SyncManager.broadcastWrite(window.HabitualCore.getPayloadFromState());
       }
     }, createdHabitId);
 

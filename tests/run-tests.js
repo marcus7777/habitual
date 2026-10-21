@@ -781,6 +781,11 @@ describe('Feature 11: 📱 PWA & Offline Support', () => {
     assert(swContent.includes('widgets/add.html'), 'Caches widgets/add.html');
     assert(swContent.includes('widgets/heatmaps.html'), 'Caches widgets/heatmaps.html');
     assert(swContent.includes('widgets/settings.html'), 'Caches widgets/settings.html');
+
+    // Check caching strategy (Cache-First + Background Cache Replacement / Stale-While-Revalidate)
+    assert(swContent.includes('cachedResponse'), 'Checks cached response first');
+    assert(swContent.includes('cache.put'), 'Replaces cache in background');
+    assert(swContent.includes('event.waitUntil'), 'Extends service worker lifetime for background revalidation');
   });
 
   test('Web Manifest manifest.json specifies required PWA fields', () => {
@@ -1416,6 +1421,71 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
 
     HabitualCore.elements = originalElements;
   });
+
+  test('Delegated click on day square opens log modal without ReferenceError', () => {
+    HabitualCore.resetState();
+    const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 1, logs: {} };
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
+
+    const originalElements = HabitualCore.elements;
+    const galleryMock = createMockElement('div');
+    HabitualCore.elements = {
+      heatmapsGallery: galleryMock,
+      yearSelector: createMockElement('select'),
+      habitModal: createMockElement('div')
+    };
+
+    let openedDate = null, openedHabitId = null;
+    const originalOpenLogModal = HabitualCore.openLogModal;
+    HabitualCore.openLogModal = (d, h) => { openedDate = d; openedHabitId = h; };
+
+    HabitualCore.attachHeatmapSquareEvents();
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    galleryMock.appendChild(card);
+
+    const mockSquare = createMockElement('rect');
+    mockSquare.classList.add('day-square');
+    mockSquare.setAttribute('data-date', '2026-01-01');
+    mockSquare.setAttribute('data-habit-id', 'water');
+    card.appendChild(mockSquare);
+
+    mockSquare.click();
+
+    assertEqual(openedHabitId, 'water', 'Clicking day square passed habit ID to openLogModal without cardHabitId ReferenceError');
+
+    HabitualCore.openLogModal = originalOpenLogModal;
+    HabitualCore.elements = originalElements;
+  });
+
+  test('Delegated click on card background opens log modal without ReferenceError', () => {
+    HabitualCore.resetState();
+    const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 1, logs: {} };
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
+
+    const originalElements = HabitualCore.elements;
+    const galleryMock = createMockElement('div');
+    HabitualCore.elements = {
+      heatmapsGallery: galleryMock,
+      yearSelector: createMockElement('select')
+    };
+
+    let openedHabitId = null;
+    const originalOpenLogModal = HabitualCore.openLogModal;
+    HabitualCore.openLogModal = (d, h) => { openedHabitId = h; };
+
+    HabitualCore.attachHeatmapSquareEvents();
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    galleryMock.appendChild(card);
+
+    card.click();
+
+    assertEqual(openedHabitId, 'water', 'Clicking card background passed habit ID to openLogModal without cardHabitId ReferenceError');
+
+    HabitualCore.openLogModal = originalOpenLogModal;
+    HabitualCore.elements = originalElements;
+  });
 });
 
 describe('Feature 21: ✂️ Cut-off Top Right Corner Note Indicator', () => {
@@ -1758,6 +1828,7 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
       return prevGetElementById ? prevGetElementById(id) : null;
     };
 
+    HabitualCore.elements.habitModal = createMockElement('div');
     HabitualCore.elements.habitShowCount = { checked: true };
     HabitualCore.elements.habitShowDuration = { checked: false };
     HabitualCore.elements.habitHideFromAll = { checked: false };

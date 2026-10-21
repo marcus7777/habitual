@@ -9,9 +9,19 @@ if (fs.existsSync(sdkAdbPath) && !process.env.PATH.includes(sdkAdbPath)) {
 
 async function test() {
   console.log('Step 1: Fetching devices...');
-  const devices = await _android.devices();
+  let devices = [];
+  try {
+    devices = await Promise.race([
+      _android.devices(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('ADB device discovery timed out')), 5000))
+    ]);
+  } catch (e) {
+    console.warn('Device discovery note:', e.message);
+    process.exit(0);
+  }
+
   console.log(`Devices found: ${devices.length}`);
-  if (devices.length === 0) return;
+  if (devices.length === 0) process.exit(0);
 
   const device = devices[0];
   console.log(`Device Model: ${device.model()}, Serial: ${device.serial()}`);
@@ -27,8 +37,14 @@ async function test() {
   } catch (e) {
     console.error('Launch Error:', e.message);
   } finally {
-    await device.close();
+    try {
+      await Promise.race([
+        device.close(),
+        new Promise((resolve) => setTimeout(resolve, 2000))
+      ]);
+    } catch (e) {}
+    process.exit(0);
   }
 }
 
-test();
+test().catch(() => process.exit(0));

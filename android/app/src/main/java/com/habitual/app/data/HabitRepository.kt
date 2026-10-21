@@ -101,6 +101,43 @@ class HabitRepository(private val habitDao: HabitDao) {
         habitDao.insertLogs(logs)
     }
 
+    suspend fun importDataFromJson(jsonStr: String) {
+        try {
+            val payload = com.google.gson.Gson().fromJson(jsonStr, WebExportPayload::class.java)
+            payload?.habits?.forEach { webHabit ->
+                val habit = HabitEntity(
+                    id = webHabit.id,
+                    name = webHabit.name ?: webHabit.id,
+                    type = webHabit.type ?: "positive",
+                    description = webHabit.description ?: "",
+                    category = webHabit.category ?: "General",
+                    colorTheme = webHabit.colorTheme ?: "#39d353",
+                    dailyTarget = webHabit.dailyTarget ?: 1,
+                    frequencyType = webHabit.frequencyType ?: "daily"
+                )
+                habitDao.insertOrUpdateHabit(habit)
+                
+                webHabit.logs?.forEach { (dateStr, logData) ->
+                    val count = logData.count ?: 0
+                    val note = logData.note ?: ""
+                    if (count > 0 || note.isNotEmpty()) {
+                        habitDao.insertOrUpdateLog(
+                            HabitLogEntity(
+                                id = "${habit.id}_$dateStr",
+                                habitId = habit.id,
+                                date = dateStr,
+                                count = count,
+                                note = note
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private suspend fun HabitDao.getHabitHabitDirect(id: String): HabitEntity? {
         return getHabitById(id)
     }
