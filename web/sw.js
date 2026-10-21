@@ -1,6 +1,6 @@
 /* Habitual Service Worker */
 
-const CACHE_NAME = 'habitual-v1.25.3';
+const CACHE_NAME = 'habitual-v1.25.8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -57,15 +57,17 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event - Stale-While-Revalidate Strategy
+// Fetch Event - Cache First with Background Cache Replacement (Stale-While-Revalidate)
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
+      // Background fetch promise to update the cache asynchronously
       const fetchPromise = fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          if (networkResponse && networkResponse.ok && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseToCache);
@@ -73,11 +75,19 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
+        .catch((err) => {
+          console.debug('[Service Worker] Background revalidation fetch failed:', err);
           return cachedResponse;
         });
 
-      return cachedResponse || fetchPromise;
+      if (cachedResponse) {
+        // Cache First: Immediately return cached version to user, and extend event lifetime for background update
+        event.waitUntil(fetchPromise);
+        return cachedResponse;
+      }
+
+      // If not in cache, fallback to network fetch
+      return fetchPromise;
     })
   );
 });

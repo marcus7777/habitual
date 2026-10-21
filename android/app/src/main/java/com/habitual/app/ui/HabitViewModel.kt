@@ -76,4 +76,10 @@ class HabitViewModel(application: Application) : AndroidViewModel(application) {
             repository.deleteHabit(habitId)
         }
     }
+
+    fun importDataFromJson(jsonStr: String) {
+        viewModelScope.launch {
+            repository.importDataFromJson(jsonStr)
+        }
+    }
 }

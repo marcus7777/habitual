@@ -34,6 +34,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import java.io.InputStreamReader
+import java.io.BufferedReader
 import com.habitual.app.data.HabitEntity
 import com.habitual.app.data.HabitLogEntity
 import com.habitual.app.ui.HabitViewModel
@@ -51,6 +56,21 @@ fun HomeScreen(viewModel: HabitViewModel) {
     var habitToEdit by remember { mutableStateOf<HabitEntity?>(null) }
 
     var selectedDayDialogState by remember { mutableStateOf<Triple<HabitEntity, String, HabitLogEntity?>?>(null) }
+
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val reader = BufferedReader(InputStreamReader(inputStream))
+                    val jsonStr = reader.readText()
+                    viewModel.importDataFromJson(jsonStr)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -81,6 +101,10 @@ fun HomeScreen(viewModel: HabitViewModel) {
 
                     // Year Navigator Control
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.TextButton(onClick = { launcher.launch("application/json") }) {
+                            Text("Import JSON", color = Color(0xFF58A6FF), fontSize = 14.sp)
+                        }
+                        
                         IconButton(onClick = { viewModel.setSelectedYear(selectedYear - 1) }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBackIosNew,

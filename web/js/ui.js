@@ -1322,12 +1322,12 @@ window.HabitualCore = window.HabitualCore || {};
       const card = e.target.closest('.heatmap-card');
       if (!card) return; // Only process clicks inside cards
 
-      const clickedHabitId = card.getAttribute('data-habit-id');
-      if (clickedHabitId && core.state) {
-        core.state.selectedHabitId = clickedHabitId;
+      const cardHabitId = card.getAttribute('data-habit-id');
+      if (cardHabitId && core.state) {
+        core.state.selectedHabitId = cardHabitId;
         const allCards = gallery.querySelectorAll('.heatmap-card');
         allCards.forEach(c => {
-          if (c.getAttribute('data-habit-id') === clickedHabitId) {
+          if (c.getAttribute('data-habit-id') === cardHabitId) {
             c.classList.add('selected');
             c.classList.add('selected-habit');
           } else {

@@ -79,6 +79,9 @@ async function runQuickAddResponsivenessPlaywrightTests() {
     const page = await context.newPage();
     page.on('dialog', dialog => dialog.accept());
 
+    await page.route('**/*sw.js*', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '// mock sw' }));
+    await page.route('**/*firebase*', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.__pw_firebase_loaded = true;' }));
+
     await page.goto(`http://127.0.0.1:${PORT}/index.html`);
     await page.waitForLoadState('domcontentloaded');
 
