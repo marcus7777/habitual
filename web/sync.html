@@ -132,11 +132,27 @@
             </div>
             <p class="muted-text text-xs" style="margin: 0 0 0.8rem 0;">Share this channel code and master passphrase to sync across devices.</p>
 
-            <!-- Device Sync QR Code Wrapper -->
-            <div id="firestore-sync-qr-wrapper" class="qr-code-wrapper hidden margin-top-sm" style="background: var(--bg-surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center;">
-              <label style="font-size: 0.88rem; font-weight: 600; display: block;">📱 Scan QR Code to Sync Another Device</label>
-              <div id="firestore-sync-qr-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 8px;"></div>
-              <small class="muted-text text-xs" style="display: block; margin-top: 6px;">Scan with phone camera to instantly connect this device to your cloud sync channel.</small>
+            <!-- Device Sync QR Code Wrapper: Personal Device Pairing for Store & Master Password Sync -->
+            <div id="firestore-sync-qr-wrapper" class="qr-code-wrapper hidden margin-top-sm" style="background: var(--bg-surface); padding: 16px; border-radius: 10px; border: 1px solid var(--accent-blue); text-align: center;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--accent-blue);"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                <h5 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">📱 Add a Device for Your Personal Use</h5>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 4px 0 10px 0;">
+                Scan this QR code with your phone or tablet camera to pair your secondary device. This synchronizes your <strong>Master Password</strong> and <strong>Firebase Store Channel</strong> across your personal devices.
+              </p>
+
+              <div id="firestore-sync-qr-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 10px; background: #ffffff; border-radius: 8px; width: fit-content; margin: 0 auto;"></div>
+
+              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: center;">
+                <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; background: rgba(16, 136, 172, 0.15); border: 1px solid var(--accent-blue); padding: 4px 12px; border-radius: 20px; color: var(--accent-blue); font-weight: 600;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>Synchronizes: 🔑 Master Password &amp; 🔥 Firebase Store</span>
+                </div>
+                <small class="muted-text text-xs" style="display: block; max-width: 500px; margin-top: 4px; line-height: 1.4;">
+                  ⚠️ <strong>Personal Device Pairing Only:</strong> This QR code contains your secret Master Passphrase to decrypt your store. Only scan this on trusted devices that belong to you!
+                </small>
+              </div>
             </div>
           </div>
         </div>
@@ -255,6 +271,7 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- App Scripts -->
+  <script src="js/qr.js" defer></script>
   <script src="js/colours.js" defer></script>
   <script src="js/state.js" defer></script>
   <script src="js/storage.js" defer></script>

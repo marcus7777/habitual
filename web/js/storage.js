@@ -1900,13 +1900,13 @@ window.HabitualCore = window.HabitualCore || {};
       }
     },
 
-    updatePassphrase: function(newPassphrase) {
+    updatePassphrase: function(newPassphrase, silent) {
       const self = this;
       const trimmedNew = (newPassphrase || '').trim();
 
       if (!trimmedNew) {
         const err = new Error('⚠️ Passphrase cannot be empty.');
-        if (core.showToast) core.showToast(err.message, 'warning');
+        if (!silent && core.showToast) core.showToast(err.message, 'warning');
         return Promise.reject(err);
       }
 
@@ -1922,7 +1922,7 @@ window.HabitualCore = window.HabitualCore || {};
 
           if (oldDataHash !== newDataHash) {
             const hashErr = new Error('❌ Passphrase update aborted: Data hash mismatch after re-encryption!');
-            if (core.showToast) core.showToast(hashErr.message, 'error');
+            if (!silent && core.showToast) core.showToast(hashErr.message, 'error');
             return Promise.reject(hashErr);
           }
 
@@ -1940,19 +1940,30 @@ window.HabitualCore = window.HabitualCore || {};
               if (!core.isSyncPage()) {
                 core.SyncTargets.Firestore.startLiveSync();
               }
-              if (core.showToast) core.showToast('🔑 Master Passphrase updated and verified across sync targets!', 'success');
+              if (!silent && core.showToast) core.showToast('🔑 Master Passphrase updated and verified across sync targets!', 'success');
               return true;
             });
           } else {
-            if (core.showToast) core.showToast('🔑 Master Passphrase updated and verified locally!', 'success');
+            if (!silent && core.showToast) core.showToast('🔑 Master Passphrase updated and verified locally!', 'success');
             return Promise.resolve(true);
           }
         });
       });
     },
 
-    setPassphrase: function(passphrase) {
-      return this.updatePassphrase(passphrase);
+    setPassphrase: function(passphrase, silent) {
+      return this.updatePassphrase(passphrase, silent);
+    },
+
+    setFirestoreSyncCode: function(code) {
+      if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.setSyncCode) {
+        return core.SyncTargets.Firestore.setSyncCode(code);
+      }
+      return code;
+    },
+
+    setFirestoreEnabled: function(enable) {
+      this.toggleTarget('firestore', Boolean(enable));
     },
 
     _broadcastTimer: null,
