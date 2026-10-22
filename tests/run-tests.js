@@ -4203,6 +4203,7 @@ describe('Feature 40: 📋 Todo Page, Countdown Timer & Multi-Target Task Items'
     assert(typeof timeInfo.minutes === 'number', 'timeInfo.minutes is a number');
     assert(typeof timeInfo.seconds === 'number', 'timeInfo.seconds is a number');
     assert(typeof timeInfo.formattedString === 'string', 'timeInfo.formattedString is a string');
+    assert(typeof timeInfo.boundaryLabel === 'string', 'timeInfo.boundaryLabel is a string');
   });
 
   test('getTodayTodoList expands multi-target habits into distinct task items', () => {
@@ -4280,6 +4281,46 @@ describe('Feature 40: 📋 Todo Page, Countdown Timer & Multi-Target Task Items'
     assert(content.includes('styles.css'), 'todo.html links styles.css');
     assert(content.includes('js/ui.js'), 'todo.html links ui.js');
     assert(content.includes('todo-countdown'), 'todo.html includes countdown container');
+  });
+});
+
+// ============================================================================
+// FEATURE 41: 🌅 DAY BOUNDARIES & SUNRISE/SUNSET CALCULATIONS
+// ============================================================================
+describe('Feature 41: 🌅 Day Boundaries & Sunrise/Sunset Calculations', () => {
+  test('calculateSunTimes returns sunrise and sunset Date objects', () => {
+    const sun = HabitualCore.calculateSunTimes(new Date(2026, 2, 30), 51.5074, -0.1278);
+    assert(sun !== undefined, 'sun object returned');
+    assert(sun.sunrise instanceof Date, 'sunrise is a Date object');
+    assert(sun.sunset instanceof Date, 'sunset is a Date object');
+    assert(sun.sunset > sun.sunrise, 'sunset occurs after sunrise');
+  });
+
+  test('getDayBoundaryInfo returns correct info for midnight mode', () => {
+    HabitualCore.state.dayBoundaryMode = 'midnight';
+    const info = HabitualCore.getDayBoundaryInfo(new Date());
+    assertEqual(info.mode, 'midnight', 'mode is midnight');
+    assertEqual(info.boundaryLabel, 'before midnight', 'boundaryLabel is before midnight');
+    assert(info.nextBoundary instanceof Date, 'nextBoundary is Date');
+  });
+
+  test('getDayBoundaryInfo returns correct info for sunrise_to_sunset mode', () => {
+    HabitualCore.state.dayBoundaryMode = 'sunrise_to_sunset';
+    HabitualCore.state.latitude = 51.5074;
+    HabitualCore.state.longitude = -0.1278;
+
+    const info = HabitualCore.getDayBoundaryInfo(new Date());
+    assertEqual(info.mode, 'sunrise_to_sunset', 'mode is sunrise_to_sunset');
+    assert(info.boundaryLabel === 'until sunset' || info.boundaryLabel === 'until sunrise', 'valid boundary label');
+  });
+
+  test('formatPrettyDate explicitly specifies Today for today key', () => {
+    const todayKey = HabitualCore.getTodayKey();
+    const formatted = HabitualCore.formatPrettyDate(todayKey);
+    assert(formatted.startsWith('Today'), 'formatPrettyDate starts with Today for today key');
+
+    const formattedWithoutToday = HabitualCore.formatPrettyDate(todayKey, false);
+    assert(!formattedWithoutToday.startsWith('Today'), 'formatPrettyDate omits Today when includeToday=false');
   });
 });
 

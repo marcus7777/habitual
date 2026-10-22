@@ -860,6 +860,43 @@
               assert(testHabit.logs[futureDate2] === undefined, 'Future log 2 removed');
               assert(testHabit.logs['2020-01-01'] !== undefined, 'Past log preserved');
             });
+
+            describe('Feature 41: Day Boundaries & Sun Calculations', () => {
+              test('calculateSunTimes returns sunrise and sunset Date objects', () => {
+                const sun = core.calculateSunTimes(new Date(2026, 2, 30), 51.5074, -0.1278);
+                assert(sun !== undefined, 'sun object returned');
+                assert(sun.sunrise instanceof Date, 'sunrise is a Date object');
+                assert(sun.sunset instanceof Date, 'sunset is a Date object');
+                assert(sun.sunset > sun.sunrise, 'sunset occurs after sunrise');
+              });
+
+              test('getDayBoundaryInfo returns correct info for midnight mode', () => {
+                core.state.dayBoundaryMode = 'midnight';
+                const info = core.getDayBoundaryInfo(new Date());
+                assertEqual(info.mode, 'midnight', 'mode is midnight');
+                assertEqual(info.boundaryLabel, 'before midnight', 'boundaryLabel is before midnight');
+                assert(info.nextBoundary instanceof Date, 'nextBoundary is Date');
+              });
+
+              test('getDayBoundaryInfo returns correct info for sunrise_to_sunset mode', () => {
+                core.state.dayBoundaryMode = 'sunrise_to_sunset';
+                core.state.latitude = 51.5074;
+                core.state.longitude = -0.1278;
+
+                const info = core.getDayBoundaryInfo(new Date());
+                assertEqual(info.mode, 'sunrise_to_sunset', 'mode is sunrise_to_sunset');
+                assert(info.boundaryLabel === 'until sunset' || info.boundaryLabel === 'until sunrise', 'valid boundary label');
+              });
+
+              test('formatPrettyDate explicitly specifies Today for today key', () => {
+                const todayKey = core.getTodayKey();
+                const formatted = core.formatPrettyDate(todayKey);
+                assert(formatted.startsWith('Today'), 'formatPrettyDate starts with Today for today key');
+
+                const formattedWithoutToday = core.formatPrettyDate(todayKey, false);
+                assert(!formattedWithoutToday.startsWith('Today'), 'formatPrettyDate omits Today when includeToday=false');
+              });
+            });
           });
         });
       }

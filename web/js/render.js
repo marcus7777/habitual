@@ -911,7 +911,7 @@ window.HabitualCore = window.HabitualCore || {};
       focusedToolbarHTML = `
         <div class="focused-day-toolbar">
           <div class="focused-date-picker-wrap">
-            <label for="focused-date-input-${cardHabitId}" class="focused-date-label">📅 Date:</label>
+            <label for="focused-date-input-${cardHabitId}" class="focused-date-label">📅 Date${focusDateKey === todayStr ? ' (Today)' : ''}:</label>
             <input type="date" id="focused-date-input-${cardHabitId}" class="focused-date-input" value="${focusDateKey}" max="${todayStr}">
           </div>
           <div class="focused-toolbar-actions">

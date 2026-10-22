@@ -16,6 +16,10 @@ window.HabitualCore = window.HabitualCore || {};
     selectedYear: core.CURRENT_YEAR,
     showQuickLogOnStartup: false,
     backgroundSync: false,
+    dayBoundaryMode: 'midnight',
+    latitude: 51.5074,
+    longitude: -0.1278,
+    locationName: 'Default (London)',
     expandedHabitIds: new Set()
   };
 
@@ -30,6 +34,10 @@ window.HabitualCore = window.HabitualCore || {};
       selectedYear: core.CURRENT_YEAR,
       showQuickLogOnStartup: false,
       backgroundSync: false,
+      dayBoundaryMode: 'midnight',
+      latitude: 51.5074,
+      longitude: -0.1278,
+      locationName: 'Default (London)',
       expandedHabitIds: new Set()
     };
   };
@@ -208,8 +216,189 @@ window.HabitualCore = window.HabitualCore || {};
     return null;
   };
 
+  // --- DAY BOUNDARY & SUN CALCULATION LOGIC ---
+
+  core.calculateSunTimes = function(dateObj, lat = 51.5074, lng = -0.1278) {
+    const d = dateObj ? new Date(dateObj) : new Date();
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const date = d.getDate();
+
+    const startOfYear = new Date(year, 0, 1);
+    const dayOfYear = Math.floor((d - startOfYear) / 86400000) + 1;
+    const zenith = 90.833;
+    const lngHour = lng / 15;
+
+    function calcTime(isSunrise) {
+      const t = dayOfYear + ((isSunrise ? 6 : 18) - lngHour) / 24;
+      const M = (0.9856 * t) - 3.289;
+
+      let L = M + (1.916 * Math.sin(M * Math.PI / 180)) + (0.020 * Math.sin(2 * M * Math.PI / 180)) + 282.634;
+      L = (L % 360 + 360) % 360;
+
+      let RA = Math.atan(0.91764 * Math.tan(L * Math.PI / 180)) * 180 / Math.PI;
+      RA = (RA % 360 + 360) % 360;
+
+      const Lquadrant  = Math.floor(L / 90) * 90;
+      const RAquadrant = Math.floor(RA / 90) * 90;
+      RA = RA + (Lquadrant - RAquadrant);
+      RA = RA / 15;
+
+      const sinDec = 0.39782 * Math.sin(L * Math.PI / 180);
+      const cosDec = Math.cos(Math.asin(sinDec));
+
+      const cosH = (Math.cos(zenith * Math.PI / 180) - (sinDec * Math.sin(lat * Math.PI / 180))) / (cosDec * Math.cos(lat * Math.PI / 180));
+
+      if (cosH > 1 || cosH < -1) return null;
+
+      let H = isSunrise ? (360 - Math.acos(cosH) * 180 / Math.PI) : (Math.acos(cosH) * 180 / Math.PI);
+      H = H / 15;
+
+      const T = H + RA - (0.06571 * t) - 6.622;
+      let UT = T - lngHour;
+      UT = (UT % 24 + 24) % 24;
+
+      const utcHours = Math.floor(UT);
+      const utcMinutes = Math.floor((UT - utcHours) * 60);
+      const utcSeconds = Math.floor((((UT - utcHours) * 60) - utcMinutes) * 60);
+
+      return new Date(Date.UTC(year, month, date, utcHours, utcMinutes, utcSeconds));
+    }
+
+    let sunrise = calcTime(true);
+    let sunset = calcTime(false);
+
+    if (!sunrise || isNaN(sunrise.getTime())) sunrise = new Date(year, month, date, 6, 0, 0);
+    if (!sunset || isNaN(sunset.getTime())) sunset = new Date(year, month, date, 18, 0, 0);
+
+    return { sunrise, sunset };
+  };
+
+  core.getSunLocation = function() {
+    const lat = (core.state && typeof core.state.latitude === 'number') ? core.state.latitude : 51.5074;
+    const lng = (core.state && typeof core.state.longitude === 'number') ? core.state.longitude : -0.1278;
+    const name = (core.state && core.state.locationName) ? core.state.locationName : 'Default (London)';
+    return { lat, lng, name };
+  };
+
+  core.getDayBoundaryMode = function() {
+    return (core.state && core.state.dayBoundaryMode) ? core.state.dayBoundaryMode : 'midnight';
+  };
+
+  core.getDayBoundaryInfo = function(nowDate) {
+    const now = nowDate ? new Date(nowDate) : new Date();
+    const mode = core.getDayBoundaryMode();
+    const loc = core.getSunLocation();
+
+    if (mode === 'midnight') {
+      const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      const nextBoundary = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+      return {
+        mode: 'midnight',
+        dateKey: core.formatDateKey(now),
+        startTime,
+        endTime,
+        nextBoundary,
+        boundaryLabel: 'before midnight'
+      };
+    }
+
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+
+    const sunToday = core.calculateSunTimes(now, loc.lat, loc.lng);
+    const sunYesterday = core.calculateSunTimes(yesterday, loc.lat, loc.lng);
+    const sunTomorrow = core.calculateSunTimes(tomorrow, loc.lat, loc.lng);
+
+    if (mode === 'sunrise_to_sunrise') {
+      if (now < sunToday.sunrise) {
+        return {
+          mode: 'sunrise_to_sunrise',
+          dateKey: core.formatDateKey(yesterday),
+          startTime: sunYesterday.sunrise,
+          endTime: sunToday.sunrise,
+          nextBoundary: sunToday.sunrise,
+          boundaryLabel: 'until sunrise'
+        };
+      } else {
+        return {
+          mode: 'sunrise_to_sunrise',
+          dateKey: core.formatDateKey(now),
+          startTime: sunToday.sunrise,
+          endTime: sunTomorrow.sunrise,
+          nextBoundary: sunTomorrow.sunrise,
+          boundaryLabel: 'until sunrise'
+        };
+      }
+    }
+
+    if (mode === 'sunset_to_sunset') {
+      if (now < sunToday.sunset) {
+        return {
+          mode: 'sunset_to_sunset',
+          dateKey: core.formatDateKey(yesterday),
+          startTime: sunYesterday.sunset,
+          endTime: sunToday.sunset,
+          nextBoundary: sunToday.sunset,
+          boundaryLabel: 'until sunset'
+        };
+      } else {
+        return {
+          mode: 'sunset_to_sunset',
+          dateKey: core.formatDateKey(now),
+          startTime: sunToday.sunset,
+          endTime: sunTomorrow.sunset,
+          nextBoundary: sunTomorrow.sunset,
+          boundaryLabel: 'until sunset'
+        };
+      }
+    }
+
+    if (mode === 'sunrise_to_sunset') {
+      if (now < sunToday.sunrise) {
+        return {
+          mode: 'sunrise_to_sunset',
+          dateKey: core.formatDateKey(now),
+          startTime: sunYesterday.sunset,
+          endTime: sunToday.sunrise,
+          nextBoundary: sunToday.sunrise,
+          boundaryLabel: 'until sunrise'
+        };
+      } else if (now >= sunToday.sunrise && now < sunToday.sunset) {
+        return {
+          mode: 'sunrise_to_sunset',
+          dateKey: core.formatDateKey(now),
+          startTime: sunToday.sunrise,
+          endTime: sunToday.sunset,
+          nextBoundary: sunToday.sunset,
+          boundaryLabel: 'until sunset'
+        };
+      } else {
+        return {
+          mode: 'sunrise_to_sunset',
+          dateKey: core.formatDateKey(tomorrow),
+          startTime: sunToday.sunset,
+          endTime: sunTomorrow.sunrise,
+          nextBoundary: sunTomorrow.sunrise,
+          boundaryLabel: 'until sunrise'
+        };
+      }
+    }
+
+    return {
+      mode: 'midnight',
+      dateKey: core.formatDateKey(now),
+      startTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
+      endTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999),
+      nextBoundary: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0),
+      boundaryLabel: 'before midnight'
+    };
+  };
+
   core.getTodayKey = function() {
-    return core.formatDateKey(new Date());
+    const info = core.getDayBoundaryInfo(new Date());
+    return info.dateKey;
   };
 
   core.cursorDateKey = null;
@@ -346,8 +535,9 @@ window.HabitualCore = window.HabitualCore || {};
     }
     if (typeof window === 'undefined' || typeof setTimeout === 'undefined') return;
     const now = new Date();
-    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-    const delay = Math.max(1000, nextMidnight.getTime() - now.getTime() + 100);
+    const info = core.getDayBoundaryInfo(now);
+    const nextTarget = info.nextBoundary || new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const delay = Math.max(1000, nextTarget.getTime() - now.getTime() + 100);
     core.midnightTimer = setTimeout(function() {
       core.checkMidnightRollover();
       core.scheduleMidnightTimer();
@@ -383,9 +573,15 @@ window.HabitualCore = window.HabitualCore || {};
     return core.formatDateKey(d);
   };
 
-  core.formatPrettyDate = function(dateStr) {
+  core.formatPrettyDate = function(dateStr, includeToday = true) {
+    if (!dateStr) return '';
     const d = core.parseDateKey(dateStr);
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const formatted = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const todayKey = core.getTodayKey();
+    if (includeToday && dateStr === todayKey) {
+      return `Today (${formatted})`;
+    }
+    return formatted;
   };
 
   core.applyParentDependencyOnLog = function(habit, dateKey, newCount) {
