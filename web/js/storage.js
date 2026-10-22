@@ -504,7 +504,11 @@ window.HabitualCore = window.HabitualCore || {};
       remoteHashHistory: (core.state && core.state.remoteHashHistory) ? core.state.remoteHashHistory.slice(0, 30) : [],
       selectedHabitId: (core.state && core.state.selectedHabitId) ? core.state.selectedHabitId : 'all',
       selectedYear: (core.state && core.state.selectedYear) ? core.state.selectedYear : (core.CURRENT_YEAR || new Date().getFullYear()),
-      showQuickLogOnStartup: (core.state && core.state.showQuickLogOnStartup) ? core.state.showQuickLogOnStartup : false
+      showQuickLogOnStartup: (core.state && core.state.showQuickLogOnStartup) ? core.state.showQuickLogOnStartup : false,
+      dayBoundaryMode: (core.state && core.state.dayBoundaryMode) ? core.state.dayBoundaryMode : 'midnight',
+      latitude: (core.state && typeof core.state.latitude === 'number') ? core.state.latitude : 51.5074,
+      longitude: (core.state && typeof core.state.longitude === 'number') ? core.state.longitude : -0.1278,
+      locationName: (core.state && core.state.locationName) ? core.state.locationName : 'Default (London)'
     };
   };
 
@@ -625,6 +629,10 @@ window.HabitualCore = window.HabitualCore || {};
     core.state.selectedHabitId = parsed.selectedHabitId || 'all';
     core.state.selectedYear = parsed.selectedYear || core.CURRENT_YEAR;
     core.state.showQuickLogOnStartup = parsed.showQuickLogOnStartup || false;
+    core.state.dayBoundaryMode = parsed.dayBoundaryMode || 'midnight';
+    core.state.latitude = typeof parsed.latitude === 'number' ? parsed.latitude : 51.5074;
+    core.state.longitude = typeof parsed.longitude === 'number' ? parsed.longitude : -0.1278;
+    core.state.locationName = parsed.locationName || 'Default (London)';
     core.state.updatedAt = parsed.updatedAt || Date.now();
   };
 

@@ -464,8 +464,18 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.getTodayRemainingTime = function() {
     const now = new Date();
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    const diffMs = Math.max(0, endOfDay.getTime() - now.getTime());
+    let nextTarget, boundaryLabel;
+
+    if (core.getDayBoundaryInfo) {
+      const info = core.getDayBoundaryInfo(now);
+      nextTarget = info.nextBoundary;
+      boundaryLabel = info.boundaryLabel || 'before midnight';
+    } else {
+      nextTarget = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      boundaryLabel = 'before midnight';
+    }
+
+    const diffMs = Math.max(0, nextTarget.getTime() - now.getTime());
 
     const totalSec = Math.floor(diffMs / 1000);
     const hours = Math.floor(totalSec / 3600);
@@ -478,7 +488,8 @@ window.HabitualCore = window.HabitualCore || {};
       hours,
       minutes,
       seconds,
-      formattedString
+      formattedString,
+      boundaryLabel
     };
   };
 

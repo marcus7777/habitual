@@ -239,10 +239,14 @@
 
       function updateCountdown() {
         const timerEl = document.getElementById('todo-countdown');
+        const subtextEl = document.querySelector('.todo-countdown-subtext');
         if (!timerEl) return;
         if (core.getTodayRemainingTime) {
           const info = core.getTodayRemainingTime();
           timerEl.textContent = info.formattedString;
+          if (subtextEl && info.boundaryLabel) {
+            subtextEl.textContent = `Hours left to complete your remaining goals ${info.boundaryLabel}`;
+          }
         }
       }
 

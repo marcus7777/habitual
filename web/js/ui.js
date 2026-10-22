@@ -1028,6 +1028,102 @@ window.HabitualCore = window.HabitualCore || {};
 
     core.elements.modalWidgets = document.getElementById('modal-widgets');
     if (core.initWidgetsUI) core.initWidgetsUI();
+    if (core.initDayBoundaryUI) core.initDayBoundaryUI();
+  };
+
+  core.initDayBoundaryUI = function() {
+    const selectMode = document.getElementById('select-day-boundary-mode');
+    const inputLat = document.getElementById('input-latitude');
+    const inputLng = document.getElementById('input-longitude');
+    const btnSave = document.getElementById('btn-save-location');
+    const btnDetect = document.getElementById('btn-detect-location');
+    const previewEl = document.getElementById('sun-times-preview');
+
+    if (!selectMode) return;
+
+    const updatePreview = () => {
+      if (!previewEl || !core.calculateSunTimes) return;
+      const lat = parseFloat(inputLat ? inputLat.value : 51.5074) || 51.5074;
+      const lng = parseFloat(inputLng ? inputLng.value : -0.1278) || -0.1278;
+      const sun = core.calculateSunTimes(new Date(), lat, lng);
+      const srStr = sun.sunrise ? sun.sunrise.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+      const ssStr = sun.sunset ? sun.sunset.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+      const info = core.getDayBoundaryInfo ? core.getDayBoundaryInfo(new Date()) : {};
+
+      previewEl.innerHTML = `☀️ Today's Sunrise: <strong>${srStr}</strong> &nbsp;|&nbsp; 🌇 Sunset: <strong>${ssStr}</strong><br>` +
+        `<span style="color: var(--text-secondary); font-size: 0.8rem;">Current Active Date: <strong>${info.dateKey || core.getTodayKey()}</strong> (${info.boundaryLabel || ''})</span>`;
+    };
+
+    if (core.state) {
+      selectMode.value = core.state.dayBoundaryMode || 'midnight';
+      if (inputLat) inputLat.value = typeof core.state.latitude === 'number' ? core.state.latitude : 51.5074;
+      if (inputLng) inputLng.value = typeof core.state.longitude === 'number' ? core.state.longitude : -0.1278;
+    }
+
+    updatePreview();
+
+    selectMode.addEventListener('change', () => {
+      if (core.state) {
+        core.state.dayBoundaryMode = selectMode.value;
+        if (core.saveState) core.saveState();
+      }
+      updatePreview();
+      if (core.showToast) core.showToast(`Day boundary updated to ${selectMode.options[selectMode.selectedIndex].text}`, 'success');
+    });
+
+    if (btnSave) {
+      btnSave.addEventListener('click', () => {
+        const lat = parseFloat(inputLat ? inputLat.value : 51.5074);
+        const lng = parseFloat(inputLng ? inputLng.value : -0.1278);
+        if (isNaN(lat) || isNaN(lng)) {
+          if (core.showToast) core.showToast('Please enter valid numeric latitude and longitude.', 'warning');
+          return;
+        }
+        if (core.state) {
+          core.state.latitude = lat;
+          core.state.longitude = lng;
+          core.state.dayBoundaryMode = selectMode.value;
+          if (core.saveState) core.saveState();
+        }
+        updatePreview();
+        if (core.showToast) core.showToast('Day boundary & location settings saved!', 'success');
+      });
+    }
+
+    if (btnDetect) {
+      btnDetect.addEventListener('click', () => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+          if (core.showToast) core.showToast('Geolocation is not supported by your browser.', 'error');
+          return;
+        }
+        btnDetect.textContent = '⌛ Detecting...';
+        btnDetect.disabled = true;
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            btnDetect.textContent = '🎯 Auto-Detect Location';
+            btnDetect.disabled = false;
+            const lat = parseFloat(pos.coords.latitude.toFixed(4));
+            const lng = parseFloat(pos.coords.longitude.toFixed(4));
+            if (inputLat) inputLat.value = lat;
+            if (inputLng) inputLng.value = lng;
+            if (core.state) {
+              core.state.latitude = lat;
+              core.state.longitude = lng;
+              core.state.locationName = 'Auto-Detected Location';
+              if (core.saveState) core.saveState();
+            }
+            updatePreview();
+            if (core.showToast) core.showToast(`📍 Location detected: ${lat}°N, ${lng}°E`, 'success');
+          },
+          (err) => {
+            btnDetect.textContent = '🎯 Auto-Detect Location';
+            btnDetect.disabled = false;
+            if (core.showToast) core.showToast(`Could not detect location: ${err.message}`, 'warning');
+          },
+          { timeout: 10000 }
+        );
+      });
+    }
   };
 
   core.setupMobileArrowPad = function() {
@@ -2887,6 +2983,11 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const todayStr = core.getTodayKey();
+    const modalDateLabel = document.querySelector('label[for="modal-log-date-input"]');
+    if (modalDateLabel) {
+      modalDateLabel.textContent = (core.activeLogDateKey === todayStr) ? 'Select Date (Today)' : 'Select Date';
+    }
+
     const reminderBox = document.getElementById('modal-log-reminder-box');
     if (reminderBox) {
       if (core.activeLogDateKey > todayStr) {

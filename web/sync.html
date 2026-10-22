@@ -237,6 +237,49 @@
           </div>
         </div>
 
+        <!-- Section 5.8: Day Boundary & Sun Settings -->
+        <div id="section-day-boundary" class="data-option-card highlight-card" style="flex-direction: column; align-items: flex-start;">
+          <div class="data-option-info">
+            <h4>🌅 Day Boundary & Sun Settings</h4>
+            <p class="muted-text">Define when a "day" starts and ends across the app (Midnight, Sunrise to Sunset, Sunrise to Sunrise, or Sunset to Sunset).</p>
+          </div>
+          <div class="engine-selector-group" style="flex-direction: column; align-items: flex-start; width: 100%; gap: 12px; margin-top: 8px;">
+            <div style="display: flex; gap: 10px; align-items: center; width: 100%; flex-wrap: wrap;">
+              <label for="select-day-boundary-mode" style="font-weight: 600; font-size: 0.9rem; min-width: 140px;">Day Boundary Mode:</label>
+              <select id="select-day-boundary-mode" class="form-control-sm select-input" style="flex: 1; min-width: 200px;" aria-label="Day Boundary Mode">
+                <option value="midnight">Midnight to Midnight (00:00 - 23:59)</option>
+                <option value="sunrise_to_sunset">Sunrise to Sunset (Daylight Hours)</option>
+                <option value="sunrise_to_sunrise">Sunrise to Sunrise</option>
+                <option value="sunset_to_sunset">Sunset to Sunset</option>
+              </select>
+            </div>
+
+            <!-- Location / Coordinates Subpanel -->
+            <div id="sun-location-panel" class="data-subpanel" style="width: 100%; margin-top: 4px; box-sizing: border-box;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">📍 Location for Sun Calculations</span>
+                <button id="btn-detect-location" type="button" class="btn btn-secondary btn-sm" style="padding: 3px 10px; font-size: 0.8rem;">🎯 Auto-Detect Location</button>
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+                <div style="flex: 1; min-width: 120px;">
+                  <label for="input-latitude" class="text-xs muted-text" style="display: block; margin-bottom: 2px;">Latitude (°N)</label>
+                  <input type="number" step="any" id="input-latitude" class="form-control-sm" placeholder="e.g. 51.5074" style="width: 100%;">
+                </div>
+                <div style="flex: 1; min-width: 120px;">
+                  <label for="input-longitude" class="text-xs muted-text" style="display: block; margin-bottom: 2px;">Longitude (°E)</label>
+                  <input type="number" step="any" id="input-longitude" class="form-control-sm" placeholder="e.g. -0.1278" style="width: 100%;">
+                </div>
+                <div style="display: flex; align-items: flex-end;">
+                  <button id="btn-save-location" type="button" class="btn btn-primary btn-sm">Save Settings</button>
+                </div>
+              </div>
+              <div id="sun-times-preview" style="margin-top: 10px; font-size: 0.82rem; color: var(--accent-blue); font-family: var(--font-mono);">
+                <!-- Live preview of calculated Sunrise & Sunset -->
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Section 6: PWA & Platform Widgets -->
         <div class="data-option-card">
           <div class="data-option-info">
@@ -263,7 +306,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.26.0</p>
+      <p>Habitual &bull; v1.27.0</p>
     </footer>
   </div>
 
