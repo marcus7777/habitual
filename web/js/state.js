@@ -449,22 +449,18 @@ window.HabitualCore = window.HabitualCore || {};
       const cards = Array.from(gallery.querySelectorAll('.heatmap-card'));
       cards.forEach(c => {
         const id = c.getAttribute('data-habit-id');
-        if (id && !habitIds.includes(id)) habitIds.push(id);
+        if (id && id !== 'all' && !habitIds.includes(id)) habitIds.push(id);
       });
     }
 
     if (habitIds.length === 0 && core.state && Array.isArray(core.state.habits)) {
       const topLevel = core.state.habits.filter(h => !h.parentId);
-      const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
-      if (topLevel.length > 1 && habitsInAll.length > 0) {
-        habitIds.push('all');
-      }
       topLevel.forEach(h => {
-        if (!habitIds.includes(h.id)) habitIds.push(h.id);
+        if (h.id !== 'all' && !habitIds.includes(h.id)) habitIds.push(h.id);
       });
       if (habitIds.length === 0) {
         core.state.habits.forEach(h => {
-          if (!habitIds.includes(h.id)) habitIds.push(h.id);
+          if (h.id !== 'all' && !habitIds.includes(h.id)) habitIds.push(h.id);
         });
       }
     }
@@ -487,11 +483,11 @@ window.HabitualCore = window.HabitualCore || {};
       const cards = gallery.querySelectorAll('.heatmap-card');
       cards.forEach(c => {
         const cId = c.getAttribute('data-habit-id');
-        if (cId === newSelectedId) {
+        if (cId === newSelectedId && cId !== 'all') {
           c.classList.add('selected');
           c.classList.add('selected-habit');
           if (typeof c.scrollIntoView === 'function') {
-            c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            c.scrollIntoView({ block: 'center', behavior: 'smooth' });
           }
         } else {
           c.classList.remove('selected');

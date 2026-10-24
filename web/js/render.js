@@ -17,21 +17,111 @@ window.HabitualCore = window.HabitualCore || {};
     const isAll = habitId === 'all';
     const isGroup = habitId.startsWith('group_');
     const habit = (!isAll && !isGroup) ? core.state.habits.find(h => h.id === habitId) : null;
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+    const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
 
     cards.forEach(card => {
-      // 1. Update day square in-place if dateKey is supplied
+      const target = isAll ? 'all' : (isGroup ? habitId : habit);
+
+      // 1. Update day square / rect in-place if dateKey is supplied
       if (dateKey) {
-        const squares = card.querySelectorAll(`.day-square[data-date="${dateKey}"]`);
-        const cellData = core.getCellData ? core.getCellData(dateKey, isAll ? 'all' : (isGroup ? habitId : habit)) : null;
+        const squares = card.querySelectorAll(`.day-square[data-date="${dateKey}"], rect[data-date="${dateKey}"]`);
+        const cellData = core.getCellData ? core.getCellData(dateKey, target, todayStr) : null;
+
         if (cellData) {
           squares.forEach(sq => {
-            const isCellCompleted = cellData.isCompleted || (cellData.ratio && cellData.ratio > 0);
-            sq.className = `day-square ${isCellCompleted ? 'completed' : ''} ${cellData.isCursor ? 'cursor-day' : ''} ${cellData.hasNote ? 'has-note' : ''} square-pop`;
-            sq.style.backgroundColor = cellData.bgColor || '';
-            if (cellData.hasNote) {
-              if (typeof sq.setAttribute === 'function') sq.setAttribute('data-has-note', 'true');
+            const isCompleted = (cellData.ratio && cellData.ratio > 0) || cellData.isCompleted || (cellData.count && cellData.count > 0);
+            const isToday = dateKey === todayStr;
+            const isCursorDay = dateKey === cursorDateStr;
+            const isSvgRect = sq.tagName && sq.tagName.toLowerCase() === 'rect';
+
+            // Calculate background color or fill value
+            let bgCss = '';
+            let gradientCss = '';
+            let fillVal = '';
+
+            if (isAll || isGroup) {
+              const activeHabits = cellData.activeHabits || [];
+              if (activeHabits.length === 1) {
+                bgCss = activeHabits[0].color;
+                fillVal = activeHabits[0].color;
+              } else if (activeHabits.length > 1) {
+                const colors = activeHabits.map(h => h.color);
+                const stops = colors.map((col, idx) => {
+                  const p1 = ((idx / colors.length) * 100).toFixed(1);
+                  const p2 = (((idx + 1) / colors.length) * 100).toFixed(1);
+                  return `${col} ${p1}% ${p2}%`;
+                }).join(', ');
+                gradientCss = `linear-gradient(135deg, ${stops})`;
+                const gradId = `grad_${habitId}_${dateKey}`;
+                fillVal = `url(#${gradId})`;
+              } else {
+                fillVal = 'var(--color-square-empty)';
+              }
+            } else if (habit) {
+              const baseHex = core.normalizeHex ? core.normalizeHex(core.getHabitHexColor(habit)) : '#33B679';
+              if (cellData.ratio > 0) {
+                const colorWithAlpha = core.getHabitHexWithAlpha ? core.getHabitHexWithAlpha(habit, cellData.ratio) : baseHex;
+                bgCss = colorWithAlpha;
+                fillVal = colorWithAlpha;
+              } else {
+                bgCss = `${baseHex}11`;
+                fillVal = `${baseHex}11`;
+              }
+            }
+
+            if (isSvgRect) {
+              // SVG rect element patching
+              if (fillVal) {
+                sq.setAttribute('fill', fillVal);
+              }
+              sq.setAttribute('data-count', cellData.count !== undefined ? cellData.count : 0);
+              sq.setAttribute('data-ratio', cellData.ratio || 0);
+              sq.setAttribute('data-relapse', cellData.isRelapse ? 'true' : 'false');
+              sq.setAttribute('data-paused', cellData.isPaused ? 'true' : 'false');
+              sq.setAttribute('data-unverified', cellData.isUnverified ? 'true' : 'false');
+              sq.setAttribute('data-has-note', cellData.hasNote ? 'true' : 'false');
+              if (cellData.note) sq.setAttribute('data-note', core.escapeHTML ? core.escapeHTML(cellData.note) : cellData.note);
+
+              const svgClasses = [];
+              if (cellData.isTargetDay && (!cellData.ratio || cellData.ratio === 0)) svgClasses.push('target-day');
+              if (cellData.isPaused) svgClasses.push('is-paused-day');
+              if (cellData.hasNote) svgClasses.push('has-note');
+              if (cellData.isRelapse) svgClasses.push('relapse');
+              if (isToday) svgClasses.push('today');
+              if (isCursorDay) svgClasses.push('cursor-day');
+              svgClasses.push('square-pop');
+
+              sq.setAttribute('class', svgClasses.join(' '));
             } else {
-              if (typeof sq.removeAttribute === 'function') sq.removeAttribute('data-has-note');
+              // HTML .day-square element patching
+              const classList = ['day-square'];
+              if (isCompleted) classList.push('completed');
+              if (cellData.isRelapse) classList.push('relapse');
+              if (isToday) classList.push('today');
+              if (isCursorDay) classList.push('cursor-day');
+              if (cellData.isTargetDay && (!cellData.ratio || cellData.ratio === 0)) classList.push('target-day');
+              if (cellData.isPaused) classList.push('is-paused-day');
+              if (cellData.hasNote) classList.push('has-note');
+              classList.push('square-pop');
+
+              sq.className = classList.join(' ');
+
+              if (gradientCss) {
+                sq.style.backgroundColor = '';
+                sq.style.background = gradientCss;
+              } else {
+                sq.style.background = '';
+                sq.style.backgroundColor = bgCss;
+              }
+
+              sq.setAttribute('data-count', cellData.count !== undefined ? cellData.count : 0);
+              sq.setAttribute('data-ratio', cellData.ratio || 0);
+              sq.setAttribute('data-relapse', cellData.isRelapse ? 'true' : 'false');
+              sq.setAttribute('data-paused', cellData.isPaused ? 'true' : 'false');
+              sq.setAttribute('data-unverified', cellData.isUnverified ? 'true' : 'false');
+              sq.setAttribute('data-has-note', cellData.hasNote ? 'true' : 'false');
+              if (cellData.note) sq.setAttribute('data-note', core.escapeHTML ? core.escapeHTML(cellData.note) : cellData.note);
             }
 
             let tooltipText = dateKey;
@@ -55,8 +145,7 @@ window.HabitualCore = window.HabitualCore || {};
       // 2. In-place update for count badge
       const countBadge = card.querySelector('.badge-count');
       if (countBadge) {
-        const target = isAll ? 'all' : (isGroup ? habitId : habit);
-        const stats = core.calculateYearStatsForTarget(target, core.state.selectedYear);
+        const stats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(target, core.state.selectedYear) : null;
         if (stats) {
           if (stats.isMonthly) countBadge.textContent = `${stats.totalCount} of 12 months met in ${core.state.selectedYear}`;
           else if (stats.isWeekly) countBadge.textContent = `${stats.totalCount} of 52 weeks met in ${core.state.selectedYear}`;
@@ -67,8 +156,7 @@ window.HabitualCore = window.HabitualCore || {};
       // 3. In-place update for streak badge
       const streakBadge = card.querySelector('.badge-streak');
       if (streakBadge) {
-        const target = isAll ? 'all' : (isGroup ? habitId : habit);
-        const streakData = core.calculateStreakForTarget(target);
+        const streakData = core.calculateStreakForTarget ? core.calculateStreakForTarget(target) : null;
         if (streakData && streakData.current > 0) {
           if (streakData.isMonthly) streakBadge.textContent = `🔥 ${streakData.current} mo${streakData.current === 1 ? '' : 's'}`;
           else if (streakData.isWeekly) streakBadge.textContent = `🔥 ${streakData.current} wk${streakData.current === 1 ? '' : 's'}`;
@@ -82,11 +170,11 @@ window.HabitualCore = window.HabitualCore || {};
       // 4. In-place update for Quick Log button
       const quickLogBtn = card.querySelector('.btn-card-quick-log');
       if (quickLogBtn && habit) {
-        const cursorDateStr = dateKey || (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
+        const cursorDateStr = dateKey || (core.getCursorDateKey ? core.getCursorDateKey() : todayStr);
         const logs = habit.logs || {};
         const count = logs[cursorDateStr] ? (logs[cursorDateStr].count || 0) : 0;
-        const target = habit.dailyTarget || 1;
-        const ratio = count / target;
+        const dailyTarget = habit.dailyTarget || 1;
+        const ratio = count / dailyTarget;
         const isGoalMet = ratio >= 1.0;
 
         const hexColor = core.getHabitHexColor ? core.getHabitHexColor(habit) : '#33B679';
@@ -111,17 +199,17 @@ window.HabitualCore = window.HabitualCore || {};
           iconContainer.innerHTML = iconHTML;
         }
 
-        const isUpcoming = cursorDateStr > core.getTodayKey();
+        const isUpcoming = cursorDateStr > todayStr;
         const formattedCursorDate = core.formatPrettyDate ? core.formatPrettyDate(cursorDateStr) : cursorDateStr;
         let tooltipText = '';
         if (isUpcoming) {
           tooltipText = isGoalMet
-            ? `${core.escapeHTML(habit.name)}: Upcoming Goal Pre-logged (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
-            : `${core.escapeHTML(habit.name)}: Upcoming (${count}/${target} pre-logged) on ${formattedCursorDate}. Click to pre-log.`;
+            ? `${core.escapeHTML(habit.name)}: Upcoming Goal Pre-logged (${count}/${dailyTarget}) on ${formattedCursorDate}. Click to log +1.`
+            : `${core.escapeHTML(habit.name)}: Upcoming (${count}/${dailyTarget} pre-logged) on ${formattedCursorDate}. Click to pre-log.`;
         } else {
           tooltipText = isGoalMet
-            ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${target}) on ${formattedCursorDate}. Click to log +1.`
-            : `${core.escapeHTML(habit.name)}: ${count}/${target} completed on ${formattedCursorDate}. Click to log +1.`;
+            ? `${core.escapeHTML(habit.name)}: Goal Met (${count}/${dailyTarget}) on ${formattedCursorDate}. Click to log +1.`
+            : `${core.escapeHTML(habit.name)}: ${count}/${dailyTarget} completed on ${formattedCursorDate}. Click to log +1.`;
         }
         quickLogBtn.title = tooltipText;
         quickLogBtn.setAttribute('aria-label', tooltipText);
@@ -133,15 +221,28 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.patchUI = function(habitId, dateKey) {
     if (!habitId) return false;
+    core.svgCache = {}; // Invalidate SVG cache
+
     let patched = false;
     patched = core.patchHeatmapCard(habitId, dateKey) || patched;
     patched = core.patchHeatmapCard('all', dateKey) || patched;
-    if (habitId && habitId !== 'all') {
-      const targetHabit = core.state.habits.find(h => h.id === habitId);
-      if (targetHabit && targetHabit.parentId) {
-        patched = core.patchHeatmapCard(targetHabit.parentId, dateKey) || patched;
+
+    // Patch group heatmaps if present
+    const groupCards = document.querySelectorAll('.heatmap-card[data-habit-id^="group_"]');
+    groupCards.forEach(gc => {
+      const gId = gc.getAttribute('data-habit-id');
+      if (gId) patched = core.patchHeatmapCard(gId, dateKey) || patched;
+    });
+
+    // Patch parent habits up ancestry chain
+    if (habitId && habitId !== 'all' && !habitId.startsWith('group_')) {
+      let curr = core.state.habits.find(h => h.id === habitId);
+      while (curr && curr.parentId) {
+        patched = core.patchHeatmapCard(curr.parentId, dateKey) || patched;
+        curr = core.state.habits.find(h => h.id === curr.parentId);
       }
     }
+
     return patched;
   };
 
@@ -678,7 +779,7 @@ window.HabitualCore = window.HabitualCore || {};
     const canMove = siblings.length > 1;
     const isDraggable = (!isAll && (!isGroup || isTopLevelGroup) && canMove);
 
-    const isSelectedHabit = core.state && core.state.selectedHabitId === cardHabitId;
+    const isSelectedHabit = core.state && cardHabitId !== 'all' && core.state.selectedHabitId === cardHabitId;
 
     const card = document.createElement('div');
     card.className = `heatmap-card theme-${theme} ${isDraggable ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''} ${isSelectedHabit ? 'selected selected-habit' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;

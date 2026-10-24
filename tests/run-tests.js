@@ -3925,6 +3925,45 @@ describe('Feature 38: Overwrite Protection, Passphrase Hash Verification & Surgi
 
     global.document.querySelectorAll = origQSA;
   });
+
+  test('patchHeatmapCard updates SVG rect attributes and fill in-place', () => {
+    const mockCard = createMockElement('div');
+    mockCard.setAttribute('data-habit-id', 'hab_svg_patch_1');
+
+    const mockRect = createMockElement('rect');
+    mockRect.tagName = 'rect';
+    mockRect.setAttribute('data-date', '2026-10-15');
+    mockRect.setAttribute('fill', '#000000');
+
+    mockCard.querySelectorAll = (selector) => {
+      if (selector.includes('data-date="2026-10-15"')) return [mockRect];
+      return [];
+    };
+    mockCard.querySelector = () => null;
+
+    const origQSA = global.document.querySelectorAll;
+    global.document.querySelectorAll = (selector) => {
+      if (selector.includes('data-habit-id="hab_svg_patch_1"')) return [mockCard];
+      return [];
+    };
+
+    HabitualCore.resetState();
+    HabitualCore.state.habits = [{
+      id: 'hab_svg_patch_1',
+      name: 'SVG Patch Habit',
+      dailyTarget: 1,
+      color: '#33B679',
+      logs: { '2026-10-15': { count: 1 } }
+    }];
+
+    const patched = HabitualCore.patchHeatmapCard('hab_svg_patch_1', '2026-10-15');
+
+    assertEqual(patched, true, 'patchHeatmapCard returns true for SVG rect card');
+    assert(mockRect.getAttribute('fill') !== '#000000', 'SVG rect fill attribute updated with habit color');
+    assertEqual(mockRect.getAttribute('data-count'), '1', 'SVG rect data-count updated');
+
+    global.document.querySelectorAll = origQSA;
+  });
 });
 
 // ============================================================================
@@ -4178,17 +4217,52 @@ describe('Feature 39: 🟡 Issue #24 Updating Habits Keyboard Navigation & Yello
     // Up arrow moves selection to previous habit (h1)
     HabitualCore.navigateSelectedHabit(-1);
     assertEqual(HabitualCore.state.selectedHabitId, 'h1', 'Up arrow selects previous habit h1');
+
+    // Verify 'all' card is skipped when gallery contains 'all' card and habit cards
+    const allCard = { getAttribute: (attr) => attr === 'data-habit-id' ? 'all' : null, classList: { add: () => {}, remove: () => {} } };
+    const h1Card = { getAttribute: (attr) => attr === 'data-habit-id' ? 'h1' : null, classList: { add: () => {}, remove: () => {} } };
+    const h2Card = { getAttribute: (attr) => attr === 'data-habit-id' ? 'h2' : null, classList: { add: () => {}, remove: () => {} } };
+    HabitualCore.elements = HabitualCore.elements || {};
+    HabitualCore.elements.heatmapsGallery = {
+      querySelectorAll: (sel) => sel === '.heatmap-card' ? [allCard, h1Card, h2Card] : []
+    };
+
+    // Navigating back up from h1 should NOT select 'all' card
+    HabitualCore.state.selectedHabitId = 'h1';
+    HabitualCore.navigateSelectedHabit(-1);
+    assertEqual(HabitualCore.state.selectedHabitId, 'h1', 'Up arrow from first habit stays on h1 and skips all card');
+
+    // Navigating down cycles through h1 and h2, skipping 'all'
+    HabitualCore.navigateSelectedHabit(1);
+    assertEqual(HabitualCore.state.selectedHabitId, 'h2', 'Down arrow selects h2');
+
+    // Verify scrollIntoView called with block: 'center'
+    let lastScrollOptions = null;
+    const mockCard = {
+      getAttribute: (attr) => attr === 'data-habit-id' ? 'h2' : null,
+      classList: { add: () => {}, remove: () => {} },
+      scrollIntoView: (options) => { lastScrollOptions = options; }
+    };
+    HabitualCore.elements.heatmapsGallery = {
+      querySelectorAll: (sel) => sel === '.heatmap-card' ? [mockCard] : []
+    };
+    HabitualCore.navigateSelectedHabit(1);
+    assert(lastScrollOptions && lastScrollOptions.block === 'center', 'scrollIntoView is called with block: center when navigating habits');
   });
 
-  test('buildHeatmapCard renders selected class on card matching selectedHabitId', () => {
+  test('buildHeatmapCard renders selected class on card matching selectedHabitId but excludes all card', () => {
     HabitualCore.resetState();
     const habit = { id: 'water', name: 'Drink Water', type: 'positive', dailyTarget: 1, logs: {} };
     HabitualCore.state.selectedHabitId = 'water';
 
     const card = HabitualCore.buildHeatmapCard(habit, 2026);
     const className = card.className || '';
-
     assert(className.includes('selected') || (card.classList && card.classList.contains('selected')), 'Card includes selected class for selectedHabitId');
+
+    HabitualCore.state.selectedHabitId = 'all';
+    const allCard = HabitualCore.buildHeatmapCard(null, 2026);
+    const allClassName = allCard.className || '';
+    assert(!allClassName.includes('selected-habit') && !allClassName.includes('selected'), 'All card does NOT include selected class when selectedHabitId is all');
   });
 });
 
