@@ -1422,11 +1422,17 @@ window.HabitualCore = window.HabitualCore || {};
       if (!card) return; // Only process clicks inside cards
 
       const cardHabitId = card.getAttribute('data-habit-id');
-      if (cardHabitId && core.state) {
-        core.state.selectedHabitId = cardHabitId;
+      const clickedRawId = card.getAttribute('data-habit-id-raw');
+      if ((cardHabitId || clickedRawId) && core.state) {
+        core.state.selectedHabitId = cardHabitId || clickedRawId;
+        if (core.ensureHabitAncestorsExpanded) {
+          core.ensureHabitAncestorsExpanded(clickedRawId || cardHabitId);
+        }
         const allCards = gallery.querySelectorAll('.heatmap-card');
         allCards.forEach(c => {
-          if (c.getAttribute('data-habit-id') === cardHabitId) {
+          const cId = c.getAttribute('data-habit-id');
+          const cRawId = c.getAttribute('data-habit-id-raw');
+          if (cId === cardHabitId || (clickedRawId && cRawId === clickedRawId)) {
             c.classList.add('selected');
             c.classList.add('selected-habit');
           } else {

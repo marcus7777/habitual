@@ -361,10 +361,41 @@ window.HabitualCore = window.HabitualCore || {};
     const badges = document.querySelectorAll(`.btn-toggle-concertina[data-habit-id="${habitId}"]`);
     badges.forEach(badge => {
       const arrow = badge.querySelector('.concertina-arrow');
-      const directSubs = core.state.habits.filter(h => h.parentId === habitId);
+      const directSubs = core.state.habits ? core.state.habits.filter(h => h.parentId === habitId) : [];
       if (arrow) arrow.textContent = !isExpanded ? '▲' : '▼';
       badge.title = !isExpanded ? 'Click to put away sub-habits' : `Click to view ${directSubs.length} sub-habit${directSubs.length === 1 ? '' : 's'}`;
     });
+  };
+
+  core.expandConcertina = function(habitId) {
+    if (!habitId) return;
+    if (!core.state.expandedHabitIds) core.state.expandedHabitIds = new Set();
+    core.state.expandedHabitIds.add(habitId);
+
+    const concertinas = document.querySelectorAll(`.subhabits-concertina[data-parent-id="${habitId}"]`);
+    concertinas.forEach(concertina => {
+      concertina.classList.add('expanded');
+    });
+
+    const badges = document.querySelectorAll(`.btn-toggle-concertina[data-habit-id="${habitId}"]`);
+    badges.forEach(badge => {
+      const arrow = badge.querySelector('.concertina-arrow');
+      if (arrow) arrow.textContent = '▲';
+      badge.title = 'Click to put away sub-habits';
+    });
+  };
+
+  core.ensureHabitAncestorsExpanded = function(habitId) {
+    if (!habitId || !core.state || !Array.isArray(core.state.habits)) return;
+    let rawId = habitId;
+    if (typeof rawId === 'string' && rawId.startsWith('group_')) {
+      rawId = rawId.split('_')[1];
+    }
+    let current = core.state.habits.find(h => h.id === rawId);
+    while (current && current.parentId) {
+      core.expandConcertina(current.parentId);
+      current = core.state.habits.find(h => h.id === current.parentId);
+    }
   };
 
   core.renderHabitTree = function(habit, year) {
@@ -420,6 +451,10 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.heatmapsGallery.innerHTML = '';
     const route = core.parseHash ? core.parseHash() : { view: 'home', habitId: null };
     core.renderViewNavigation(route);
+
+    if (core.state && core.state.selectedHabitId && core.ensureHabitAncestorsExpanded) {
+      core.ensureHabitAncestorsExpanded(core.state.selectedHabitId);
+    }
 
     if (!core.state || !core.state.habits || core.state.habits.length === 0) {
       core.elements.heatmapsGallery.innerHTML = `
