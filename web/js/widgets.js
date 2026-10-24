@@ -544,7 +544,7 @@ window.HabitualCore = window.HabitualCore || {};
           totalTarget: target,
           isCompleted: isCompleted,
           dateKey: todayKey,
-          icon: h.type === 'negative' ? '🛑' : '🎯',
+          icon: '',
           type: h.type || 'positive',
           depth: depth
         });

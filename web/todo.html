@@ -204,13 +204,13 @@
   <div class="todo-app-container">
     <div class="todo-header">
       <a href="index.html" class="btn-back">← Home</a>
-      <h1 style="margin:0; font-size: 1.3rem;">📋 Today's To-Do List</h1>
+      <h1 style="margin:0; font-size: 1.3rem;">Today's To-Do List</h1>
       <div></div>
     </div>
 
     <!-- Countdown Timer Card -->
     <div class="todo-countdown-card">
-      <div class="todo-countdown-title">⏰ Time Remaining Today</div>
+      <div class="todo-countdown-title">Time Remaining Today</div>
       <div class="todo-countdown-timer" id="todo-countdown">--h --m --s</div>
       <div class="todo-countdown-subtext">Hours left to complete your remaining goals before midnight</div>
     </div>
@@ -265,7 +265,7 @@
         const items = todoData.items || [];
 
         if (titleEl) {
-          titleEl.textContent = "📋 Uncompleted Tasks Today";
+          titleEl.textContent = "Uncompleted Tasks Today";
         }
 
         if (progressEl) {
@@ -273,7 +273,7 @@
         }
 
         if (items.length === 0) {
-          container.innerHTML = '<div class="todo-empty-state">🎉 All tasks for today are complete!</div>';
+          container.innerHTML = '<div class="todo-empty-state">All tasks for today are complete!</div>';
           return;
         }
 
@@ -285,13 +285,13 @@
           const instanceLabel = item.totalTarget > 1 ? ` (${item.instanceIndex}/${item.totalTarget})` : '';
           const subBadge = item.totalTarget > 1 ? `<div class="todo-target-badge">${item.instanceIndex} of ${item.totalTarget}</div>` : '';
 
-          const noteText = item.note ? `<div style="font-size: 0.8rem; color: var(--text-dim, #8f9aa9); margin-top: 2px;">💬 ${core.escapeHTML ? core.escapeHTML(item.note) : item.note}</div>` : '';
+          const noteText = item.note ? `<div style="font-size: 0.8rem; color: var(--text-dim, #8f9aa9); margin-top: 2px;">${core.escapeHTML ? core.escapeHTML(item.note) : item.note}</div>` : '';
 
           itemEl.innerHTML = `
             <div class="todo-item-left">
               <div class="todo-checkbox">${item.isCompleted ? '✓' : ''}</div>
               <div>
-                <div class="todo-item-text">${item.icon} ${core.escapeHTML ? core.escapeHTML(item.habitName) : item.habitName}${instanceLabel}</div>
+                <div class="todo-item-text">${core.escapeHTML ? core.escapeHTML(item.habitName) : item.habitName}${instanceLabel}</div>
                 ${noteText}
               </div>
             </div>
