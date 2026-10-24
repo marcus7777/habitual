@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "updatedAt": 1792833094597,
+  "habits": [
+    {
+      "id": "dailyReading100",
+      "updatedAt": 1792833087048,
+      "name": "Daily Reading 100",
+      "colorTheme": "#616161",
+      "category": "General",
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-10-24",
+      "logs": {
+        "2026-10-24": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "deletedHabitIds": [],
+  "remoteHashHistory": [],
+  "selectedHabitId": "dailyReading100",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false,
+  "dayBoundaryMode": "midnight",
+  "latitude": 51.5074,
+  "longitude": -0.1278,
+  "locationName": "Default (London)"
+}
