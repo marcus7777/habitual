@@ -1021,6 +1021,35 @@ window.HabitualCore = window.HabitualCore || {};
             quickLogBtn.click();
           }
         }
+      } else if (key === ' ' || key === 'Spacebar' || e.code === 'Space') {
+        const selectedCard = (document.querySelector && document.querySelector('.heatmap-card.selected')) ||
+                             (document.querySelector && document.querySelector('.heatmap-card.selected-habit')) ||
+                             (document.querySelector && document.querySelector('.heatmap-card:hover')) ||
+                             core.hoveredCard;
+        if (selectedCard) {
+          const rawHabitId = selectedCard.getAttribute('data-habit-id-raw') ||
+                             selectedCard.getAttribute('data-habit-id') ||
+                             (selectedCard.closest('.heatmap-group-wrapper') && selectedCard.closest('.heatmap-group-wrapper').getAttribute('data-habit-id'));
+          const hasSubhabitsAttr = selectedCard.getAttribute('data-has-subhabits') === 'true';
+          const subCount = (core.state && Array.isArray(core.state.habits) && rawHabitId)
+            ? core.state.habits.filter(h => h.parentId === rawHabitId || h.parentId === rawHabitId.replace(/^group_/, '')).length
+            : 0;
+
+          if (hasSubhabitsAttr || subCount > 0) {
+            e.preventDefault();
+            let parentIdToToggle = rawHabitId;
+            if (parentIdToToggle && parentIdToToggle.startsWith('group_')) {
+              const habit = core.state.habits.find(h => h.parentId && parentIdToToggle.includes(h.parentId));
+              if (habit) parentIdToToggle = habit.parentId;
+            }
+            if (!parentIdToToggle && selectedCard.closest('.heatmap-group-wrapper')) {
+              parentIdToToggle = selectedCard.closest('.heatmap-group-wrapper').getAttribute('data-habit-id');
+            }
+            if (parentIdToToggle && core.toggleConcertina) {
+              core.toggleConcertina(parentIdToToggle);
+            }
+          }
+        }
       }
     });
 
