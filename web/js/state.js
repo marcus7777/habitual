@@ -492,9 +492,6 @@ window.HabitualCore = window.HabitualCore || {};
 
     const newSelectedId = targetCard.getAttribute('data-habit-id') || targetCard.getAttribute('data-habit-id-raw');
     core.state.selectedHabitId = newSelectedId;
-    if (core.ensureHabitAncestorsExpanded) {
-      core.ensureHabitAncestorsExpanded(newSelectedId);
-    }
 
     if (gallery && typeof gallery.querySelectorAll === 'function') {
       const allCards = gallery.querySelectorAll('.heatmap-card');
