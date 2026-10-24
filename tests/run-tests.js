@@ -4250,6 +4250,23 @@ describe('Feature 39: 🟡 Issue #24 Updating Habits Keyboard Navigation & Yello
     assert(lastScrollOptions && lastScrollOptions.block === 'center', 'scrollIntoView is called with block: center when navigating habits');
   });
 
+  test('ensureHabitAncestorsExpanded opens parent concertinas when selecting a sub-habit', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'parent1', name: 'Parent Habit', type: 'positive' },
+        { id: 'sub1', parentId: 'parent1', name: 'Sub Habit 1', type: 'positive' }
+      ],
+      expandedHabitIds: new Set()
+    });
+
+    assert(!HabitualCore.state.expandedHabitIds.has('parent1'), 'Parent concertina starts closed');
+
+    HabitualCore.ensureHabitAncestorsExpanded('sub1');
+
+    assert(HabitualCore.state.expandedHabitIds.has('parent1'), 'ensureHabitAncestorsExpanded opens parent1 concertina when sub1 is selected');
+  });
+
   test('buildHeatmapCard renders selected class on card matching selectedHabitId but excludes all card', () => {
     HabitualCore.resetState();
     const habit = { id: 'water', name: 'Drink Water', type: 'positive', dailyTarget: 1, logs: {} };
