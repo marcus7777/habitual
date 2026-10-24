@@ -2096,6 +2096,20 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     assertEqual(merged.habits[0].logs['2026-10-02'].count, 2);
   });
 
+  test('mergeStatePayloads respects cleared logs (count = 0 or removed) from newer habit update', () => {
+    const localOld = {
+      updatedAt: 100,
+      habits: [{ id: 'water', name: 'Water', updatedAt: 100, logs: { '2026-10-01': { count: 3 } } }]
+    };
+    const remoteNewerCleared = {
+      updatedAt: 200,
+      habits: [{ id: 'water', name: 'Water', updatedAt: 200, logs: { '2026-10-01': { count: 0 } } }]
+    };
+    const merged = HabitualCore.mergeStatePayloads(localOld, remoteNewerCleared);
+    const logVal = merged.habits[0].logs['2026-10-01'];
+    assert(!logVal || logVal.count === 0, 'Cleared log entry with count 0 from newer payload is respected during merge');
+  });
+
   test('SyncManager target toggles and settings persistence', () => {
     HabitualCore.SyncManager.toggleTarget('firestore', true);
     assert(HabitualCore.SyncManager.isTargetEnabled('firestore'), 'Firestore target enabled');

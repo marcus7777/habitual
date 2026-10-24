@@ -710,12 +710,18 @@ window.HabitualCore = window.HabitualCore || {};
     }, waitTime);
   };
 
-  core.saveLog = function(habitId, dateKey, count, note) {
+  core.saveLog = function(habitId, dateKey, count, note, unverified) {
+    if (core.state && Array.isArray(core.state.habits)) {
+      const habit = core.state.habits.find(h => h.id === habitId);
+      if (habit) {
+        habit.updatedAt = Date.now();
+      }
+    }
     // Always update local storage and Firebase at the exact same time
     core.saveState();
     const driver = core.getDriver();
     if (driver && typeof driver.saveLog === 'function') {
-      return Promise.resolve(driver.saveLog(habitId, dateKey, count, note));
+      return Promise.resolve(driver.saveLog(habitId, dateKey, count, note, unverified));
     }
     return Promise.resolve(true);
   };
@@ -924,30 +930,61 @@ window.HabitualCore = window.HabitualCore || {};
           const existingUpdated = existing.updatedAt || 0;
           const incomingUpdated = h.updatedAt || 0;
 
-          if (incomingUpdated >= existingUpdated) {
-            // Keep newer/equal remote metadata but merge logs
+          if (incomingUpdated > existingUpdated) {
+            // Incoming payload is strictly newer: incoming logs override existing logs
             const mergedLogs = Object.assign({}, existing.logs || {}, h.logs || {});
             Object.keys(mergedLogs).forEach(function(dateKey) {
-              const el = (existing.logs || {})[dateKey] || { count: 0, note: '' };
-              const il = (h.logs || {})[dateKey] || { count: 0, note: '' };
-              mergedLogs[dateKey] = {
-                count: Math.max(el.count || 0, il.count || 0),
-                note: (il.note && il.note.trim() !== '') ? il.note : el.note
-              };
+              const el = (existing.logs || {})[dateKey];
+              const il = (h.logs || {})[dateKey];
+              if (il !== undefined) {
+                if (il.count === 0 && (!il.note || !il.note.trim())) {
+                  delete mergedLogs[dateKey];
+                } else {
+                  mergedLogs[dateKey] = il;
+                }
+              } else if (el && (h.isDelta || localPayload.isDelta)) {
+                mergedLogs[dateKey] = el;
+              } else if (el) {
+                delete mergedLogs[dateKey];
+              }
             });
             const updatedHabit = JSON.parse(JSON.stringify(h));
             updatedHabit.logs = mergedLogs;
             habitMap.set(h.id, updatedHabit);
+          } else if (existingUpdated > incomingUpdated) {
+            // Existing payload is strictly newer: existing logs override incoming logs
+            const mergedLogs = Object.assign({}, h.logs || {}, existing.logs || {});
+            Object.keys(mergedLogs).forEach(function(dateKey) {
+              const el = (existing.logs || {})[dateKey];
+              const il = (h.logs || {})[dateKey];
+              if (el !== undefined) {
+                if (el.count === 0 && (!el.note || !el.note.trim())) {
+                  delete mergedLogs[dateKey];
+                } else {
+                  mergedLogs[dateKey] = el;
+                }
+              } else if (il && (existing.isDelta || remotePayload.isDelta)) {
+                mergedLogs[dateKey] = il;
+              } else if (il) {
+                delete mergedLogs[dateKey];
+              }
+            });
+            existing.logs = mergedLogs;
           } else {
-            // Merge logs into existing habit
+            // Timestamps equal: fallback to tie-breaker merge
             const mergedLogs = Object.assign({}, existing.logs || {}, h.logs || {});
             Object.keys(mergedLogs).forEach(function(dateKey) {
               const el = (existing.logs || {})[dateKey] || { count: 0, note: '' };
               const il = (h.logs || {})[dateKey] || { count: 0, note: '' };
-              mergedLogs[dateKey] = {
-                count: Math.max(el.count || 0, il.count || 0),
-                note: (el.note && el.note.trim() !== '') ? el.note : il.note
-              };
+              const maxCount = Math.max(el.count || 0, il.count || 0);
+              if (maxCount === 0 && (!el.note || !el.note.trim()) && (!il.note || !il.note.trim())) {
+                delete mergedLogs[dateKey];
+              } else {
+                mergedLogs[dateKey] = {
+                  count: maxCount,
+                  note: (il.note && il.note.trim() !== '') ? il.note : el.note
+                };
+              }
             });
             existing.logs = mergedLogs;
           }
