@@ -443,47 +443,62 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.navigateSelectedHabit = function(direction) {
-    let habitIds = [];
     const gallery = core.elements && core.elements.heatmapsGallery;
+    let visibleCards = [];
+
     if (gallery && typeof gallery.querySelectorAll === 'function') {
-      const cards = Array.from(gallery.querySelectorAll('.heatmap-card'));
-      cards.forEach(c => {
+      const allCards = Array.from(gallery.querySelectorAll('.heatmap-card'));
+      visibleCards = allCards.filter(c => {
         const id = c.getAttribute('data-habit-id');
-        if (id && id !== 'all' && !habitIds.includes(id)) habitIds.push(id);
+        if (id === 'all') return false;
+        const concertina = (typeof c.closest === 'function') ? c.closest('.subhabits-concertina') : null;
+        if (concertina && !concertina.classList.contains('expanded')) {
+          return false;
+        }
+        return true;
       });
     }
 
-    if (habitIds.length === 0 && core.state && Array.isArray(core.state.habits)) {
-      const topLevel = core.state.habits.filter(h => !h.parentId);
-      topLevel.forEach(h => {
-        if (h.id !== 'all' && !habitIds.includes(h.id)) habitIds.push(h.id);
-      });
-      if (habitIds.length === 0) {
-        core.state.habits.forEach(h => {
-          if (h.id !== 'all' && !habitIds.includes(h.id)) habitIds.push(h.id);
-        });
+    if (visibleCards.length === 0) {
+      if (core.state && Array.isArray(core.state.habits) && core.state.habits.length > 0) {
+        const habitIds = core.state.habits.map(h => h.id);
+        let currentIndex = habitIds.indexOf(core.state.selectedHabitId);
+        if (currentIndex === -1) currentIndex = direction > 0 ? -1 : habitIds.length;
+        let nextIndex = currentIndex + direction;
+        if (nextIndex < 0) nextIndex = 0;
+        if (nextIndex >= habitIds.length) nextIndex = habitIds.length - 1;
+        core.state.selectedHabitId = habitIds[nextIndex];
       }
+      return;
     }
 
-    if (habitIds.length === 0) return;
+    let currentIndex = visibleCards.findIndex(c => {
+      const cId = c.getAttribute('data-habit-id');
+      const cRawId = c.getAttribute('data-habit-id-raw');
+      return (cId && cId === core.state.selectedHabitId) ||
+             (cRawId && cRawId === core.state.selectedHabitId);
+    });
 
-    let currentIndex = habitIds.indexOf(core.state.selectedHabitId);
     if (currentIndex === -1) {
-      currentIndex = direction > 0 ? -1 : habitIds.length;
+      currentIndex = direction > 0 ? -1 : visibleCards.length;
     }
 
     let nextIndex = currentIndex + direction;
     if (nextIndex < 0) nextIndex = 0;
-    if (nextIndex >= habitIds.length) nextIndex = habitIds.length - 1;
+    if (nextIndex >= visibleCards.length) nextIndex = visibleCards.length - 1;
 
-    const newSelectedId = habitIds[nextIndex];
+    const targetCard = visibleCards[nextIndex];
+    if (!targetCard) return;
+
+    const newSelectedId = targetCard.getAttribute('data-habit-id') || targetCard.getAttribute('data-habit-id-raw');
     core.state.selectedHabitId = newSelectedId;
 
     if (gallery && typeof gallery.querySelectorAll === 'function') {
-      const cards = gallery.querySelectorAll('.heatmap-card');
-      cards.forEach(c => {
+      const allCards = gallery.querySelectorAll('.heatmap-card');
+      allCards.forEach(c => {
         const cId = c.getAttribute('data-habit-id');
-        if (cId === newSelectedId && cId !== 'all') {
+        const cRawId = c.getAttribute('data-habit-id-raw');
+        if (c === targetCard || (newSelectedId && (cId === newSelectedId || cRawId === newSelectedId))) {
           c.classList.add('selected');
           c.classList.add('selected-habit');
           if (typeof c.scrollIntoView === 'function') {
