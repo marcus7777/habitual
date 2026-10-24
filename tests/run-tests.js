@@ -4267,6 +4267,26 @@ describe('Feature 39: 🟡 Issue #24 Updating Habits Keyboard Navigation & Yello
     assert(HabitualCore.state.expandedHabitIds.has('parent1'), 'ensureHabitAncestorsExpanded opens parent1 concertina when sub1 is selected');
   });
 
+  test('Pressing Spacebar on selected parent card toggles sub-habits concertina', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'parent1', name: 'Parent Habit', type: 'positive' },
+        { id: 'sub1', parentId: 'parent1', name: 'Sub Habit 1', type: 'positive' }
+      ],
+      selectedHabitId: 'parent1',
+      expandedHabitIds: new Set()
+    });
+
+    assert(!HabitualCore.state.expandedHabitIds.has('parent1'), 'Concertina is initially closed');
+
+    HabitualCore.toggleConcertina('parent1');
+    assert(HabitualCore.state.expandedHabitIds.has('parent1'), 'toggleConcertina expands parent1 concertina');
+
+    HabitualCore.toggleConcertina('parent1');
+    assert(!HabitualCore.state.expandedHabitIds.has('parent1'), 'toggleConcertina collapses parent1 concertina');
+  });
+
   test('buildHeatmapCard renders selected class on card matching selectedHabitId but excludes all card', () => {
     HabitualCore.resetState();
     const habit = { id: 'water', name: 'Drink Water', type: 'positive', dailyTarget: 1, logs: {} };
