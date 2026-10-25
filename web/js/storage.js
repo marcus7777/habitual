@@ -500,11 +500,13 @@ window.HabitualCore = window.HabitualCore || {};
   core.getPayloadFromState = function() {
     const deleted = (core.state && core.state.deletedHabitIds) ? core.state.deletedHabitIds : [];
     const habits = (core.state && core.state.habits) ? core.state.habits : [];
+    const updateLog = (core.pruneUpdateLog ? core.pruneUpdateLog() : (core.state && core.state.updateLog ? core.state.updateLog : []));
     return {
       version: 2,
       updatedAt: (core.state && typeof core.state.updatedAt === 'number') ? core.state.updatedAt : Date.now(),
       habits: habits.map(h => core._serializeHabit(h)),
       deletedHabitIds: (deleted && deleted.length > 0) ? Array.from(new Set(deleted)) : [],
+      updateLog: updateLog,
       remoteHashHistory: (core.state && core.state.remoteHashHistory) ? core.state.remoteHashHistory.slice(0, 30) : [],
       selectedHabitId: (core.state && core.state.selectedHabitId) ? core.state.selectedHabitId : 'all',
       selectedYear: (core.state && core.state.selectedYear) ? core.state.selectedYear : (core.CURRENT_YEAR || new Date().getFullYear()),
@@ -522,12 +524,14 @@ window.HabitualCore = window.HabitualCore || {};
     const cutoffKey = core.formatDateKey ? core.formatDateKey(cutoffDate) : '2020-01-01';
 
     const deleted = core.state.deletedHabitIds;
+    const updateLog = (core.pruneUpdateLog ? core.pruneUpdateLog() : (core.state && core.state.updateLog ? core.state.updateLog : []));
     const delta = {
       version: 2,
       updatedAt: Date.now(),
       isDelta: true,
       habits: (core.state.habits || []).map(h => core._serializeHabit(h, cutoffKey)),
-      deletedHabitIds: (deleted && deleted.length > 0) ? Array.from(new Set(deleted)) : []
+      deletedHabitIds: (deleted && deleted.length > 0) ? Array.from(new Set(deleted)) : [],
+      updateLog: updateLog
     };
 
     if (core.state.selectedHabitId && core.state.selectedHabitId !== 'all') {
@@ -721,6 +725,15 @@ window.HabitualCore = window.HabitualCore || {};
         habit.updatedAt = Date.now();
       }
     }
+    if (core.recordUpdateEvent) {
+      core.recordUpdateEvent({
+        type: 'log_update',
+        habitId: habitId,
+        dateKey: dateKey,
+        count: count,
+        note: note || ''
+      });
+    }
     // Always update local storage and Firebase at the exact same time
     core.saveState();
     const driver = core.getDriver();
@@ -738,6 +751,13 @@ window.HabitualCore = window.HabitualCore || {};
     const idx = core.state.habits.findIndex(h => h.id === habit.id);
     if (idx >= 0) core.state.habits[idx] = habit;
     else core.state.habits.push(habit);
+    if (core.recordUpdateEvent) {
+      core.recordUpdateEvent({
+        type: 'habit_upsert',
+        habitId: habit.id,
+        habitData: habit
+      });
+    }
     core.saveState();
     if (core.renderAll) {
       try { core.renderAll(); } catch (e) { console.warn('renderAll error in saveHabit:', e); }
@@ -998,6 +1018,54 @@ window.HabitualCore = window.HabitualCore || {};
 
     processHabitList(localPayload.habits, false);
     processHabitList(remotePayload.habits, true);
+
+    // Merge & Prune 24-Hour Update Logs
+    const localLog = (localPayload && Array.isArray(localPayload.updateLog)) ? localPayload.updateLog : [];
+    const remoteLog = (remotePayload && Array.isArray(remotePayload.updateLog)) ? remotePayload.updateLog : [];
+    const cutoff24h = Date.now() - (24 * 60 * 60 * 1000);
+
+    const mergedLogMap = new Map();
+    [...localLog, ...remoteLog].forEach(evt => {
+      if (!evt || typeof evt.timestamp !== 'number' || evt.timestamp < cutoff24h) return;
+      const key = evt.id || (evt.timestamp + '_' + evt.type + '_' + evt.habitId + '_' + (evt.dateKey || ''));
+      if (!mergedLogMap.has(key)) {
+        mergedLogMap.set(key, evt);
+      }
+    });
+
+    const mergedUpdateLog = Array.from(mergedLogMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+    merged.updateLog = mergedUpdateLog;
+
+    // Replay Chronological 24-Hour Update Events onto habitMap
+    mergedUpdateLog.forEach(evt => {
+      if (!evt || !evt.type) return;
+      if (evt.type === 'habit_delete' && evt.habitId) {
+        habitMap.delete(evt.habitId);
+      } else if (evt.type === 'log_update' && evt.habitId && evt.dateKey) {
+        const habit = habitMap.get(evt.habitId);
+        if (habit) {
+          if (!habit.logs) habit.logs = {};
+          if (evt.count === 0 && (!evt.note || !evt.note.trim())) {
+            delete habit.logs[evt.dateKey];
+          } else {
+            habit.logs[evt.dateKey] = {
+              count: evt.count,
+              note: evt.note || ''
+            };
+          }
+          if (evt.timestamp > (habit.updatedAt || 0)) {
+            habit.updatedAt = evt.timestamp;
+          }
+        }
+      } else if (evt.type === 'habit_upsert' && evt.habitId && evt.habitData) {
+        const existing = habitMap.get(evt.habitId);
+        if (!existing || evt.timestamp >= (existing.updatedAt || 0)) {
+          const updated = Object.assign({}, existing || {}, evt.habitData);
+          updated.updatedAt = evt.timestamp;
+          habitMap.set(evt.habitId, updated);
+        }
+      }
+    });
 
     if ((remotePayload.updatedAt || 0) >= (localPayload.updatedAt || 0) && Array.isArray(remotePayload.habits) && remotePayload.habits.length > 0) {
       const ordered = [];

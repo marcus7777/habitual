@@ -12,6 +12,7 @@ window.HabitualCore = window.HabitualCore || {};
     habits: [],
     deletedHabitIds: [],
     remoteHashHistory: [],
+    updateLog: [],
     selectedHabitId: 'all',
     selectedYear: core.CURRENT_YEAR,
     showQuickLogOnStartup: false,
@@ -30,6 +31,7 @@ window.HabitualCore = window.HabitualCore || {};
       habits: [],
       deletedHabitIds: [],
       remoteHashHistory: [],
+      updateLog: [],
       selectedHabitId: 'all',
       selectedYear: core.CURRENT_YEAR,
       showQuickLogOnStartup: false,
@@ -40,6 +42,39 @@ window.HabitualCore = window.HabitualCore || {};
       locationName: 'Default (London)',
       expandedHabitIds: new Set()
     };
+  };
+
+  core.pruneUpdateLog = function(maxAgeMs = 24 * 60 * 60 * 1000) {
+    if (!core.state) return [];
+    if (!Array.isArray(core.state.updateLog)) core.state.updateLog = [];
+    const cutoff = Date.now() - maxAgeMs;
+    core.state.updateLog = core.state.updateLog.filter(evt => evt && typeof evt.timestamp === 'number' && evt.timestamp >= cutoff);
+    return core.state.updateLog;
+  };
+
+  core.recordUpdateEvent = function(eventData) {
+    if (!core.state) return null;
+    if (!Array.isArray(core.state.updateLog)) core.state.updateLog = [];
+    core.pruneUpdateLog();
+
+    const now = Date.now();
+    const evt = Object.assign({
+      id: 'evt_' + Math.random().toString(36).substring(2, 9) + '_' + now,
+      timestamp: now
+    }, eventData || {});
+
+    const isDuplicate = core.state.updateLog.some(existing => {
+      return existing.type === evt.type &&
+             existing.habitId === evt.habitId &&
+             existing.dateKey === evt.dateKey &&
+             existing.count === evt.count &&
+             (Math.abs(existing.timestamp - evt.timestamp) < 500);
+    });
+
+    if (!isDuplicate) {
+      core.state.updateLog.push(evt);
+    }
+    return evt;
   };
 
   core.activeCalendarHabit = null;
@@ -750,6 +785,17 @@ window.HabitualCore = window.HabitualCore || {};
       logObj.unverified = true;
     }
     habit.logs[dateKey] = logObj;
+    habit.updatedAt = Date.now();
+
+    if (core.recordUpdateEvent) {
+      core.recordUpdateEvent({
+        type: 'log_update',
+        habitId: habitId,
+        dateKey: dateKey,
+        count: newCount,
+        note: currentNote
+      });
+    }
 
     core.applyParentDependencyOnLog(habit, dateKey, newCount);
 

@@ -2110,6 +2110,51 @@ describe('Feature 27: 🔄 Multi-Target Sync, Dynamic Script Loader & Storage Dr
     assert(!logVal || logVal.count === 0, 'Cleared log entry with count 0 from newer payload is respected during merge');
   });
 
+  test('recordUpdateEvent records events and prunes entries older than 24 hours', () => {
+    HabitualCore.resetState();
+    const oldTimestamp = Date.now() - (25 * 60 * 60 * 1000); // 25 hours ago
+    const newTimestamp = Date.now() - (1 * 60 * 60 * 1000);  // 1 hour ago
+
+    HabitualCore.state.updateLog = [
+      { id: 'old_evt', timestamp: oldTimestamp, type: 'log_update', habitId: 'water', dateKey: '2026-10-01', count: 1 }
+    ];
+
+    HabitualCore.recordUpdateEvent({
+      id: 'new_evt',
+      timestamp: newTimestamp,
+      type: 'log_update',
+      habitId: 'water',
+      dateKey: '2026-10-02',
+      count: 2
+    });
+
+    const activeLog = HabitualCore.pruneUpdateLog();
+    assertEqual(activeLog.length, 1, 'Only 1 event remains within 24 hours window');
+    assertEqual(activeLog[0].id, 'new_evt', 'Pruned event keeps recent update event');
+  });
+
+  test('mergeStatePayloads replays 24-hour updateLog operations across devices', () => {
+    HabitualCore.resetState();
+    const now = Date.now();
+    const localPayload = {
+      updatedAt: now - 1000,
+      habits: [{ id: 'water', name: 'Water', updatedAt: now - 1000, logs: { '2026-10-25': { count: 1 } } }],
+      updateLog: []
+    };
+
+    const remotePayload = {
+      updatedAt: now,
+      habits: [{ id: 'water', name: 'Water', updatedAt: now, logs: { '2026-10-25': { count: 1 } } }],
+      updateLog: [
+        { id: 'evt_clear', timestamp: now, type: 'log_update', habitId: 'water', dateKey: '2026-10-25', count: 0, note: '' }
+      ]
+    };
+
+    const merged = HabitualCore.mergeStatePayloads(localPayload, remotePayload);
+    const logVal = merged.habits[0].logs['2026-10-25'];
+    assert(!logVal || logVal.count === 0, 'Replayed log_update event from remote updateLog cleared log entry on local device');
+  });
+
   test('SyncManager target toggles and settings persistence', () => {
     HabitualCore.SyncManager.toggleTarget('firestore', true);
     assert(HabitualCore.SyncManager.isTargetEnabled('firestore'), 'Firestore target enabled');
