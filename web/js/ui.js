@@ -2852,6 +2852,12 @@ window.HabitualCore = window.HabitualCore || {};
       if (!core.state.deletedHabitIds.includes(ids[i])) {
         core.state.deletedHabitIds.push(ids[i]);
       }
+      if (core.recordUpdateEvent) {
+        core.recordUpdateEvent({
+          type: 'habit_delete',
+          habitId: ids[i]
+        });
+      }
     }
   };
 
@@ -3085,6 +3091,15 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit && habit.logs) {
       habit.logs[core.activeLogDateKey] = { count: 0 };
       habit.updatedAt = Date.now();
+      if (core.recordUpdateEvent) {
+        core.recordUpdateEvent({
+          type: 'log_update',
+          habitId: habitId,
+          dateKey: core.activeLogDateKey,
+          count: 0,
+          note: ''
+        });
+      }
       if (core.elements.modalLog) {
         core.elements.modalLog.classList.add('hidden');
         core.toggleModalScrollLock(false);
