@@ -3082,8 +3082,9 @@ window.HabitualCore = window.HabitualCore || {};
   core.handleClearLog = function() {
     const habitId = core.elements.modalLogHabitSelect.value;
     const habit = core.state.habits.find(h => h.id === habitId);
-    if (habit && habit.logs && habit.logs[core.activeLogDateKey]) {
-      delete habit.logs[core.activeLogDateKey];
+    if (habit && habit.logs) {
+      habit.logs[core.activeLogDateKey] = { count: 0 };
+      habit.updatedAt = Date.now();
       if (core.elements.modalLog) {
         core.elements.modalLog.classList.add('hidden');
         core.toggleModalScrollLock(false);

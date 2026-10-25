@@ -478,7 +478,7 @@ window.HabitualCore = window.HabitualCore || {};
         if (effectiveCutoff && dateKey < effectiveCutoff) return;
         const log = habit.logs[dateKey];
         if (!log) return;
-        const count = log.count || 0;
+        const count = typeof log.count === 'number' ? log.count : 0;
         const note = (log.note || '').trim();
         if (count > 0 || note !== '') {
           hasLogs = true;
@@ -486,6 +486,10 @@ window.HabitualCore = window.HabitualCore || {};
           if (note !== '') logData.note = note;
           if (log.unverified) logData.unverified = true;
           cleanLogs[dateKey] = logData;
+        } else {
+          // Explicit tombstone for cleared/removed log entry (count = 0)
+          hasLogs = true;
+          cleanLogs[dateKey] = { count: 0 };
         }
       });
       if (hasLogs || cutoffKey) h.logs = cleanLogs;
