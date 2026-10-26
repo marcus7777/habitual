@@ -120,38 +120,66 @@
           </div>
 
           <div id="firestore-config-panel" class="data-subpanel">
-            <label class="subpanel-label">Your Sync Channel Identifier Code</label>
-            <div class="p2p-input-row" style="margin-bottom: 0.8rem;">
-              <input type="text" id="input-firestore-sync-code" class="form-control-sm code-input uppercase" placeholder="Sync Code" title="Paste or enter Sync Code (e.g. HAB-XXXXXX)..." aria-label="Firestore Sync Channel Code">
-              <button id="btn-save-firestore-code" class="btn btn-primary btn-sm">Save & Sync Code</button>
-              <button id="btn-gen-firestore-code" class="btn btn-secondary btn-sm">New Code</button>
-              <button id="btn-copy-firestore-code" class="btn btn-secondary btn-sm" style="display: none;">Copy Code</button>
-              <button id="btn-copy-sync-link" class="btn btn-secondary btn-sm" style="display: none;">📋 Copy Sync Link</button>
-              <button id="btn-firestore-chirp-code" class="btn btn-secondary btn-sm" title="Broadcast Firestore Sync Code via Sound">🔊 Chirp Code</button>
-              <button id="btn-firestore-chirp-listen" class="btn btn-secondary btn-sm" title="Listen for Firestore Sync Code via Microphone">🎙️ Listen Chirp</button>
-            </div>
-            <p class="muted-text text-xs" style="margin: 0 0 0.8rem 0;">Share this channel code and master passphrase to sync across devices.</p>
-
-            <!-- Device Sync QR Code Wrapper: Personal Device Pairing for Store & Master Password Sync -->
-            <div id="firestore-sync-qr-wrapper" class="qr-code-wrapper hidden margin-top-sm" style="background: var(--bg-surface); padding: 16px; border-radius: 10px; border: 1px solid var(--accent-blue); text-align: center;">
-              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--accent-blue);"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                <h5 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">📱 Add a Device for Your Personal Use</h5>
+            <!-- Mode Selector Switch: Just Backup vs Pair / Add Another Device -->
+            <div id="firestore-mode-toggle-row" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border-color);">
+              <div>
+                <strong style="font-size: 0.92rem; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                  📱 Pair / Add Another Device
+                </strong>
+                <p class="muted-text text-xs" style="margin: 2px 0 0 0;">
+                  Off = Cloud Backup only. Turn ON to show QR code, sync link &amp; channel code to connect another device.
+                </p>
               </div>
-              <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 4px 0 10px 0;">
-                Scan this QR code with your phone or tablet camera to pair your secondary device. This synchronizes your <strong>Master Password</strong> and <strong>Firebase Store Channel</strong> across your personal devices.
-              </p>
+              <label class="switch-toggle" title="Toggle Pair / Add Another Device Sharing Panel">
+                <input type="checkbox" id="chk-firestore-share-mode">
+                <span class="slider round"></span>
+              </label>
+            </div>
 
-              <div id="firestore-sync-qr-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 16px; background: #ffffff; border-radius: 12px; width: fit-content; margin: 14px auto;"></div>
+            <!-- Just Backup Status Banner (Visible when Pair / Add Another Device is OFF) -->
+            <div id="firestore-backup-status-banner" style="background: rgba(16, 136, 172, 0.08); border: 1px solid var(--accent-blue); border-radius: 8px; padding: 10px 14px; margin-top: 6px; font-size: 0.85rem; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 1.2rem;">☁️</span>
+              <div>
+                <strong style="color: var(--accent-blue);">Cloud Backup Active</strong>
+                <span id="firestore-backup-channel-badge" class="muted-text text-xs" style="display: block; margin-top: 2px;">Your habits &amp; check-ins are encrypted and backed up to your private cloud store.</span>
+              </div>
+            </div>
 
-              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: center;">
-                <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; background: rgba(16, 136, 172, 0.15); border: 1px solid var(--accent-blue); padding: 4px 12px; border-radius: 20px; color: var(--accent-blue); font-weight: 600;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                  <span>Synchronizes: 🔑 Master Password &amp; 🔥 Firebase Store</span>
+            <!-- Sharing & Multi-Device Pairing Panel (Hidden unless Pair / Add Another Device is ON) -->
+            <div id="firestore-sharing-panel" class="hidden" style="margin-top: 10px;">
+              <label class="subpanel-label">Your Sync Channel Identifier Code</label>
+              <div class="p2p-input-row" style="margin-bottom: 0.8rem;">
+                <input type="text" id="input-firestore-sync-code" class="form-control-sm code-input uppercase" placeholder="Sync Code" title="Paste or enter Sync Code (e.g. HAB-XXXXXX)..." aria-label="Firestore Sync Channel Code">
+                <button id="btn-save-firestore-code" class="btn btn-primary btn-sm">Save & Sync Code</button>
+                <button id="btn-gen-firestore-code" class="btn btn-secondary btn-sm">New Code</button>
+                <button id="btn-copy-firestore-code" class="btn btn-secondary btn-sm" style="display: none;">Copy Code</button>
+                <button id="btn-copy-sync-link" class="btn btn-secondary btn-sm" style="display: none;">📋 Copy Sync Link</button>
+                <button id="btn-firestore-chirp-code" class="btn btn-secondary btn-sm" title="Broadcast Firestore Sync Code via Sound">🔊 Chirp Code</button>
+                <button id="btn-firestore-chirp-listen" class="btn btn-secondary btn-sm" title="Listen for Firestore Sync Code via Microphone">🎙️ Listen Chirp</button>
+              </div>
+              <p class="muted-text text-xs" style="margin: 0 0 0.8rem 0;">Share this channel code and master passphrase to sync across devices.</p>
+
+              <!-- Device Sync QR Code Wrapper: Personal Device Pairing for Store & Master Password Sync -->
+              <div id="firestore-sync-qr-wrapper" class="qr-code-wrapper hidden margin-top-sm" style="background: var(--bg-surface); padding: 16px; border-radius: 10px; border: 1px solid var(--accent-blue); text-align: center;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--accent-blue);"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                  <h5 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">📱 Add a Device for Your Personal Use</h5>
                 </div>
-                <small class="muted-text text-xs" style="display: block; max-width: 500px; margin-top: 4px; line-height: 1.4;">
-                  ⚠️ <strong>Personal Device Pairing Only:</strong> This QR code contains your secret Master Passphrase to decrypt your store. Only scan this on trusted devices that belong to you!
-                </small>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 4px 0 10px 0;">
+                  Scan this QR code with your phone or tablet camera to pair your secondary device. This synchronizes your <strong>Master Password</strong> and <strong>Firebase Store Channel</strong> across your personal devices.
+                </p>
+
+                <div id="firestore-sync-qr-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 16px; background: #ffffff; border-radius: 12px; width: fit-content; margin: 14px auto;"></div>
+
+                <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: center;">
+                  <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; background: rgba(16, 136, 172, 0.15); border: 1px solid var(--accent-blue); padding: 4px 12px; border-radius: 20px; color: var(--accent-blue); font-weight: 600;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span>Synchronizes: 🔑 Master Password &amp; 🔥 Firebase Store</span>
+                  </div>
+                  <small class="muted-text text-xs" style="display: block; max-width: 500px; margin-top: 4px; line-height: 1.4;">
+                    ⚠️ <strong>Personal Device Pairing Only:</strong> This QR code contains your secret Master Passphrase to decrypt your store. Only scan this on trusted devices that belong to you!
+                  </small>
+                </div>
               </div>
             </div>
           </div>
@@ -306,7 +334,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.27.17</p>
+      <p>Habitual &bull; v1.27.18</p>
     </footer>
   </div>
 
