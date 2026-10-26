@@ -54,7 +54,12 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 ### 📱 PWA & Accessible Interaction
 - **Offline PWA**: Full offline capability via Service Worker (`sw.js`) and Web Manifest (`manifest.json`). Dark-mode developer aesthetic.
 - **Card Reordering**: Drag-and-drop handles (`⋮⋮`) with accessible tap-to-move Up (▲) / Down (▼) buttons for mobile and keyboard users.
-- **Keyboard & Proximity Cursor**: Navigate heatmap grids with **Arrow** or **WASD** keys (`W`/`S`/`A`/`D`), highlighted by a glowing gold ring cursor (`#f1e05a`). Press **Enter** on hover to log check-ins.
+- **Keyboard & Proximity Cursor**: Navigate heatmap grids with **Arrow**, **WASD** (`W`/`S`/`A`/`D`), or classic **Vim** (`H`/`J`/`K`/`L`) keys, highlighted by a glowing gold ring cursor (`#f1e05a`).
+  - **Enter**: Log +1 check-in on the selected cell/date.
+  - **Delete**: Clear check-in count (`0`) for the selected cell while preserving journal notes.
+  - **Backspace** / **`-`**: Decrement check-in count by 1 while preserving journal notes.
+  - **Number Keys (`0`–`9`)**: Set check-in count directly to that number (e.g. `6` sets 6 check-ins, `0` marks as clear) while preserving notes.
+  - **Capital Letters (`A`–`Z`)**: Open the log dialogue, start a new journal note or append to an existing note, and focus the note text field.
 
 ### ☁️ Storage Engines, Cloud Sync & E2EE
 - **Granular Storage ($O(1)$ Writes)**: High-performance IndexedDB persistence with debounced coalescing. Switchable storage engines (`localStorage`, `IndexedDB`).
@@ -66,7 +71,7 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 
 ## 🧪 Automated Testing Suite
 
-Habitual features an automated test suite covering all core logic across **81 test specifications in 27 test suites** with a 100% pass rate.
+Habitual features an automated test suite covering all core logic across **161 test specifications in 41 test suites** with a 100% pass rate.
 
 ### 1. Terminal / CI Test Runner (Node.js)
 Execute the DOM-mocked unit test suite directly in command line:
