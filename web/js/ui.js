@@ -1088,16 +1088,16 @@ window.HabitualCore = window.HabitualCore || {};
       const key = e.key;
       const lowerKey = key ? key.toLowerCase() : '';
 
-      if (key === 'ArrowLeft' || lowerKey === 'a') {
+      if (key === 'ArrowLeft' || key === 'a' || key === 'h') {
         e.preventDefault();
         if (core.moveCursorDateByDays) core.moveCursorDateByDays(-1);
-      } else if (key === 'ArrowRight' || lowerKey === 'd') {
+      } else if (key === 'ArrowRight' || key === 'd' || key === 'l') {
         e.preventDefault();
         if (core.moveCursorDateByDays) core.moveCursorDateByDays(1);
-      } else if (key === 'ArrowUp' || lowerKey === 'w') {
+      } else if (key === 'ArrowUp' || key === 'w' || key === 'k') {
         e.preventDefault();
         if (core.navigateSelectedHabit) core.navigateSelectedHabit(-1);
-      } else if (key === 'ArrowDown' || lowerKey === 's') {
+      } else if (key === 'ArrowDown' || key === 's' || key === 'j') {
         e.preventDefault();
         if (core.navigateSelectedHabit) core.navigateSelectedHabit(1);
       } else if (key === 'Enter') {
@@ -1147,6 +1147,27 @@ window.HabitualCore = window.HabitualCore || {};
           const num = parseInt(key, 10);
           const btn = (target.card && typeof target.card.querySelector === 'function') ? target.card.querySelector('.btn-card-quick-log') : null;
           if (core.setHabitCountForDate) core.setHabitCountForDate(target.habitId, targetDate, num, btn, num === 0 ? '0' : `${num}`);
+        }
+      } else if (/^[A-Z]$/.test(key)) {
+        e.preventDefault();
+        const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : (core.getTodayKey ? core.getTodayKey() : '');
+        const target = core.getActiveCardAndHabitId ? core.getActiveCardAndHabitId() : null;
+        const habitId = (target && target.habitId && target.habitId !== 'all' && !target.habitId.startsWith('group_')) ? target.habitId : null;
+        if (core.openLogModal) {
+          core.openLogModal(targetDate, habitId);
+          const noteInput = (core.elements && core.elements.modalLogNote) ? core.elements.modalLogNote : document.getElementById('modal-log-note');
+          if (noteInput) {
+            const existingVal = noteInput.value || '';
+            let newVal = key;
+            if (existingVal && existingVal.trim() !== '') {
+              newVal = existingVal.trimEnd() + ' ' + key;
+            }
+            noteInput.value = newVal;
+            noteInput.focus();
+            if (typeof noteInput.setSelectionRange === 'function') {
+              noteInput.setSelectionRange(newVal.length, newVal.length);
+            }
+          }
         }
       } else if (key === ' ' || key === 'Spacebar' || e.code === 'Space') {
         const selectedCard = (document.querySelector && document.querySelector('.heatmap-card.selected')) ||

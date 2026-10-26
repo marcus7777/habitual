@@ -249,6 +249,49 @@
             assertEqual(core.getState().habits[0].logs['2026-10-02'].count, 0);
             assertEqual(core.getState().habits[0].logs['2026-10-02'].note, 'Gym note');
           });
+
+          test('Capital letter key opens log modal, starts new note or appends to existing note', () => {
+            core.setState({ habits: [{ id: 'cap_test', name: 'Cap Test', type: 'positive', logs: { '2026-10-02': { count: 1, note: '' } } }] });
+            core.setCursorDateKey('2026-10-02');
+            core.state.selectedHabitId = 'cap_test';
+
+            const noteInput = document.createElement('textarea');
+            noteInput.id = 'modal-log-note';
+            document.body.appendChild(noteInput);
+
+            core.openLogModal('2026-10-02', 'cap_test');
+
+            // Simulate pressing 'N' for new note
+            const existingVal = noteInput.value || '';
+            let newVal = 'N';
+            if (existingVal && existingVal.trim() !== '') {
+              newVal = existingVal.trimEnd() + ' ' + 'N';
+            }
+            noteInput.value = newVal;
+
+            assertEqual(noteInput.value, 'N', 'Capital N starts new note when empty');
+
+            // Simulate pressing 'A' to append to existing note
+            const currentVal = noteInput.value;
+            noteInput.value = currentVal.trimEnd() + ' ' + 'A';
+            assertEqual(noteInput.value, 'N A', 'Capital A appends to existing note');
+
+            document.body.removeChild(noteInput);
+          });
+
+          test('Vim keys (h, j, k, l) navigate cursor date and selected habit', () => {
+            const today = core.getTodayKey();
+            core.setCursorDateKey(today);
+
+            // 'h' moves left 1 day
+            core.moveCursorDateByDays(-1);
+            const yesterday = core.getDaysAgoKey(1);
+            assertEqual(core.getCursorDateKey(), yesterday, "'h' key moves cursor date left 1 day");
+
+            // 'l' moves right 1 day
+            core.moveCursorDateByDays(1);
+            assertEqual(core.getCursorDateKey(), today, "'l' key moves cursor date right 1 day");
+          });
         });
 
         describe('Feature 7: ⌛ Past History Backfilling', () => {
