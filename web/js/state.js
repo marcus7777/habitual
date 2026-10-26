@@ -753,7 +753,7 @@ window.HabitualCore = window.HabitualCore || {};
     return false;
   };
 
-  core.toggleHabitForDate = function(habitId, dateKey, targetBtn = null) {
+  core.setHabitCountForDate = function(habitId, dateKey, newCount, targetBtn = null, badgeText = null) {
     const habit = core.state.habits.find(h => h.id === habitId);
     if (!habit) return;
 
@@ -763,28 +763,34 @@ window.HabitualCore = window.HabitualCore || {};
       btn = document.querySelector(`.btn-card-quick-log[data-habit-id="${habitId}"], .widget-quick-log-btn[data-action-habit-id="${habitId}"], .quick-log-btn[data-action-habit-id="${habitId}"]`);
     }
 
-    // Spawn subtle floating +1 badge for instant feedback
+    const parsedCount = Math.max(0, parseInt(newCount, 10) || 0);
+
+    // Spawn subtle floating pop badge for instant feedback
     if (btn && btn.appendChild) {
+      const textToShow = badgeText !== null ? badgeText : (parsedCount > 0 ? `${parsedCount}` : '0');
       const badge = document.createElement('span');
       badge.className = 'quick-add-pop-badge';
-      badge.textContent = '+1';
+      badge.textContent = textToShow;
       btn.appendChild(badge);
       setTimeout(() => { if (badge.parentNode) badge.parentNode.removeChild(badge); }, 500);
     }
 
     if (!habit.logs) habit.logs = {};
     const currentLog = habit.logs[dateKey];
-    const currentCount = currentLog ? currentLog.count : 0;
-    const currentNote = currentLog ? currentLog.note : '';
-    let newCount = currentCount + 1;
+    const currentNote = currentLog ? (currentLog.note || '') : '';
     const todayStr = core.getTodayKey();
     const isFuture = dateKey > todayStr;
 
-    const logObj = { count: newCount, note: currentNote };
-    if (isFuture && newCount > 0) {
-      logObj.unverified = true;
+    if (parsedCount === 0 && (!currentNote || currentNote.trim() === '')) {
+      delete habit.logs[dateKey];
+    } else {
+      const logObj = { count: parsedCount, note: currentNote };
+      if (isFuture && parsedCount > 0) {
+        logObj.unverified = true;
+      }
+      habit.logs[dateKey] = logObj;
     }
-    habit.logs[dateKey] = logObj;
+
     habit.updatedAt = Date.now();
 
     if (core.recordUpdateEvent) {
@@ -792,15 +798,18 @@ window.HabitualCore = window.HabitualCore || {};
         type: 'log_update',
         habitId: habitId,
         dateKey: dateKey,
-        count: newCount,
+        count: parsedCount,
         note: currentNote
       });
     }
 
-    core.applyParentDependencyOnLog(habit, dateKey, newCount);
+    if (core.applyParentDependencyOnLog) {
+      core.applyParentDependencyOnLog(habit, dateKey, parsedCount);
+    }
 
-    if (isFuture && newCount > 0 && core.showToast) {
-      core.showToast(`⏳ Pre-logged "${habit.name}" for ${core.formatPrettyDate(dateKey)}! We'll double-check with you on that day.`, 'info');
+    if (isFuture && parsedCount > 0 && core.showToast) {
+      const prettyDate = core.formatPrettyDate ? core.formatPrettyDate(dateKey) : dateKey;
+      core.showToast(`⏳ Pre-logged "${habit.name}" for ${prettyDate}! We'll double-check with you on that day.`, 'info');
     }
 
     // 1. Instantly patch UI synchronously
@@ -814,7 +823,7 @@ window.HabitualCore = window.HabitualCore || {};
 
     // 2. Persist to storage asynchronously in background
     if (core.saveLog) {
-      core.saveLog(habitId, dateKey, newCount, currentNote, logObj.unverified);
+      core.saveLog(habitId, dateKey, parsedCount, currentNote, isFuture && parsedCount > 0);
     } else if (core.saveState) {
       core.saveState();
     }
@@ -822,6 +831,14 @@ window.HabitualCore = window.HabitualCore || {};
     if (core.checkPendingVerifications) {
       core.checkPendingVerifications();
     }
+  };
+
+  core.toggleHabitForDate = function(habitId, dateKey, targetBtn = null) {
+    const habit = core.state.habits.find(h => h.id === habitId);
+    if (!habit) return;
+    const currentLog = (habit.logs && habit.logs[dateKey]) ? habit.logs[dateKey] : null;
+    const currentCount = currentLog ? (currentLog.count || 0) : 0;
+    core.setHabitCountForDate(habitId, dateKey, currentCount + 1, targetBtn, '+1');
   };
 
   core.getOrdinalSuffix = function(i) {
