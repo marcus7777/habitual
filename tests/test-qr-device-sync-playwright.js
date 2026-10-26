@@ -245,6 +245,7 @@ async function runQRDeviceSyncPlaywrightTests() {
       }
       window.HabitualCore.SyncManager.settings.enabledTargets = ['firestore'];
       localStorage.setItem('habitual_sync_targets', JSON.stringify(['firestore']));
+      localStorage.setItem('habitual_firestore_share_mode', 'true');
 
       if (inputPass) inputPass.value = pass;
       if (inputCode) inputCode.value = code;

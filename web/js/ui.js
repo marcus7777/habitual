@@ -513,21 +513,56 @@ window.HabitualCore = window.HabitualCore || {};
       const activePass = inputPassphraseVal || savedPassphrase;
       const activeCode = (inputFirestoreCode ? inputFirestoreCode.value.trim() : '') || (core.SyncTargets && core.SyncTargets.Firestore ? core.SyncTargets.Firestore.getSyncCode() : '');
 
-      if (activeCode && activePass && qrSyncWrapper && qrSyncDisplay && core.generateQRCodeSVG) {
-        const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
-        const syncUrl = `${baseUrl}#sync?code=${encodeURIComponent(activeCode)}&pass=${encodeURIComponent(activePass)}`;
-        qrSyncDisplay.innerHTML = core.generateQRCodeSVG(syncUrl, 200);
-        qrSyncWrapper.classList.remove('hidden');
-        if (btnCopySyncLink) {
-          if (btnCopySyncLink.style) btnCopySyncLink.style.display = 'inline-block';
-          btnCopySyncLink.onclick = () => {
-            if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-              navigator.clipboard.writeText(syncUrl);
-              if (core.showToast) core.showToast('📋 Device Sync URL copied to clipboard!', 'success');
-            }
-          };
+      const chkShareMode = document.getElementById('chk-firestore-share-mode');
+      const sharingPanel = document.getElementById('firestore-sharing-panel');
+      const backupBanner = document.getElementById('firestore-backup-status-banner');
+      const backupChannelBadge = document.getElementById('firestore-backup-channel-badge');
+
+      // Determine if Pair / Add Another Device sharing mode is ON (default: false = Just Backup)
+      const storedShareMode = localStorage.getItem('habitual_firestore_share_mode');
+      let isShareMode = false;
+      if (storedShareMode === 'true') {
+        isShareMode = true;
+      } else if (storedShareMode === 'false') {
+        isShareMode = false;
+      } else {
+        isShareMode = chkShareMode ? chkShareMode.checked : false;
+      }
+      if (chkShareMode) chkShareMode.checked = isShareMode;
+
+      if (backupChannelBadge) {
+        if (activeCode) {
+          backupChannelBadge.textContent = `Channel Identifier: ${activeCode} • Data is encrypted with your Master Passphrase before uploading.`;
+        } else {
+          backupChannelBadge.textContent = 'Your habits & check-ins are encrypted and backed up to your private cloud store.';
+        }
+      }
+
+      if (isShareMode) {
+        if (sharingPanel) sharingPanel.classList.remove('hidden');
+        if (backupBanner) backupBanner.classList.add('hidden');
+
+        if (activeCode && activePass && qrSyncWrapper && qrSyncDisplay && core.generateQRCodeSVG) {
+          const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
+          const syncUrl = `${baseUrl}#sync?code=${encodeURIComponent(activeCode)}&pass=${encodeURIComponent(activePass)}`;
+          qrSyncDisplay.innerHTML = core.generateQRCodeSVG(syncUrl, 200);
+          qrSyncWrapper.classList.remove('hidden');
+          if (btnCopySyncLink) {
+            if (btnCopySyncLink.style) btnCopySyncLink.style.display = 'inline-block';
+            btnCopySyncLink.onclick = () => {
+              if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                navigator.clipboard.writeText(syncUrl);
+                if (core.showToast) core.showToast('📋 Device Sync URL copied to clipboard!', 'success');
+              }
+            };
+          }
+        } else {
+          if (qrSyncWrapper) qrSyncWrapper.classList.add('hidden');
+          if (btnCopySyncLink && btnCopySyncLink.style) btnCopySyncLink.style.display = 'none';
         }
       } else {
+        if (sharingPanel) sharingPanel.classList.add('hidden');
+        if (backupBanner) backupBanner.classList.remove('hidden');
         if (qrSyncWrapper) qrSyncWrapper.classList.add('hidden');
         if (btnCopySyncLink && btnCopySyncLink.style) btnCopySyncLink.style.display = 'none';
       }
@@ -537,6 +572,15 @@ window.HabitualCore = window.HabitualCore || {};
 
     updatePassphraseStatusUI();
     updateSyncPagePassphraseAndQRUI();
+
+    const chkFirestoreShareMode = document.getElementById('chk-firestore-share-mode');
+    if (chkFirestoreShareMode && typeof chkFirestoreShareMode.addEventListener === 'function') {
+      chkFirestoreShareMode.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        localStorage.setItem('habitual_firestore_share_mode', isChecked ? 'true' : 'false');
+        updateSyncPagePassphraseAndQRUI();
+      });
+    }
 
     if (inputPassphrase && typeof inputPassphrase.addEventListener === 'function') {
       inputPassphrase.addEventListener('input', updateSyncPagePassphraseAndQRUI);
@@ -3351,6 +3395,7 @@ window.HabitualCore = window.HabitualCore || {};
         } else if (core.SyncManager.toggleTarget) {
           core.SyncManager.toggleTarget('firestore', true);
         }
+        localStorage.setItem('habitual_firestore_share_mode', 'true');
       }
 
       if (core.updateFirestoreCodeUIState) core.updateFirestoreCodeUIState();
