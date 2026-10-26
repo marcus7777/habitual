@@ -97,7 +97,7 @@
   core.generateQRCodeSVG = function(text, size) {
     size = size || 200;
     if (!text) {
-      return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#161b22" rx="8"/><text x="50" y="55" fill="#8b949e" font-size="10" text-anchor="middle">No Link Data</text></svg>`;
+      return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="background-color: #ffffff; border-radius: 8px; padding: 10px; border: 1px solid #d0d7de;"><rect width="100" height="100" fill="#ffffff" rx="8"/><text x="50" y="55" fill="#6e7681" font-size="10" text-anchor="middle">No Link Data</text></svg>`;
     }
 
     // Convert text to UTF-8 bytes
@@ -278,7 +278,7 @@
 
     // Build SVG path strings
     const rects = [];
-    const pad = 2; // Quiet zone padding
+    const pad = 4; // Standard ISO/IEC 18004 Quiet Zone (4 modules of clear space on all sides)
     const totalSize = moduleCount + pad * 2;
     const unit = (100 / totalSize).toFixed(3);
 
@@ -287,13 +287,13 @@
         if (grid[r][c] === 1) {
           const x = ((c + pad) * (100 / totalSize)).toFixed(2);
           const y = ((r + pad) * (100 / totalSize)).toFixed(2);
-          rects.push(`<rect x="${x}%" y="${y}%" width="${unit}%" height="${unit}%" fill="#f0f6fc"/>`);
+          rects.push(`<rect x="${x}%" y="${y}%" width="${unit}%" height="${unit}%" fill="#000000"/>`);
         }
       }
     }
 
-    return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="background-color: #0d1117; border-radius: 8px; padding: 4px; border: 1px solid #30363d;">
-      <rect width="100" height="100" fill="#0d1117" rx="8"/>
+    return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="background-color: #ffffff; border-radius: 8px; padding: 10px; border: 1px solid #d0d7de; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);">
+      <rect width="100" height="100" fill="#ffffff" rx="8"/>
       ${rects.join('')}
     </svg>`;
   };
