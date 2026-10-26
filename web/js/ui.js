@@ -1027,12 +1027,16 @@ window.HabitualCore = window.HabitualCore || {};
                    (document.querySelector && document.querySelector('.heatmap-card.selected-habit')) ||
                    (document.querySelector && document.querySelector('.day-square.cursor-day')?.closest('.heatmap-card'));
 
-      let habitId = card ? (card.getAttribute('data-habit-id-raw') || card.getAttribute('data-habit-id')) : null;
+      let habitId = null;
+      if (card && typeof card.getAttribute === 'function') {
+        habitId = card.getAttribute('data-habit-id-raw') || card.getAttribute('data-habit-id');
+      }
 
-      if (card) {
+      if (card && typeof card.querySelector === 'function') {
         const quickLogBtn = card.querySelector('.btn-card-quick-log');
         if (quickLogBtn) {
-          const btnHabitId = quickLogBtn.dataset.habitId || quickLogBtn.getAttribute('data-habit-id');
+          const btnHabitId = (quickLogBtn.dataset && quickLogBtn.dataset.habitId) ||
+                             (typeof quickLogBtn.getAttribute === 'function' ? quickLogBtn.getAttribute('data-habit-id') : null);
           if (btnHabitId) habitId = btnHabitId;
         }
       }
@@ -1042,14 +1046,17 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       if (!habitId) {
-        const firstCard = document.querySelector && document.querySelector('.heatmap-card');
+        const firstCard = (document.querySelector && typeof document.querySelector === 'function') ? document.querySelector('.heatmap-card') : null;
         if (firstCard) {
-          const quickLogBtn = firstCard.querySelector('.btn-card-quick-log');
-          if (quickLogBtn) {
-            const btnHabitId = quickLogBtn.dataset.habitId || quickLogBtn.getAttribute('data-habit-id');
-            if (btnHabitId) habitId = btnHabitId;
+          if (typeof firstCard.querySelector === 'function') {
+            const quickLogBtn = firstCard.querySelector('.btn-card-quick-log');
+            if (quickLogBtn) {
+              const btnHabitId = (quickLogBtn.dataset && quickLogBtn.dataset.habitId) ||
+                                 (typeof quickLogBtn.getAttribute === 'function' ? quickLogBtn.getAttribute('data-habit-id') : null);
+              if (btnHabitId) habitId = btnHabitId;
+            }
           }
-          if (!habitId) {
+          if (!habitId && typeof firstCard.getAttribute === 'function') {
             habitId = firstCard.getAttribute('data-habit-id-raw') || firstCard.getAttribute('data-habit-id');
           }
         }
@@ -1098,7 +1105,7 @@ window.HabitualCore = window.HabitualCore || {};
         const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : (core.getTodayKey ? core.getTodayKey() : '');
         const target = core.getActiveCardAndHabitId ? core.getActiveCardAndHabitId() : null;
         if (target && target.habitId && target.habitId !== 'all' && !target.habitId.startsWith('group_')) {
-          const btn = target.card ? target.card.querySelector('.btn-card-quick-log') : null;
+          const btn = (target.card && typeof target.card.querySelector === 'function') ? target.card.querySelector('.btn-card-quick-log') : null;
           if (core.toggleHabitForDate) core.toggleHabitForDate(target.habitId, targetDate, btn);
         } else {
           const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) ||
@@ -1107,9 +1114,9 @@ window.HabitualCore = window.HabitualCore || {};
                               (document.querySelector && document.querySelector('.heatmap-card.selected-habit')) ||
                               (document.querySelector && document.querySelector('.day-square.cursor-day')?.closest('.heatmap-card')) ||
                               (document.querySelector && document.querySelector('.heatmap-card'));
-          if (hoveredCard) {
+          if (hoveredCard && typeof hoveredCard.querySelector === 'function') {
             const quickLogBtn = hoveredCard.querySelector('.btn-card-quick-log');
-            if (quickLogBtn) quickLogBtn.click();
+            if (quickLogBtn && typeof quickLogBtn.click === 'function') quickLogBtn.click();
           }
         }
       } else if (key === 'Delete') {
@@ -1117,7 +1124,7 @@ window.HabitualCore = window.HabitualCore || {};
         const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : (core.getTodayKey ? core.getTodayKey() : '');
         const target = core.getActiveCardAndHabitId ? core.getActiveCardAndHabitId() : null;
         if (target && target.habitId && target.habitId !== 'all' && !target.habitId.startsWith('group_')) {
-          const btn = target.card ? target.card.querySelector('.btn-card-quick-log') : null;
+          const btn = (target.card && typeof target.card.querySelector === 'function') ? target.card.querySelector('.btn-card-quick-log') : null;
           if (core.setHabitCountForDate) core.setHabitCountForDate(target.habitId, targetDate, 0, btn, 'Cleared');
         }
       } else if (key === 'Backspace' || key === '-' || e.code === 'NumpadSubtract' || e.code === 'Minus') {
@@ -1129,7 +1136,7 @@ window.HabitualCore = window.HabitualCore || {};
           const currentLog = (habit && habit.logs) ? habit.logs[targetDate] : null;
           const currentCount = currentLog ? (currentLog.count || 0) : 0;
           const newCount = Math.max(0, currentCount - 1);
-          const btn = target.card ? target.card.querySelector('.btn-card-quick-log') : null;
+          const btn = (target.card && typeof target.card.querySelector === 'function') ? target.card.querySelector('.btn-card-quick-log') : null;
           if (core.setHabitCountForDate) core.setHabitCountForDate(target.habitId, targetDate, newCount, btn, '-1');
         }
       } else if (/^[0-9]$/.test(key)) {
@@ -1138,7 +1145,7 @@ window.HabitualCore = window.HabitualCore || {};
         const target = core.getActiveCardAndHabitId ? core.getActiveCardAndHabitId() : null;
         if (target && target.habitId && target.habitId !== 'all' && !target.habitId.startsWith('group_')) {
           const num = parseInt(key, 10);
-          const btn = target.card ? target.card.querySelector('.btn-card-quick-log') : null;
+          const btn = (target.card && typeof target.card.querySelector === 'function') ? target.card.querySelector('.btn-card-quick-log') : null;
           if (core.setHabitCountForDate) core.setHabitCountForDate(target.habitId, targetDate, num, btn, num === 0 ? '0' : `${num}`);
         }
       } else if (key === ' ' || key === 'Spacebar' || e.code === 'Space') {
