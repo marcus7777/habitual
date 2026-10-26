@@ -516,7 +516,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (activeCode && activePass && qrSyncWrapper && qrSyncDisplay && core.generateQRCodeSVG) {
         const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
         const syncUrl = `${baseUrl}#sync?code=${encodeURIComponent(activeCode)}&pass=${encodeURIComponent(activePass)}`;
-        qrSyncDisplay.innerHTML = core.generateQRCodeSVG(syncUrl, 180);
+        qrSyncDisplay.innerHTML = core.generateQRCodeSVG(syncUrl, 200);
         qrSyncWrapper.classList.remove('hidden');
         if (btnCopySyncLink) {
           if (btnCopySyncLink.style) btnCopySyncLink.style.display = 'inline-block';
@@ -3145,7 +3145,7 @@ window.HabitualCore = window.HabitualCore || {};
     const shareUrl = `${baseUrl}#share?col=${encodeURIComponent(docId)}&pwd=${encodeURIComponent(pwd)}`;
 
     if (qrDisplay && core.generateQRCodeSVG) {
-      qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, 180);
+      qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, 200);
     }
 
     return shareUrl;
