@@ -210,6 +210,45 @@
             assert(btn.classList.contains('goal-met'), 'Button immediately gains .goal-met class on toggle');
             document.body.removeChild(card);
           });
+
+          test('setHabitCountForDate sets exact count and preserves existing note', () => {
+            core.setState({ habits: [{ id: 'note_test', type: 'positive', logs: { '2026-10-02': { count: 1, note: 'Felt great!' } } }] });
+            core.setHabitCountForDate('note_test', '2026-10-02', 6);
+            const log = core.getState().habits[0].logs['2026-10-02'];
+            assertEqual(log.count, 6, 'Count updated to 6');
+            assertEqual(log.note, 'Felt great!', 'Note preserved when setting count to 6');
+          });
+
+          test('setHabitCountForDate with count 0 preserves existing note', () => {
+            core.setState({ habits: [{ id: 'zero_test', type: 'positive', logs: { '2026-10-02': { count: 3, note: 'Morning run' } } }] });
+            core.setHabitCountForDate('zero_test', '2026-10-02', 0);
+            const log = core.getState().habits[0].logs['2026-10-02'];
+            assert(log !== undefined, 'Log entry exists because note is present');
+            assertEqual(log.count, 0, 'Count cleared to 0');
+            assertEqual(log.note, 'Morning run', 'Note preserved when clearing count');
+          });
+
+          test('Keyboard controls (Delete, Backspace, Minus, Numbers) manipulate cell values and preserve notes', () => {
+            core.setState({ habits: [{ id: 'kb_test', type: 'positive', logs: { '2026-10-02': { count: 2, note: 'Gym note' } } }] });
+            core.setCursorDateKey('2026-10-02');
+            core.state.selectedHabitId = 'kb_test';
+
+            // Simulate '6' key
+            core.setHabitCountForDate('kb_test', '2026-10-02', 6);
+            assertEqual(core.getState().habits[0].logs['2026-10-02'].count, 6);
+            assertEqual(core.getState().habits[0].logs['2026-10-02'].note, 'Gym note');
+
+            // Simulate Backspace (-1)
+            let currentCount = core.getState().habits[0].logs['2026-10-02'].count;
+            core.setHabitCountForDate('kb_test', '2026-10-02', Math.max(0, currentCount - 1));
+            assertEqual(core.getState().habits[0].logs['2026-10-02'].count, 5);
+            assertEqual(core.getState().habits[0].logs['2026-10-02'].note, 'Gym note');
+
+            // Simulate Delete (0)
+            core.setHabitCountForDate('kb_test', '2026-10-02', 0);
+            assertEqual(core.getState().habits[0].logs['2026-10-02'].count, 0);
+            assertEqual(core.getState().habits[0].logs['2026-10-02'].note, 'Gym note');
+          });
         });
 
         describe('Feature 7: ⌛ Past History Backfilling', () => {
