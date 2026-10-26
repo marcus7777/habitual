@@ -3082,9 +3082,7 @@ window.HabitualCore = window.HabitualCore || {};
         const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
         const icon = h.type === 'negative' ? '🛑 ' : '';
         const pausedSuffix = h.isPaused ? ' (Paused)' : '';
-        const pageId = (typeof window !== 'undefined' && window.location) ? window.location.toString().split("/").slice(-1)[0] : '';
-        if (pageId == h.id) habitSelectHTML += `<option value="${h.id}" selected>${indent}${icon}${core.escapeHTML(h.name)}${pausedSuffix}</option>`;
-        else habitSelectHTML += `<option value="${h.id}">${indent}${icon}${core.escapeHTML(h.name)}${pausedSuffix}</option>`;
+        habitSelectHTML += `<option value="${h.id}">${indent}${icon}${core.escapeHTML(h.name)}${pausedSuffix}</option>`;
         appendLogOptions(h.id, depth + 1);
       });
     }
