@@ -1256,12 +1256,16 @@ window.HabitualCore = window.HabitualCore || {};
 
     function getCountForLog() {
       if (habitType === 'negative') return 1;
-      if (instancesVal === 'target') return Math.max(1, dailyTarget);
-      if (instancesVal === 'random_target') return Math.floor(Math.random() * Math.max(1, dailyTarget)) + 1;
-      if (instancesVal === 'random_multi') return Math.floor(Math.random() * Math.max(3, dailyTarget)) + 1;
-      if (instancesVal === 'random_high') return Math.floor(Math.random() * Math.max(5, dailyTarget)) + 1;
+      let reqTarget = Math.max(1, dailyTarget || 1);
+      if (frequencyType === 'weekly') reqTarget = Math.max(1, weeklyTarget || 1);
+      else if (frequencyType === 'monthly') reqTarget = Math.max(1, monthlyTarget || 1);
+
+      if (instancesVal === 'target' || !instancesVal) return reqTarget;
+      if (instancesVal === 'random_target') return Math.floor(Math.random() * reqTarget) + 1;
+      if (instancesVal === 'random_multi') return Math.floor(Math.random() * Math.max(3, reqTarget)) + 1;
+      if (instancesVal === 'random_high') return Math.floor(Math.random() * Math.max(5, reqTarget)) + 1;
       const parsed = parseInt(instancesVal, 10);
-      return (!isNaN(parsed) && parsed > 0) ? parsed : 1;
+      return (!isNaN(parsed) && parsed > 0) ? parsed : reqTarget;
     }
 
     function shouldCreateLog() {
@@ -1302,6 +1306,31 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
     return { logs, startDateKey: core.formatDateKey(startDate) };
+  };
+
+  core.clearLogsBeforeDateForHabit = function(habitId, beforeDateStr) {
+    const habit = core.state.habits.find(h => h.id === habitId);
+    if (!habit || !habit.logs || !beforeDateStr) return 0;
+    let clearedCount = 0;
+
+    Object.keys(habit.logs).forEach(dateKey => {
+      if (dateKey < beforeDateStr) {
+        delete habit.logs[dateKey];
+        clearedCount++;
+        if (core.saveLog) {
+          core.saveLog(habitId, dateKey, 0, '');
+        }
+      }
+    });
+
+    if (clearedCount > 0) {
+      if (core.saveState) core.saveState();
+      if (core.renderAll) core.renderAll();
+      if (core.showToast) core.showToast(`🧹 Cleared ${clearedCount} event(s) before ${beforeDateStr} for "${habit.name}".`, 'info');
+    } else {
+      if (core.showToast) core.showToast(`No events found before ${beforeDateStr} for "${habit.name}".`, 'info');
+    }
+    return clearedCount;
   };
 
   core.escapeHTML = function(str) {

@@ -2580,10 +2580,16 @@ window.HabitualCore = window.HabitualCore || {};
     const actionsSec = document.getElementById('habit-actions-section');
     const btnModalDownloadSvg = document.getElementById('btn-modal-download-svg');
     const btnModalDeleteHabit = document.getElementById('btn-modal-delete-habit');
+    const btnModalClearBeforeDate = document.getElementById('btn-modal-clear-before-date');
 
     if (actionsSec) {
       if (habitToEdit && habitToEdit.id) {
         actionsSec.classList.remove('hidden');
+        if (btnModalClearBeforeDate) {
+          btnModalClearBeforeDate.onclick = () => {
+            core.openClearBeforeDateModal(habitToEdit.id);
+          };
+        }
         if (btnModalDownloadSvg) {
           btnModalDownloadSvg.onclick = () => {
             if (core.downloadHeatmapSVG) {
@@ -4019,6 +4025,66 @@ window.HabitualCore = window.HabitualCore || {};
     core.toggleModalScrollLock(false);
     if (core.showToast) core.showToast(`🎉 Verified ${list.length} pre-logged habits!`, 'success');
   };
+
+  core.activeClearBeforeHabitId = null;
+
+  core.openClearBeforeDateModal = function(habitId) {
+    core.activeClearBeforeHabitId = habitId;
+    const modalEl = document.getElementById('modal-clear-before-date');
+    const inputDate = document.getElementById('input-clear-before-date');
+    if (inputDate) {
+      inputDate.value = core.getDaysAgoKey ? core.getDaysAgoKey(30) : '';
+    }
+    if (modalEl) {
+      core.toggleModalScrollLock(true);
+      modalEl.classList.remove('hidden');
+    }
+  };
+
+  core.closeClearBeforeDateModal = function() {
+    const modalEl = document.getElementById('modal-clear-before-date');
+    if (modalEl) {
+      modalEl.classList.add('hidden');
+      core.toggleModalScrollLock(false);
+    }
+  };
+
+  // Wire event listeners for Clear Before Date modal
+  if (typeof document !== 'undefined' && typeof document.getElementById === 'function') {
+    const btnClose = document.getElementById('modal-clear-before-date-close');
+    const btnCancel = document.getElementById('btn-cancel-clear-before-date');
+    const btnConfirm = document.getElementById('btn-confirm-clear-before-date');
+
+    if (btnClose) btnClose.addEventListener('click', core.closeClearBeforeDateModal);
+    if (btnCancel) btnCancel.addEventListener('click', core.closeClearBeforeDateModal);
+
+    if (btnConfirm) {
+      btnConfirm.addEventListener('click', () => {
+        const inputDate = document.getElementById('input-clear-before-date');
+        const beforeDate = inputDate ? inputDate.value : '';
+        if (!beforeDate) {
+          if (core.showToast) core.showToast('Please select a valid date.', 'error');
+          return;
+        }
+        if (core.activeClearBeforeHabitId && core.clearLogsBeforeDateForHabit) {
+          core.clearLogsBeforeDateForHabit(core.activeClearBeforeHabitId, beforeDate);
+        }
+        core.closeClearBeforeDateModal();
+      });
+    }
+
+    if (document.querySelectorAll) {
+      document.querySelectorAll('.quick-clear-date-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const daysAgo = parseInt(btn.dataset.daysAgo, 10) || 30;
+          const inputDate = document.getElementById('input-clear-before-date');
+          if (inputDate && core.getDaysAgoKey) {
+            inputDate.value = core.getDaysAgoKey(daysAgo);
+          }
+        });
+      });
+    }
+  }
 
   core.clearFutureLogsForHabit = function(habitId) {
     const habit = core.state.habits.find(h => h.id === habitId);
