@@ -258,7 +258,7 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       const targetHabit = chain[chain.length - 1];
-      let breadcrumbHTML = `<a href="#/" class="breadcrumb-item">🏠 All Habits</a>`;
+      let breadcrumbHTML = `<a href="#/" class="breadcrumb-item">All</a>`;
       chain.forEach((h, idx) => {
         const isLast = idx === chain.length - 1;
         breadcrumbHTML += ` <span class="breadcrumb-sep">/</span> `;
