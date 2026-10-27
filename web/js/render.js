@@ -841,9 +841,9 @@ window.HabitualCore = window.HabitualCore || {};
 
     let countLabel = '';
     const shouldShowCount = habit ? habit.showCount !== false : true;
-    if (stats.isMonthly) countLabel = `${stats.totalCount} of 12 months met in ${year}`;
-    else if (stats.isWeekly) countLabel = `${stats.totalCount} of 52 weeks met in ${year}`;
-    else countLabel = isNegative ? `${stats.totalCount} clean days in ${year}` : `${stats.totalCount} in ${year}`;
+    if (stats.isMonthly) countLabel = `${stats.totalCount} of 12 months met`;
+    else if (stats.isWeekly) countLabel = `${stats.totalCount} of 52 weeks met`;
+    else countLabel = isNegative ? `${stats.totalCount} clean days` : `${stats.totalCount}`;
 
     let durationLabel = '';
     const shouldShowDuration = habit ? habit.showDuration === true : false;
