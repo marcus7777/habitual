@@ -606,6 +606,26 @@ describe('Feature 7: ⌛ Past History Backfilling', () => {
     assert(habit.logs['2026-02-01'] !== undefined, '2026-02-01 retained');
     assert(habit.logs['2026-03-01'] !== undefined, '2026-03-01 retained');
   });
+
+  test('clearLogsBeforeDateForHabit with Today date clears all past logs prior to today', () => {
+    const todayStr = HabitualCore.getTodayKey();
+    const habit = {
+      id: 'test_clear_today_h',
+      name: 'Test Clear Today',
+      logs: {
+        '2020-05-10': { count: 1 },
+        '2025-12-31': { count: 2 },
+        [todayStr]: { count: 4 }
+      }
+    };
+    HabitualCore.state.habits.push(habit);
+
+    const cleared = HabitualCore.clearLogsBeforeDateForHabit('test_clear_today_h', todayStr);
+    assertEqual(cleared, 2, 'Cleared 2 past logs before today');
+    assertEqual(habit.logs['2020-05-10'], undefined, '2020-05-10 cleared');
+    assertEqual(habit.logs['2025-12-31'], undefined, '2025-12-31 cleared');
+    assert(habit.logs[todayStr] !== undefined, 'Today log retained');
+  });
 });
 
 // ============================================================================
