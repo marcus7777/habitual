@@ -147,9 +147,9 @@ window.HabitualCore = window.HabitualCore || {};
       if (countBadge) {
         const stats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(target, core.state.selectedYear) : null;
         if (stats) {
-          if (stats.isMonthly) countBadge.textContent = `${stats.totalCount} of 12 months met in ${core.state.selectedYear}`;
-          else if (stats.isWeekly) countBadge.textContent = `${stats.totalCount} of 52 weeks met in ${core.state.selectedYear}`;
-          else countBadge.textContent = (habit && habit.type === 'negative') ? `${stats.totalCount} clean days in ${core.state.selectedYear}` : `${stats.totalCount} in ${core.state.selectedYear}`;
+          if (stats.isMonthly) countBadge.textContent = `${stats.totalCount} of 12 months met`;
+          else if (stats.isWeekly) countBadge.textContent = `${stats.totalCount} of 52 weeks met`;
+          else countBadge.textContent = (habit && habit.type === 'negative') ? `${stats.totalCount} clean days` : `${stats.totalCount}`;
         }
       }
 
