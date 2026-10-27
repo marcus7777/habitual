@@ -575,6 +575,37 @@ describe('Feature 7: ⌛ Past History Backfilling', () => {
     assertEqual(result.startDateKey, '2026-09-01', 'startDateKey matches selected start date');
     assert(result.logs['2026-09-01'] !== undefined, 'Log entry created on exact start date 2026-09-01');
   });
+
+  test('generateBackfillLogs matches habit target count when instancesVal is target or dailyTarget > 1', () => {
+    const duration = 10;
+    const result = HabitualCore.generateBackfillLogs(
+      duration, 'daily', 'target', 5, 'positive', 'daily', [1], '1', 1, 1
+    );
+    const keys = Object.keys(result.logs);
+    assert(keys.length > 0, 'Generated logs');
+    assertEqual(result.logs[keys[0]].count, 5, 'Backfilled count matches dailyTarget = 5');
+  });
+
+  test('clearLogsBeforeDateForHabit removes logs prior to date and retains logs on or after date', () => {
+    const habit = {
+      id: 'test_clear_before_h',
+      name: 'Test Clear Before',
+      logs: {
+        '2026-01-01': { count: 1 },
+        '2026-01-15': { count: 2 },
+        '2026-02-01': { count: 1 },
+        '2026-03-01': { count: 3 }
+      }
+    };
+    HabitualCore.state.habits.push(habit);
+
+    const cleared = HabitualCore.clearLogsBeforeDateForHabit('test_clear_before_h', '2026-02-01');
+    assertEqual(cleared, 2, 'Cleared 2 logs strictly before 2026-02-01');
+    assertEqual(habit.logs['2026-01-01'], undefined, '2026-01-01 cleared');
+    assertEqual(habit.logs['2026-01-15'], undefined, '2026-01-15 cleared');
+    assert(habit.logs['2026-02-01'] !== undefined, '2026-02-01 retained');
+    assert(habit.logs['2026-03-01'] !== undefined, '2026-03-01 retained');
+  });
 });
 
 // ============================================================================
