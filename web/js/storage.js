@@ -1689,7 +1689,8 @@ window.HabitualCore = window.HabitualCore || {};
                   'name', 'type', 'description', 'category', 'dailyTarget', 'frequencyType',
                   'weeklyTarget', 'monthlyDay', 'monthlyTarget', 'customTarget', 'customInterval', 'customUnit',
                   'colorWholeWeek', 'colorWholeMonth', 'showStreak', 'showCount', 'showDuration',
-                  'hideFromAll', 'isPaused', 'hideHeatmapWhenPaused', 'hideHeatmap'
+                  'hideFromAll', 'isPaused', 'hideHeatmapWhenPaused', 'hideHeatmap',
+                  'subhabitDisplayMode', 'subhabitSortOrder'
                 ];
 
                 metaFields.forEach(field => {

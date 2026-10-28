@@ -626,6 +626,39 @@ describe('Feature 7: ⌛ Past History Backfilling', () => {
     assertEqual(habit.logs['2025-12-31'], undefined, '2025-12-31 cleared');
     assert(habit.logs[todayStr] !== undefined, 'Today log retained');
   });
+
+  test('cascadeSubhabitPreferences recursively propagates subhabitDisplayMode and subhabitSortOrder to descendants', () => {
+    const parent = { id: 'parent_c', name: 'Parent', subhabitDisplayMode: 'minimal', subhabitSortOrder: 'incomplete_first' };
+    const child = { id: 'child_c', name: 'Child', parentId: 'parent_c' };
+    const grandchild = { id: 'grandchild_c', name: 'Grandchild', parentId: 'child_c' };
+    HabitualCore.state.habits.push(parent, child, grandchild);
+
+    HabitualCore.cascadeSubhabitPreferences(parent);
+
+    assertEqual(child.subhabitDisplayMode, 'minimal', 'Child inherited minimal display mode');
+    assertEqual(child.subhabitSortOrder, 'incomplete_first', 'Child inherited incomplete_first sort order');
+    assertEqual(grandchild.subhabitDisplayMode, 'minimal', 'Grandchild inherited minimal display mode');
+    assertEqual(grandchild.subhabitSortOrder, 'incomplete_first', 'Grandchild inherited incomplete_first sort order');
+  });
+
+  test('getSortedSubhabits sorts sub-habits by alphabetical and incomplete_first strategies', () => {
+    const todayStr = HabitualCore.getTodayKey();
+    const parent = { id: 'p_sort', subhabitSortOrder: 'alphabetical' };
+    const subA = { id: 'sub_a', name: 'Zebra Workout', logs: {} };
+    const subB = { id: 'sub_b', name: 'Apple Eating', logs: {} };
+
+    const sortedAlpha = HabitualCore.getSortedSubhabits(parent, [subA, subB]);
+    assertEqual(sortedAlpha[0].id, 'sub_b', 'Apple Eating comes first alphabetically');
+    assertEqual(sortedAlpha[1].id, 'sub_a', 'Zebra Workout comes second');
+
+    parent.subhabitSortOrder = 'incomplete_first';
+    subB.logs[todayStr] = { count: 1 }; // B is completed today
+    subA.logs[todayStr] = { count: 0 }; // A is uncompleted
+
+    const sortedIncomplete = HabitualCore.getSortedSubhabits(parent, [subA, subB]);
+    assertEqual(sortedIncomplete[0].id, 'sub_a', 'Uncompleted subA comes first');
+    assertEqual(sortedIncomplete[1].id, 'sub_b', 'Completed subB comes second');
+  });
 });
 
 // ============================================================================

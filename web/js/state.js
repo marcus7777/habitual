@@ -547,6 +547,98 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  // --- SUB-HABIT SORTING & CASCADING PREFERENCES HELPERS ---
+  core.cascadeSubhabitPreferences = function(parentHabit) {
+    if (!parentHabit || !core.state || !Array.isArray(core.state.habits)) return;
+    const mode = parentHabit.subhabitDisplayMode || 'cards';
+    const sort = parentHabit.subhabitSortOrder || 'manual';
+
+    function propagate(parentId) {
+      const children = core.state.habits.filter(h => h.parentId === parentId);
+      children.forEach(child => {
+        child.subhabitDisplayMode = mode;
+        child.subhabitSortOrder = sort;
+        child.updatedAt = Date.now();
+        propagate(child.id);
+      });
+    }
+
+    propagate(parentHabit.id);
+  };
+
+  core.getSortedSubhabits = function(parentHabit, subhabitsList, year) {
+    if (!Array.isArray(subhabitsList) || subhabitsList.length <= 1) {
+      return Array.isArray(subhabitsList) ? [...subhabitsList] : [];
+    }
+
+    const sortOrder = (parentHabit && parentHabit.subhabitSortOrder) ? parentHabit.subhabitSortOrder : 'manual';
+    if (sortOrder === 'manual') {
+      return [...subhabitsList];
+    }
+
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+    const targetYear = year || core.CURRENT_YEAR;
+
+    const items = [...subhabitsList];
+
+    items.sort((a, b) => {
+      if (sortOrder === 'alphabetical') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+
+      if (sortOrder === 'incomplete_first') {
+        const aCell = core.getCellData ? core.getCellData(todayStr, a, todayStr) : null;
+        const bCell = core.getCellData ? core.getCellData(todayStr, b, todayStr) : null;
+        const aDone = aCell ? (aCell.isCompleted || (aCell.ratio && aCell.ratio >= 1.0)) : false;
+        const bDone = bCell ? (bCell.isCompleted || (bCell.ratio && bCell.ratio >= 1.0)) : false;
+        if (aDone !== bDone) {
+          return aDone ? 1 : -1; // uncompleted first
+        }
+        return (a.name || '').localeCompare(b.name || '');
+      }
+
+      if (sortOrder === 'streak_high') {
+        const aStreak = core.calculateStreakForTarget ? core.calculateStreakForTarget(a).current : 0;
+        const bStreak = core.calculateStreakForTarget ? core.calculateStreakForTarget(b).current : 0;
+        if (aStreak !== bStreak) {
+          return bStreak - aStreak; // highest streak first
+        }
+        return (a.name || '').localeCompare(b.name || '');
+      }
+
+      if (sortOrder === 'lowest_completion') {
+        const aStats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(a, targetYear) : { totalCount: 0 };
+        const bStats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(b, targetYear) : { totalCount: 0 };
+        const aCount = aStats ? aStats.totalCount : 0;
+        const bCount = bStats ? bStats.totalCount : 0;
+        if (aCount !== bCount) {
+          return aCount - bCount; // lowest completed first
+        }
+        return (a.name || '').localeCompare(b.name || '');
+      }
+
+      if (sortOrder === 'recently_completed') {
+        function getLastLoggedDate(habit) {
+          if (!habit.logs) return '';
+          const loggedKeys = Object.keys(habit.logs).filter(k => habit.logs[k] && habit.logs[k].count > 0);
+          if (loggedKeys.length === 0) return '';
+          loggedKeys.sort();
+          return loggedKeys[loggedKeys.length - 1];
+        }
+        const aLast = getLastLoggedDate(a);
+        const bLast = getLastLoggedDate(b);
+        if (aLast !== bLast) {
+          return bLast.localeCompare(aLast); // most recent first
+        }
+        return (a.name || '').localeCompare(b.name || '');
+      }
+
+      return 0;
+    });
+
+    return items;
+  };
+
   core.selectNextHabit = function() {
     core.navigateSelectedHabit(1);
   };

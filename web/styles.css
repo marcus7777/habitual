@@ -2153,19 +2153,120 @@ select.form-control-sm {
   overflow: visible !important;
 }
 
-.subhabits-concertina {
-  margin-left: 24px;
-  padding-left: 14px;
-  border-left: 2px dashed rgba(88, 166, 255, 0.4);
+/* Concertina Toolbar & Minimal Sub-Habit Row Styling */
+.concertina-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.concertina-toolbar-left,
+.concertina-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.btn-xs {
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  border-radius: 4px;
+}
+
+.btn-toggle-subhabit-mode.active {
+  background-color: var(--accent-blue);
+  color: #ffffff;
+  border-color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.select-xs {
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  height: 26px;
+  border-radius: 4px;
+}
+
+.subhabits-list-container {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-height: 0;
-  opacity: 0;
+  gap: 10px;
+}
+
+.subhabits-list-container.minimal-mode {
+  gap: 6px;
+}
+
+.subhabit-minimal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--accent-green);
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.subhabit-minimal-row:hover {
+  border-color: var(--border-color);
+  background-color: var(--bg-card-hover);
+}
+
+.subhabit-minimal-row.goal-met {
+  border-left-color: var(--accent-green);
+}
+
+.minimal-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.minimal-row-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  text-decoration: none;
+  white-space: nowrap;
   overflow: hidden;
-  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin-top 0.25s ease;
-  margin-top: 0;
-  pointer-events: none;
+  text-overflow: ellipsis;
+}
+
+.minimal-row-title:hover {
+  color: var(--accent-blue);
+  text-decoration: underline;
+}
+
+.minimal-row-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.minimal-row-count {
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  background: var(--bg-pill);
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .subhabits-concertina.expanded,
