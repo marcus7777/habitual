@@ -480,30 +480,6 @@ window.HabitualCore = window.HabitualCore || {};
     concertina.setAttribute('data-parent-id', habit.id);
 
     const displayMode = habit.subhabitDisplayMode || 'cards';
-    const currentSort = habit.subhabitSortOrder || 'manual';
-
-    // Concertina Toolbar for display mode & sorting toggles
-    const toolbar = document.createElement('div');
-    toolbar.className = 'concertina-toolbar';
-    toolbar.innerHTML = `
-      <div class="concertina-toolbar-left">
-        <label class="toolbar-label">Sub-habits Layout:</label>
-        <button type="button" class="btn btn-secondary btn-xs btn-toggle-subhabit-mode ${displayMode === 'cards' ? 'active' : ''}" data-parent-id="${habit.id}" data-mode="cards" title="Full Heatmap Cards">🎴 Cards</button>
-        <button type="button" class="btn btn-secondary btn-xs btn-toggle-subhabit-mode ${displayMode === 'minimal' ? 'active' : ''}" data-parent-id="${habit.id}" data-mode="minimal" title="Minimal Checklist Rows">📑 Minimal</button>
-      </div>
-      <div class="concertina-toolbar-right">
-        <label class="toolbar-label" for="sort-${habit.id}">Order:</label>
-        <select class="select-input select-xs select-subhabit-sort" id="sort-${habit.id}" data-parent-id="${habit.id}">
-          <option value="manual" ${currentSort === 'manual' ? 'selected' : ''}>Look Order (Default)</option>
-          <option value="incomplete_first" ${currentSort === 'incomplete_first' ? 'selected' : ''}>Uncompleted First (Today)</option>
-          <option value="recently_completed" ${currentSort === 'recently_completed' ? 'selected' : ''}>Recently Logged</option>
-          <option value="alphabetical" ${currentSort === 'alphabetical' ? 'selected' : ''}>Alphabetical A-Z</option>
-          <option value="streak_high" ${currentSort === 'streak_high' ? 'selected' : ''}>Highest Streak First</option>
-          <option value="lowest_completion" ${currentSort === 'lowest_completion' ? 'selected' : ''}>Needs Attention (Lowest %)</option>
-        </select>
-      </div>
-    `;
-    concertina.appendChild(toolbar);
 
     const listContainer = document.createElement('div');
     listContainer.className = `subhabits-list-container ${displayMode === 'minimal' ? 'minimal-mode' : 'cards-mode'}`;
