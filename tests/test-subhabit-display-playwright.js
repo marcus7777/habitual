@@ -96,8 +96,13 @@ async function runVisualTests() {
     await page.screenshot({ path: cardsScreenshotPath, fullPage: true });
     console.log(`  📸 [CAPTURE] Saved full cards view screenshot to ${cardsScreenshotPath}`);
 
-    // Toggle to Minimal View
-    await page.click('.btn-toggle-subhabit-mode[data-mode="minimal"]');
+    // Toggle to Minimal View via state
+    await page.evaluate(() => {
+      const parent = HabitualCore.state.habits.find(h => h.id === 'parent_workout');
+      parent.subhabitDisplayMode = 'minimal';
+      HabitualCore.cascadeSubhabitPreferences(parent);
+      HabitualCore.renderAll();
+    });
     await page.waitForTimeout(300);
 
     // Capture Screenshot 2: Minimal View
@@ -109,8 +114,13 @@ async function runVisualTests() {
     const minimalRowsCount = await page.locator('.subhabit-minimal-row').count();
     console.log(`  ✅ [PASS] Found ${minimalRowsCount} minimal sub-habit checklist rows`);
 
-    // Toggle Sorting to Uncompleted First
-    await page.selectOption('.select-subhabit-sort', 'incomplete_first');
+    // Toggle Sorting to Uncompleted First via state
+    await page.evaluate(() => {
+      const parent = HabitualCore.state.habits.find(h => h.id === 'parent_workout');
+      parent.subhabitSortOrder = 'incomplete_first';
+      HabitualCore.cascadeSubhabitPreferences(parent);
+      HabitualCore.renderAll();
+    });
     await page.waitForTimeout(300);
 
     // Capture Screenshot 3: Uncompleted First Sorting
@@ -118,14 +128,52 @@ async function runVisualTests() {
     await page.screenshot({ path: sortIncompletePath, fullPage: true });
     console.log(`  📸 [CAPTURE] Saved uncompleted first sort screenshot to ${sortIncompletePath}`);
 
-    // Toggle Sorting to Alphabetical A-Z
-    await page.selectOption('.select-subhabit-sort', 'alphabetical');
+    // Toggle Sorting to Alphabetical A-Z via state
+    await page.evaluate(() => {
+      const parent = HabitualCore.state.habits.find(h => h.id === 'parent_workout');
+      parent.subhabitSortOrder = 'alphabetical';
+      HabitualCore.cascadeSubhabitPreferences(parent);
+      HabitualCore.renderAll();
+    });
     await page.waitForTimeout(300);
 
     // Capture Screenshot 4: Alphabetical Sorting
     const sortAlphaPath = path.join(screenshotsDir, 'subhabit_sort_alphabetical.png');
     await page.screenshot({ path: sortAlphaPath, fullPage: true });
     console.log(`  📸 [CAPTURE] Saved alphabetical sort screenshot to ${sortAlphaPath}`);
+
+    // TEST 5: Verify Edit Modal Sub-Habit Display Section Visibility Logic
+    console.log('⚡ TEST 5: Verifying Edit Modal Sub-Habits Display Section Visibility...');
+
+    // Open Modal for Habit WITHOUT sub-habits (sub1) -> Section should be HIDDEN
+    await page.evaluate(() => {
+      HabitualCore.openHabitModal(HabitualCore.state.habits.find(h => h.id === 'parent_workout_sub1'));
+    });
+    await page.waitForTimeout(200);
+    const isHiddenForLeaf = await page.evaluate(() => {
+      const sec = document.getElementById('parent-subhabit-display-section');
+      return sec && sec.classList.contains('hidden');
+    });
+    if (!isHiddenForLeaf) throw new Error('Sub-habit display section should be HIDDEN for habits without sub-habits');
+    console.log('  ✅ [PASS] Sub-habit display options section is HIDDEN when editing habit without sub-habits');
+
+    // Close Modal
+    await page.evaluate(() => {
+      const modal = document.getElementById('modal-habit');
+      if (modal) modal.classList.add('hidden');
+    });
+
+    // Open Modal for Parent Habit WITH sub-habits -> Section should be VISIBLE
+    await page.evaluate(() => {
+      HabitualCore.openHabitModal(HabitualCore.state.habits.find(h => h.id === 'parent_workout'));
+    });
+    await page.waitForTimeout(200);
+    const isVisibleForParent = await page.evaluate(() => {
+      const sec = document.getElementById('parent-subhabit-display-section');
+      return sec && !sec.classList.contains('hidden');
+    });
+    if (!isVisibleForParent) throw new Error('Sub-habit display section should be VISIBLE for parent habit with sub-habits');
+    console.log('  ✅ [PASS] Sub-habit display options section is VISIBLE when editing parent habit with sub-habits');
 
     console.log('\n========================================');
     console.log('🎉 PLAYWRIGHT VISUAL SUB-HABIT TESTS PASSED!');
