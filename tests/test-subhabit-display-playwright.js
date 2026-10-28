@@ -110,9 +110,20 @@ async function runVisualTests() {
     await page.screenshot({ path: minimalScreenshotPath, fullPage: true });
     console.log(`  📸 [CAPTURE] Saved minimal checklist view screenshot to ${minimalScreenshotPath}`);
 
-    // Verify Minimal DOM Elements
+    // Verify Minimal DOM Elements and Concertina Ancestry
     const minimalRowsCount = await page.locator('.subhabit-minimal-row').count();
     console.log(`  ✅ [PASS] Found ${minimalRowsCount} minimal sub-habit checklist rows`);
+
+    const isInsideConcertina = await page.evaluate(() => {
+      const rows = document.querySelectorAll('.subhabit-minimal-row');
+      if (rows.length === 0) return false;
+      return Array.from(rows).every(row => {
+        const concertina = row.closest('.subhabits-concertina');
+        return concertina !== null && concertina.dataset.parentId === 'parent_workout';
+      });
+    });
+    if (!isInsideConcertina) throw new Error('Minimal sub-habit rows must be rendered inside .subhabits-concertina');
+    console.log('  ✅ [PASS] Confirmed all sub-habit rows are DOM children inside .subhabits-concertina drawer');
 
     // Toggle Sorting to Uncompleted First via state
     await page.evaluate(() => {

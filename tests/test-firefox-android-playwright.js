@@ -108,6 +108,52 @@ async function runFirefoxMobileTestSuite() {
     const galleryText = await page.locator('#heatmaps-gallery').innerText();
     logResult('Habit Created and Rendered on Firefox Mobile', galleryText.includes(testHabitName), `(Habit: "${testHabitName}")`);
 
+    // TEST 3: Concertina & Minimal Sub-Habit Display in Firefox
+    console.log('\n📋 Running Test 3: Firefox Sub-Habits Concertina & Minimal View');
+    await page.evaluate(() => {
+      window.location.hash = '#/';
+      const todayStr = HabitualCore.getTodayKey();
+      HabitualCore.state.expandedHabitIds = new Set();
+      HabitualCore.state.habits = [
+        {
+          id: 'ff_parent',
+          name: '🦊 Firefox Parent Goal',
+          type: 'positive',
+          subhabitDisplayMode: 'minimal',
+          subhabitSortOrder: 'manual',
+          dailyTarget: 1,
+          logs: { [todayStr]: { count: 1 } }
+        },
+        {
+          id: 'ff_sub1',
+          name: '🦊 Firefox Sub Goal 1',
+          parentId: 'ff_parent',
+          type: 'positive',
+          dailyTarget: 1,
+          logs: { [todayStr]: { count: 0 } }
+        }
+      ];
+      HabitualCore.state.expandedHabitIds.add('ff_parent');
+      HabitualCore.renderAll();
+    });
+    await page.waitForTimeout(300);
+
+    const concertinaVisible = await page.evaluate(() => {
+      const c = document.querySelector('.subhabits-concertina[data-parent-id="ff_parent"]');
+      if (!c) return false;
+      const style = window.getComputedStyle(c);
+      return style.opacity !== '0' && style.display !== 'none' && parseFloat(style.maxHeight) > 0;
+    });
+    logResult('Firefox Concertina Expanded & Visible', concertinaVisible);
+
+    const minimalRowVisible = await page.evaluate(() => {
+      const row = document.querySelector('.subhabit-minimal-row[data-habit-id="ff_sub1"]');
+      if (!row) return false;
+      const rect = row.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    logResult('Firefox Minimal Sub-Habit Row Rendered & Visible', minimalRowVisible);
+
     // TEST 3: Scroll Lock & Unlocking Verification (#13) on Firefox
     console.log('\n📋 Running Test 3: Firefox Scroll Lock & Unlocking Verification (#13)');
 
