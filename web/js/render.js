@@ -3,6 +3,21 @@ window.HabitualCore = window.HabitualCore || {};
 (function(core) {
   'use strict';
 
+  // Helper functions for formatting card badge labels DRYly
+  core.formatCountLabel = function(stats, isNegative = false) {
+    if (!stats) return '';
+    if (stats.isMonthly) return `${stats.totalCount} of 12 months met`;
+    if (stats.isWeekly) return `${stats.totalCount} of 52 weeks met`;
+    return isNegative ? `${stats.totalCount} clean days` : `${stats.totalCount}`;
+  };
+
+  core.formatStreakLabel = function(streakData) {
+    if (!streakData || streakData.current <= 0) return '';
+    if (streakData.isMonthly) return `🔥 ${streakData.current} mo${streakData.current === 1 ? '' : 's'}`;
+    if (streakData.isWeekly) return `🔥 ${streakData.current} wk${streakData.current === 1 ? '' : 's'}`;
+    return `🔥 ${streakData.current} d`;
+  };
+
   core.renderAll = function() {
     if (!core.elements || !core.elements.yearSelector || !core.elements.heatmapsGallery) return;
     core.renderYearSelector();
@@ -147,9 +162,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (countBadge) {
         const stats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(target, core.state.selectedYear) : null;
         if (stats) {
-          if (stats.isMonthly) countBadge.textContent = `${stats.totalCount} of 12 months met`;
-          else if (stats.isWeekly) countBadge.textContent = `${stats.totalCount} of 52 weeks met`;
-          else countBadge.textContent = (habit && habit.type === 'negative') ? `${stats.totalCount} clean days` : `${stats.totalCount}`;
+          countBadge.textContent = core.formatCountLabel(stats, habit && habit.type === 'negative');
         }
       }
 
@@ -157,10 +170,9 @@ window.HabitualCore = window.HabitualCore || {};
       const streakBadge = card.querySelector('.badge-streak');
       if (streakBadge) {
         const streakData = core.calculateStreakForTarget ? core.calculateStreakForTarget(target) : null;
-        if (streakData && streakData.current > 0) {
-          if (streakData.isMonthly) streakBadge.textContent = `🔥 ${streakData.current} mo${streakData.current === 1 ? '' : 's'}`;
-          else if (streakData.isWeekly) streakBadge.textContent = `🔥 ${streakData.current} wk${streakData.current === 1 ? '' : 's'}`;
-          else streakBadge.textContent = `🔥 ${streakData.current} d`;
+        const label = core.formatStreakLabel(streakData);
+        if (label) {
+          streakBadge.textContent = label;
           streakBadge.style.display = 'inline-flex';
         } else {
           streakBadge.style.display = 'none';
@@ -398,9 +410,41 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  core.buildMinimalSubhabitRow = function(habit, year) {
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+    const cellData = core.getCellData ? core.getCellData(todayStr, habit, todayStr) : null;
+    const count = cellData ? (cellData.count || 0) : 0;
+    const reqTarget = habit.dailyTarget || habit.weeklyTarget || 1;
+    const isGoalMet = count >= reqTarget;
+    const streakData = core.calculateStreakForTarget ? core.calculateStreakForTarget(habit) : null;
+    const streakLabel = core.formatStreakLabel ? core.formatStreakLabel(streakData) : '';
+
+    const row = document.createElement('div');
+    row.className = `subhabit-minimal-row theme-${habit.colorTheme || 'green'} ${isGoalMet ? 'goal-met' : ''}`;
+    row.setAttribute('data-habit-id', habit.id);
+
+    const colorStyle = `background-color: ${core.getHabitHexColor ? core.getHabitHexColor(habit) : '#39d353'};`;
+
+    row.innerHTML = `
+      <div class="minimal-row-left">
+        <span class="color-tab-pill" style="${colorStyle}"></span>
+        <a href="#/habit/${habit.id}" class="minimal-row-title">${core.escapeHTML(habit.name)}</a>
+        ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
+      </div>
+      <div class="minimal-row-right">
+        <span class="minimal-row-count">${count}/${reqTarget}</span>
+        <button type="button" class="btn-card-quick-log ${isGoalMet ? 'goal-met' : ''}" data-action-habit-id="${habit.id}" title="Quick Log +1">
+          ${isGoalMet ? '<span class="icon-tick">✓</span>' : '+'}
+        </button>
+      </div>
+    `;
+
+    return row;
+  };
+
   core.renderHabitTree = function(habit, year) {
-    const subhabits = core.state.habits.filter(h => h.parentId === habit.id);
-    const hasSubhabits = subhabits.length > 0;
+    const rawSubhabits = core.state.habits.filter(h => h.parentId === habit.id);
+    const hasSubhabits = rawSubhabits.length > 0;
 
     let target;
     if (hasSubhabits) {
@@ -422,6 +466,8 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (!hasSubhabits) return card;
 
+    const sortedSubhabits = core.getSortedSubhabits ? core.getSortedSubhabits(habit, rawSubhabits, year) : rawSubhabits;
+
     const wrapper = document.createElement('div');
     wrapper.className = 'heatmap-group-wrapper';
     wrapper.setAttribute('data-habit-id', habit.id);
@@ -433,10 +479,46 @@ window.HabitualCore = window.HabitualCore || {};
     concertina.className = `subhabits-concertina ${isExpanded ? 'expanded' : ''}`;
     concertina.setAttribute('data-parent-id', habit.id);
 
-    subhabits.forEach(sub => {
-      const subNode = core.renderHabitTree(sub, year);
-      concertina.appendChild(subNode);
+    const displayMode = habit.subhabitDisplayMode || 'cards';
+    const currentSort = habit.subhabitSortOrder || 'manual';
+
+    // Concertina Toolbar for display mode & sorting toggles
+    const toolbar = document.createElement('div');
+    toolbar.className = 'concertina-toolbar';
+    toolbar.innerHTML = `
+      <div class="concertina-toolbar-left">
+        <label class="toolbar-label">Sub-habits Layout:</label>
+        <button type="button" class="btn btn-secondary btn-xs btn-toggle-subhabit-mode ${displayMode === 'cards' ? 'active' : ''}" data-parent-id="${habit.id}" data-mode="cards" title="Full Heatmap Cards">🎴 Cards</button>
+        <button type="button" class="btn btn-secondary btn-xs btn-toggle-subhabit-mode ${displayMode === 'minimal' ? 'active' : ''}" data-parent-id="${habit.id}" data-mode="minimal" title="Minimal Checklist Rows">📑 Minimal</button>
+      </div>
+      <div class="concertina-toolbar-right">
+        <label class="toolbar-label" for="sort-${habit.id}">Order:</label>
+        <select class="select-input select-xs select-subhabit-sort" id="sort-${habit.id}" data-parent-id="${habit.id}">
+          <option value="manual" ${currentSort === 'manual' ? 'selected' : ''}>Look Order (Default)</option>
+          <option value="incomplete_first" ${currentSort === 'incomplete_first' ? 'selected' : ''}>Uncompleted First (Today)</option>
+          <option value="recently_completed" ${currentSort === 'recently_completed' ? 'selected' : ''}>Recently Logged</option>
+          <option value="alphabetical" ${currentSort === 'alphabetical' ? 'selected' : ''}>Alphabetical A-Z</option>
+          <option value="streak_high" ${currentSort === 'streak_high' ? 'selected' : ''}>Highest Streak First</option>
+          <option value="lowest_completion" ${currentSort === 'lowest_completion' ? 'selected' : ''}>Needs Attention (Lowest %)</option>
+        </select>
+      </div>
+    `;
+    concertina.appendChild(toolbar);
+
+    const listContainer = document.createElement('div');
+    listContainer.className = `subhabits-list-container ${displayMode === 'minimal' ? 'minimal-mode' : 'cards-mode'}`;
+
+    sortedSubhabits.forEach(sub => {
+      if (displayMode === 'minimal') {
+        const row = core.buildMinimalSubhabitRow(sub, year);
+        listContainer.appendChild(row);
+      } else {
+        const subNode = core.renderHabitTree(sub, year);
+        listContainer.appendChild(subNode);
+      }
     });
+
+    concertina.appendChild(listContainer);
 
     const putAwayBar = document.createElement('div');
     putAwayBar.className = 'put-away-bar';
@@ -833,17 +915,15 @@ window.HabitualCore = window.HabitualCore || {};
 
     let streakLabel = '';
     const shouldShowStreak = habit ? habit.showStreak === true : false;
-    if (shouldShowStreak && streakData.current > 0) {
-      if (streakData.isMonthly) streakLabel = `🔥 ${streakData.current} mo${streakData.current === 1 ? '' : 's'}`;
-      else if (streakData.isWeekly) streakLabel = `🔥 ${streakData.current} wk${streakData.current === 1 ? '' : 's'}`;
-      else streakLabel = `🔥 ${streakData.current} d`;
+    if (shouldShowStreak) {
+      streakLabel = core.formatStreakLabel(streakData);
     }
 
     let countLabel = '';
     const shouldShowCount = habit ? habit.showCount !== false : true;
-    if (stats.isMonthly) countLabel = `${stats.totalCount} of 12 months met`;
-    else if (stats.isWeekly) countLabel = `${stats.totalCount} of 52 weeks met`;
-    else countLabel = isNegative ? `${stats.totalCount} clean days` : `${stats.totalCount}`;
+    if (shouldShowCount) {
+      countLabel = core.formatCountLabel(stats, isNegative);
+    }
 
     let durationLabel = '';
     const shouldShowDuration = habit ? habit.showDuration === true : false;

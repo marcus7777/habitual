@@ -1757,7 +1757,7 @@ window.HabitualCore = window.HabitualCore || {};
       core.openLogModal(targetDate, cardHabitId || 'all');
     });
 
-    // Delegated event listeners for focused toolbar inputs and buttons
+    // Delegated event listeners for focused toolbar inputs, concertina controls and buttons
     gallery.addEventListener('change', (e) => {
       if (e.target.classList.contains('focused-date-input')) {
         e.stopPropagation();
@@ -1769,10 +1769,42 @@ window.HabitualCore = window.HabitualCore || {};
           if (core.setCursorDateKey) core.setCursorDateKey(newDate, true);
           if (core.renderAll) core.renderAll();
         }
+      } else if (e.target.classList.contains('select-subhabit-sort')) {
+        e.stopPropagation();
+        const parentId = e.target.dataset.parentId;
+        const newSort = e.target.value;
+        const parentHabit = core.state.habits.find(h => h.id === parentId);
+        if (parentHabit) {
+          parentHabit.subhabitSortOrder = newSort;
+          parentHabit.updatedAt = Date.now();
+          if (core.cascadeSubhabitPreferences) {
+            core.cascadeSubhabitPreferences(parentHabit);
+          }
+          if (core.saveState) core.saveState();
+          if (core.renderAll) core.renderAll();
+        }
       }
     });
 
     gallery.addEventListener('click', (e) => {
+       const btnMode = e.target.closest('.btn-toggle-subhabit-mode');
+       if (btnMode) {
+         e.stopPropagation();
+         const parentId = btnMode.dataset.parentId;
+         const newMode = btnMode.dataset.mode;
+         const parentHabit = core.state.habits.find(h => h.id === parentId);
+         if (parentHabit) {
+           parentHabit.subhabitDisplayMode = newMode;
+           parentHabit.updatedAt = Date.now();
+           if (core.cascadeSubhabitPreferences) {
+             core.cascadeSubhabitPreferences(parentHabit);
+           }
+           if (core.saveState) core.saveState();
+           if (core.renderAll) core.renderAll();
+         }
+         return;
+       }
+
        const btn = e.target.closest('[data-action-habit-id]');
        if (btn) {
          e.stopPropagation();
@@ -2492,6 +2524,25 @@ window.HabitualCore = window.HabitualCore || {};
     const subhabits = habitToEdit ? core.state.habits.filter(h => h.parentId === habitToEdit.id) : [];
     const hasSubhabits = subhabits.length > 0;
 
+    const subhabitDisplaySection = document.getElementById('parent-subhabit-display-section');
+    const selectDisplayMode = document.getElementById('habit-subhabit-display-mode');
+    const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
+
+    if (subhabitDisplaySection) {
+      if (hasSubhabits) {
+        subhabitDisplaySection.classList.remove('hidden');
+      } else {
+        subhabitDisplaySection.classList.add('hidden');
+      }
+    }
+
+    if (selectDisplayMode) {
+      selectDisplayMode.value = habitToEdit ? (habitToEdit.subhabitDisplayMode || 'cards') : 'cards';
+    }
+    if (selectSortOrder) {
+      selectSortOrder.value = habitToEdit ? (habitToEdit.subhabitSortOrder || 'manual') : 'manual';
+    }
+
     if (shareChildrenContainer) {
       if (hasSubhabits) {
         shareChildrenContainer.classList.remove('hidden');
@@ -2880,6 +2931,11 @@ window.HabitualCore = window.HabitualCore || {};
       includeChildren: includeChildren
     } : null;
 
+    const selectDisplayMode = document.getElementById('habit-subhabit-display-mode');
+    const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
+    const subhabitDisplayMode = selectDisplayMode ? selectDisplayMode.value : 'cards';
+    const subhabitSortOrder = selectSortOrder ? selectSortOrder.value : 'manual';
+
     if (!name) return;
 
     let savedTargetHabit = null;
@@ -2890,12 +2946,18 @@ window.HabitualCore = window.HabitualCore || {};
         savedTargetHabit = habit;
         const previousHideFromAll = Boolean(habit.hideFromAll);
         habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused; habit.hideHeatmap = hideHeatmap;
+        habit.subhabitDisplayMode = subhabitDisplayMode;
+        habit.subhabitSortOrder = subhabitSortOrder;
         core.setHabitPauseState(habit, isPaused, core.getTodayKey(), { hideHeatmap: hideHeatmapWhenPaused });
         habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.parentId = parentId; habit.parentDependency = parentDependency;
         if (colorTheme) {
           habit.colorTheme = colorTheme;
         } else {
           delete habit.colorTheme;
+        }
+
+        if (core.cascadeSubhabitPreferences) {
+          core.cascadeSubhabitPreferences(habit);
         }
 
         if (sharingConfig) {
@@ -2945,9 +3007,15 @@ window.HabitualCore = window.HabitualCore || {};
       }
       const idGen = (typeof core.idFromName === 'function') ? core.idFromName : function(n) { return 'habit_' + String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
       const todayKeyGen = (typeof core.getTodayKey === 'function') ? core.getTodayKey : function() { return new Date().toISOString().split('T')[0]; };
+      const parentObj = parentId ? core.state.habits.find(h => h.id === parentId) : null;
+      const initialParent = (parentObj && parentObj.subhabitDisplayMode) ? parentObj : null;
+      const inheritedDisplayMode = initialParent ? initialParent.subhabitDisplayMode || 'cards' : subhabitDisplayMode;
+      const inheritedSortOrder = initialParent ? initialParent.subhabitSortOrder || 'manual' : subhabitSortOrder;
+
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + idGen(name),
         name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: todayKeyGen(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
+        subhabitDisplayMode: inheritedDisplayMode, subhabitSortOrder: inheritedSortOrder,
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, updatedAt: Date.now(), logs: backfilledLogs
       };
       if (colorTheme) {
