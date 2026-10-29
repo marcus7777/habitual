@@ -3898,6 +3898,36 @@ describe('Feature 32: Toast Alerts & Content Layout Stability', () => {
 
     global.document.getElementById = originalGetById;
   });
+
+  test('showToast renders action button when actionText and onActionClick are provided', () => {
+    let toastItem = null;
+    const mockContainer = createMockElement('div');
+    mockContainer.appendChild = (child) => {
+      toastItem = child;
+    };
+
+    const originalGetById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'toast-banner') return null;
+      if (id === 'toast-container') return mockContainer;
+      return null;
+    };
+
+    let clicked = false;
+    HabitualCore.showToast('New version available!', 'info', '🔄 Refresh Now', () => {
+      clicked = true;
+    });
+
+    assert(toastItem !== null, 'Toast item created');
+    const actionBtn = toastItem.querySelector('.toast-action-btn');
+    assert(actionBtn !== null, 'Action button rendered');
+    assertEqual(actionBtn.textContent, '🔄 Refresh Now', 'Action button displays custom text');
+
+    actionBtn.onclick({ stopPropagation: () => {} });
+    assertEqual(clicked, true, 'Action click callback executed on button click');
+
+    global.document.getElementById = originalGetById;
+  });
 });
 
 // ============================================================================

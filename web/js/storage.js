@@ -1934,7 +1934,11 @@ window.HabitualCore = window.HabitualCore || {};
           const { type, version } = e.data || {};
           if (type === 'VERSION_UPDATE_AVAILABLE') {
             if (core.showToast) {
-              core.showToast(`New version v${version} available! Refresh to update.`);
+              core.showToast(`✨ New version v${version} available!`, 'info', '🔄 Refresh Now', () => {
+                if (typeof window !== 'undefined' && window.location) {
+                  window.location.reload(true);
+                }
+              });
             }
           } else if (type === 'PERFORM_SYNC_REQUEST') {
             if (core.SyncManager && typeof core.SyncManager.pullRemoteSnapshot === 'function') {

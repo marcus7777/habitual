@@ -3,7 +3,7 @@ window.HabitualCore = window.HabitualCore || {};
 (function(core) {
   'use strict';
 
-  core.showToast = function(message, type = 'info') {
+  core.showToast = function(message, type = 'info', actionText = null, onActionClick = null) {
     if (!message) return;
 
     // 1. Banner Toast Alert (Fixed bottom overlay for pages with #toast-banner)
@@ -12,9 +12,31 @@ window.HabitualCore = window.HabitualCore || {};
     if (banner && msgEl) {
       msgEl.textContent = message;
       banner.className = 'toast-banner toast-' + type;
+
+      // Handle optional action button
+      let actionBtn = banner.querySelector('.toast-action-btn');
+      if (actionText && typeof onActionClick === 'function') {
+        if (!actionBtn) {
+          actionBtn = document.createElement('button');
+          actionBtn.className = 'btn btn-sm btn-primary toast-action-btn';
+          actionBtn.style.marginLeft = '12px';
+          banner.appendChild(actionBtn);
+        }
+        actionBtn.textContent = actionText;
+        actionBtn.style.display = 'inline-block';
+        actionBtn.onclick = (e) => {
+          e.stopPropagation();
+          banner.classList.add('hidden');
+          onActionClick();
+        };
+      } else if (actionBtn) {
+        actionBtn.style.display = 'none';
+      }
+
       banner.classList.remove('hidden');
       if (core._toastTimeout) clearTimeout(core._toastTimeout);
-      core._toastTimeout = setTimeout(() => { banner.classList.add('hidden'); }, 4000);
+      const autoHideMs = (actionText && typeof onActionClick === 'function') ? 10000 : 4000;
+      core._toastTimeout = setTimeout(() => { banner.classList.add('hidden'); }, autoHideMs);
       return;
     }
 
@@ -30,13 +52,33 @@ window.HabitualCore = window.HabitualCore || {};
     if (container) {
       const toastItem = document.createElement('div');
       toastItem.className = 'toast-item toast-' + type;
-      toastItem.innerHTML = `<span>${message}</span>`;
+      toastItem.style.display = 'flex';
+      toastItem.style.alignItems = 'center';
+      toastItem.style.gap = '10px';
+
+      const msgSpan = document.createElement('span');
+      msgSpan.textContent = message;
+      toastItem.appendChild(msgSpan);
+
+      if (actionText && typeof onActionClick === 'function') {
+        const actionBtn = document.createElement('button');
+        actionBtn.className = 'btn btn-sm btn-primary toast-action-btn';
+        actionBtn.textContent = actionText;
+        actionBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (toastItem.parentNode) toastItem.parentNode.removeChild(toastItem);
+          onActionClick();
+        };
+        toastItem.appendChild(actionBtn);
+      }
+
       container.appendChild(toastItem);
 
+      const autoHideMs = (actionText && typeof onActionClick === 'function') ? 10000 : 3800;
       setTimeout(() => {
         toastItem.classList.add('toast-fade-out');
         setTimeout(() => { if (toastItem.parentNode) toastItem.parentNode.removeChild(toastItem); }, 300);
-      }, 3800);
+      }, autoHideMs);
     }
   };
 
