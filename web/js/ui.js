@@ -1244,6 +1244,7 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     if (core.setupMobileArrowPad) core.setupMobileArrowPad();
+    if (core.updateFloatingDateBar) core.updateFloatingDateBar();
 
     core.elements.modalWidgets = document.getElementById('modal-widgets');
     if (core.initWidgetsUI) core.initWidgetsUI();
@@ -1429,6 +1430,53 @@ window.HabitualCore = window.HabitualCore || {};
           core.openLogModal(targetDate);
         }
       });
+    }
+  };
+
+  core.updateFloatingDateBar = function() {
+    const bar = document.getElementById('floating-today-bar');
+    if (!bar) return;
+
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+    const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
+
+    const dateTextEl = document.getElementById('floating-date-text');
+    const todayBadgeEl = document.getElementById('floating-today-badge');
+
+    const cursorDate = core.parseDateKey ? core.parseDateKey(cursorDateStr) : new Date(cursorDateStr + 'T00:00:00');
+    const formattedShort = cursorDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    if (cursorDateStr === todayStr) {
+      if (dateTextEl) dateTextEl.textContent = `Today, ${formattedShort}`;
+      if (todayBadgeEl) todayBadgeEl.classList.add('hidden');
+      bar.classList.add('is-today');
+      bar.classList.remove('is-past', 'is-future');
+    } else {
+      const todayDate = core.parseDateKey ? core.parseDateKey(todayStr) : new Date(todayStr + 'T00:00:00');
+      const diffDays = Math.round((cursorDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      let relativeLabel = '';
+      if (diffDays === -1) relativeLabel = 'Yesterday';
+      else if (diffDays === 1) relativeLabel = 'Tomorrow';
+      else if (diffDays < 0) relativeLabel = `${Math.abs(diffDays)}d ago`;
+      else if (diffDays > 0) relativeLabel = `${diffDays}d ahead`;
+
+      if (dateTextEl) {
+        dateTextEl.textContent = `${relativeLabel} (${formattedShort})`;
+      }
+      if (todayBadgeEl) {
+        todayBadgeEl.classList.remove('hidden');
+        todayBadgeEl.textContent = 'Today';
+      }
+
+      bar.classList.remove('is-today');
+      if (diffDays < 0) {
+        bar.classList.add('is-past');
+        bar.classList.remove('is-future');
+      } else {
+        bar.classList.add('is-future');
+        bar.classList.remove('is-past');
+      }
     }
   };
 

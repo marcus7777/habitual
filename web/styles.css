@@ -110,7 +110,7 @@ body.dark-theme {
 /* Toast Banner & Container */
 .toast-banner {
   position: fixed;
-  bottom: 24px;
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10000;
@@ -147,7 +147,7 @@ body.dark-theme {
 
 .toast-container {
   position: fixed;
-  bottom: 24px;
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10000;
@@ -3268,6 +3268,122 @@ input:checked + .slider:before {
   gap: 10px;
   margin-top: 14px;
   flex-wrap: wrap;
+}
+
+/* ============================================================================
+   Floating Today Date Navigator Bar
+   ============================================================================ */
+.floating-today-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 990;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(22, 27, 34, 0.92);
+  border: 1px solid var(--border-color, #30363d);
+  border-radius: 30px;
+  padding: 6px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  user-select: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.floating-today-bar:hover {
+  border-color: #58a6ff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 0 12px rgba(88, 166, 255, 0.2);
+}
+
+.floating-today-bar.is-past {
+  border-color: rgba(210, 153, 34, 0.6);
+}
+
+.floating-today-bar.is-future {
+  border-color: rgba(31, 111, 235, 0.6);
+}
+
+.floating-date-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: rgba(48, 54, 61, 0.5);
+  color: var(--text-main, #f0f6fc);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.floating-date-btn:hover {
+  background: var(--bg-pill-active, #30363d);
+  border-color: var(--text-muted, #8b949e);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.floating-date-btn:active {
+  transform: scale(0.95);
+}
+
+.floating-date-label-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-main, #f0f6fc);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.floating-date-label-btn:hover {
+  background: rgba(88, 166, 255, 0.12);
+  color: #58a6ff;
+}
+
+.floating-today-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--accent-blue, #58a6ff);
+  color: #0d1117;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transition: opacity 0.15s ease;
+}
+
+.floating-today-badge.hidden {
+  display: none !important;
+}
+
+@media (max-width: 480px) {
+  .floating-today-bar {
+    bottom: 16px;
+    padding: 5px 10px;
+    gap: 6px;
+  }
+  .floating-date-label-btn {
+    font-size: 0.82rem;
+    padding: 3px 6px;
+  }
+  .floating-date-btn {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 
