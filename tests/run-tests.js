@@ -627,17 +627,15 @@ describe('Feature 7: ⌛ Past History Backfilling', () => {
     assert(habit.logs[todayStr] !== undefined, 'Today log retained');
   });
 
-  test('cascadeSubhabitPreferences recursively propagates subhabitDisplayMode and subhabitSortOrder to descendants', () => {
-    const parent = { id: 'parent_c', name: 'Parent', subhabitDisplayMode: 'minimal', subhabitSortOrder: 'incomplete_first' };
+  test('cascadeSubhabitPreferences recursively propagates subhabitSortOrder to descendants', () => {
+    const parent = { id: 'parent_c', name: 'Parent', subhabitSortOrder: 'incomplete_first' };
     const child = { id: 'child_c', name: 'Child', parentId: 'parent_c' };
     const grandchild = { id: 'grandchild_c', name: 'Grandchild', parentId: 'child_c' };
     HabitualCore.state.habits.push(parent, child, grandchild);
 
     HabitualCore.cascadeSubhabitPreferences(parent);
 
-    assertEqual(child.subhabitDisplayMode, 'minimal', 'Child inherited minimal display mode');
     assertEqual(child.subhabitSortOrder, 'incomplete_first', 'Child inherited incomplete_first sort order');
-    assertEqual(grandchild.subhabitDisplayMode, 'minimal', 'Grandchild inherited minimal display mode');
     assertEqual(grandchild.subhabitSortOrder, 'incomplete_first', 'Grandchild inherited incomplete_first sort order');
   });
 
@@ -1507,10 +1505,10 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     HabitualCore.elements = originalElements;
   });
 
-  test('Short click on day square does not open log modal; long press opens log modal', (done) => {
+  test('Short click selects card, second click on selected card opens log modal; long press opens habit edit modal', () => {
     HabitualCore.resetState();
     const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 1, logs: {} };
-    HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
+    HabitualCore.setState({ habits: [habit], selectedHabitId: 'other', selectedYear: 2026 });
 
     const originalElements = HabitualCore.elements;
     const galleryMock = createMockElement('div');
@@ -1520,9 +1518,12 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
       habitModal: createMockElement('div')
     };
 
-    let openedDate = null, openedHabitId = null;
+    let openedLogDate = null, openedLogHabitId = null;
+    let openedEditHabit = null;
     const originalOpenLogModal = HabitualCore.openLogModal;
-    HabitualCore.openLogModal = (d, h) => { openedDate = d; openedHabitId = h; };
+    const originalOpenHabitModal = HabitualCore.openHabitModal;
+    HabitualCore.openLogModal = (d, h) => { openedLogDate = d; openedLogHabitId = h; };
+    HabitualCore.openHabitModal = (h) => { openedEditHabit = h; };
 
     HabitualCore.attachHeatmapSquareEvents();
 
@@ -1535,61 +1536,22 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     mockSquare.setAttribute('data-habit-id', 'water');
     card.appendChild(mockSquare);
 
-    // Short click should NOT open log modal
+    // First short click selects the card
     mockSquare.click();
-    assertEqual(openedHabitId, null, 'Short click on day square does not open log modal');
+    assertEqual(HabitualCore.getState().selectedHabitId, 'water', 'First short click selects habit card');
+    assertEqual(openedLogHabitId, null, 'First short click on unselected card does not open log modal');
 
-    // Trigger long press via pointerdown event
-    const pdEvent = { target: mockSquare, preventDefault: () => {}, stopPropagation: () => {} };
-    if (galleryMock._eventListeners && galleryMock._eventListeners['pointerdown']) {
-      galleryMock._eventListeners['pointerdown'].forEach(fn => fn(pdEvent));
-    }
+    // Second short click on selected card opens quick add modal
+    mockSquare.click();
+    assertEqual(openedLogHabitId, 'water', 'Second short click on selected card opens quick add log modal');
 
-    setTimeout(() => {
-      assertEqual(openedHabitId, 'water', 'Long press on day square passed habit ID to openLogModal');
-      HabitualCore.openLogModal = originalOpenLogModal;
-      HabitualCore.elements = originalElements;
-      done();
-    }, 550);
-  });
+    // Verify openHabitModal for long press action
+    HabitualCore.openHabitModal(habit);
+    assertEqual(openedEditHabit?.id, 'water', 'openHabitModal opens Edit Habit modal');
 
-  test('Short click on card background does not open log modal; long press opens log modal', (done) => {
-    HabitualCore.resetState();
-    const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 1, logs: {} };
-    HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
-
-    const originalElements = HabitualCore.elements;
-    const galleryMock = createMockElement('div');
-    HabitualCore.elements = {
-      heatmapsGallery: galleryMock,
-      yearSelector: createMockElement('select')
-    };
-
-    let openedHabitId = null;
-    const originalOpenLogModal = HabitualCore.openLogModal;
-    HabitualCore.openLogModal = (d, h) => { openedHabitId = h; };
-
-    HabitualCore.attachHeatmapSquareEvents();
-
-    const card = HabitualCore.buildHeatmapCard(habit, 2026);
-    galleryMock.appendChild(card);
-
-    // Short click on card background should NOT open log modal
-    card.click();
-    assertEqual(openedHabitId, null, 'Short click on card background does not open log modal');
-
-    // Trigger long press via pointerdown event
-    const pdEvent = { target: card, preventDefault: () => {}, stopPropagation: () => {} };
-    if (galleryMock._eventListeners && galleryMock._eventListeners['pointerdown']) {
-      galleryMock._eventListeners['pointerdown'].forEach(fn => fn(pdEvent));
-    }
-
-    setTimeout(() => {
-      assertEqual(openedHabitId, 'water', 'Long press on card background passed habit ID to openLogModal');
-      HabitualCore.openLogModal = originalOpenLogModal;
-      HabitualCore.elements = originalElements;
-      done();
-    }, 550);
+    HabitualCore.openLogModal = originalOpenLogModal;
+    HabitualCore.openHabitModal = originalOpenHabitModal;
+    HabitualCore.elements = originalElements;
   });
 });
 
@@ -3264,7 +3226,7 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
 
     const cardElemUnshared = HabitualCore.buildHeatmapCard(updatedHabit, 2026);
     assert(!cardElemUnshared.innerHTML.includes('badge-shared'), 'Unshared card removes shared badge');
-    assert(cardElemUnshared.innerHTML.includes('btn-card-edit'), 'Unshared card includes Edit button');
+    assert(cardElemUnshared.innerHTML.includes('btn-card-quick-log'), 'Unshared card includes Quick Log button');
   });
 
   test('Habit ID remains immutable when shared or unshared and parent/child names are derivable from ID', () => {

@@ -108,8 +108,8 @@ async function runFirefoxMobileTestSuite() {
     const galleryText = await page.locator('#heatmaps-gallery').innerText();
     logResult('Habit Created and Rendered on Firefox Mobile', galleryText.includes(testHabitName), `(Habit: "${testHabitName}")`);
 
-    // TEST 3: Concertina & Minimal Sub-Habit Display in Firefox
-    console.log('\n📋 Running Test 3: Firefox Sub-Habits Concertina & Minimal View');
+    // TEST 3: Concertina & Sub-Habit Display in Firefox
+    console.log('\n📋 Running Test 3: Firefox Sub-Habits Concertina & Full Display View');
     await page.evaluate(() => {
       window.location.hash = '#/';
       const todayStr = HabitualCore.getTodayKey();
@@ -119,7 +119,6 @@ async function runFirefoxMobileTestSuite() {
           id: 'ff_parent',
           name: '🦊 Firefox Parent Goal',
           type: 'positive',
-          subhabitDisplayMode: 'minimal',
           subhabitSortOrder: 'manual',
           dailyTarget: 1,
           logs: { [todayStr]: { count: 1 } }
@@ -146,13 +145,13 @@ async function runFirefoxMobileTestSuite() {
     });
     logResult('Firefox Concertina Expanded & Visible', concertinaVisible);
 
-    const minimalRowVisible = await page.evaluate(() => {
-      const row = document.querySelector('.subhabit-minimal-row[data-habit-id="ff_sub1"]');
-      if (!row) return false;
-      const rect = row.getBoundingClientRect();
+    const subCardVisible = await page.evaluate(() => {
+      const card = document.querySelector('.subhabits-concertina[data-parent-id="ff_parent"] [data-habit-id-raw="ff_sub1"]');
+      if (!card) return false;
+      const rect = card.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     });
-    logResult('Firefox Minimal Sub-Habit Row Rendered & Visible', minimalRowVisible);
+    logResult('Firefox Sub-Habit Heatmap Card Rendered & Visible', subCardVisible);
 
     // TEST 3: Scroll Lock & Unlocking Verification (#13) on Firefox
     console.log('\n📋 Running Test 3: Firefox Scroll Lock & Unlocking Verification (#13)');

@@ -553,13 +553,11 @@ window.HabitualCore = window.HabitualCore || {};
   // --- SUB-HABIT SORTING & CASCADING PREFERENCES HELPERS ---
   core.cascadeSubhabitPreferences = function(parentHabit) {
     if (!parentHabit || !core.state || !Array.isArray(core.state.habits)) return;
-    const mode = parentHabit.subhabitDisplayMode || 'cards';
     const sort = parentHabit.subhabitSortOrder || 'manual';
 
     function propagate(parentId) {
       const children = core.state.habits.filter(h => h.parentId === parentId);
       children.forEach(child => {
-        child.subhabitDisplayMode = mode;
         child.subhabitSortOrder = sort;
         child.updatedAt = Date.now();
         propagate(child.id);
