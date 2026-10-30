@@ -101,6 +101,71 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  core.showConfirmModal = function(message, options = {}) {
+    const title = options.title || 'Confirm Update';
+    const yesText = options.yesText || 'Yes';
+    const noText = options.noText || 'No';
+
+    const modal = (typeof document !== 'undefined') ? document.getElementById('modal-confirm') : null;
+    const titleEl = (typeof document !== 'undefined') ? document.getElementById('modal-confirm-title') : null;
+    const msgEl = (typeof document !== 'undefined') ? document.getElementById('modal-confirm-message') : null;
+    const btnYes = (typeof document !== 'undefined') ? document.getElementById('btn-modal-confirm-yes') : null;
+    const btnNo = (typeof document !== 'undefined') ? document.getElementById('btn-modal-confirm-no') : null;
+    const btnClose = (typeof document !== 'undefined') ? document.getElementById('modal-confirm-close') : null;
+
+    if (!modal || !btnYes || !btnNo) {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        return window.confirm(message);
+      }
+      return true;
+    }
+
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    if (btnYes) btnYes.textContent = yesText;
+    if (btnNo) btnNo.textContent = noText;
+
+    modal.classList.remove('hidden');
+    if (core.toggleModalScrollLock) core.toggleModalScrollLock(true);
+
+    return new Promise((resolve) => {
+      let resolved = false;
+
+      const cleanup = (result) => {
+        if (resolved) return;
+        resolved = true;
+        modal.classList.add('hidden');
+        if (core.toggleModalScrollLock) core.toggleModalScrollLock(false);
+        btnYes.removeEventListener('click', onYes);
+        btnNo.removeEventListener('click', onNo);
+        if (btnClose) btnClose.removeEventListener('click', onNo);
+        modal.removeEventListener('click', onModalClick);
+        resolve(result);
+      };
+
+      const onYes = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        cleanup(true);
+      };
+
+      const onNo = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        cleanup(false);
+      };
+
+      const onModalClick = (e) => {
+        if (e.target === modal) {
+          cleanup(false);
+        }
+      };
+
+      btnYes.addEventListener('click', onYes);
+      btnNo.addEventListener('click', onNo);
+      if (btnClose) btnClose.addEventListener('click', onNo);
+      modal.addEventListener('click', onModalClick);
+    });
+  };
+
   core.parseHash = function() {
     const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';
     if (hash.startsWith('#/habit/')) {
@@ -2770,7 +2835,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.handleHabitFormSubmit = function(e) {
+  core.handleHabitFormSubmit = async function(e) {
     if (e && e.preventDefault) e.preventDefault();
     const formEl = core.elements.formHabit || document.getElementById('form-habit');
     let formData = null;
@@ -2924,9 +2989,10 @@ window.HabitualCore = window.HabitualCore || {};
 
         const directSubhabits = core.state.habits.filter(h => h.parentId === habit.id);
         if (directSubhabits.length > 0) {
-          const askCascade = (typeof window !== 'undefined' && typeof window.confirm === 'function')
-            ? window.confirm(`Would you like all ${directSubhabits.length} sub-habits to also update to matching options?`)
-            : true;
+          const askCascade = await core.showConfirmModal(
+            `Would you like all ${directSubhabits.length} sub-habits to also update to matching options?`,
+            { title: 'Update Sub-Habits?', yesText: 'Yes', noText: 'No' }
+          );
 
           if (askCascade) {
             if (core.cascadeSubhabitPreferences) {
