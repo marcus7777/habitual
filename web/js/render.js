@@ -413,38 +413,6 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.buildMinimalSubhabitRow = function(habit, year) {
-    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
-    const cellData = core.getCellData ? core.getCellData(todayStr, habit, todayStr) : null;
-    const count = cellData ? (cellData.count || 0) : 0;
-    const reqTarget = habit.dailyTarget || habit.weeklyTarget || 1;
-    const isGoalMet = count >= reqTarget;
-    const streakData = core.calculateStreakForTarget ? core.calculateStreakForTarget(habit) : null;
-    const streakLabel = core.formatStreakLabel ? core.formatStreakLabel(streakData) : '';
-
-    const row = document.createElement('div');
-    row.className = `subhabit-minimal-row theme-${habit.colorTheme || 'green'} ${isGoalMet ? 'goal-met' : ''}`;
-    row.setAttribute('data-habit-id', habit.id);
-
-    const colorStyle = `background-color: ${core.getHabitHexColor ? core.getHabitHexColor(habit) : '#39d353'};`;
-
-    row.innerHTML = `
-      <div class="minimal-row-left">
-        <span class="color-tab-pill" style="${colorStyle}"></span>
-        <a href="#/habit/${habit.id}" class="minimal-row-title">${core.escapeHTML(habit.name)}</a>
-        ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
-      </div>
-      <div class="minimal-row-right">
-        <span class="minimal-row-count">${count}/${reqTarget}</span>
-        <button type="button" class="btn-card-quick-log ${isGoalMet ? 'goal-met' : ''}" data-action-habit-id="${habit.id}" title="Quick Log +1">
-          ${isGoalMet ? '<span class="icon-tick">✓</span>' : '+'}
-        </button>
-      </div>
-    `;
-
-    return row;
-  };
-
   core.renderHabitTree = function(habit, year) {
     const rawSubhabits = core.state.habits.filter(h => h.parentId === habit.id);
     const hasSubhabits = rawSubhabits.length > 0;
@@ -482,19 +450,12 @@ window.HabitualCore = window.HabitualCore || {};
     concertina.className = `subhabits-concertina ${isExpanded ? 'expanded' : ''}`;
     concertina.setAttribute('data-parent-id', habit.id);
 
-    const displayMode = habit.subhabitDisplayMode || 'cards';
-
     const listContainer = document.createElement('div');
-    listContainer.className = `subhabits-list-container ${displayMode === 'minimal' ? 'minimal-mode' : 'cards-mode'}`;
+    listContainer.className = 'subhabits-list-container cards-mode';
 
     sortedSubhabits.forEach(sub => {
-      if (displayMode === 'minimal') {
-        const row = core.buildMinimalSubhabitRow(sub, year);
-        listContainer.appendChild(row);
-      } else {
-        const subNode = core.renderHabitTree(sub, year);
-        listContainer.appendChild(subNode);
-      }
+      const subNode = core.renderHabitTree(sub, year);
+      listContainer.appendChild(subNode);
     });
 
     concertina.appendChild(listContainer);
@@ -1046,13 +1007,9 @@ window.HabitualCore = window.HabitualCore || {};
 
     let actionsHTML = '';
     if (habit) {
-      const openMenuItem = !isCurrentOpenPage ? `<a href="#/habit/${habit.id}" class="card-menu-item">Open Habit Page</a>` : '';
-
       actionsHTML = `
         <div class="card-header-actions">
-          <button type="button" class="btn-card-edit" data-habit-id="${habit.id}" title="Edit Habit" aria-label="Edit Habit">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
+          ${bigLogButtonHTML}
         </div>`;
     } else if (!isAll) {
       actionsHTML = '';
@@ -1071,7 +1028,6 @@ window.HabitualCore = window.HabitualCore || {};
           ${streakLabel ? `<span class="badge-streak">${streakLabel}</span>` : ''}
           ${shouldShowCount ? `<span class="badge-count">${countLabel}</span>` : ''}
           ${durationLabel ? `<span class="badge-duration" title="Habit active duration">${durationLabel}</span>` : ''}
-          ${bigLogButtonHTML}
         </div>
         ${actionsHTML}
       </div>`;

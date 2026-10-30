@@ -52,7 +52,6 @@ async function runVisualTests() {
           name: '💪 Daily Workout Routine',
           type: 'positive',
           colorTheme: 'blue',
-          subhabitDisplayMode: 'cards',
           subhabitSortOrder: 'manual',
           dailyTarget: 1,
           logs: { [todayStr]: { count: 1 } }
@@ -96,34 +95,9 @@ async function runVisualTests() {
     await page.screenshot({ path: cardsScreenshotPath, fullPage: true });
     console.log(`  📸 [CAPTURE] Saved full cards view screenshot to ${cardsScreenshotPath}`);
 
-    // Toggle to Minimal View via state
-    await page.evaluate(() => {
-      const parent = HabitualCore.state.habits.find(h => h.id === 'parent_workout');
-      parent.subhabitDisplayMode = 'minimal';
-      HabitualCore.cascadeSubhabitPreferences(parent);
-      HabitualCore.renderAll();
-    });
-    await page.waitForTimeout(300);
-
-    // Capture Screenshot 2: Minimal View
-    const minimalScreenshotPath = path.join(screenshotsDir, 'subhabit_display_minimal.png');
-    await page.screenshot({ path: minimalScreenshotPath, fullPage: true });
-    console.log(`  📸 [CAPTURE] Saved minimal checklist view screenshot to ${minimalScreenshotPath}`);
-
-    // Verify Minimal DOM Elements and Concertina Ancestry
-    const minimalRowsCount = await page.locator('.subhabit-minimal-row').count();
-    console.log(`  ✅ [PASS] Found ${minimalRowsCount} minimal sub-habit checklist rows`);
-
-    const isInsideConcertina = await page.evaluate(() => {
-      const rows = document.querySelectorAll('.subhabit-minimal-row');
-      if (rows.length === 0) return false;
-      return Array.from(rows).every(row => {
-        const concertina = row.closest('.subhabits-concertina');
-        return concertina !== null && concertina.dataset.parentId === 'parent_workout';
-      });
-    });
-    if (!isInsideConcertina) throw new Error('Minimal sub-habit rows must be rendered inside .subhabits-concertina');
-    console.log('  ✅ [PASS] Confirmed all sub-habit rows are DOM children inside .subhabits-concertina drawer');
+    // Verify sub-habit cards are inside concertina
+    const subCardsCount = await page.locator('.subhabits-concertina[data-parent-id="parent_workout"] .heatmap-card').count();
+    console.log(`  ✅ [PASS] Found ${subCardsCount} sub-habit cards inside concertina`);
 
     // Toggle Sorting to Uncompleted First via state
     await page.evaluate(() => {

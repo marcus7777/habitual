@@ -204,7 +204,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.29.1</p>
+      <p>Habitual &bull; v1.29.2</p>
     </footer>
   </div>
 
@@ -468,32 +468,23 @@
                 </select>
               </div>
 
-              <!-- Sub-Habits Display & Sorting Section (Visible ONLY when sub-habits exist) -->
+              <!-- Sub-Habits Sorting Section (Visible ONLY when sub-habits exist) -->
               <div class="form-group highlight-form-box hidden" id="parent-subhabit-display-section">
                 <label style="font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-                  📁 Sub-Habit List Layout & Cascading Sorting
+                  📁 Sub-Habit Cascading Sorting
                 </label>
-                <div class="grid-2-col" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                  <div class="form-group">
-                    <label for="habit-subhabit-display-mode">Sub-Habit View Style</label>
-                    <select id="habit-subhabit-display-mode" class="select-input">
-                      <option value="cards" selected>🎴 Full Heatmap Cards</option>
-                      <option value="minimal">📑 Minimal Checklist Rows</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="habit-subhabit-sort-order">Sub-Habit Auto-Sort</label>
-                    <select id="habit-subhabit-sort-order" class="select-input">
-                      <option value="manual" selected>Look Order (Default)</option>
-                      <option value="incomplete_first">Uncompleted First (Today)</option>
-                      <option value="recently_completed">Recently Logged</option>
-                      <option value="alphabetical">Alphabetical A-Z</option>
-                      <option value="streak_high">Highest Streak First</option>
-                      <option value="lowest_completion">Needs Attention (Lowest %)</option>
-                    </select>
-                  </div>
+                <div class="form-group">
+                  <label for="habit-subhabit-sort-order">Sub-Habit Auto-Sort</label>
+                  <select id="habit-subhabit-sort-order" class="select-input">
+                    <option value="manual" selected>Look Order (Default)</option>
+                    <option value="incomplete_first">Uncompleted First (Today)</option>
+                    <option value="recently_completed">Recently Logged</option>
+                    <option value="alphabetical">Alphabetical A-Z</option>
+                    <option value="streak_high">Highest Streak First</option>
+                    <option value="lowest_completion">Needs Attention (Lowest %)</option>
+                  </select>
                 </div>
-                <small class="muted-text">Layout and sorting options automatically cascade down to all child and grandchild sub-habits.</small>
+                <small class="muted-text">Sorting options automatically cascade down to all child and grandchild sub-habits.</small>
               </div>
 
               <!-- Display & Behavior Options Grid -->

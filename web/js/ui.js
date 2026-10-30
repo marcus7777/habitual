@@ -1684,7 +1684,13 @@ window.HabitualCore = window.HabitualCore || {};
         if (dateStr && core.setCursorDateKey) {
           core.setCursorDateKey(dateStr, true);
         }
-        core.openLogModal(dateStr, targetHabitId);
+        const habitIdToEdit = card ? (card.getAttribute('data-habit-id-raw') || card.getAttribute('data-habit-id')) : targetHabitId;
+        const habitToEdit = core.state && core.state.habits ? core.state.habits.find(h => h.id === habitIdToEdit) : null;
+        if (habitToEdit && core.openHabitModal) {
+          core.openHabitModal(habitToEdit);
+        } else if (core.openLogModal) {
+          core.openLogModal(dateStr, targetHabitId);
+        }
       }, 500);
     });
 
@@ -1717,6 +1723,8 @@ window.HabitualCore = window.HabitualCore || {};
 
       const cardHabitId = card.getAttribute('data-habit-id');
       const clickedRawId = card.getAttribute('data-habit-id-raw');
+      const wasAlreadySelected = card.classList.contains('selected') || card.classList.contains('selected-habit') || (core.state && (core.state.selectedHabitId === cardHabitId || (clickedRawId && core.state.selectedHabitId === clickedRawId)));
+
       if ((cardHabitId || clickedRawId) && core.state) {
         core.state.selectedHabitId = cardHabitId || clickedRawId;
         if (core.ensureHabitAncestorsExpanded) {
@@ -1877,9 +1885,24 @@ window.HabitualCore = window.HabitualCore || {};
       if (sq && sq._isLongPressTriggered) { sq._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
       if (card && card._isLongPressTriggered) { card._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
 
-      // Short click on heat map (squares or card background): selects habit (done at top of listener)
+      // Short click on heat map or card background
       e.stopPropagation();
       if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
+
+      if (wasAlreadySelected) {
+        // If habit was ALREADY selected, short tap brings up quick add dialogue!
+        let targetHabitId = cardHabitId || 'all';
+        const sqHabitId = sq ? sq.getAttribute('data-habit-id') : null;
+        if (sqHabitId && sqHabitId !== 'all' && !sqHabitId.startsWith('group_')) targetHabitId = sqHabitId;
+        const targetDate = sq ? sq.getAttribute('data-date') : (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
+
+        if (targetDate && core.setCursorDateKey) {
+          core.setCursorDateKey(targetDate, true);
+        }
+        if (core.openLogModal) {
+          core.openLogModal(targetDate, targetHabitId);
+        }
+      }
     });
 
     // Delegated event listeners for focused toolbar inputs, concertina controls and buttons
@@ -1912,24 +1935,6 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     gallery.addEventListener('click', (e) => {
-       const btnMode = e.target.closest('.btn-toggle-subhabit-mode');
-       if (btnMode) {
-         e.stopPropagation();
-         const parentId = btnMode.dataset.parentId;
-         const newMode = btnMode.dataset.mode;
-         const parentHabit = core.state.habits.find(h => h.id === parentId);
-         if (parentHabit) {
-           parentHabit.subhabitDisplayMode = newMode;
-           parentHabit.updatedAt = Date.now();
-           if (core.cascadeSubhabitPreferences) {
-             core.cascadeSubhabitPreferences(parentHabit);
-           }
-           if (core.saveState) core.saveState();
-           if (core.renderAll) core.renderAll();
-         }
-         return;
-       }
-
        const btn = e.target.closest('[data-action-habit-id]');
        if (btn) {
          e.stopPropagation();
@@ -2503,7 +2508,6 @@ window.HabitualCore = window.HabitualCore || {};
     const hasSubhabits = subhabits.length > 0;
 
     const subhabitDisplaySection = document.getElementById('parent-subhabit-display-section');
-    const selectDisplayMode = document.getElementById('habit-subhabit-display-mode');
     const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
 
     if (subhabitDisplaySection) {
@@ -2514,9 +2518,6 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    if (selectDisplayMode) {
-      selectDisplayMode.value = habitToEdit ? (habitToEdit.subhabitDisplayMode || 'cards') : 'cards';
-    }
     if (selectSortOrder) {
       selectSortOrder.value = habitToEdit ? (habitToEdit.subhabitSortOrder || 'manual') : 'manual';
     }
@@ -2909,9 +2910,7 @@ window.HabitualCore = window.HabitualCore || {};
       includeChildren: includeChildren
     } : null;
 
-    const selectDisplayMode = document.getElementById('habit-subhabit-display-mode');
     const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
-    const subhabitDisplayMode = selectDisplayMode ? selectDisplayMode.value : 'cards';
     const subhabitSortOrder = selectSortOrder ? selectSortOrder.value : 'manual';
 
     if (!name) return;
@@ -2924,7 +2923,6 @@ window.HabitualCore = window.HabitualCore || {};
         savedTargetHabit = habit;
         const previousHideFromAll = Boolean(habit.hideFromAll);
         habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused; habit.hideHeatmap = hideHeatmap;
-        habit.subhabitDisplayMode = subhabitDisplayMode;
         habit.subhabitSortOrder = subhabitSortOrder;
         core.setHabitPauseState(habit, isPaused, core.getTodayKey(), { hideHeatmap: hideHeatmapWhenPaused });
         habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.parentId = parentId; habit.parentDependency = parentDependency;
@@ -2956,7 +2954,6 @@ window.HabitualCore = window.HabitualCore || {};
                   desc.hideFromAll = habit.hideFromAll;
                   desc.hideHeatmap = habit.hideHeatmap;
                   desc.hideHeatmapWhenPaused = habit.hideHeatmapWhenPaused;
-                  desc.subhabitDisplayMode = habit.subhabitDisplayMode;
                   desc.subhabitSortOrder = habit.subhabitSortOrder;
                   desc.updatedAt = Date.now();
                 }
@@ -3013,14 +3010,13 @@ window.HabitualCore = window.HabitualCore || {};
       const idGen = (typeof core.idFromName === 'function') ? core.idFromName : function(n) { return 'habit_' + String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
       const todayKeyGen = (typeof core.getTodayKey === 'function') ? core.getTodayKey : function() { return new Date().toISOString().split('T')[0]; };
       const parentObj = parentId ? core.state.habits.find(h => h.id === parentId) : null;
-      const initialParent = (parentObj && parentObj.subhabitDisplayMode) ? parentObj : null;
-      const inheritedDisplayMode = initialParent ? initialParent.subhabitDisplayMode || 'cards' : subhabitDisplayMode;
+      const initialParent = (parentObj && parentObj.subhabitSortOrder) ? parentObj : null;
       const inheritedSortOrder = initialParent ? initialParent.subhabitSortOrder || 'manual' : subhabitSortOrder;
 
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + idGen(name),
         name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: todayKeyGen(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
-        subhabitDisplayMode: inheritedDisplayMode, subhabitSortOrder: inheritedSortOrder,
+        subhabitSortOrder: inheritedSortOrder,
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, updatedAt: Date.now(), logs: backfilledLogs
       };
       if (colorTheme) {
