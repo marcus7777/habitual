@@ -4177,6 +4177,38 @@ describe('Issue #22: ↕️ Reorder Controls & Discreet Left-Side Selected Arrow
     assert(!inner.includes('card-reorder-arrows'), 'Single habit card does NOT render card-reorder-arrows');
   });
 
+  test('Habit card does NOT render reorder arrows when sibling is paused and hidden from list', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'h_active', name: 'Active Habit', parentId: null },
+        { id: 'h_paused', name: 'Paused Hidden Habit', parentId: null, isPaused: true, hideHeatmapWhenPaused: true }
+      ]
+    });
+
+    const card = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[0], 2026);
+    assert(!card.innerHTML.includes('card-reorder-arrows'), 'Active habit card does NOT render reorder arrows when sibling is hidden from list');
+  });
+
+  test('Top level habit on single habit page view does NOT render reorder arrows', () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({
+      habits: [
+        { id: 'h_page_1', name: 'Page Habit 1', parentId: null },
+        { id: 'h_page_2', name: 'Page Habit 2', parentId: null }
+      ]
+    });
+
+    // Mock hash location to single habit page
+    const origParseHash = HabitualCore.parseHash;
+    HabitualCore.parseHash = () => ({ view: 'habit', habitId: 'h_page_1' });
+
+    const card = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[0], 2026);
+    assert(!card.innerHTML.includes('card-reorder-arrows'), 'Habit on single habit page does NOT render reorder arrows');
+
+    HabitualCore.parseHash = origParseHash;
+  });
+
   test('Reorder arrows are rendered discreetly on the left for multiple habits without handles', () => {
     HabitualCore.resetState();
     HabitualCore.setState({
@@ -4627,6 +4659,116 @@ describe('Feature 41: 🌅 Day Boundaries & Sunrise/Sunset Calculations', () => 
 
     const formattedWithoutToday = HabitualCore.formatPrettyDate(todayKey, false);
     assert(!formattedWithoutToday.startsWith('Today'), 'formatPrettyDate omits Today when includeToday=false');
+  });
+});
+
+// ============================================================================
+// FEATURE 42: 📅 FLOATING TODAY BAR & DATE NAVIGATOR
+// ============================================================================
+describe('Feature 42: 📅 Floating Today Bar & Date Navigator', () => {
+  test('updateFloatingDateBar displays Today when cursor is on today', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    HabitualCore.setCursorDateKey(today);
+
+    // Mock DOM elements
+    const mockBar = { classList: { add: () => {}, remove: () => {} } };
+    const mockText = { textContent: '' };
+    const mockBadge = { textContent: '', classList: { add: () => {}, remove: () => {} } };
+
+    const origGet = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'floating-today-bar') return mockBar;
+      if (id === 'floating-date-text') return mockText;
+      if (id === 'floating-today-badge') return mockBadge;
+      return null;
+    };
+
+    HabitualCore.updateFloatingDateBar();
+
+    assert(mockText.textContent.includes('Today'), 'Floating date text displays Today when cursor is on today');
+
+    global.document.getElementById = origGet;
+  });
+
+  test('updateFloatingDateBar displays relative days and reset badge when cursor is off today', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+    HabitualCore.setCursorDateKey(yesterday);
+
+    let badgeHidden = false;
+    let badgeShown = false;
+    let barIsPast = false;
+
+    const mockBar = {
+      classList: {
+        add: (c) => { if (c === 'is-past') barIsPast = true; },
+        remove: () => {}
+      }
+    };
+    const mockText = { textContent: '' };
+    const mockBadge = {
+      textContent: '',
+      classList: {
+        add: (c) => { if (c === 'hidden') badgeHidden = true; },
+        remove: (c) => { if (c === 'hidden') badgeShown = true; }
+      }
+    };
+
+    const origGet = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'floating-today-bar') return mockBar;
+      if (id === 'floating-date-text') return mockText;
+      if (id === 'floating-today-badge') return mockBadge;
+      return null;
+    };
+
+    HabitualCore.updateFloatingDateBar();
+
+    assert(mockText.textContent.includes('Yesterday'), 'Floating date text displays Yesterday when cursor is 1 day ago');
+    assert(badgeShown, 'Reset to today badge is revealed when off-today');
+    assert(barIsPast, 'Bar applies is-past class for past dates');
+
+    global.document.getElementById = origGet;
+  });
+
+  test('btn-arrow-left and btn-arrow-right navigate days in setupMobileArrowPad', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+    const yesterday = HabitualCore.getDaysAgoKey(1);
+
+    let leftHandler = null;
+    let rightHandler = null;
+    let todayHandler = null;
+
+    const mockLeft = { addEventListener: (evt, fn) => { if (evt === 'click') leftHandler = fn; } };
+    const mockRight = { addEventListener: (evt, fn) => { if (evt === 'click') rightHandler = fn; } };
+    const mockToday = { addEventListener: (evt, fn) => { if (evt === 'click') todayHandler = fn; } };
+
+    const origGet = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'btn-arrow-left') return mockLeft;
+      if (id === 'btn-arrow-right') return mockRight;
+      if (id === 'btn-arrow-today') return mockToday;
+      return null;
+    };
+
+    HabitualCore.setupMobileArrowPad();
+
+    assert(typeof leftHandler === 'function', 'Left arrow click handler attached');
+    assert(typeof rightHandler === 'function', 'Right arrow click handler attached');
+    assert(typeof todayHandler === 'function', 'Today button click handler attached');
+
+    // Simulate clicking left arrow
+    leftHandler({ preventDefault: () => {}, stopPropagation: () => {} });
+    assertEqual(HabitualCore.getCursorDateKey(), yesterday, 'Clicking left arrow shifts date to yesterday');
+
+    // Simulate clicking right arrow
+    rightHandler({ preventDefault: () => {}, stopPropagation: () => {} });
+    assertEqual(HabitualCore.getCursorDateKey(), today, 'Clicking right arrow shifts date back to today');
+
+    global.document.getElementById = origGet;
   });
 });
 
