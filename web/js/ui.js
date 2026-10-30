@@ -1661,6 +1661,26 @@ window.HabitualCore = window.HabitualCore || {};
         if (!targetHabitId || targetHabitId === 'all' || targetHabitId.startsWith('group_')) {
           targetHabitId = card ? (card.getAttribute('data-habit-id') || 'all') : 'all';
         }
+        if (card && (card.getAttribute('data-habit-id') || card.getAttribute('data-habit-id-raw')) && core.state) {
+          const cardHabitId = card.getAttribute('data-habit-id');
+          const clickedRawId = card.getAttribute('data-habit-id-raw');
+          core.state.selectedHabitId = cardHabitId || clickedRawId;
+          if (core.ensureHabitAncestorsExpanded) {
+            core.ensureHabitAncestorsExpanded(clickedRawId || cardHabitId);
+          }
+          const allCards = gallery.querySelectorAll('.heatmap-card');
+          allCards.forEach(c => {
+            const cId = c.getAttribute('data-habit-id');
+            const cRawId = c.getAttribute('data-habit-id-raw');
+            if (cId === cardHabitId || (clickedRawId && cRawId === clickedRawId)) {
+              c.classList.add('selected');
+              c.classList.add('selected-habit');
+            } else {
+              c.classList.remove('selected');
+              c.classList.remove('selected-habit');
+            }
+          });
+        }
         if (dateStr && core.setCursorDateKey) {
           core.setCursorDateKey(dateStr, true);
         }
@@ -1857,33 +1877,9 @@ window.HabitualCore = window.HabitualCore || {};
       if (sq && sq._isLongPressTriggered) { sq._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
       if (card && card._isLongPressTriggered) { card._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
 
-      // If we clicked a square, handle cursor selection directly without opening log modal
-      if (sq) {
-        e.stopPropagation();
-        if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
-
-        let targetHabitId = cardHabitId || 'all';
-        const sqHabitId = sq.getAttribute('data-habit-id');
-        if (sqHabitId && sqHabitId !== 'all' && !sqHabitId.startsWith('group_')) targetHabitId = sqHabitId;
-        const targetDate = sq.getAttribute('data-date');
-
-        if (targetDate && core.setCursorDateKey) {
-          core.setCursorDateKey(targetDate, true);
-        }
-        return; // Return early so we don't trigger card expansion or open log modal
-      }
-
-      // If we clicked card background outside squares, handle concertina toggle if subhabits exist
+      // Short click on heat map (squares or card background): selects habit (done at top of listener)
       e.stopPropagation();
       if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
-
-      const hasSubhabits = card.getAttribute('data-has-subhabits') === 'true';
-      const rawHabitId = card.getAttribute('data-habit-id-raw');
-
-      if (hasSubhabits && rawHabitId) {
-        core.toggleConcertina(rawHabitId);
-        return;
-      }
     });
 
     // Delegated event listeners for focused toolbar inputs, concertina controls and buttons

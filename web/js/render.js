@@ -22,6 +22,9 @@ window.HabitualCore = window.HabitualCore || {};
     if (!core.elements || !core.elements.yearSelector || !core.elements.heatmapsGallery) return;
     core.renderYearSelector();
     core.renderHeatmapsGallery();
+    if (core.updateFloatingDateBar) {
+      core.updateFloatingDateBar();
+    }
   };
 
   core.patchHeatmapCard = function(habitId, dateKey) {
@@ -866,9 +869,25 @@ window.HabitualCore = window.HabitualCore || {};
     const streakData = core.calculateStreakForTarget ? core.calculateStreakForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit)) : { current: 0, longest: 0 };
     const stats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit), year) : { activeDaysCount: 0, totalCount: 0 };
 
+    const route = core.parseHash ? core.parseHash() : { view: 'home' };
+    const isCurrentOpenPage = route.view === 'habit' && route.habitId === (habit ? habit.id : null);
+
     const isTopLevelGroup = isGroup && habit && !habit.parentId;
     const parentIdFilter = habit ? habit.parentId : null;
-    const siblings = (habit || isTopLevelGroup) ? core.state.habits.filter(h => (h.parentId || null) === (parentIdFilter || null)) : [];
+
+    let siblings = [];
+    if (habit || isTopLevelGroup) {
+      if (parentIdFilter) {
+        siblings = core.state.habits.filter(h => h.parentId === parentIdFilter && !(h.isPaused && h.hideHeatmapWhenPaused));
+      } else {
+        if (route.view === 'habit') {
+          siblings = habit ? [habit] : [];
+        } else {
+          siblings = core.state.habits.filter(h => !h.parentId && !(h.isPaused && h.hideHeatmapWhenPaused));
+        }
+      }
+    }
+
     const canMove = siblings.length > 1;
     const isDraggable = (!isAll && (!isGroup || isTopLevelGroup) && canMove);
 
@@ -877,9 +896,6 @@ window.HabitualCore = window.HabitualCore || {};
     const card = document.createElement('div');
     card.className = `heatmap-card theme-${theme} ${isCardFocused ? 'focused' : ''} ${isSelectedHabit ? 'selected selected-habit' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
     card.setAttribute('data-habit-id', cardHabitId);
-
-    const route = core.parseHash ? core.parseHash() : { view: 'home' };
-    const isCurrentOpenPage = route.view === 'habit' && route.habitId === (habit ? habit.id : null);
 
     let titleText = 'All';
     if (isGroup) titleText = targetOrNull.title;
