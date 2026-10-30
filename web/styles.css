@@ -708,26 +708,26 @@ body.dark-theme {
   z-index: 10;
 }
 
-/* Reordering Arrows (Discreet, Small, Left Side Outside Card) */
+/* Reordering Arrows (Direct child of card, floating discreetly outside card header) */
 .card-reorder-arrows {
   display: none;
   position: absolute;
   left: -28px;
   top: 8px;
+  flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 2px 3px;
+  padding: 3px 2px;
   border-radius: 6px;
   background-color: var(--bg-card, #1c2128);
   border: 1px solid var(--accent-gold, #f1e05a);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  z-index: 25;
-  transition: opacity 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 50;
 }
 
-.heatmap-card.selected .card-reorder-arrows,
-.heatmap-card.selected-habit .card-reorder-arrows {
-  display: inline-flex;
+.heatmap-card.selected > .card-reorder-arrows,
+.heatmap-card.selected-habit > .card-reorder-arrows {
+  display: flex;
 }
 
 .btn-move-up,
