@@ -1013,7 +1013,6 @@ window.HabitualCore = window.HabitualCore || {};
     let headerHTML = `
       <div class="heatmap-card-header ${actionsHTML ? 'has-actions' : ''}">
         <div class="heatmap-title-row">
-          ${reorderArrowsHTML}
           ${habitTabHTML}
           ${subhabitsBadgeHTML}
           ${dependencyBadgeHTML}
@@ -1163,11 +1162,11 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (shouldHideHeatmap) {
       card.classList.add('minimal-checkbox-card');
-      card.innerHTML = headerHTML + focusedToolbarHTML;
+      card.innerHTML = reorderArrowsHTML + headerHTML + focusedToolbarHTML;
       return card;
     }
 
-    card.innerHTML = headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>`;
+    card.innerHTML = reorderArrowsHTML + headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>`;
     return card;
   };
 
