@@ -708,11 +708,10 @@ body.dark-theme {
   z-index: 10;
 }
 
-/* Reordering Arrows (Direct child of card, floating discreetly outside card header) */
 .card-reorder-arrows {
   display: none;
   position: absolute;
-  left: -28px;
+  right: 53px;
   top: 8px;
   flex-direction: column;
   align-items: center;
