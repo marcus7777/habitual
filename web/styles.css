@@ -708,70 +708,51 @@ body.dark-theme {
   z-index: 10;
 }
 
-.drag-handle-container {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.drag-handle {
-  cursor: grab;
-  color: var(--text-dim);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
-  user-select: none;
-}
-
-.drag-handle:hover {
-  color: var(--text-main);
-  background-color: var(--bg-pill);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
-.drag-arrows {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  display: flex;
-  flex-direction: column;
-  padding: 4px;
-  z-index: 20;
-  outline: none;
-}
-
-.drag-arrows.hidden {
+/* Reordering Arrows (Discreet, Left Side, Shown When Selected) */
+.card-reorder-arrows {
   display: none;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  background-color: var(--bg-pill, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  flex-shrink: 0;
+  margin-right: 2px;
+  transition: all 0.2s ease;
+}
+
+.heatmap-card.selected .card-reorder-arrows,
+.heatmap-card.selected-habit .card-reorder-arrows {
+  display: inline-flex;
 }
 
 .btn-move-up,
 .btn-move-down {
   background: transparent;
   border: none;
-  color: var(--text-main);
-  padding: 8px 12px;
-  font-size: 14px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+  padding: 2px 5px;
+  font-size: 11px;
+  line-height: 1;
   cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: background-color 0.2s;
-  display: flex;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
 }
 
 .btn-move-up:hover,
 .btn-move-down:hover {
-  background-color: var(--bg-pill);
+  color: var(--text-main, #ffffff);
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.btn-move-up:active,
+.btn-move-down:active {
+  transform: scale(0.92);
 }
 
 .heatmap-card.dragging {
@@ -798,7 +779,7 @@ body.dark-theme {
 
 .heatmap-card-header.has-actions,
 .heatmap-card-header:has(.card-header-actions) {
-  padding-right: 68px;
+  padding-right: 36px;
 }
 
 .heatmap-title-row {

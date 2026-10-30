@@ -1507,7 +1507,7 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     HabitualCore.elements = originalElements;
   });
 
-  test('Delegated click on day square opens log modal without ReferenceError', () => {
+  test('Short click on day square does not open log modal; long press opens log modal', (done) => {
     HabitualCore.resetState();
     const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 1, logs: {} };
     HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
@@ -1535,15 +1535,25 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     mockSquare.setAttribute('data-habit-id', 'water');
     card.appendChild(mockSquare);
 
+    // Short click should NOT open log modal
     mockSquare.click();
+    assertEqual(openedHabitId, null, 'Short click on day square does not open log modal');
 
-    assertEqual(openedHabitId, 'water', 'Clicking day square passed habit ID to openLogModal without cardHabitId ReferenceError');
+    // Trigger long press via pointerdown event
+    const pdEvent = { target: mockSquare, preventDefault: () => {}, stopPropagation: () => {} };
+    if (galleryMock._eventListeners && galleryMock._eventListeners['pointerdown']) {
+      galleryMock._eventListeners['pointerdown'].forEach(fn => fn(pdEvent));
+    }
 
-    HabitualCore.openLogModal = originalOpenLogModal;
-    HabitualCore.elements = originalElements;
+    setTimeout(() => {
+      assertEqual(openedHabitId, 'water', 'Long press on day square passed habit ID to openLogModal');
+      HabitualCore.openLogModal = originalOpenLogModal;
+      HabitualCore.elements = originalElements;
+      done();
+    }, 550);
   });
 
-  test('Delegated click on card background opens log modal without ReferenceError', () => {
+  test('Short click on card background does not open log modal; long press opens log modal', (done) => {
     HabitualCore.resetState();
     const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 1, logs: {} };
     HabitualCore.setState({ habits: [habit], selectedHabitId: 'all', selectedYear: 2026 });
@@ -1564,12 +1574,22 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     const card = HabitualCore.buildHeatmapCard(habit, 2026);
     galleryMock.appendChild(card);
 
+    // Short click on card background should NOT open log modal
     card.click();
+    assertEqual(openedHabitId, null, 'Short click on card background does not open log modal');
 
-    assertEqual(openedHabitId, 'water', 'Clicking card background passed habit ID to openLogModal without cardHabitId ReferenceError');
+    // Trigger long press via pointerdown event
+    const pdEvent = { target: card, preventDefault: () => {}, stopPropagation: () => {} };
+    if (galleryMock._eventListeners && galleryMock._eventListeners['pointerdown']) {
+      galleryMock._eventListeners['pointerdown'].forEach(fn => fn(pdEvent));
+    }
 
-    HabitualCore.openLogModal = originalOpenLogModal;
-    HabitualCore.elements = originalElements;
+    setTimeout(() => {
+      assertEqual(openedHabitId, 'water', 'Long press on card background passed habit ID to openLogModal');
+      HabitualCore.openLogModal = originalOpenLogModal;
+      HabitualCore.elements = originalElements;
+      done();
+    }, 550);
   });
 });
 
@@ -4141,10 +4161,10 @@ describe('Feature 38: Overwrite Protection, Passphrase Hash Verification & Surgi
 });
 
 // ============================================================================
-// ISSUE #22: Handle Icon Display & Mobile Directional Arrows Logic
+// ISSUE #22: Reorder Controls & Discreet Left-Side Selected Arrows
 // ============================================================================
-describe('Issue #22: ↕️ Handle Icon Visibility & Mobile Reorder Arrows', () => {
-  test('Handle icon is hidden when habit card is the only item in a list', () => {
+describe('Issue #22: ↕️ Reorder Controls & Discreet Left-Side Selected Arrows', () => {
+  test('Single habit card does NOT render reorder arrows or drag handle', () => {
     HabitualCore.resetState();
     HabitualCore.setState({
       habits: [{ id: 'single_habit_1', name: 'Single Habit', parentId: null }]
@@ -4154,10 +4174,10 @@ describe('Issue #22: ↕️ Handle Icon Visibility & Mobile Reorder Arrows', () 
     const inner = card.innerHTML;
 
     assert(!inner.includes('drag-handle'), 'Single habit card does NOT render drag handle icon');
-    assert(!card.classList.contains('draggable-card'), 'Single habit card does NOT have draggable-card class');
+    assert(!inner.includes('card-reorder-arrows'), 'Single habit card does NOT render card-reorder-arrows');
   });
 
-  test('Handle icon is displayed when there are multiple habits in a list', () => {
+  test('Reorder arrows are rendered discreetly on the left for multiple habits without handles', () => {
     HabitualCore.resetState();
     HabitualCore.setState({
       habits: [
@@ -4169,10 +4189,10 @@ describe('Issue #22: ↕️ Handle Icon Visibility & Mobile Reorder Arrows', () 
     const card1 = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[0], 2026);
     const card2 = HabitualCore.buildHeatmapCard(HabitualCore.state.habits[1], 2026);
 
-    assert(card1.innerHTML.includes('drag-handle'), 'First habit card renders drag handle');
-    assert(card2.innerHTML.includes('drag-handle'), 'Second habit card renders drag handle');
-    assert(card1.classList.contains('draggable-card'), 'First habit card has draggable-card class');
-    assert(card2.classList.contains('draggable-card'), 'Second habit card has draggable-card class');
+    assert(!card1.innerHTML.includes('drag-handle'), 'First habit card does NOT render drag handle');
+    assert(!card2.innerHTML.includes('drag-handle'), 'Second habit card does NOT render drag handle');
+    assert(card1.innerHTML.includes('card-reorder-arrows'), 'First habit card renders card-reorder-arrows');
+    assert(card2.innerHTML.includes('card-reorder-arrows'), 'Second habit card renders card-reorder-arrows');
   });
 
   test('First habit in list renders ONLY move down arrow (▼) and NO move up arrow (▲)', () => {
@@ -4232,6 +4252,7 @@ describe('Issue #22: ↕️ Handle Icon Visibility & Mobile Reorder Arrows', () 
 
     const subCardSingle = HabitualCore.buildHeatmapCard(singleSub, 2026);
     assert(!subCardSingle.innerHTML.includes('drag-handle'), 'Single sub-habit under parent does NOT render drag handle');
+    assert(!subCardSingle.innerHTML.includes('card-reorder-arrows'), 'Single sub-habit under parent does NOT render reorder arrows');
 
     const subTwo = { id: 'sub_two', name: 'Sub Two', parentId: 'parent_1' };
     HabitualCore.setState({ habits: [parent, singleSub, subTwo] });
@@ -4239,11 +4260,11 @@ describe('Issue #22: ↕️ Handle Icon Visibility & Mobile Reorder Arrows', () 
     const subCardFirst = HabitualCore.buildHeatmapCard(singleSub, 2026);
     const subCardSecond = HabitualCore.buildHeatmapCard(subTwo, 2026);
 
-    assert(subCardFirst.innerHTML.includes('drag-handle'), 'First of 2 sub-habits renders drag handle');
+    assert(!subCardFirst.innerHTML.includes('drag-handle'), 'First of 2 sub-habits does NOT render drag handle');
     assert(subCardFirst.innerHTML.includes('btn-move-down'), 'First sub-habit renders btn-move-down');
     assert(!subCardFirst.innerHTML.includes('btn-move-up'), 'First sub-habit does NOT render btn-move-up');
 
-    assert(subCardSecond.innerHTML.includes('drag-handle'), 'Second of 2 sub-habits renders drag handle');
+    assert(!subCardSecond.innerHTML.includes('drag-handle'), 'Second of 2 sub-habits does NOT render drag handle');
     assert(subCardSecond.innerHTML.includes('btn-move-up'), 'Second sub-habit renders btn-move-up');
     assert(!subCardSecond.innerHTML.includes('btn-move-down'), 'Second sub-habit does NOT render btn-move-down');
   });
