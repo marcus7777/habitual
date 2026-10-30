@@ -204,7 +204,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.29.6</p>
+      <p>Habitual &bull; v1.29.7</p>
     </footer>
   </div>
 
@@ -791,6 +791,23 @@
       <div class="modal-footer" style="justify-content: space-between;">
         <button type="button" id="btn-verify-later" class="btn btn-ghost btn-sm">Later</button>
         <button type="button" id="btn-verify-all" class="btn btn-primary btn-sm">✅ Confirm All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Custom Confirmation Dialog (Yes / No) -->
+  <div id="modal-confirm" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-dialog-sm">
+      <div class="modal-header">
+        <h3 id="modal-confirm-title">Confirm Update</h3>
+        <button id="modal-confirm-close" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-confirm-message" style="color: var(--text-secondary, #a3aab6); font-size: 0.95rem; line-height: 1.5; margin-bottom: 0;"></p>
+      </div>
+      <div class="modal-footer" style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" id="btn-modal-confirm-no" class="btn btn-ghost">No</button>
+        <button type="button" id="btn-modal-confirm-yes" class="btn btn-primary">Yes</button>
       </div>
     </div>
   </div>
