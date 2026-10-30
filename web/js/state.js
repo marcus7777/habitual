@@ -464,6 +464,9 @@ window.HabitualCore = window.HabitualCore || {};
     if (core.renderAll && core.elements && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.appendChild === 'function') {
       core.renderAll();
     }
+    if (core.updateFloatingDateBar) {
+      core.updateFloatingDateBar();
+    }
     if (isNew && core.showCursorTooltip) {
       core.showCursorTooltip(1200);
     }
