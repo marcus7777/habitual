@@ -1852,15 +1852,6 @@ window.HabitualCore = window.HabitualCore || {};
         return;
       }
 
-      const concertinaBtn = e.target.closest('.btn-toggle-concertina, .btn-put-away');
-      if (concertinaBtn) {
-        e.stopPropagation();
-        e.preventDefault();
-        const habitId = concertinaBtn.dataset.habitId || concertinaBtn.dataset.parentId || concertinaBtn.getAttribute('data-habit-id') || concertinaBtn.getAttribute('data-parent-id');
-        if (habitId && core.toggleConcertina) core.toggleConcertina(habitId);
-        return;
-      }
-
       const shareBtn = e.target.closest('.btn-card-share');
       if (shareBtn) {
         e.stopPropagation();
@@ -2072,7 +2063,7 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    safeQueryGallery('.btn-toggle-concertina, .btn-put-away').forEach(btn => {
+    safeQueryGallery('.btn-toggle-concertina').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();

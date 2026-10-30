@@ -2230,34 +2230,6 @@ select.form-control-sm {
   gap: 6px;
 }
 
-.put-away-bar {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.btn-put-away {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--bg-pill);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  padding: 3px 10px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  user-select: none;
-}
-
-.btn-put-away:hover {
-  background: var(--bg-pill-active);
-  color: var(--text-main);
-  border-color: var(--accent-blue);
-}
-
 /* Modal Dialog Wide & Data Management Enhancements */
 .modal-dialog-wide {
   max-width: 680px !important;

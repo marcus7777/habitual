@@ -1393,8 +1393,6 @@ describe('Feature 19: 📁 Concertina Accordion & Indented Sub-habits', () => {
     assert(concertina !== null, 'Contains .subhabits-concertina container');
     assertEqual(concertina.getAttribute('data-parent-id'), 'gym', 'Concertina container has data-parent-id="gym"');
     assert(concertina.classList.contains('expanded'), 'concertina is expanded when in expandedHabitIds');
-    const putAwayBtn = concertina.querySelector('.btn-put-away');
-    assert(putAwayBtn !== null, 'Contains ▲ Put away button');
   });
 });
 
