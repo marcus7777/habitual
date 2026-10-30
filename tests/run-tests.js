@@ -2003,7 +2003,7 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
     HabitualCore.elements = originalElements;
   });
 
-  test('WASD keys navigate cursor date and Enter key clicks quick log on hovered card', () => {
+  test('WASD keys navigate cursor date and Enter key clicks quick log on selected card', () => {
     HabitualCore.resetState();
     const today = HabitualCore.getTodayKey();
     assertEqual(HabitualCore.getCursorDateKey(), today, 'getCursorDateKey starts on today');
@@ -2028,9 +2028,10 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
     keydownListener({ key: 'd', preventDefault: () => {} });
     assertEqual(HabitualCore.getCursorDateKey(), today, "'d' key moves cursor right 1 day");
 
-    // Test Enter key on hovered card
+    // Test Enter key on selected card
     let clicked = false;
     const mockCard = {
+      getAttribute(attr) { if (attr === 'data-habit-id' || attr === 'data-habit-id-raw') return 'water'; return null; },
       querySelector(sel) {
         if (sel === '.btn-card-quick-log') {
           return { click: () => { clicked = true; } };
@@ -2038,10 +2039,16 @@ describe('Feature 26: 🎯 Arrow Key Date Cursor Navigation & Cursor Day Logging
         return null;
       }
     };
-    HabitualCore.hoveredCard = mockCard;
+    HabitualCore.state.selectedHabitId = 'water';
+    const prevQuerySelector = global.document.querySelector;
+    global.document.querySelector = (sel) => {
+      if (sel && (sel.includes('water') || sel.includes('selected'))) return mockCard;
+      return null;
+    };
 
     keydownListener({ key: 'Enter', preventDefault: () => {} });
-    assertEqual(clicked, true, 'Enter key triggers click on hovered card quick log button');
+    assertEqual(clicked, true, 'Enter key triggers click on selected card quick log button');
+    global.document.querySelector = prevQuerySelector;
   });
 
   test('showCursorTooltip picks visible square closest to mouse or viewport center', () => {

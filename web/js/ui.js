@@ -1047,30 +1047,27 @@ window.HabitualCore = window.HabitualCore || {};
       }
     });
 
-    document.addEventListener('mouseover', (e) => {
-      const card = e.target.closest('.heatmap-card');
-      if (card) {
-        core.hoveredCard = card;
-      }
-    });
-
-    document.addEventListener('mouseout', (e) => {
-      const card = e.target.closest('.heatmap-card');
-      if (card && card === core.hoveredCard) {
-        const relatedCard = e.relatedTarget ? e.relatedTarget.closest('.heatmap-card') : null;
-        core.hoveredCard = relatedCard;
-      }
-    });
-
     core.getActiveCardAndHabitId = function() {
-      const card = (document.querySelector && document.querySelector('.heatmap-card:hover')) ||
-                   core.hoveredCard ||
-                   (document.querySelector && document.querySelector('.heatmap-card.selected')) ||
-                   (document.querySelector && document.querySelector('.heatmap-card.selected-habit')) ||
-                   (document.querySelector && document.querySelector('.day-square.cursor-day')?.closest('.heatmap-card'));
-
       let habitId = null;
-      if (card && typeof card.getAttribute === 'function') {
+      if (core.state && core.state.selectedHabitId && core.state.selectedHabitId !== 'all' && !core.state.selectedHabitId.startsWith('group_')) {
+        habitId = core.state.selectedHabitId;
+      }
+
+      let card = null;
+      if (habitId && document.querySelector && typeof document.querySelector === 'function') {
+        card = document.querySelector(`.heatmap-card[data-habit-id="${habitId}"]`) ||
+               document.querySelector(`.heatmap-card[data-habit-id-raw="${habitId}"]`) ||
+               document.querySelector('.heatmap-card.selected') ||
+               document.querySelector('.heatmap-card.selected-habit');
+      }
+
+      if (!card && document.querySelector && typeof document.querySelector === 'function') {
+        card = document.querySelector('.heatmap-card.selected') ||
+               document.querySelector('.heatmap-card.selected-habit') ||
+               document.querySelector('.day-square.cursor-day')?.closest('.heatmap-card');
+      }
+
+      if (!habitId && card && typeof card.getAttribute === 'function') {
         habitId = card.getAttribute('data-habit-id-raw') || card.getAttribute('data-habit-id');
       }
 
@@ -1081,10 +1078,6 @@ window.HabitualCore = window.HabitualCore || {};
                              (typeof quickLogBtn.getAttribute === 'function' ? quickLogBtn.getAttribute('data-habit-id') : null);
           if (btnHabitId) habitId = btnHabitId;
         }
-      }
-
-      if (!habitId && core.state && core.state.selectedHabitId && core.state.selectedHabitId !== 'all' && !core.state.selectedHabitId.startsWith('group_')) {
-        habitId = core.state.selectedHabitId;
       }
 
       if (!habitId) {
@@ -1101,6 +1094,7 @@ window.HabitualCore = window.HabitualCore || {};
           if (!habitId && typeof firstCard.getAttribute === 'function') {
             habitId = firstCard.getAttribute('data-habit-id-raw') || firstCard.getAttribute('data-habit-id');
           }
+          if (!card) card = firstCard;
         }
       }
 
@@ -1146,20 +1140,15 @@ window.HabitualCore = window.HabitualCore || {};
         e.preventDefault();
         const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : (core.getTodayKey ? core.getTodayKey() : '');
         const target = core.getActiveCardAndHabitId ? core.getActiveCardAndHabitId() : null;
-        if (target && target.habitId && target.habitId !== 'all' && !target.habitId.startsWith('group_')) {
-          const btn = (target.card && typeof target.card.querySelector === 'function') ? target.card.querySelector('.btn-card-quick-log') : null;
-          if (core.toggleHabitForDate) core.toggleHabitForDate(target.habitId, targetDate, btn);
-        } else {
-          const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) ||
-                              core.hoveredCard ||
-                              (document.querySelector && document.querySelector('.heatmap-card.selected')) ||
-                              (document.querySelector && document.querySelector('.heatmap-card.selected-habit')) ||
-                              (document.querySelector && document.querySelector('.day-square.cursor-day')?.closest('.heatmap-card')) ||
-                              (document.querySelector && document.querySelector('.heatmap-card'));
-          if (hoveredCard && typeof hoveredCard.querySelector === 'function') {
-            const quickLogBtn = hoveredCard.querySelector('.btn-card-quick-log');
-            if (quickLogBtn && typeof quickLogBtn.click === 'function') quickLogBtn.click();
+        if (target && target.card) {
+          const btn = (typeof target.card.querySelector === 'function') ? target.card.querySelector('.btn-card-quick-log') : null;
+          if (btn && typeof btn.click === 'function') {
+            btn.click();
+          } else if (target.habitId && target.habitId !== 'all' && !target.habitId.startsWith('group_')) {
+            if (core.toggleHabitForDate) core.toggleHabitForDate(target.habitId, targetDate, btn);
           }
+        } else if (target && target.habitId && target.habitId !== 'all' && !target.habitId.startsWith('group_')) {
+          if (core.toggleHabitForDate) core.toggleHabitForDate(target.habitId, targetDate);
         }
       } else if (key === 'Delete') {
         e.preventDefault();
@@ -1214,8 +1203,8 @@ window.HabitualCore = window.HabitualCore || {};
       } else if (key === ' ' || key === 'Spacebar' || e.code === 'Space') {
         const selectedCard = (document.querySelector && document.querySelector('.heatmap-card.selected')) ||
                              (document.querySelector && document.querySelector('.heatmap-card.selected-habit')) ||
-                             (document.querySelector && document.querySelector('.heatmap-card:hover')) ||
-                             core.hoveredCard;
+                             (document.querySelector && document.querySelector('.day-square.cursor-day')?.closest('.heatmap-card')) ||
+                             (document.querySelector && document.querySelector('.heatmap-card'));
         if (selectedCard) {
           const rawHabitId = selectedCard.getAttribute('data-habit-id-raw') ||
                              selectedCard.getAttribute('data-habit-id') ||
@@ -1413,14 +1402,14 @@ window.HabitualCore = window.HabitualCore || {};
         e.stopPropagation();
         triggerHaptic();
         const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : (core.getTodayKey ? core.getTodayKey() : '');
-        const hoveredCard = (document.querySelector && document.querySelector('.heatmap-card:hover')) || core.hoveredCard || (core.elements && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.querySelector === 'function' ? core.elements.heatmapsGallery.querySelector('.heatmap-card') : null);
-        if (hoveredCard) {
-          const quickLogBtn = hoveredCard.querySelector('.btn-card-quick-log');
+        const target = core.getActiveCardAndHabitId ? core.getActiveCardAndHabitId() : null;
+        if (target && target.card) {
+          const quickLogBtn = typeof target.card.querySelector === 'function' ? target.card.querySelector('.btn-card-quick-log') : null;
           if (quickLogBtn && typeof quickLogBtn.click === 'function') {
             quickLogBtn.click();
           } else {
-            const habitId = hoveredCard.getAttribute ? (hoveredCard.getAttribute('data-habit-id') || hoveredCard.getAttribute('data-habit-id-raw')) : null;
-            if (habitId && habitId !== 'all' && core.openLogModal) {
+            const habitId = target.habitId || (target.card.getAttribute ? (target.card.getAttribute('data-habit-id') || target.card.getAttribute('data-habit-id-raw')) : null);
+            if (habitId && habitId !== 'all' && !habitId.startsWith('group_') && core.toggleHabitForDate) {
               core.toggleHabitForDate(habitId, targetDate);
             } else if (core.openLogModal) {
               core.openLogModal(targetDate);
@@ -1592,26 +1581,27 @@ window.HabitualCore = window.HabitualCore || {};
           chosenSq = sq;
         }
       });
-    } else if (core.hoveredCard) {
-      const hoveredSq = core.hoveredCard.querySelector('.day-square.cursor-day');
-      if (hoveredSq && candidateSquares.includes(hoveredSq)) {
-        chosenSq = hoveredSq;
-      }
     } else {
-      const viewportCenterX = viewportWidth / 2;
-      const viewportCenterY = viewportHeight / 2;
-      let minCenterDistance = Infinity;
+      const target = core.getActiveCardAndHabitId ? core.getActiveCardAndHabitId() : null;
+      const targetSq = (target && target.card && typeof target.card.querySelector === 'function') ? target.card.querySelector('.day-square.cursor-day') : null;
+      if (targetSq && candidateSquares.includes(targetSq)) {
+        chosenSq = targetSq;
+      } else {
+        const viewportCenterX = viewportWidth / 2;
+        const viewportCenterY = viewportHeight / 2;
+        let minCenterDistance = Infinity;
 
-      candidateSquares.forEach(sq => {
-        const rect = sq.getBoundingClientRect();
-        const centerX = rect.left + (rect.width / 2);
-        const centerY = rect.top + (rect.height / 2);
-        const dist = Math.hypot(centerX - viewportCenterX, centerY - viewportCenterY);
-        if (dist < minCenterDistance) {
-          minCenterDistance = dist;
-          chosenSq = sq;
-        }
-      });
+        candidateSquares.forEach(sq => {
+          const rect = sq.getBoundingClientRect();
+          const centerX = rect.left + (rect.width / 2);
+          const centerY = rect.top + (rect.height / 2);
+          const dist = Math.hypot(centerX - viewportCenterX, centerY - viewportCenterY);
+          if (dist < minCenterDistance) {
+            minCenterDistance = dist;
+            chosenSq = sq;
+          }
+        });
+      }
     }
 
     if (chosenSq) {
