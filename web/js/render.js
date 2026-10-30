@@ -460,11 +460,6 @@ window.HabitualCore = window.HabitualCore || {};
 
     concertina.appendChild(listContainer);
 
-    const putAwayBar = document.createElement('div');
-    putAwayBar.className = 'put-away-bar';
-    putAwayBar.innerHTML = `<button class="btn btn-secondary btn-sm btn-put-away" data-parent-id="${habit.id}" title="Put away sub-habits">▲ Put away sub-habits</button>`;
-    concertina.appendChild(putAwayBar);
-
     wrapper.appendChild(concertina);
     return wrapper;
   };
