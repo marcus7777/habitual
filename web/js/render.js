@@ -875,12 +875,8 @@ window.HabitualCore = window.HabitualCore || {};
     const isSelectedHabit = core.state && cardHabitId !== 'all' && core.state.selectedHabitId === cardHabitId;
 
     const card = document.createElement('div');
-    card.className = `heatmap-card theme-${theme} ${isDraggable ? 'draggable-card' : ''} ${isCardFocused ? 'focused' : ''} ${isSelectedHabit ? 'selected selected-habit' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
+    card.className = `heatmap-card theme-${theme} ${isCardFocused ? 'focused' : ''} ${isSelectedHabit ? 'selected selected-habit' : ''} ${(habit && habit.isPaused) ? 'is-paused' : ''}`;
     card.setAttribute('data-habit-id', cardHabitId);
-
-    if (isDraggable) {
-      card.setAttribute('draggable', 'true');
-    }
 
     const route = core.parseHash ? core.parseHash() : { view: 'home' };
     const isCurrentOpenPage = route.view === 'habit' && route.habitId === (habit ? habit.id : null);
@@ -1016,34 +1012,28 @@ window.HabitualCore = window.HabitualCore || {};
         </button>`;
     }
 
+    let reorderArrowsHTML = '';
+    if (habit && isDraggable) {
+      const siblingIndex = siblings.findIndex(h => h.id === habit.id);
+      const isFirstSibling = siblingIndex === 0;
+      const isLastSibling = siblingIndex === siblings.length - 1;
+
+      const hasArrows = !isFirstSibling || !isLastSibling;
+      if (hasArrows) {
+        reorderArrowsHTML = `
+          <div class="card-reorder-arrows" tabindex="-1">
+            ${!isFirstSibling ? `<button type="button" class="btn-move-up" data-habit-id="${habit.id}" title="Move Up" aria-label="Move Up">▲</button>` : ''}
+            ${!isLastSibling ? `<button type="button" class="btn-move-down" data-habit-id="${habit.id}" title="Move Down" aria-label="Move Down">▼</button>` : ''}
+          </div>`;
+      }
+    }
+
     let actionsHTML = '';
     if (habit) {
       const openMenuItem = !isCurrentOpenPage ? `<a href="#/habit/${habit.id}" class="card-menu-item">Open Habit Page</a>` : '';
-      let dragHandleHTML = '';
-      if (isDraggable) {
-        const siblingIndex = siblings.findIndex(h => h.id === habit.id);
-        const isFirstSibling = siblingIndex === 0;
-        const isLastSibling = siblingIndex === siblings.length - 1;
-
-        const hasArrows = !isFirstSibling || !isLastSibling;
-
-        dragHandleHTML = `
-          <div class="drag-handle-container">
-            <div class="drag-handle" title="Tap to move, or drag to reorder">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
-            </div>
-            ${hasArrows ? `
-            <div class="drag-arrows hidden" tabindex="-1">
-              ${!isFirstSibling ? `<button type="button" class="btn-move-up" data-habit-id="${habit.id}" aria-label="Move Up">▲</button>` : ''}
-              ${!isLastSibling ? `<button type="button" class="btn-move-down" data-habit-id="${habit.id}" aria-label="Move Down">▼</button>` : ''}
-            </div>
-            ` : ''}
-          </div>`;
-      }
 
       actionsHTML = `
         <div class="card-header-actions">
-          ${dragHandleHTML}
           <button type="button" class="btn-card-edit" data-habit-id="${habit.id}" title="Edit Habit" aria-label="Edit Habit">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
@@ -1055,6 +1045,7 @@ window.HabitualCore = window.HabitualCore || {};
     let headerHTML = `
       <div class="heatmap-card-header ${actionsHTML ? 'has-actions' : ''}">
         <div class="heatmap-title-row">
+          ${reorderArrowsHTML}
           ${habitTabHTML}
           ${subhabitsBadgeHTML}
           ${dependencyBadgeHTML}

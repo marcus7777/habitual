@@ -1590,24 +1590,31 @@ window.HabitualCore = window.HabitualCore || {};
 
     gallery.addEventListener('pointerdown', (e) => {
       if (e.button !== undefined && e.button !== 0) return;
+      if (e.target.closest('.focused-day-toolbar') || e.target.closest('.card-header-actions') || e.target.closest('.card-context-menu-dropdown') || e.target.closest('.card-title-link') || e.target.closest('button, input, select, a, .btn-card-quick-log')) return;
+
       const sq = e.target.closest('.day-square[data-date], rect[data-date]');
-      if (!sq) return;
+      const card = e.target.closest('.heatmap-card');
+      if (!sq && !card) return;
+
       cancelLongPress();
-      sq._isLongPressTriggered = false;
+      const targetEl = sq || card;
+      targetEl._isLongPressTriggered = false;
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       startX = clientX; startY = clientY;
 
       longPressTimer = setTimeout(() => {
-        sq._isLongPressTriggered = true;
+        targetEl._isLongPressTriggered = true;
         longPressTimer = null;
         if (core.vibrate) core.vibrate(40);
         if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
-        const dateStr = sq.getAttribute('data-date'); // use getAttribute for SVG compatibility
-        let targetHabitId = sq.getAttribute('data-habit-id');
-        const card = sq.closest('.heatmap-card');
+        const dateStr = sq ? sq.getAttribute('data-date') : (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
+        let targetHabitId = sq ? sq.getAttribute('data-habit-id') : null;
         if (!targetHabitId || targetHabitId === 'all' || targetHabitId.startsWith('group_')) {
           targetHabitId = card ? (card.getAttribute('data-habit-id') || 'all') : 'all';
+        }
+        if (dateStr && core.setCursorDateKey) {
+          core.setCursorDateKey(dateStr, true);
         }
         core.openLogModal(dateStr, targetHabitId);
       }, 500);
@@ -1684,6 +1691,41 @@ window.HabitualCore = window.HabitualCore || {};
         const habitId = editBtn.dataset.habitId || editBtn.getAttribute('data-habit-id');
         const habit = core.state.habits.find(h => h.id === habitId);
         if (habit && core.openHabitModal) core.openHabitModal(habit);
+        return;
+      }
+
+      // 3. Handle Move Up / Down button clicks via Delegation
+      const moveBtn = e.target.closest('.btn-move-up, .btn-move-down');
+      if (moveBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const habitId = moveBtn.dataset.habitId || moveBtn.getAttribute('data-habit-id');
+        const isUp = moveBtn.classList.contains('btn-move-up');
+
+        const habit = core.state.habits.find(h => h.id === habitId);
+        if (!habit) return;
+
+        const siblings = core.state.habits.filter(h => h.parentId === habit.parentId);
+        const siblingIndex = siblings.findIndex(h => h.id === habitId);
+
+        if (isUp && siblingIndex > 0) {
+          const prevSibling = siblings[siblingIndex - 1];
+          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
+          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
+          const newToIndex = core.state.habits.findIndex(h => h.id === prevSibling.id);
+          core.state.habits.splice(newToIndex, 0, movedHabit);
+          if (core.renderAll) core.renderAll();
+          if (core.saveState) core.saveState();
+        } else if (!isUp && siblingIndex < siblings.length - 1) {
+          const nextSibling = siblings[siblingIndex + 1];
+          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
+          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
+          const newToIndex = core.state.habits.findIndex(h => h.id === nextSibling.id);
+          core.state.habits.splice(newToIndex + 1, 0, movedHabit);
+          if (core.renderAll) core.renderAll();
+          if (core.saveState) core.saveState();
+        }
         return;
       }
 
@@ -1765,8 +1807,9 @@ window.HabitualCore = window.HabitualCore || {};
 
       const sq = e.target.closest('.day-square[data-date], rect[data-date]');
       if (sq && sq._isLongPressTriggered) { sq._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
+      if (card && card._isLongPressTriggered) { card._isLongPressTriggered = false; e.stopPropagation(); e.preventDefault(); return; }
 
-      // If we clicked a square, handle it directly and don't expand the card
+      // If we clicked a square, handle cursor selection directly without opening log modal
       if (sq) {
         e.stopPropagation();
         if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
@@ -1779,11 +1822,10 @@ window.HabitualCore = window.HabitualCore || {};
         if (targetDate && core.setCursorDateKey) {
           core.setCursorDateKey(targetDate, true);
         }
-        core.openLogModal(targetDate, targetHabitId);
-        return; // Important: Return early so we don't trigger the card expansion below
+        return; // Return early so we don't trigger card expansion or open log modal
       }
 
-      // If we didn't click a square, handle card expansion
+      // If we clicked card background outside squares, handle concertina toggle if subhabits exist
       e.stopPropagation();
       if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
 
@@ -1794,9 +1836,6 @@ window.HabitualCore = window.HabitualCore || {};
         core.toggleConcertina(rawHabitId);
         return;
       }
-
-      const targetDate = core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey();
-      core.openLogModal(targetDate, cardHabitId || 'all');
     });
 
     // Delegated event listeners for focused toolbar inputs, concertina controls and buttons
@@ -1888,93 +1927,17 @@ window.HabitualCore = window.HabitualCore || {};
       });
     });
 
-    safeQueryGallery('.drag-handle').forEach(handle => {
-      let arrowsWasOpen = false;
-
-      handle.addEventListener('pointerdown', () => {
-        const container = handle.closest('.drag-handle-container');
-        const arrows = container ? container.querySelector('.drag-arrows') : null;
-        arrowsWasOpen = arrows && !arrows.classList.contains('hidden');
-      });
-
-      handle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const container = handle.closest('.drag-handle-container');
-        if (!container) return;
-        const arrows = container.querySelector('.drag-arrows');
-        if (!arrows) return;
-
-        safeQueryGallery('.drag-arrows').forEach(arr => {
-          if (arr !== arrows) arr.classList.add('hidden');
-        });
-
-        if (arrowsWasOpen) {
-          arrows.classList.add('hidden');
-        } else {
-          arrows.classList.remove('hidden');
-          const firstBtn = arrows.querySelector('button');
-          if (firstBtn) {
-            firstBtn.focus();
-          } else {
-            arrows.focus();
-          }
-        }
-        arrowsWasOpen = false;
-      });
-    });
-
-    safeQueryGallery('.drag-arrows').forEach(arrows => {
-      arrows.addEventListener('focusout', (e) => {
-        const container = arrows.closest('.drag-handle-container');
-        if (e.relatedTarget && container && container.contains(e.relatedTarget)) {
-          return;
-        }
-        arrows.classList.add('hidden');
-      });
-    });
-
-    safeQueryGallery('.btn-move-up, .btn-move-down').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-
-        const habitId = btn.dataset.habitId;
-        const isUp = btn.classList.contains('btn-move-up');
-
-        const habit = core.state.habits.find(h => h.id === habitId);
-        if (!habit) return;
-
-        const siblings = core.state.habits.filter(h => h.parentId === habit.parentId);
-        const siblingIndex = siblings.findIndex(h => h.id === habitId);
-
-        if (isUp && siblingIndex > 0) {
-          const prevSibling = siblings[siblingIndex - 1];
-          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
-          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
-          const newToIndex = core.state.habits.findIndex(h => h.id === prevSibling.id);
-          core.state.habits.splice(newToIndex, 0, movedHabit);
-          if (core.renderAll) core.renderAll();
-          if (core.saveState) core.saveState();
-        } else if (!isUp && siblingIndex < siblings.length - 1) {
-          const nextSibling = siblings[siblingIndex + 1];
-          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
-          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
-          const newToIndex = core.state.habits.findIndex(h => h.id === nextSibling.id);
-          core.state.habits.splice(newToIndex + 1, 0, movedHabit);
-          if (core.renderAll) core.renderAll();
-          if (core.saveState) core.saveState();
-        }
-      });
-    });
+    const isNonInteractiveClick = (e) => {
+      const isSquare = e.target.classList.contains('day-square') || e.target.tagName.toLowerCase() === 'rect';
+      const isCardHeaderAction = e.target.closest('.card-header-actions') || e.target.closest('.card-title-link') || e.target.closest('.badge-subhabits') || e.target.closest('.badge-shared') || e.target.closest('.badge-streak') || e.target.closest('.badge-count') || e.target.closest('.badge-duration') || e.target.closest('.badge-frequency') || e.target.closest('.badge-paused');
+      return !isSquare && !isCardHeaderAction;
+    };
 
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.card-context-menu-dropdown') && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.querySelectorAll === 'function') {
         safeQueryGallery('.card-menu-content').forEach(m => m.classList.add('hidden'));
         safeQueryGallery('.heatmap-card.menu-open').forEach(c => c.classList.remove('menu-open'));
         safeQueryGallery('.heatmap-group-wrapper.menu-open').forEach(w => w.classList.remove('menu-open'));
-      }
-      if (!e.target.closest('.drag-handle-container') && core.elements.heatmapsGallery && typeof core.elements.heatmapsGallery.querySelectorAll === 'function') {
-        safeQueryGallery('.drag-arrows').forEach(arr => arr.classList.add('hidden'));
       }
     });
 
@@ -2183,77 +2146,6 @@ window.HabitualCore = window.HabitualCore || {};
     const gallery = core.elements.heatmapsGallery;
     if (!gallery || typeof gallery.querySelectorAll !== 'function') return;
 
-    // Attach click handlers for drag handles and move up/down arrows
-    gallery.querySelectorAll('.drag-handle').forEach(handle => {
-      let arrowsWasOpen = false;
-
-      handle.addEventListener('pointerdown', () => {
-        const container = handle.closest('.drag-handle-container');
-        const arrows = container ? container.querySelector('.drag-arrows') : null;
-        arrowsWasOpen = arrows && !arrows.classList.contains('hidden');
-      });
-
-      handle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const container = handle.closest('.drag-handle-container');
-        if (!container) return;
-        const arrows = container.querySelector('.drag-arrows');
-        if (!arrows) return;
-
-        gallery.querySelectorAll('.drag-arrows').forEach(arr => {
-          if (arr !== arrows) arr.classList.add('hidden');
-        });
-
-        if (arrowsWasOpen) {
-          arrows.classList.add('hidden');
-        } else {
-          arrows.classList.remove('hidden');
-          const firstBtn = arrows.querySelector('button');
-          if (firstBtn) {
-            firstBtn.focus();
-          } else {
-            arrows.focus();
-          }
-        }
-        arrowsWasOpen = false;
-      });
-    });
-
-    gallery.querySelectorAll('.btn-move-up, .btn-move-down').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-
-        const habitId = btn.dataset.habitId;
-        const isUp = btn.classList.contains('btn-move-up');
-
-        const habit = core.state.habits.find(h => h.id === habitId);
-        if (!habit) return;
-
-        const siblings = core.state.habits.filter(h => h.parentId === habit.parentId);
-        const siblingIndex = siblings.findIndex(h => h.id === habitId);
-
-        if (isUp && siblingIndex > 0) {
-          const prevSibling = siblings[siblingIndex - 1];
-          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
-          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
-          const newToIndex = core.state.habits.findIndex(h => h.id === prevSibling.id);
-          core.state.habits.splice(newToIndex, 0, movedHabit);
-          if (core.renderAll) core.renderAll();
-          if (core.saveState) core.saveState();
-        } else if (!isUp && siblingIndex < siblings.length - 1) {
-          const nextSibling = siblings[siblingIndex + 1];
-          const fromIndex = core.state.habits.findIndex(h => h.id === habitId);
-          const [movedHabit] = core.state.habits.splice(fromIndex, 1);
-          const newToIndex = core.state.habits.findIndex(h => h.id === nextSibling.id);
-          core.state.habits.splice(newToIndex + 1, 0, movedHabit);
-          if (core.renderAll) core.renderAll();
-          if (core.saveState) core.saveState();
-        }
-      });
-    });
-
     const cards = gallery.querySelectorAll('.heatmap-card.draggable-card');
     cards.forEach(card => {
       card.addEventListener('dragstart', (e) => {
@@ -2285,7 +2177,7 @@ window.HabitualCore = window.HabitualCore || {};
               core.state.habits.splice(toIndex, 0, movedHabit);
               if (core.renderAll) core.renderAll();
               if (core.saveState) core.saveState();
-              core.showToast(`Reordered "${movedHabit.name}"`);
+              if (core.showToast) core.showToast(`Reordered "${movedHabit.name}"`);
             }
           }
         }
@@ -2998,8 +2890,35 @@ window.HabitualCore = window.HabitualCore || {};
           delete habit.colorTheme;
         }
 
-        if (core.cascadeSubhabitPreferences) {
-          core.cascadeSubhabitPreferences(habit);
+        const directSubhabits = core.state.habits.filter(h => h.parentId === habit.id);
+        if (directSubhabits.length > 0) {
+          const askCascade = (typeof window !== 'undefined' && typeof window.confirm === 'function')
+            ? window.confirm(`Would you like all ${directSubhabits.length} sub-habits to also update to matching options?`)
+            : true;
+
+          if (askCascade) {
+            if (core.cascadeSubhabitPreferences) {
+              core.cascadeSubhabitPreferences(habit);
+            }
+            const descendantIds = core.getAllDescendantIds(habit.id);
+            descendantIds.forEach(descId => {
+              if (descId !== habit.id) {
+                const desc = core.state.habits.find(h => h.id === descId);
+                if (desc) {
+                  desc.colorTheme = habit.colorTheme;
+                  desc.showStreak = habit.showStreak;
+                  desc.showCount = habit.showCount;
+                  desc.showDuration = habit.showDuration;
+                  desc.hideFromAll = habit.hideFromAll;
+                  desc.hideHeatmap = habit.hideHeatmap;
+                  desc.hideHeatmapWhenPaused = habit.hideHeatmapWhenPaused;
+                  desc.subhabitDisplayMode = habit.subhabitDisplayMode;
+                  desc.subhabitSortOrder = habit.subhabitSortOrder;
+                  desc.updatedAt = Date.now();
+                }
+              }
+            });
+          }
         }
 
         if (sharingConfig) {
