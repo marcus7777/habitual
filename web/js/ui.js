@@ -1718,6 +1718,15 @@ window.HabitualCore = window.HabitualCore || {};
     });
 
     gallery.addEventListener('click', (e) => {
+      const concertinaBtn = e.target.closest('.btn-toggle-concertina');
+      if (concertinaBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const habitId = concertinaBtn.dataset.habitId || concertinaBtn.dataset.parentId || concertinaBtn.getAttribute('data-habit-id') || concertinaBtn.getAttribute('data-parent-id');
+        if (habitId && core.toggleConcertina) core.toggleConcertina(habitId);
+        return;
+      }
+
       const card = e.target.closest('.heatmap-card');
       if (!card) return; // Only process clicks inside cards
 
