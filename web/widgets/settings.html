@@ -193,7 +193,11 @@
         const btnSync = document.getElementById('btn-sync-widgets');
         if (btnSync) {
           btnSync.addEventListener('click', () => {
-            if (HabitualCore.updatePWAWidgets) HabitualCore.updatePWAWidgets();
+            try {
+              if (HabitualCore.updatePWAWidgets) HabitualCore.updatePWAWidgets();
+            } catch (err) {
+              console.warn('Widget sync error:', err);
+            }
             if (HabitualCore.showToast) HabitualCore.showToast('Widgets synced successfully with Service Worker!');
           });
         }

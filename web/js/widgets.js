@@ -167,15 +167,19 @@ window.HabitualCore = window.HabitualCore || {};
   // --- SERVICE WORKER WIDGET SYNC ---
 
   core.updatePWAWidgets = function() {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      const quickAddPayload = core.getQuickAddWidgetPayload();
-      const heatmapPayload = core.getHeatmapWidgetPayload(core.state ? core.state.selectedHabitId : 'all');
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.controller) {
+        const quickAddPayload = core.getQuickAddWidgetPayload ? core.getQuickAddWidgetPayload() : {};
+        const heatmapPayload = core.getHeatmapWidgetPayload ? core.getHeatmapWidgetPayload(core.state ? core.state.selectedHabitId : 'all') : {};
 
-      navigator.serviceWorker.controller.postMessage({
-        type: 'SYNC_WIDGETS',
-        quickAddData: quickAddPayload,
-        heatmapData: heatmapPayload
-      });
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SYNC_WIDGETS',
+          quickAddData: quickAddPayload,
+          heatmapData: heatmapPayload
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to update PWA widgets:', err);
     }
   };
 
