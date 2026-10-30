@@ -708,12 +708,12 @@ body.dark-theme {
   z-index: 10;
 }
 
-/* Reordering Arrows (Discreet, Small, Left Side Hovering) */
+/* Reordering Arrows (Discreet, Small, Left Side Outside Card) */
 .card-reorder-arrows {
   display: none;
   position: absolute;
-  left: -10px;
-  top: 6px;
+  left: -28px;
+  top: 8px;
   align-items: center;
   gap: 2px;
   padding: 2px 3px;
