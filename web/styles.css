@@ -700,8 +700,8 @@ body.dark-theme {
 
 .card-header-actions {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: -4px;
+  right: -6px;
   display: flex;
   align-items: center;
   gap: 6px;
