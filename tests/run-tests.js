@@ -1906,6 +1906,59 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     assertEqual(HabitualCore.elements.habitShowDuration.checked, true, 'New sub-habit copied parent showDuration true');
     assertEqual(HabitualCore.elements.habitHideFromAll.checked, true, 'New sub-habit copied parent hideFromAll true');
   });
+
+  test('showConfirmModal renders custom modal dialog with Yes and No buttons', async () => {
+    HabitualCore.resetState();
+
+    const mockModal = createMockElement('div');
+    const mockTitle = createMockElement('h3');
+    const mockMsg = createMockElement('p');
+    const mockBtnYes = createMockElement('button');
+    const mockBtnNo = createMockElement('button');
+    const mockBtnClose = createMockElement('button');
+
+    const prevGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'modal-confirm') return mockModal;
+      if (id === 'modal-confirm-title') return mockTitle;
+      if (id === 'modal-confirm-message') return mockMsg;
+      if (id === 'btn-modal-confirm-yes') return mockBtnYes;
+      if (id === 'btn-modal-confirm-no') return mockBtnNo;
+      if (id === 'modal-confirm-close') return mockBtnClose;
+      return prevGetElementById ? prevGetElementById(id) : null;
+    };
+
+    let confirmPromise = HabitualCore.showConfirmModal(
+      'Would you like all sub-habits to also update?',
+      { title: 'Update Sub-Habits?', yesText: 'Yes', noText: 'No' }
+    );
+
+    assertEqual(mockTitle.textContent, 'Update Sub-Habits?', 'Confirm modal title set correctly');
+    assertEqual(mockMsg.textContent, 'Would you like all sub-habits to also update?', 'Confirm modal message set correctly');
+    assertEqual(mockBtnYes.textContent, 'Yes', 'Confirm modal button label is Yes');
+    assertEqual(mockBtnNo.textContent, 'No', 'Confirm modal button label is No');
+
+    // Simulate clicking "Yes" button
+    const yesListeners = mockBtnYes._eventListeners['click'] || [];
+    yesListeners.forEach(fn => fn({ preventDefault: () => {} }));
+
+    const resYes = await confirmPromise;
+    assertEqual(resYes, true, 'Confirm modal resolved to true when clicking Yes button');
+
+    // Test clicking "No" button
+    confirmPromise = HabitualCore.showConfirmModal(
+      'Update sub-habits?',
+      { yesText: 'Yes', noText: 'No' }
+    );
+
+    const noListeners = mockBtnNo._eventListeners['click'] || [];
+    noListeners.forEach(fn => fn({ preventDefault: () => {} }));
+
+    const resNo = await confirmPromise;
+    assertEqual(resNo, false, 'Confirm modal resolved to false when clicking No button');
+
+    global.document.getElementById = prevGetElementById;
+  });
 });
 
 // ============================================================================

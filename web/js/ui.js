@@ -2835,7 +2835,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.handleHabitFormSubmit = async function(e) {
+  core.handleHabitFormSubmit = function(e) {
     if (e && e.preventDefault) e.preventDefault();
     const formEl = core.elements.formHabit || document.getElementById('form-habit');
     let formData = null;
@@ -2988,12 +2988,8 @@ window.HabitualCore = window.HabitualCore || {};
         }
 
         const directSubhabits = core.state.habits.filter(h => h.parentId === habit.id);
-        if (directSubhabits.length > 0) {
-          const askCascade = await core.showConfirmModal(
-            `Would you like all ${directSubhabits.length} sub-habits to also update to matching options?`,
-            { title: 'Update Sub-Habits?', yesText: 'Yes', noText: 'No' }
-          );
 
+        const performCascadeAndContinue = (askCascade) => {
           if (askCascade) {
             if (core.cascadeSubhabitPreferences) {
               core.cascadeSubhabitPreferences(habit);
@@ -3016,40 +3012,57 @@ window.HabitualCore = window.HabitualCore || {};
               }
             });
           }
-        }
 
-        if (sharingConfig) {
-          habit.sharing = sharingConfig;
-        } else {
-          if (habit.sharing) habit.sharing.enabled = false;
-          if (core.SyncTargets && core.SyncTargets.Firestore) {
-            core.SyncTargets.Firestore.stopPerHabitLiveSync(habit.id);
-          }
-        }
-
-        habit.updatedAt = Date.now();
-        if (previousHideFromAll !== hideFromAll) {
-          const descendantIds = core.getAllDescendantIds(habit.id);
-          descendantIds.forEach(descId => {
-            if (descId !== habit.id) {
-              const descendant = core.state.habits.find(h => h.id === descId);
-              if (descendant) {
-                descendant.hideFromAll = hideFromAll;
-              }
+          if (sharingConfig) {
+            habit.sharing = sharingConfig;
+          } else {
+            if (habit.sharing) habit.sharing.enabled = false;
+            if (core.SyncTargets && core.SyncTargets.Firestore) {
+              core.SyncTargets.Firestore.stopPerHabitLiveSync(habit.id);
             }
-          });
-        }
+          }
 
-        if (core.elements.habitEnableBackfill && core.elements.habitEnableBackfill.checked) {
-          const durationVal = (core.elements.habitHistoryStartDate && core.elements.habitHistoryStartDate.value) ? core.elements.habitHistoryStartDate.value : (core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30');
-          const frequencyVal = core.elements.habitHistoryFrequency ? core.elements.habitHistoryFrequency.value : 'frequent';
-          const instancesVal = core.elements.habitHistoryInstances ? core.elements.habitHistoryInstances.value : '1';
-          const result = core.generateBackfillLogs(durationVal, frequencyVal, instancesVal, dailyTarget, type, freqType, targetDays, monthlyDay, monthlyTarget, weeklyTarget);
-          if (!habit.logs) habit.logs = {};
-          Object.keys(result.logs).forEach(dateKey => {
-            if (!habit.logs[dateKey]) habit.logs[dateKey] = result.logs[dateKey];
-          });
-          if (!habit.createdAt || result.startDateKey < habit.createdAt) habit.createdAt = result.startDateKey;
+          habit.updatedAt = Date.now();
+          if (previousHideFromAll !== hideFromAll) {
+            const descendantIds = core.getAllDescendantIds(habit.id);
+            descendantIds.forEach(descId => {
+              if (descId !== habit.id) {
+                const descendant = core.state.habits.find(h => h.id === descId);
+                if (descendant) {
+                  descendant.hideFromAll = hideFromAll;
+                }
+              }
+            });
+          }
+
+          if (core.elements.habitEnableBackfill && core.elements.habitEnableBackfill.checked) {
+            const durationVal = (core.elements.habitHistoryStartDate && core.elements.habitHistoryStartDate.value) ? core.elements.habitHistoryStartDate.value : (core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30');
+            const frequencyVal = core.elements.habitHistoryFrequency ? core.elements.habitHistoryFrequency.value : 'frequent';
+            const instancesVal = core.elements.habitHistoryInstances ? core.elements.habitHistoryInstances.value : '1';
+            const result = core.generateBackfillLogs(durationVal, frequencyVal, instancesVal, dailyTarget, type, freqType, targetDays, monthlyDay, monthlyTarget, weeklyTarget);
+            if (!habit.logs) habit.logs = {};
+            Object.keys(result.logs).forEach(dateKey => {
+              if (!habit.logs[dateKey]) habit.logs[dateKey] = result.logs[dateKey];
+            });
+            if (!habit.createdAt || result.startDateKey < habit.createdAt) habit.createdAt = result.startDateKey;
+          }
+
+          finishSave();
+        };
+
+        if (directSubhabits.length > 0) {
+          const askRes = core.showConfirmModal(
+            `Would you like all ${directSubhabits.length} sub-habits to also update to matching options?`,
+            { title: 'Update Sub-Habits?', yesText: 'Yes', noText: 'No' }
+          );
+          if (askRes && typeof askRes.then === 'function') {
+            askRes.then(performCascadeAndContinue);
+            return;
+          } else {
+            performCascadeAndContinue(askRes);
+          }
+        } else {
+          performCascadeAndContinue(false);
         }
       }
     } else {
@@ -3086,38 +3099,41 @@ window.HabitualCore = window.HabitualCore || {};
       if (!Array.isArray(core.state.habits)) core.state.habits = [];
       core.state.habits.push(newHabit);
       core.state.selectedHabitId = newHabit.id;
+      finishSave();
     }
 
-    if (core.elements.modalHabit) {
-      core.elements.modalHabit.classList.add('hidden');
-      core.toggleModalScrollLock(false);
-    }
-    if (core.renderAll) core.renderAll();
-    if (core.saveState) core.saveState();
-
-    let rootSharedTarget = savedTargetHabit;
-    if (savedTargetHabit && savedTargetHabit.parentId) {
-      let topParent = core.state.habits.find(h => h.id === savedTargetHabit.parentId);
-      while (topParent && topParent.parentId) {
-        topParent = core.state.habits.find(h => h.id === topParent.parentId);
+    function finishSave() {
+      if (core.elements.modalHabit) {
+        core.elements.modalHabit.classList.add('hidden');
+        core.toggleModalScrollLock(false);
       }
-      if (topParent && topParent.sharing && topParent.sharing.enabled) {
-        rootSharedTarget = topParent;
+      if (core.renderAll) core.renderAll();
+      if (core.saveState) core.saveState();
+
+      let rootSharedTarget = savedTargetHabit;
+      if (savedTargetHabit && savedTargetHabit.parentId) {
+        let topParent = core.state.habits.find(h => h.id === savedTargetHabit.parentId);
+        while (topParent && topParent.parentId) {
+          topParent = core.state.habits.find(h => h.id === topParent.parentId);
+        }
+        if (topParent && topParent.sharing && topParent.sharing.enabled) {
+          rootSharedTarget = topParent;
+        }
       }
-    }
 
-    if (rootSharedTarget && rootSharedTarget.sharing && rootSharedTarget.sharing.enabled && core.SyncTargets && core.SyncTargets.Firestore) {
-      core.SyncTargets.Firestore.startPerHabitLiveSync(rootSharedTarget);
-      core.SyncTargets.Firestore.uploadPerHabitBackup(rootSharedTarget);
-    }
+      if (rootSharedTarget && rootSharedTarget.sharing && rootSharedTarget.sharing.enabled && core.SyncTargets && core.SyncTargets.Firestore) {
+        core.SyncTargets.Firestore.startPerHabitLiveSync(rootSharedTarget);
+        core.SyncTargets.Firestore.uploadPerHabitBackup(rootSharedTarget);
+      }
 
-    if (core.pendingQuickLogAfterHabit) {
-      core.pendingQuickLogAfterHabit = false;
-      const createdHabitId = id || (core.state.habits.length > 0 ? core.state.habits[core.state.habits.length - 1].id : null);
-      core.openLogModal(core.activeLogDateKey || core.getTodayKey(), createdHabitId);
-    } else if (!id) {
-      if (parentId) core.navigateTo(`#/habit/${parentId}`);
-      else core.navigateTo(`#/habit/${core.state.selectedHabitId}`);
+      if (core.pendingQuickLogAfterHabit) {
+        core.pendingQuickLogAfterHabit = false;
+        const createdHabitId = id || (core.state.habits.length > 0 ? core.state.habits[core.state.habits.length - 1].id : null);
+        core.openLogModal(core.activeLogDateKey || core.getTodayKey(), createdHabitId);
+      } else if (!id) {
+        if (parentId) core.navigateTo(`#/habit/${parentId}`);
+        else core.navigateTo(`#/habit/${core.state.selectedHabitId}`);
+      }
     }
   };
 
