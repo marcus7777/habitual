@@ -2035,11 +2035,13 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     const childManual = { id: 'c_manual', name: 'Child', parentId: 'p_manual' };
     HabitualCore.setState({ habits: [parentManual, childManual] });
 
+    const mockModal = createMockElement('div'); mockModal.setAttribute('id', 'modal-habit');
     const mockSection = createMockElement('div'); mockSection.setAttribute('id', 'parent-subhabit-display-section');
     const mockSelect = createMockElement('select'); mockSelect.setAttribute('id', 'habit-subhabit-sort-order');
     const mockContainer = createMockElement('label'); mockContainer.setAttribute('id', 'parent-subhabit-sort-reverse-container');
     const mockChk = createMockElement('input'); mockChk.setAttribute('id', 'habit-subhabit-sort-reverse');
 
+    document.body.appendChild(mockModal);
     document.body.appendChild(mockSection);
     document.body.appendChild(mockSelect);
     document.body.appendChild(mockContainer);
@@ -2053,6 +2055,7 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     HabitualCore.openHabitModal(parentAuto);
     assert(!mockContainer.classList.contains('hidden'), 'Reverse sort container is visible for incomplete_first sort order');
 
+    document.body.removeChild(mockModal);
     document.body.removeChild(mockSection);
     document.body.removeChild(mockSelect);
     document.body.removeChild(mockContainer);
