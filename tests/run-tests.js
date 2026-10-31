@@ -2028,6 +2028,36 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
 
     global.document.getElementById = prevGetElementById;
   });
+
+  test('Reverse sort order checkbox is hidden when subhabitSortOrder is manual and visible when auto-sorted', () => {
+    HabitualCore.resetState();
+    const parentManual = { id: 'p_manual', name: 'Parent Manual', subhabitSortOrder: 'manual' };
+    const childManual = { id: 'c_manual', name: 'Child', parentId: 'p_manual' };
+    HabitualCore.setState({ habits: [parentManual, childManual] });
+
+    const mockSection = createMockElement('div'); mockSection.setAttribute('id', 'parent-subhabit-display-section');
+    const mockSelect = createMockElement('select'); mockSelect.setAttribute('id', 'habit-subhabit-sort-order');
+    const mockContainer = createMockElement('label'); mockContainer.setAttribute('id', 'parent-subhabit-sort-reverse-container');
+    const mockChk = createMockElement('input'); mockChk.setAttribute('id', 'habit-subhabit-sort-reverse');
+
+    document.body.appendChild(mockSection);
+    document.body.appendChild(mockSelect);
+    document.body.appendChild(mockContainer);
+    document.body.appendChild(mockChk);
+
+    HabitualCore.openHabitModal(parentManual);
+    assert(mockContainer.classList.contains('hidden'), 'Reverse sort container is hidden for manual sort order');
+
+    const parentAuto = { id: 'p_auto', name: 'Parent Auto', subhabitSortOrder: 'incomplete_first' };
+    HabitualCore.setState({ habits: [parentAuto, childManual] });
+    HabitualCore.openHabitModal(parentAuto);
+    assert(!mockContainer.classList.contains('hidden'), 'Reverse sort container is visible for incomplete_first sort order');
+
+    document.body.removeChild(mockSection);
+    document.body.removeChild(mockSelect);
+    document.body.removeChild(mockContainer);
+    document.body.removeChild(mockChk);
+  });
 });
 
 // ============================================================================
@@ -2047,15 +2077,10 @@ describe('Feature 25: 🎯 Focus Habit Name Input when Habit Modal Opens', () =>
     const originalGetElementById = global.document.getElementById;
     global.document.getElementById = (id) => {
       if (id === 'habit-name') return mockHabitName;
-      return {
-        value: '',
-        selectedOptions: [{ text: '' }],
-        addEventListener: () => {},
-        reset: () => {},
-        querySelectorAll: () => [],
-        querySelector: () => null,
-        classList: { add: () => {}, remove: () => {}, toggle: () => {} }
-      };
+      const el = createMockElement('div');
+      el.value = '';
+      el.selectedOptions = [{ text: '' }];
+      return el;
     };
 
     HabitualCore.initUI();
