@@ -4320,6 +4320,34 @@ describe('Issue #22: ↕️ Reorder Controls & Discreet Left-Side Selected Arrow
     assert(subCardSecond.innerHTML.includes('btn-move-up'), 'Second sub-habit renders btn-move-up');
     assert(!subCardSecond.innerHTML.includes('btn-move-down'), 'Second sub-habit does NOT render btn-move-down');
   });
+
+  test('Sub-habit parent (parent with subhabits that is also a child) renders reorder arrows among its siblings', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'p1', name: 'Top Parent', parentId: null };
+    const midParent = { id: 'mid1', name: 'Mid Parent', parentId: 'p1' };
+    const midSibling = { id: 'mid2', name: 'Mid Sibling', parentId: 'p1' };
+    const grandChild = { id: 'gc1', name: 'Grand Child', parentId: 'mid1' };
+    HabitualCore.setState({ habits: [parent, midParent, midSibling, grandChild] });
+
+    const card = HabitualCore.buildHeatmapCard(midParent, 2026);
+    assert(card.innerHTML.includes('card-reorder-arrows'), 'Nested parent habit renders reorder arrows among siblings');
+  });
+
+  test('Sub-habit card on its own habit page view does NOT render reorder arrows', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'p1', name: 'Top Parent', parentId: null };
+    const sub1 = { id: 'sub1', name: 'Sub 1', parentId: 'p1' };
+    const sub2 = { id: 'sub2', name: 'Sub 2', parentId: 'p1' };
+    HabitualCore.setState({ habits: [parent, sub1, sub2] });
+
+    const origParseHash = HabitualCore.parseHash;
+    HabitualCore.parseHash = () => ({ view: 'habit', habitId: 'sub1' });
+
+    const card = HabitualCore.buildHeatmapCard(sub1, 2026);
+    assert(!card.innerHTML.includes('card-reorder-arrows'), 'Sub-habit card on its own habit page view does NOT render reorder arrows');
+
+    HabitualCore.parseHash = origParseHash;
+  });
 });
 
 // ============================================================================

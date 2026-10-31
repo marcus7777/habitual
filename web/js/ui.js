@@ -1846,7 +1846,7 @@ window.HabitualCore = window.HabitualCore || {};
         const habit = core.state.habits.find(h => h.id === habitId);
         if (!habit) return;
 
-        const siblings = core.state.habits.filter(h => h.parentId === habit.parentId);
+        const siblings = core.state.habits.filter(h => (h.parentId || null) === (habit.parentId || null));
         const siblingIndex = siblings.findIndex(h => h.id === habitId);
 
         if (isUp && siblingIndex > 0) {
