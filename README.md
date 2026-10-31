@@ -53,7 +53,7 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 
 ### 📱 PWA & Accessible Interaction
 - **Offline PWA**: Full offline capability via Service Worker (`sw.js`) and Web Manifest (`manifest.json`). Dark-mode developer aesthetic.
-- **Card Reordering**: Drag-and-drop handles (`⋮⋮`) with accessible tap-to-move Up (▲) / Down (▼) buttons for mobile and keyboard users.
+- **Card Reordering**: Accessible tap-to-move Up (▲) / Down (▼) buttons for mobile, desktop, and keyboard users.
 - **Keyboard & Proximity Cursor**: Navigate heatmap grids with **Arrow**, **WASD** (`W`/`S`/`A`/`D`), or classic **Vim** (`H`/`J`/`K`/`L`) keys, highlighted by a glowing gold ring cursor (`#f1e05a`).
   - **Enter**: Log +1 check-in on the selected cell/date.
   - **Delete**: Clear check-in count (`0`) for the selected cell while preserving journal notes.
