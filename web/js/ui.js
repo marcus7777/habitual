@@ -2375,14 +2375,19 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (habitToEdit) {
       if (core.elements.modalHabitTitle) core.elements.modalHabitTitle.textContent = 'Edit Habit Goal';
-      document.getElementById('habit-id').value = habitToEdit.id;
-      document.getElementById('habit-name').value = habitToEdit.name;
+      const elId = document.getElementById('habit-id');
+      const elName = document.getElementById('habit-name');
+      const elDesc = document.getElementById('habit-description');
+      const elCat = document.getElementById('habit-category');
+      const elTarget = document.getElementById('habit-daily-target');
+      if (elId) elId.value = habitToEdit.id;
+      if (elName) elName.value = habitToEdit.name;
       if (core.elements.habitIdDisplay) core.elements.habitIdDisplay.textContent = habitToEdit.id;
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.remove('hidden');
       if (core.elements.habitFormDetails) core.elements.habitFormDetails.classList.remove('hidden');
-      document.getElementById('habit-description').value = habitToEdit.description || '';
-      document.getElementById('habit-category').value = habitToEdit.category || 'General';
-      document.getElementById('habit-daily-target').value = habitToEdit.dailyTarget || 1;
+      if (elDesc) elDesc.value = habitToEdit.description || '';
+      if (elCat) elCat.value = habitToEdit.category || 'General';
+      if (elTarget) elTarget.value = habitToEdit.dailyTarget || 1;
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = habitToEdit.showStreak === true;
       if (core.elements.habitShowCount) core.elements.habitShowCount.checked = habitToEdit.showCount !== false;
       if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = habitToEdit.showDuration === true;
@@ -2447,7 +2452,8 @@ window.HabitualCore = window.HabitualCore || {};
       core.syncCalendarColorDropdown(normalized);
     } else {
       if (core.elements.modalHabitTitle) core.elements.modalHabitTitle.textContent = defaultParentId ? 'Create New Sub-Habit' : 'Create New Habit';
-      document.getElementById('habit-id').value = '';
+      const elId = document.getElementById('habit-id');
+      if (elId) elId.value = '';
       if (core.elements.habitName) core.elements.habitName.value = '';
       if (core.elements.habitIdDisplay) core.elements.habitIdDisplay.textContent = '';
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.add('hidden');
