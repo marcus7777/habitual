@@ -2239,55 +2239,7 @@ window.HabitualCore = window.HabitualCore || {};
     if (core.showToast) core.showToast(`🚫 Stopped sharing "${habit.name}" - now stored locally!`, 'info');
   };
 
-  core.getHabitIdFromCardId = function(idStr) {
-    if (!idStr) return null;
-    if (idStr.startsWith('group_')) return idStr.replace('group_', '').split('_')[0];
-    return idStr;
-  };
 
-  core.attachCardDragAndDropHandlers = function() {
-    let draggedHabitId = null;
-    const gallery = core.elements.heatmapsGallery;
-    if (!gallery || typeof gallery.querySelectorAll !== 'function') return;
-
-    const cards = gallery.querySelectorAll('.heatmap-card.draggable-card');
-    cards.forEach(card => {
-      card.addEventListener('dragstart', (e) => {
-        draggedHabitId = card.dataset.habitId;
-        card.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', draggedHabitId);
-      });
-      card.addEventListener('dragend', () => {
-        card.classList.remove('dragging');
-        cards.forEach(c => c.classList.remove('drag-over'));
-      });
-      card.addEventListener('dragover', (e) => {
-        e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-        if (card.dataset.habitId !== draggedHabitId) card.classList.add('drag-over');
-      });
-      card.addEventListener('dragleave', () => { card.classList.remove('drag-over'); });
-      card.addEventListener('drop', (e) => {
-        e.preventDefault(); card.classList.remove('drag-over');
-        const targetHabitId = card.dataset.habitId;
-        if (draggedHabitId && targetHabitId && draggedHabitId !== targetHabitId) {
-          const fromId = core.getHabitIdFromCardId(draggedHabitId);
-          const toId = core.getHabitIdFromCardId(targetHabitId);
-          if (fromId && toId && fromId !== toId) {
-            const fromIndex = core.state.habits.findIndex(h => h.id === fromId);
-            const toIndex = core.state.habits.findIndex(h => h.id === toId);
-            if (fromIndex !== -1 && toIndex !== -1) {
-              const [movedHabit] = core.state.habits.splice(fromIndex, 1);
-              core.state.habits.splice(toIndex, 0, movedHabit);
-              if (core.renderAll) core.renderAll();
-              if (core.saveState) core.saveState();
-              if (core.showToast) core.showToast(`Reordered "${movedHabit.name}"`);
-            }
-          }
-        }
-      });
-    });
-  };
 
   core.updateFrequencyOptionsVisibility = function() {
     const freqSelect = document.getElementById('habit-frequency-type');

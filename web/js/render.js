@@ -561,7 +561,6 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     if (core.attachHeatmapSquareEvents) core.attachHeatmapSquareEvents();
-    if (core.attachCardDragAndDropHandlers) core.attachCardDragAndDropHandlers();
   };
 
   core.updateHabitCard = function(habitId) {
@@ -590,7 +589,6 @@ window.HabitualCore = window.HabitualCore || {};
       existingNode.replaceWith(newNode);
 
       if (core.attachHeatmapSquareEvents) core.attachHeatmapSquareEvents();
-      if (core.attachCardDragAndDropHandlers) core.attachCardDragAndDropHandlers();
       return true;
     }
 
@@ -842,7 +840,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const canMove = siblings.length > 1;
-    const isDraggable = (!isAll && habit && !isCurrentOpenPage && canMove);
+    const showReorderArrows = (!isAll && habit && !isCurrentOpenPage && canMove);
 
     const isSelectedHabit = core.state && cardHabitId !== 'all' && core.state.selectedHabitId === cardHabitId;
 
@@ -982,7 +980,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     let reorderArrowsHTML = '';
-    if (habit && isDraggable) {
+    if (habit && showReorderArrows) {
       const siblingIndex = siblings.findIndex(h => h.id === habit.id);
       const isFirstSibling = siblingIndex === 0;
       const isLastSibling = siblingIndex === siblings.length - 1;

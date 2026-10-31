@@ -693,10 +693,7 @@ body.dark-theme {
   border-color: rgba(88, 166, 255, 0.4);
 }
 
-/* Drag & Drop Reordering System */
-.heatmap-card.draggable-card {
-  cursor: default;
-}
+
 
 .card-header-actions {
   position: absolute;
@@ -757,18 +754,7 @@ body.dark-theme {
   transform: scale(0.9);
 }
 
-.heatmap-card.dragging {
-  opacity: 0.35;
-  border-style: dashed;
-  border-color: var(--accent-blue);
-  transform: scale(0.99);
-}
 
-.heatmap-card.drag-over {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 16px rgba(88, 166, 255, 0.35);
-  transform: translateY(-2px);
-}
 
 .heatmap-card-header {
   position: relative;
@@ -2986,21 +2972,7 @@ input:checked + .slider:before {
   line-height: 1;
 }
 
-/* Drag and Drop & Order Controls inside Widgets */
-.widget-habit-card.draggable-card {
-  cursor: grab;
-}
-
-.widget-habit-card.dragging {
-  opacity: 0.4;
-  border-style: dashed;
-}
-
-.widget-habit-card.drag-over {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 12px rgba(56, 139, 253, 0.3);
-  transform: scale(1.01);
-}
+/* Order Controls inside Widgets */
 
 .drag-handle-container {
   position: relative;
