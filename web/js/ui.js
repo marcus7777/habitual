@@ -2522,7 +2522,7 @@ window.HabitualCore = window.HabitualCore || {};
     const hasSubhabits = subhabits.length > 0;
 
     const subhabitDisplaySection = document.getElementById('parent-subhabit-display-section');
-    const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
+    const selectSortOrder = document.getElementById('habit-subhabit-sort-order') || (core.elements ? core.elements.habitSubhabitSortOrder : null);
 
     if (subhabitDisplaySection) {
       if (hasSubhabits) {
@@ -2532,8 +2532,8 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse');
-    const containerSortReverse = document.getElementById('parent-subhabit-sort-reverse-container');
+    const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse') || (core.elements ? core.elements.habitSubhabitSortReverse : null);
+    const containerSortReverse = document.getElementById('parent-subhabit-sort-reverse-container') || (core.elements ? core.elements.parentSubhabitSortReverseContainer : null);
 
     function updateSortReverseVisibility() {
       const isManual = !selectSortOrder || selectSortOrder.value === 'manual';
