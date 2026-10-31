@@ -828,24 +828,21 @@ window.HabitualCore = window.HabitualCore || {};
     const route = core.parseHash ? core.parseHash() : { view: 'home' };
     const isCurrentOpenPage = route.view === 'habit' && route.habitId === (habit ? habit.id : null);
 
-    const isTopLevelGroup = isGroup && habit && !habit.parentId;
     const parentIdFilter = habit ? habit.parentId : null;
 
     let siblings = [];
-    if (habit || isTopLevelGroup) {
-      if (parentIdFilter) {
+    if (habit) {
+      if (isCurrentOpenPage) {
+        siblings = [habit];
+      } else if (parentIdFilter) {
         siblings = core.state.habits.filter(h => h.parentId === parentIdFilter && !(h.isPaused && h.hideHeatmapWhenPaused));
       } else {
-        if (route.view === 'habit') {
-          siblings = habit ? [habit] : [];
-        } else {
-          siblings = core.state.habits.filter(h => !h.parentId && !(h.isPaused && h.hideHeatmapWhenPaused));
-        }
+        siblings = core.state.habits.filter(h => !h.parentId && !(h.isPaused && h.hideHeatmapWhenPaused));
       }
     }
 
     const canMove = siblings.length > 1;
-    const isDraggable = (!isAll && (!isGroup || isTopLevelGroup) && canMove);
+    const isDraggable = (!isAll && habit && !isCurrentOpenPage && canMove);
 
     const isSelectedHabit = core.state && cardHabitId !== 'all' && core.state.selectedHabitId === cardHabitId;
 
