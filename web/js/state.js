@@ -554,11 +554,13 @@ window.HabitualCore = window.HabitualCore || {};
   core.cascadeSubhabitPreferences = function(parentHabit) {
     if (!parentHabit || !core.state || !Array.isArray(core.state.habits)) return;
     const sort = parentHabit.subhabitSortOrder || 'manual';
+    const reverse = Boolean(parentHabit.subhabitSortReverse);
 
     function propagate(parentId) {
       const children = core.state.habits.filter(h => h.parentId === parentId);
       children.forEach(child => {
         child.subhabitSortOrder = sort;
+        child.subhabitSortReverse = reverse;
         child.updatedAt = Date.now();
         propagate(child.id);
       });
@@ -573,8 +575,12 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const sortOrder = (parentHabit && parentHabit.subhabitSortOrder) ? parentHabit.subhabitSortOrder : 'manual';
+    const isReverse = Boolean(parentHabit && parentHabit.subhabitSortReverse);
+
     if (sortOrder === 'manual') {
-      return [...subhabitsList];
+      const items = [...subhabitsList];
+      if (isReverse) items.reverse();
+      return items;
     }
 
     const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
@@ -583,42 +589,65 @@ window.HabitualCore = window.HabitualCore || {};
     const items = [...subhabitsList];
 
     items.sort((a, b) => {
+      let cmp = 0;
       if (sortOrder === 'alphabetical') {
-        return (a.name || '').localeCompare(b.name || '');
-      }
-
-      if (sortOrder === 'incomplete_first') {
+        cmp = (a.name || '').localeCompare(b.name || '');
+      } else if (sortOrder === 'incomplete_first') {
         const aCell = core.getCellData ? core.getCellData(todayStr, a, todayStr) : null;
         const bCell = core.getCellData ? core.getCellData(todayStr, b, todayStr) : null;
         const aDone = aCell ? (aCell.isCompleted || (aCell.ratio && aCell.ratio >= 1.0)) : false;
         const bDone = bCell ? (bCell.isCompleted || (bCell.ratio && bCell.ratio >= 1.0)) : false;
         if (aDone !== bDone) {
-          return aDone ? 1 : -1; // uncompleted first
+          cmp = aDone ? 1 : -1; // uncompleted first
+        } else {
+          cmp = (a.name || '').localeCompare(b.name || '');
         }
-        return (a.name || '').localeCompare(b.name || '');
-      }
-
-      if (sortOrder === 'streak_high') {
+      } else if (sortOrder === 'incomplete_first_7') {
+        function get7DayCount(h) {
+          let count = 0;
+          for (let i = 0; i < 7; i++) {
+            const key = core.getDaysAgoKey ? core.getDaysAgoKey(i) : null;
+            if (key) {
+              if (core.getCellData) {
+                const cell = core.getCellData(key, h, key);
+                if (cell && (cell.isCompleted || (cell.ratio && cell.ratio >= 1.0))) {
+                  count += 1;
+                } else if (h.logs && h.logs[key] && h.logs[key].count > 0) {
+                  count += 1;
+                }
+              } else if (h.logs && h.logs[key] && h.logs[key].count > 0) {
+                count += 1;
+              }
+            }
+          }
+          return count;
+        }
+        const a7 = get7DayCount(a);
+        const b7 = get7DayCount(b);
+        if (a7 !== b7) {
+          cmp = a7 - b7; // least completed first
+        } else {
+          cmp = (a.name || '').localeCompare(b.name || '');
+        }
+      } else if (sortOrder === 'streak_high') {
         const aStreak = core.calculateStreakForTarget ? core.calculateStreakForTarget(a).current : 0;
         const bStreak = core.calculateStreakForTarget ? core.calculateStreakForTarget(b).current : 0;
         if (aStreak !== bStreak) {
-          return bStreak - aStreak; // highest streak first
+          cmp = bStreak - aStreak; // highest streak first
+        } else {
+          cmp = (a.name || '').localeCompare(b.name || '');
         }
-        return (a.name || '').localeCompare(b.name || '');
-      }
-
-      if (sortOrder === 'lowest_completion') {
+      } else if (sortOrder === 'lowest_completion') {
         const aStats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(a, targetYear) : { totalCount: 0 };
         const bStats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(b, targetYear) : { totalCount: 0 };
         const aCount = aStats ? aStats.totalCount : 0;
         const bCount = bStats ? bStats.totalCount : 0;
         if (aCount !== bCount) {
-          return aCount - bCount; // lowest completed first
+          cmp = aCount - bCount; // lowest completed first
+        } else {
+          cmp = (a.name || '').localeCompare(b.name || '');
         }
-        return (a.name || '').localeCompare(b.name || '');
-      }
-
-      if (sortOrder === 'recently_completed') {
+      } else if (sortOrder === 'recently_completed') {
         function getLastLoggedDate(habit) {
           if (!habit.logs) return '';
           const loggedKeys = Object.keys(habit.logs).filter(k => habit.logs[k] && habit.logs[k].count > 0);
@@ -629,12 +658,15 @@ window.HabitualCore = window.HabitualCore || {};
         const aLast = getLastLoggedDate(a);
         const bLast = getLastLoggedDate(b);
         if (aLast !== bLast) {
-          return bLast.localeCompare(aLast); // most recent first
+          cmp = bLast.localeCompare(aLast); // most recent first
+        } else {
+          cmp = (a.name || '').localeCompare(b.name || '');
         }
-        return (a.name || '').localeCompare(b.name || '');
+      } else {
+        cmp = (a.name || '').localeCompare(b.name || '');
       }
 
-      return 0;
+      return isReverse ? -cmp : cmp;
     });
 
     return items;
@@ -912,6 +944,15 @@ window.HabitualCore = window.HabitualCore || {};
       // Habit card updated
     } else if (core.renderAll) {
       core.renderAll();
+    }
+
+    if (habit && habit.parentId && core.recalculateSubhabitDOMOrder) {
+      let currP = habit.parentId;
+      while (currP) {
+        core.recalculateSubhabitDOMOrder(currP);
+        const pObj = core.state.habits.find(h => h.id === currP);
+        currP = pObj ? pObj.parentId : null;
+      }
     }
 
     // 2. Persist to storage asynchronously in background

@@ -1846,6 +1846,13 @@ window.HabitualCore = window.HabitualCore || {};
         const habit = core.state.habits.find(h => h.id === habitId);
         if (!habit) return;
 
+        if (habit.parentId) {
+          const parentHabit = core.state.habits.find(h => h.id === habit.parentId);
+          if (parentHabit && parentHabit.subhabitSortOrder && parentHabit.subhabitSortOrder !== 'manual') {
+            return; // Sub-habits are auto-sorted, manual move is disabled
+          }
+        }
+
         const siblings = core.state.habits.filter(h => (h.parentId || null) === (habit.parentId || null));
         const siblingIndex = siblings.findIndex(h => h.id === habitId);
 
@@ -2525,8 +2532,13 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
+    const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse');
+
     if (selectSortOrder) {
       selectSortOrder.value = habitToEdit ? (habitToEdit.subhabitSortOrder || 'manual') : 'manual';
+    }
+    if (chkSortReverse) {
+      chkSortReverse.checked = habitToEdit ? Boolean(habitToEdit.subhabitSortReverse) : false;
     }
 
     if (shareChildrenContainer) {
@@ -2918,7 +2930,9 @@ window.HabitualCore = window.HabitualCore || {};
     } : null;
 
     const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
+    const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse');
     const subhabitSortOrder = selectSortOrder ? selectSortOrder.value : 'manual';
+    const subhabitSortReverse = chkSortReverse ? chkSortReverse.checked : false;
 
     if (!name) return;
 
@@ -2931,6 +2945,7 @@ window.HabitualCore = window.HabitualCore || {};
         const previousHideFromAll = Boolean(habit.hideFromAll);
         habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused; habit.hideHeatmap = hideHeatmap;
         habit.subhabitSortOrder = subhabitSortOrder;
+        habit.subhabitSortReverse = subhabitSortReverse;
         core.setHabitPauseState(habit, isPaused, core.getTodayKey(), { hideHeatmap: hideHeatmapWhenPaused });
         habit.frequencyType = freqType; habit.targetDays = targetDays; habit.weeklyTarget = weeklyTarget; habit.monthlyDay = monthlyDay; habit.monthlyTarget = monthlyTarget; habit.colorWholeWeek = colorWholeWeek; habit.colorWholeMonth = colorWholeMonth; habit.customTarget = customTarget; habit.customInterval = customInterval; habit.customUnit = customUnit; habit.parentId = parentId; habit.parentDependency = parentDependency;
         if (colorTheme) {
@@ -2959,6 +2974,7 @@ window.HabitualCore = window.HabitualCore || {};
                   desc.hideHeatmap = habit.hideHeatmap;
                   desc.hideHeatmapWhenPaused = habit.hideHeatmapWhenPaused;
                   desc.subhabitSortOrder = habit.subhabitSortOrder;
+                  desc.subhabitSortReverse = habit.subhabitSortReverse;
                   desc.updatedAt = Date.now();
                 }
               }
@@ -3031,13 +3047,15 @@ window.HabitualCore = window.HabitualCore || {};
       const idGen = (typeof core.idFromName === 'function') ? core.idFromName : function(n) { return 'habit_' + String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
       const todayKeyGen = (typeof core.getTodayKey === 'function') ? core.getTodayKey : function() { return new Date().toISOString().split('T')[0]; };
       const parentObj = parentId ? core.state.habits.find(h => h.id === parentId) : null;
-      const initialParent = (parentObj && parentObj.subhabitSortOrder) ? parentObj : null;
-      const inheritedSortOrder = initialParent ? initialParent.subhabitSortOrder || 'manual' : subhabitSortOrder;
+      const initialParent = (parentObj && (parentObj.subhabitSortOrder || parentObj.subhabitSortReverse)) ? parentObj : null;
+      const inheritedSortOrder = initialParent ? (initialParent.subhabitSortOrder || 'manual') : subhabitSortOrder;
+      const inheritedSortReverse = initialParent ? Boolean(initialParent.subhabitSortReverse) : subhabitSortReverse;
 
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + idGen(name),
         name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: todayKeyGen(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
         subhabitSortOrder: inheritedSortOrder,
+        subhabitSortReverse: inheritedSortReverse,
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, updatedAt: Date.now(), logs: backfilledLogs
       };
       if (colorTheme) {

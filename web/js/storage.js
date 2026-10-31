@@ -465,6 +465,9 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit.colorWholeMonth) h.colorWholeMonth = true;
     if (habit.parentId) h.parentId = habit.parentId;
     if (habit.parentDependency && habit.parentDependency !== 'none') h.parentDependency = habit.parentDependency;
+    if (habit.subhabitDisplayMode && habit.subhabitDisplayMode !== 'cards') h.subhabitDisplayMode = habit.subhabitDisplayMode;
+    if (habit.subhabitSortOrder && habit.subhabitSortOrder !== 'manual') h.subhabitSortOrder = habit.subhabitSortOrder;
+    if (habit.subhabitSortReverse) h.subhabitSortReverse = true;
     if (habit.createdAt) h.createdAt = habit.createdAt;
     if (habit.updatedAt) h.updatedAt = habit.updatedAt;
     if (habit.sharing) h.sharing = habit.sharing;
@@ -1690,7 +1693,7 @@ window.HabitualCore = window.HabitualCore || {};
                   'weeklyTarget', 'monthlyDay', 'monthlyTarget', 'customTarget', 'customInterval', 'customUnit',
                   'colorWholeWeek', 'colorWholeMonth', 'showStreak', 'showCount', 'showDuration',
                   'hideFromAll', 'isPaused', 'hideHeatmapWhenPaused', 'hideHeatmap',
-                  'subhabitDisplayMode', 'subhabitSortOrder'
+                  'subhabitDisplayMode', 'subhabitSortOrder', 'subhabitSortReverse'
                 ];
 
                 metaFields.forEach(field => {

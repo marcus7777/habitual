@@ -249,16 +249,59 @@ window.HabitualCore = window.HabitualCore || {};
       if (gId) patched = core.patchHeatmapCard(gId, dateKey) || patched;
     });
 
-    // Patch parent habits up ancestry chain
+    // Patch parent habits up ancestry chain and re-order sub-habits if auto-sorting is active
     if (habitId && habitId !== 'all' && !habitId.startsWith('group_')) {
       let curr = core.state.habits.find(h => h.id === habitId);
       while (curr && curr.parentId) {
         patched = core.patchHeatmapCard(curr.parentId, dateKey) || patched;
+        if (core.recalculateSubhabitDOMOrder) {
+          core.recalculateSubhabitDOMOrder(curr.parentId);
+        }
         curr = core.state.habits.find(h => h.id === curr.parentId);
       }
     }
 
     return patched;
+  };
+
+  core.recalculateSubhabitDOMOrder = function(parentId) {
+    if (!parentId || !core.state || !Array.isArray(core.state.habits) || typeof document === 'undefined') return false;
+    const parentHabit = core.state.habits.find(h => h.id === parentId);
+    if (!parentHabit) return false;
+
+    const sortOrder = parentHabit.subhabitSortOrder || 'manual';
+    if (sortOrder === 'manual') return false;
+
+    const rawSubhabits = core.state.habits.filter(h => h.parentId === parentId);
+    if (rawSubhabits.length <= 1) return false;
+
+    const sortedSubhabits = core.getSortedSubhabits ? core.getSortedSubhabits(parentHabit, rawSubhabits, core.state.selectedYear) : rawSubhabits;
+
+    const root = document.body || document;
+    let concertinas = root.querySelectorAll ? Array.from(root.querySelectorAll(`.subhabits-concertina[data-parent-id="${parentId}"]`)) : [];
+    if ((!concertinas || concertinas.length === 0) && root.querySelector) {
+      const single = root.querySelector(`.subhabits-concertina[data-parent-id="${parentId}"]`);
+      if (single) concertinas = [single];
+    }
+    if (!concertinas || concertinas.length === 0) return false;
+
+    let reordered = false;
+
+    concertinas.forEach(concertina => {
+      const listContainer = concertina.querySelector ? concertina.querySelector('.subhabits-list-container') : null;
+      if (!listContainer || !listContainer.children) return;
+
+      const childrenArr = Array.from(listContainer.children);
+      sortedSubhabits.forEach(sub => {
+        const childNode = childrenArr.find(c => c.getAttribute && (c.getAttribute('data-habit-id') === sub.id || c.getAttribute('data-habit-id-raw') === sub.id));
+        if (childNode) {
+          listContainer.appendChild(childNode);
+          reordered = true;
+        }
+      });
+    });
+
+    return reordered;
   };
 
   core.renderViewNavigation = function(route) {
@@ -839,7 +882,15 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    const canMove = siblings.length > 1;
+    let isManualSort = true;
+    if (parentIdFilter) {
+      const parentHabit = core.state.habits.find(h => h.id === parentIdFilter);
+      if (parentHabit && parentHabit.subhabitSortOrder && parentHabit.subhabitSortOrder !== 'manual') {
+        isManualSort = false;
+      }
+    }
+
+    const canMove = siblings.length > 1 && isManualSort;
     const showReorderArrows = (!isAll && habit && !isCurrentOpenPage && canMove);
 
     const isSelectedHabit = core.state && cardHabitId !== 'all' && core.state.selectedHabitId === cardHabitId;

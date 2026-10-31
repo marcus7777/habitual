@@ -112,7 +112,22 @@ function createMockElement(tagName) {
     setAttribute: (k, v) => { attributes[k] = String(v); },
     getAttribute: (k) => attributes[k] || null,
     removeAttribute: (k) => { delete attributes[k]; },
-    appendChild: (child) => { child.parentElement = elem; children.push(child); return child; },
+    appendChild: (child) => {
+      child.parentElement = elem;
+      const idx = children.indexOf(child);
+      if (idx !== -1) {
+        children.splice(idx, 1);
+      }
+      children.push(child);
+      return child;
+    },
+    removeChild: (child) => {
+      const idx = children.indexOf(child);
+      if (idx !== -1) {
+        children.splice(idx, 1);
+      }
+      return child;
+    },
     closest: function(sel) {
       let curr = elem;
       while (curr) {
@@ -150,7 +165,34 @@ function createMockElement(tagName) {
       }
       return null;
     },
-    querySelectorAll: () => []
+    querySelectorAll: function(sel) {
+      const results = [];
+      function search(node) {
+        if (!node) return;
+        if (sel.startsWith('.')) {
+          const parts = sel.split(/\[|\]/).filter(Boolean);
+          const cls = parts[0].slice(1);
+          let match = node.classList && node.classList.contains(cls);
+          if (match && parts.length > 1) {
+            const attrParts = parts[1].split('=');
+            const attrKey = attrParts[0];
+            const attrVal = attrParts[1] ? attrParts[1].replace(/['"]/g, '') : null;
+            if (attrVal !== null) match = node.getAttribute(attrKey) === attrVal;
+          }
+          if (match) results.push(node);
+        } else if (sel.startsWith('#')) {
+          const id = sel.slice(1);
+          if (node.getAttribute && node.getAttribute('id') === id) results.push(node);
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            search(child);
+          }
+        }
+      }
+      search(elem);
+      return results;
+    }
   };
   elem._eventListeners = eventListeners;
   return elem;
@@ -159,9 +201,9 @@ function createMockElement(tagName) {
 global.document = {
   body: createMockElement('body'),
   addEventListener: () => {},
-  getElementById: () => null,
-  querySelector: () => null,
-  querySelectorAll: () => [],
+  getElementById: (id) => global.document.body.querySelector('#' + id),
+  querySelector: (sel) => global.document.body.querySelector(sel),
+  querySelectorAll: (sel) => global.document.body.querySelectorAll(sel),
   createElement: createMockElement,
   createDocumentFragment: () => createMockElement('fragment')
 };
@@ -627,21 +669,23 @@ describe('Feature 7: ⌛ Past History Backfilling', () => {
     assert(habit.logs[todayStr] !== undefined, 'Today log retained');
   });
 
-  test('cascadeSubhabitPreferences recursively propagates subhabitSortOrder to descendants', () => {
-    const parent = { id: 'parent_c', name: 'Parent', subhabitSortOrder: 'incomplete_first' };
+  test('cascadeSubhabitPreferences recursively propagates subhabitSortOrder and subhabitSortReverse to descendants', () => {
+    const parent = { id: 'parent_c', name: 'Parent', subhabitSortOrder: 'incomplete_first_7', subhabitSortReverse: true };
     const child = { id: 'child_c', name: 'Child', parentId: 'parent_c' };
     const grandchild = { id: 'grandchild_c', name: 'Grandchild', parentId: 'child_c' };
     HabitualCore.state.habits.push(parent, child, grandchild);
 
     HabitualCore.cascadeSubhabitPreferences(parent);
 
-    assertEqual(child.subhabitSortOrder, 'incomplete_first', 'Child inherited incomplete_first sort order');
-    assertEqual(grandchild.subhabitSortOrder, 'incomplete_first', 'Grandchild inherited incomplete_first sort order');
+    assertEqual(child.subhabitSortOrder, 'incomplete_first_7', 'Child inherited incomplete_first_7 sort order');
+    assertEqual(child.subhabitSortReverse, true, 'Child inherited subhabitSortReverse=true');
+    assertEqual(grandchild.subhabitSortOrder, 'incomplete_first_7', 'Grandchild inherited incomplete_first_7 sort order');
+    assertEqual(grandchild.subhabitSortReverse, true, 'Grandchild inherited subhabitSortReverse=true');
   });
 
-  test('getSortedSubhabits sorts sub-habits by alphabetical and incomplete_first strategies', () => {
+  test('getSortedSubhabits sorts sub-habits by alphabetical, incomplete_first, incomplete_first_7, and reverse options', () => {
     const todayStr = HabitualCore.getTodayKey();
-    const parent = { id: 'p_sort', subhabitSortOrder: 'alphabetical' };
+    const parent = { id: 'p_sort', subhabitSortOrder: 'alphabetical', subhabitSortReverse: false };
     const subA = { id: 'sub_a', name: 'Zebra Workout', logs: {} };
     const subB = { id: 'sub_b', name: 'Apple Eating', logs: {} };
 
@@ -649,13 +693,38 @@ describe('Feature 7: ⌛ Past History Backfilling', () => {
     assertEqual(sortedAlpha[0].id, 'sub_b', 'Apple Eating comes first alphabetically');
     assertEqual(sortedAlpha[1].id, 'sub_a', 'Zebra Workout comes second');
 
+    parent.subhabitSortReverse = true;
+    const sortedAlphaReverse = HabitualCore.getSortedSubhabits(parent, [subA, subB]);
+    assertEqual(sortedAlphaReverse[0].id, 'sub_a', 'Zebra Workout comes first when reverse is enabled');
+    assertEqual(sortedAlphaReverse[1].id, 'sub_b', 'Apple Eating comes second when reverse is enabled');
+
     parent.subhabitSortOrder = 'incomplete_first';
+    parent.subhabitSortReverse = false;
     subB.logs[todayStr] = { count: 1 }; // B is completed today
     subA.logs[todayStr] = { count: 0 }; // A is uncompleted
 
     const sortedIncomplete = HabitualCore.getSortedSubhabits(parent, [subA, subB]);
     assertEqual(sortedIncomplete[0].id, 'sub_a', 'Uncompleted subA comes first');
     assertEqual(sortedIncomplete[1].id, 'sub_b', 'Completed subB comes second');
+
+    // Test incomplete_first_7 (least completed in past 7 days)
+    parent.subhabitSortOrder = 'incomplete_first_7';
+    parent.subhabitSortReverse = false;
+    const key0 = HabitualCore.getDaysAgoKey(0);
+    const key1 = HabitualCore.getDaysAgoKey(1);
+    const key2 = HabitualCore.getDaysAgoKey(2);
+    // subA has 1 completion in last 7 days; subB has 3 completions in last 7 days
+    subA.logs = { [key0]: { count: 1 } };
+    subB.logs = { [key0]: { count: 1 }, [key1]: { count: 1 }, [key2]: { count: 1 } };
+
+    const sortedWeek = HabitualCore.getSortedSubhabits(parent, [subA, subB]);
+    assertEqual(sortedWeek[0].id, 'sub_a', 'Least completed subA (1 completion) comes first for incomplete_first_7');
+    assertEqual(sortedWeek[1].id, 'sub_b', 'More completed subB (3 completions) comes second');
+
+    parent.subhabitSortReverse = true;
+    const sortedWeekReverse = HabitualCore.getSortedSubhabits(parent, [subA, subB]);
+    assertEqual(sortedWeekReverse[0].id, 'sub_b', 'Most completed subB comes first when incomplete_first_7 is reversed');
+    assertEqual(sortedWeekReverse[1].id, 'sub_a', 'Least completed subA comes second when reversed');
   });
 });
 
@@ -4319,6 +4388,44 @@ describe('Issue #22: ↕️ Reorder Controls & Discreet Left-Side Selected Arrow
     assert(!subCardSecond.innerHTML.includes('drag-handle'), 'Second of 2 sub-habits does NOT render drag handle');
     assert(subCardSecond.innerHTML.includes('btn-move-up'), 'Second sub-habit renders btn-move-up');
     assert(!subCardSecond.innerHTML.includes('btn-move-down'), 'Second sub-habit does NOT render btn-move-down');
+  });
+
+  test('Sub-habits do NOT render reorder arrows when parent subhabitSortOrder is not manual', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'parent_auto', name: 'Parent Habit', parentId: null, subhabitSortOrder: 'incomplete_first' };
+    const sub1 = { id: 'sub_1', name: 'Sub One', parentId: 'parent_auto' };
+    const sub2 = { id: 'sub_2', name: 'Sub Two', parentId: 'parent_auto' };
+    HabitualCore.setState({ habits: [parent, sub1, sub2] });
+
+    const card1 = HabitualCore.buildHeatmapCard(sub1, 2026);
+    const card2 = HabitualCore.buildHeatmapCard(sub2, 2026);
+
+    assert(!card1.innerHTML.includes('card-reorder-arrows'), 'Sub-habit 1 does NOT render reorder arrows when parent is auto-sorted');
+    assert(!card2.innerHTML.includes('card-reorder-arrows'), 'Sub-habit 2 does NOT render reorder arrows when parent is auto-sorted');
+  });
+
+  test('Logging a sub-habit under auto-sort mode automatically reorders sub-habits in DOM', () => {
+    HabitualCore.resetState();
+    const todayKey = HabitualCore.getTodayKey();
+    const parent = { id: 'parent_auto_log', name: 'Parent', parentId: null, subhabitSortOrder: 'incomplete_first' };
+    const subA = { id: 'sub_alpha', name: 'Alpha Sub', parentId: 'parent_auto_log', logs: {} };
+    const subB = { id: 'sub_beta', name: 'Beta Sub', parentId: 'parent_auto_log', logs: {} };
+    HabitualCore.setState({ habits: [parent, subA, subB] });
+
+    // Initial render in DOM
+    const tree = HabitualCore.renderHabitTree(parent, 2026);
+    document.body.appendChild(tree);
+
+    // Toggle subA to complete it
+    HabitualCore.toggleHabitForDate('sub_alpha', todayKey);
+
+    const concertina = tree.querySelector('.subhabits-list-container');
+    const childNodes = Array.from(concertina.children);
+    const firstChildId = childNodes[0].getAttribute('data-habit-id');
+
+    assertEqual(firstChildId, 'sub_beta', 'Uncompleted sub_beta moved to top after sub_alpha was completed');
+
+    document.body.removeChild(tree);
   });
 
   test('Sub-habit parent (parent with subhabits that is also a child) renders reorder arrows among its siblings', () => {

@@ -206,7 +206,14 @@
 
             // Find siblings sharing same parentId
             const siblings = displayHabits.filter(c => (c.parentId || null) === (h.parentId || null));
-            const canMove = siblings.length > 1;
+            let isManualSort = true;
+            if (h.parentId) {
+              const parentHabit = displayHabits.find(p => p.id === h.parentId);
+              if (parentHabit && parentHabit.subhabitSortOrder && parentHabit.subhabitSortOrder !== 'manual') {
+                isManualSort = false;
+              }
+            }
+            const canMove = siblings.length > 1 && isManualSort;
             const siblingIndex = canMove ? siblings.findIndex(c => c.id === h.id) : -1;
             const isFirst = siblingIndex === 0;
             const isLast = siblingIndex === siblings.length - 1;
