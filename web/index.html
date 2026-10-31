@@ -204,7 +204,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.29.14</p>
+      <p>Habitual &bull; v1.29.15</p>
     </footer>
   </div>
 
@@ -471,20 +471,24 @@
               <!-- Sub-Habits Sorting Section (Visible ONLY when sub-habits exist) -->
               <div class="form-group highlight-form-box hidden" id="parent-subhabit-display-section">
                 <label style="font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-                  📁 Sub-Habit Cascading Sorting
+                  📁 Sub-Habit Sorting
                 </label>
                 <div class="form-group">
                   <label for="habit-subhabit-sort-order">Sub-Habit Auto-Sort</label>
                   <select id="habit-subhabit-sort-order" class="select-input">
-                    <option value="manual" selected>Look Order (Default)</option>
+                    <option value="manual" selected>Manual</option>
                     <option value="incomplete_first">Uncompleted First (Today)</option>
+                    <option value="incomplete_first_7">Least Completed First (Week)</option>
                     <option value="recently_completed">Recently Logged</option>
                     <option value="alphabetical">Alphabetical A-Z</option>
                     <option value="streak_high">Highest Streak First</option>
                     <option value="lowest_completion">Needs Attention (Lowest %)</option>
                   </select>
+                  <label class="checkbox-label margin-top-xs" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" id="habit-subhabit-sort-reverse">
+                    <span>Reverse Sort Order</span>
+                  </label>
                 </div>
-                <small class="muted-text">Sorting options automatically cascade down to all child and grandchild sub-habits.</small>
               </div>
 
               <!-- Display & Behavior Options Grid -->
