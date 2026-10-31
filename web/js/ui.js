@@ -2533,13 +2533,30 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse');
+    const containerSortReverse = document.getElementById('parent-subhabit-sort-reverse-container');
+
+    function updateSortReverseVisibility() {
+      const isManual = !selectSortOrder || selectSortOrder.value === 'manual';
+      if (containerSortReverse) {
+        if (isManual) {
+          containerSortReverse.classList.add('hidden');
+        } else {
+          containerSortReverse.classList.remove('hidden');
+        }
+      }
+    }
 
     if (selectSortOrder) {
       selectSortOrder.value = habitToEdit ? (habitToEdit.subhabitSortOrder || 'manual') : 'manual';
+      if (typeof selectSortOrder.addEventListener === 'function' && !selectSortOrder._hasSortReverseListener) {
+        selectSortOrder.addEventListener('change', updateSortReverseVisibility);
+        selectSortOrder._hasSortReverseListener = true;
+      }
     }
     if (chkSortReverse) {
       chkSortReverse.checked = habitToEdit ? Boolean(habitToEdit.subhabitSortReverse) : false;
     }
+    updateSortReverseVisibility();
 
     if (shareChildrenContainer) {
       if (hasSubhabits) {
