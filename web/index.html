@@ -247,6 +247,24 @@
           </div>
         </div>
 
+        <div class="form-group">
+          <label for="habit-description">Description / Goal (Markdown Supported)</label>
+          <div class="markdown-editor-wrapper">
+            <div class="markdown-toolbar">
+              <button type="button" class="btn btn-secondary btn-xs" id="btn-upload-image" title="Upload Image to Firebase Storage (Online Only)">📷 Upload Image</button>
+              <button type="button" class="btn btn-secondary btn-xs" id="btn-upload-video" title="Upload Video to Firebase Storage (Online Only)">📹 Upload Video</button>
+              <input type="file" id="habit-image-file-input" accept="image/*" class="hidden">
+              <input type="file" id="habit-video-file-input" accept="video/*" class="hidden">
+              <span class="media-security-notice" title="Uploaded media is stored in Firebase Cloud Storage and is currently unencrypted">⚠️ Unencrypted Storage</span>
+            </div>
+            <textarea name="habit-description" id="habit-description" class="textarea-input" rows="5" placeholder="Enter habit goal or description in Markdown (supports **bold**, *italics*, lists, links, images, videos)..."></textarea>
+            <div class="markdown-preview-container">
+              <label class="preview-label">Live Preview</label>
+              <div id="habit-description-preview" class="markdown-preview-box"></div>
+            </div>
+          </div>
+        </div>
+
         <div id="habit-form-details" class="hidden">
           <div class="form-group">
             <label>Goal Type</label>
@@ -437,17 +455,6 @@
               <span class="accordion-arrow">▼</span>
             </summary>
             <div class="advanced-settings-body">
-              <div class="form-row-2col">
-                <div class="form-group">
-                  <label for="habit-description">Description / Goal</label>
-                  <input type="text" name="habit-description" id="habit-description" class="text-input" placeholder="e.g. Build long-term consistency">
-                </div>
-                <div class="form-group">
-                  <label for="habit-category">Category</label>
-                  <input type="text" name="habit-category" id="habit-category" class="text-input" placeholder="e.g. Health, Career" value="General">
-                </div>
-              </div>
-
               <div class="form-group">
                 <label for="habit-parent">Parent Habit (Nest inside another habit)</label>
                 <select name="habit-parent" id="habit-parent" class="select-input">
