@@ -61,6 +61,11 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith('http')) return;
 
+  // Exclude Firebase Storage from Service Worker caching to save device storage and data
+  if (event.request.url.includes('firebasestorage.googleapis.com')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       // Background fetch promise to update the cache asynchronously

@@ -578,6 +578,18 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       const habitNode = core.renderHabitTree(targetHabit, core.state.selectedYear);
+
+      if (targetHabit.description && targetHabit.description.trim()) {
+        const descBox = document.createElement('div');
+        descBox.className = 'habit-description-rendered-container';
+        descBox.style.margin = '16px 0';
+        descBox.innerHTML = `
+          <div class="habit-description-header" style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">🎯 Habit Goal / Description</div>
+          <div class="habit-description-rendered">${core.renderMarkdown ? core.renderMarkdown(targetHabit.description) : core.escapeHTML(targetHabit.description)}</div>
+        `;
+        fragment.appendChild(descBox);
+      }
+
       fragment.appendChild(habitNode);
 
       const subhabits = core.state.habits.filter(h => h.parentId === targetHabit.id);

@@ -321,6 +321,53 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
+    const descInput = document.getElementById('habit-description');
+    const descPreview = document.getElementById('habit-description-preview');
+    if (descInput && descPreview) {
+      descInput.addEventListener('input', () => {
+        descPreview.innerHTML = core.renderMarkdown ? core.renderMarkdown(descInput.value) : descInput.value;
+      });
+    }
+
+    const btnUploadImage = document.getElementById('btn-upload-image');
+    const btnUploadVideo = document.getElementById('btn-upload-video');
+    const imageFileInput = document.getElementById('habit-image-file-input');
+    const videoFileInput = document.getElementById('habit-video-file-input');
+
+    if (btnUploadImage && imageFileInput) {
+      btnUploadImage.addEventListener('click', () => {
+        if (!navigator.onLine) {
+          if (core.showToast) core.showToast('❌ Cannot upload media while offline. Uploads require an online connection.', 'error');
+          return;
+        }
+        imageFileInput.click();
+      });
+      imageFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file && core.uploadHabitMediaToFirebase) {
+          core.uploadHabitMediaToFirebase(file, 'image');
+          imageFileInput.value = '';
+        }
+      });
+    }
+
+    if (btnUploadVideo && videoFileInput) {
+      btnUploadVideo.addEventListener('click', () => {
+        if (!navigator.onLine) {
+          if (core.showToast) core.showToast('❌ Cannot upload media while offline. Uploads require an online connection.', 'error');
+          return;
+        }
+        videoFileInput.click();
+      });
+      videoFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file && core.uploadHabitMediaToFirebase) {
+          core.uploadHabitMediaToFirebase(file, 'video');
+          videoFileInput.value = '';
+        }
+      });
+    }
+
     core.elements.modalData = document.getElementById('modal-data');
     core.elements.habitEnableBackfill = document.getElementById('habit-enable-backfill');
     core.elements.backfillOptionsContainer = document.getElementById('backfill-options-container');
@@ -2375,19 +2422,19 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (habitToEdit) {
       if (core.elements.modalHabitTitle) core.elements.modalHabitTitle.textContent = 'Edit Habit Goal';
-      const elId = document.getElementById('habit-id');
-      const elName = document.getElementById('habit-name');
-      const elDesc = document.getElementById('habit-description');
-      const elCat = document.getElementById('habit-category');
-      const elTarget = document.getElementById('habit-daily-target');
-      if (elId) elId.value = habitToEdit.id;
-      if (elName) elName.value = habitToEdit.name;
+      const habitIdEl = document.getElementById('habit-id');
+      if (habitIdEl) habitIdEl.value = habitToEdit.id;
+      const habitNameEl = document.getElementById('habit-name');
+      if (habitNameEl) habitNameEl.value = habitToEdit.name;
       if (core.elements.habitIdDisplay) core.elements.habitIdDisplay.textContent = habitToEdit.id;
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.remove('hidden');
       if (core.elements.habitFormDetails) core.elements.habitFormDetails.classList.remove('hidden');
-      if (elDesc) elDesc.value = habitToEdit.description || '';
-      if (elCat) elCat.value = habitToEdit.category || 'General';
-      if (elTarget) elTarget.value = habitToEdit.dailyTarget || 1;
+      const habitDescEl = document.getElementById('habit-description');
+      if (habitDescEl) habitDescEl.value = habitToEdit.description || '';
+      const descPrev = document.getElementById('habit-description-preview');
+      if (descPrev) descPrev.innerHTML = core.renderMarkdown ? core.renderMarkdown(habitToEdit.description || '') : (habitToEdit.description || '');
+      const habitTargetEl = document.getElementById('habit-daily-target');
+      if (habitTargetEl) habitTargetEl.value = habitToEdit.dailyTarget || 1;
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = habitToEdit.showStreak === true;
       if (core.elements.habitShowCount) core.elements.habitShowCount.checked = habitToEdit.showCount !== false;
       if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = habitToEdit.showDuration === true;
@@ -2452,9 +2499,13 @@ window.HabitualCore = window.HabitualCore || {};
       core.syncCalendarColorDropdown(normalized);
     } else {
       if (core.elements.modalHabitTitle) core.elements.modalHabitTitle.textContent = defaultParentId ? 'Create New Sub-Habit' : 'Create New Habit';
-      const elId = document.getElementById('habit-id');
-      if (elId) elId.value = '';
+      const habitIdEl = document.getElementById('habit-id');
+      if (habitIdEl) habitIdEl.value = '';
       if (core.elements.habitName) core.elements.habitName.value = '';
+      const descInp = document.getElementById('habit-description');
+      if (descInp) descInp.value = '';
+      const descPrev = document.getElementById('habit-description-preview');
+      if (descPrev) descPrev.innerHTML = '';
       if (core.elements.habitIdDisplay) core.elements.habitIdDisplay.textContent = '';
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.add('hidden');
       if (core.elements.habitFormDetails) core.elements.habitFormDetails.classList.add('hidden');
@@ -2528,7 +2579,7 @@ window.HabitualCore = window.HabitualCore || {};
     const hasSubhabits = subhabits.length > 0;
 
     const subhabitDisplaySection = document.getElementById('parent-subhabit-display-section');
-    const selectSortOrder = document.getElementById('habit-subhabit-sort-order') || (core.elements ? core.elements.habitSubhabitSortOrder : null);
+    const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
 
     if (subhabitDisplaySection) {
       if (hasSubhabits) {
@@ -2538,8 +2589,8 @@ window.HabitualCore = window.HabitualCore || {};
       }
     }
 
-    const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse') || (core.elements ? core.elements.habitSubhabitSortReverse : null);
-    const containerSortReverse = document.getElementById('parent-subhabit-sort-reverse-container') || (core.elements ? core.elements.parentSubhabitSortReverseContainer : null);
+    const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse');
+    const containerSortReverse = document.getElementById('parent-subhabit-sort-reverse-container');
 
     function updateSortReverseVisibility() {
       const isManual = !selectSortOrder || selectSortOrder.value === 'manual';
@@ -2841,7 +2892,6 @@ window.HabitualCore = window.HabitualCore || {};
     const typeRadio = (formEl && typeof formEl.querySelector === 'function') ? formEl.querySelector('input[name="habit-type"]:checked') : null;
     const type = typeRadio ? typeRadio.value : (getVal('habit-type') || 'positive');
     const description = (getVal('habit-description') || (document.getElementById('habit-description') ? document.getElementById('habit-description').value : '')).trim();
-    const category = (getVal('habit-category') || (document.getElementById('habit-category') ? document.getElementById('habit-category').value : '')).trim();
     const dailyTargetInput = document.getElementById('habit-daily-target');
     const dailyTarget = parseInt(getVal('habit-daily-target') || (dailyTargetInput ? dailyTargetInput.value : '1'), 10) || 1;
     const colorRadio = (formEl && typeof formEl.querySelector === 'function') ? formEl.querySelector('input[name="habit-color"]:checked') : null;
@@ -2966,7 +3016,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (habit) {
         savedTargetHabit = habit;
         const previousHideFromAll = Boolean(habit.hideFromAll);
-        habit.name = name; habit.type = type; habit.description = description; habit.category = category; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused; habit.hideHeatmap = hideHeatmap;
+        habit.name = name; habit.type = type; habit.description = description; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused; habit.hideHeatmap = hideHeatmap;
         habit.subhabitSortOrder = subhabitSortOrder;
         habit.subhabitSortReverse = subhabitSortReverse;
         core.setHabitPauseState(habit, isPaused, core.getTodayKey(), { hideHeatmap: hideHeatmapWhenPaused });
@@ -3076,7 +3126,7 @@ window.HabitualCore = window.HabitualCore || {};
 
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + idGen(name),
-        name, type, description, category, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: todayKeyGen(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
+        name, type, description, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: todayKeyGen(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
         subhabitSortOrder: inheritedSortOrder,
         subhabitSortReverse: inheritedSortReverse,
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, updatedAt: Date.now(), logs: backfilledLogs
@@ -4244,6 +4294,89 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.showToast) core.showToast(`No future events found for "${habit.name}".`, 'info');
     }
     return clearedCount;
+  };
+
+  core.renderMarkdown = function(text) {
+    if (!text) return '';
+    let escaped = core.escapeHTML ? core.escapeHTML(text) : text;
+
+    escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+    escaped = escaped.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy" />');
+    escaped = escaped.replace(/&lt;video\s+src="([^"]+)"([^&]*)&gt;&lt;\/video&gt;/gi, '<video src="$1" controls preload="metadata"></video>');
+    escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    escaped = escaped.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+    escaped = escaped.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+    escaped = escaped.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+    escaped = escaped.replace(/^\s*-\s+(.*$)/gm, '<ul><li>$1</li></ul>');
+    escaped = escaped.replace(/<\/ul>\s*<ul>/g, '');
+
+    const paragraphs = escaped.split(/\n\n+/);
+    return paragraphs.map(p => {
+      p = p.trim();
+      if (!p) return '';
+      if (p.startsWith('<h') || p.startsWith('<ul>') || p.startsWith('<img') || p.startsWith('<video')) {
+        return p;
+      }
+      return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+    }).join('');
+  };
+
+  core.uploadHabitMediaToFirebase = function(file, type) {
+    if (!navigator.onLine) {
+      if (core.showToast) core.showToast('❌ Cannot upload media while offline. Uploads require an online connection.', 'error');
+      return;
+    }
+    if (!file) return;
+
+    if (core.showToast) core.showToast(`Uploading ${type === 'video' ? 'video' : 'image'} to Firebase Storage...`);
+
+    const ensureStorageLib = function() {
+      if (typeof firebase !== 'undefined' && firebase.storage) {
+        return Promise.resolve();
+      }
+      return core.loadScript ? core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js') : Promise.reject(new Error('core.loadScript not available'));
+    };
+
+    ensureStorageLib().then(function() {
+      if (!firebase.apps.length) {
+        try { firebase.initializeApp({ projectId: "habitual-log" }); } catch(e) {}
+      }
+      const storageRef = firebase.storage().ref();
+      const fileName = `habit-media/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+      const fileRef = storageRef.child(fileName);
+
+      fileRef.put(file).then(function(snapshot) {
+        return snapshot.ref.getDownloadURL();
+      }).then(function(downloadURL) {
+        const descInput = document.getElementById('habit-description');
+        if (!descInput) return;
+
+        let snippet = '';
+        if (type === 'video') {
+          snippet = `\n<video src="${downloadURL}" controls preload="metadata"></video>\n`;
+        } else {
+          snippet = `\n![${file.name}](${downloadURL})\n`;
+        }
+
+        const startPos = descInput.selectionStart || descInput.value.length;
+        const endPos = descInput.selectionEnd || descInput.value.length;
+        const val = descInput.value;
+        descInput.value = val.substring(0, startPos) + snippet + val.substring(endPos);
+        descInput.focus();
+        descInput.setSelectionRange(startPos + snippet.length, startPos + snippet.length);
+
+        descInput.dispatchEvent(new Event('input', { bubbles: true }));
+        if (core.showToast) core.showToast('✅ Media uploaded successfully to Firebase Storage!');
+      }).catch(function(err) {
+        console.error('Firebase Storage upload error:', err);
+        if (core.showToast) core.showToast('❌ Failed to upload media: ' + (err.message || err), 'error');
+      });
+    }).catch(function(err) {
+      console.error('Failed to load Firebase Storage SDK:', err);
+      if (core.showToast) core.showToast('❌ Failed to load storage libraries.', 'error');
+    });
   };
 
 })(window.HabitualCore);
