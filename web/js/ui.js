@@ -321,12 +321,41 @@ window.HabitualCore = window.HabitualCore || {};
       });
     }
 
+    core.updateMarkdownPreviewVisibility = function() {
+      const descInput = document.getElementById('habit-description');
+      const descPreview = document.getElementById('habit-description-preview');
+      if (!descInput || !descPreview) return;
+      const previewContainer = descPreview.closest ? descPreview.closest('.markdown-preview-container') : descPreview.parentElement;
+      const hasMarkdown = (str) => {
+        if (!str) return false;
+        const rawText = str;
+        const renderedHtml = core.renderMarkdown ? core.renderMarkdown(str) : str;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = renderedHtml;
+        const innerText = tempDiv.textContent || tempDiv.innerText || '';
+        return innerText.length < rawText.length;
+      };
+      const val = descInput.value;
+      const isMarkdown = hasMarkdown(val);
+      if (previewContainer) {
+        if (isMarkdown) {
+          previewContainer.classList.remove('hidden');
+          previewContainer.style.display = '';
+        } else {
+          previewContainer.classList.add('hidden');
+          previewContainer.style.display = 'none';
+        }
+      }
+      descPreview.innerHTML = core.renderMarkdown ? core.renderMarkdown(val) : val;
+    };
+
     const descInput = document.getElementById('habit-description');
     const descPreview = document.getElementById('habit-description-preview');
     if (descInput && descPreview) {
-      descInput.addEventListener('input', () => {
-        descPreview.innerHTML = core.renderMarkdown ? core.renderMarkdown(descInput.value) : descInput.value;
-      });
+      if (typeof descInput.addEventListener === 'function') {
+        descInput.addEventListener('input', core.updateMarkdownPreviewVisibility);
+      }
+      core.updateMarkdownPreviewVisibility();
     }
 
     const btnUploadImage = document.getElementById('btn-upload-image');
@@ -1787,11 +1816,17 @@ window.HabitualCore = window.HabitualCore || {};
           core.setCursorDateKey(dateStr, true);
         }
         const habitIdToEdit = card ? (card.getAttribute('data-habit-id-raw') || card.getAttribute('data-habit-id')) : targetHabitId;
-        const habitToEdit = core.state && core.state.habits ? core.state.habits.find(h => h.id === habitIdToEdit) : null;
-        if (habitToEdit && core.openHabitModal) {
-          core.openHabitModal(habitToEdit);
-        } else if (core.openLogModal) {
-          core.openLogModal(dateStr, targetHabitId);
+        if (habitIdToEdit === 'all') {
+          if (core.openAllPreferencesModal) {
+            core.openAllPreferencesModal();
+          }
+        } else {
+          const habitToEdit = core.state && core.state.habits ? core.state.habits.find(h => h.id === habitIdToEdit) : null;
+          if (habitToEdit && core.openHabitModal) {
+            core.openHabitModal(habitToEdit);
+          } else if (core.openLogModal) {
+            core.openLogModal(dateStr, targetHabitId);
+          }
         }
       }, 500);
     });
@@ -2365,11 +2400,106 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.openHabitModal = function(habitToEdit = null, defaultParentId = null) {
+  core.openAllPreferencesModal = function() {
     if (!core.elements || (!core.elements.habitModal && !core.elements.modalHabit)) {
       if (core.initUI) core.initUI();
     }
     const formEl = (core.elements && core.elements.formHabit) ? core.elements.formHabit : document.getElementById('form-habit');
+    if (formEl && typeof formEl.reset === 'function') formEl.reset();
+
+    core._isEditingAllPreferences = true;
+    if (core.elements.modalHabitTitle) core.elements.modalHabitTitle.textContent = "Edit 'All' Page & Default Habit Preferences";
+
+    const habitIdEl = document.getElementById('habit-id');
+    if (habitIdEl) habitIdEl.value = 'ALL_PREFERENCES_MODE';
+    const habitNameEl = document.getElementById('habit-name');
+    if (habitNameEl) habitNameEl.value = 'All Preferences';
+
+    const prefs = (core.state && core.state.allPreferences) ? core.state.allPreferences : { sortOrder: 'manual', sortReverse: false, showStreak: false, showCount: true, showDuration: false, description: '' };
+
+    const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
+    const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse');
+    if (selectSortOrder) selectSortOrder.value = prefs.sortOrder || 'manual';
+    if (chkSortReverse) chkSortReverse.checked = Boolean(prefs.sortReverse);
+    if (core.updateSortReverseVisibility) core.updateSortReverseVisibility();
+
+    const titleLabel = document.getElementById('parent-subsort-title-label');
+    if (titleLabel) titleLabel.textContent = '↕️ Habit Display Sort Order';
+    const selectLabel = document.getElementById('parent-subsort-select-label');
+    if (selectLabel) selectLabel.textContent = 'Homepage & Default Habit Sort Order';
+
+    const descInp = document.getElementById('habit-description');
+    if (descInp) descInp.value = prefs.description || '';
+    const descPrev = document.getElementById('habit-description-preview');
+    if (descPrev) descPrev.innerHTML = core.renderMarkdown ? core.renderMarkdown(prefs.description || '') : (prefs.description || '');
+    if (core.updateMarkdownPreviewVisibility) core.updateMarkdownPreviewVisibility();
+
+    const showStreakEl = core.elements.habitShowStreak || document.getElementById('habit-show-streak');
+    if (showStreakEl) showStreakEl.checked = Boolean(prefs.showStreak);
+    const showCountEl = core.elements.habitShowCount || document.getElementById('habit-show-count');
+    if (showCountEl) showCountEl.checked = prefs.showCount !== false;
+    const showDurationEl = core.elements.habitShowDuration || document.getElementById('habit-show-duration');
+    if (showDurationEl) showDurationEl.checked = Boolean(prefs.showDuration);
+
+    const parentSubsortSec = document.getElementById('parent-subhabit-display-section');
+    if (parentSubsortSec) parentSubsortSec.classList.remove('hidden');
+
+    {
+      const hInput = document.getElementById('habit-name');
+      const nGroup = hInput && typeof hInput.closest === 'function' ? hInput.closest('.form-group') : null;
+      if (nGroup) nGroup.style.display = 'none';
+    }
+
+    const goalTypeGroup = document.getElementById('habit-goal-type-group');
+    if (goalTypeGroup && goalTypeGroup.style) goalTypeGroup.style.display = 'none';
+
+    const freqBox = document.getElementById('habit-frequency-group');
+    if (freqBox && freqBox.style) freqBox.style.display = 'none';
+
+    const colorGroup = document.getElementById('habit-color-theme-group');
+    if (colorGroup && colorGroup.style) colorGroup.style.display = 'none';
+
+    const advAccordion = document.getElementById('advanced-settings-accordion');
+    if (advAccordion && advAccordion.style) advAccordion.style.display = 'none';
+
+    if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.add('hidden');
+    if (core.elements.habitFormDetails) core.elements.habitFormDetails.classList.remove('hidden');
+    if (core.elements.backfillSection) core.elements.backfillSection.classList.add('hidden');
+
+    if (core.elements.modalHabit) {
+      core.elements.modalHabit.classList.remove('hidden');
+      if (core.toggleModalScrollLock) core.toggleModalScrollLock(true);
+    }
+  };
+
+  core.openHabitModal = function(habitToEdit = null, defaultParentId = null) {
+    if (!core.elements || (!core.elements.habitModal && !core.elements.modalHabit)) {
+      if (core.initUI) core.initUI();
+    }
+    {
+      const hInput = document.getElementById('habit-name');
+      const nGroup = hInput && typeof hInput.closest === 'function' ? hInput.closest('.form-group') : null;
+      if (nGroup) nGroup.style.display = '';
+    }
+
+    const titleLabel = document.getElementById('parent-subsort-title-label');
+    if (titleLabel) titleLabel.textContent = '📁 Sub-Habit Sorting';
+    const selectLabel = document.getElementById('parent-subsort-select-label');
+    if (selectLabel) selectLabel.textContent = 'Sub-Habit Auto-Sort';
+
+    const formEl = (core.elements && core.elements.formHabit) ? core.elements.formHabit : document.getElementById('form-habit');
+    const goalTypeGroup = document.getElementById('habit-goal-type-group');
+    if (goalTypeGroup && goalTypeGroup.style) goalTypeGroup.style.display = '';
+
+    const freqBox = document.getElementById('habit-frequency-group');
+    if (freqBox && freqBox.style) freqBox.style.display = '';
+
+    const colorGroup = document.getElementById('habit-color-theme-group');
+    if (colorGroup && colorGroup.style) colorGroup.style.display = '';
+
+    const advAccordion = document.getElementById('advanced-settings-accordion');
+    if (advAccordion && advAccordion.style) advAccordion.style.display = '';
+
     if (formEl && typeof formEl.reset === 'function') formEl.reset();
     const selectedParentId = habitToEdit ? (habitToEdit.parentId || '') : (defaultParentId || '');
     const parentSelect = document.getElementById('habit-parent');
@@ -2433,6 +2563,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (habitDescEl) habitDescEl.value = habitToEdit.description || '';
       const descPrev = document.getElementById('habit-description-preview');
       if (descPrev) descPrev.innerHTML = core.renderMarkdown ? core.renderMarkdown(habitToEdit.description || '') : (habitToEdit.description || '');
+      if (core.updateMarkdownPreviewVisibility) core.updateMarkdownPreviewVisibility();
       const habitTargetEl = document.getElementById('habit-daily-target');
       if (habitTargetEl) habitTargetEl.value = habitToEdit.dailyTarget || 1;
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = habitToEdit.showStreak === true;
@@ -2506,6 +2637,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (descInp) descInp.value = '';
       const descPrev = document.getElementById('habit-description-preview');
       if (descPrev) descPrev.innerHTML = '';
+      if (core.updateMarkdownPreviewVisibility) core.updateMarkdownPreviewVisibility();
       if (core.elements.habitIdDisplay) core.elements.habitIdDisplay.textContent = '';
       if (core.elements.habitIdPreview) core.elements.habitIdPreview.classList.add('hidden');
       if (core.elements.habitFormDetails) core.elements.habitFormDetails.classList.add('hidden');
@@ -2517,9 +2649,13 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.elements.customColorHex) core.elements.customColorHex.value = normalizedDerived;
       if (core.elements.customColorPicker) core.elements.customColorPicker.value = normalizedDerived;
       core.syncCalendarColorDropdown(normalizedDerived);
-      if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = false;
-      if (core.elements.habitShowCount) core.elements.habitShowCount.checked = initialParent ? initialParent.showCount !== false : true;
-      if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = initialParent ? initialParent.showDuration === true : false;
+      const allPrefs = core.state && core.state.allPreferences ? core.state.allPreferences : { showStreak: false, showCount: true, showDuration: false };
+      const showStreakEl = core.elements.habitShowStreak || document.getElementById('habit-show-streak');
+      if (showStreakEl) showStreakEl.checked = allPrefs.showStreak;
+      const showCountEl = core.elements.habitShowCount || document.getElementById('habit-show-count');
+      if (showCountEl) showCountEl.checked = initialParent ? initialParent.showCount !== false : allPrefs.showCount;
+      const showDurationEl = core.elements.habitShowDuration || document.getElementById('habit-show-duration');
+      if (showDurationEl) showDurationEl.checked = initialParent ? initialParent.showDuration === true : allPrefs.showDuration;
       if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = initialParent ? initialParent.hideFromAll === true : false;
       if (core.elements.habitHideHeatmap) core.elements.habitHideHeatmap.checked = initialParent ? initialParent.hideHeatmap === true : false;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = false;
@@ -2875,6 +3011,56 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.handleHabitFormSubmit = function(e) {
     if (e && e.preventDefault) e.preventDefault();
+    if (core._isEditingAllPreferences) {
+      core._isEditingAllPreferences = false;
+      {
+        const hInput = document.getElementById('habit-name');
+        const nGroup = hInput && typeof hInput.closest === 'function' ? hInput.closest('.form-group') : null;
+        if (nGroup) nGroup.style.display = '';
+      }
+      const goalTypeGroup = document.getElementById('habit-goal-type-group');
+      if (goalTypeGroup && goalTypeGroup.style) goalTypeGroup.style.display = '';
+
+      const freqBox = document.getElementById('habit-frequency-group');
+      if (freqBox && freqBox.style) freqBox.style.display = '';
+
+      const colorGroup = document.getElementById('habit-color-theme-group');
+      if (colorGroup && colorGroup.style) colorGroup.style.display = '';
+
+      const advAccordion = document.getElementById('advanced-settings-accordion');
+      if (advAccordion && advAccordion.style) advAccordion.style.display = '';
+
+      const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
+      const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse');
+      const sortOrder = selectSortOrder ? selectSortOrder.value : 'manual';
+      const sortReverse = chkSortReverse ? chkSortReverse.checked : false;
+
+      const descInp = document.getElementById('habit-description');
+      const description = descInp ? descInp.value.trim() : '';
+
+      const showStreakInput = core.elements.habitShowStreak || document.getElementById('habit-show-streak');
+      const showStreak = showStreakInput ? showStreakInput.checked : false;
+      const showCountInput = core.elements.habitShowCount || document.getElementById('habit-show-count');
+      const showCount = showCountInput ? showCountInput.checked : true;
+      const showDurationInput = core.elements.habitShowDuration || document.getElementById('habit-show-duration');
+      const showDuration = showDurationInput ? showDurationInput.checked : false;
+
+      core.state.allPreferences = {
+        sortOrder: sortOrder,
+        sortReverse: sortReverse,
+        showStreak: showStreak,
+        showCount: showCount,
+        showDuration: showDuration,
+        description: description
+      };
+
+      if (core.saveState) core.saveState();
+      if (core.elements.modalHabit) core.elements.modalHabit.classList.add('hidden');
+      if (core.toggleModalScrollLock) core.toggleModalScrollLock(false);
+      if (core.renderAll) core.renderAll();
+      if (core.showToast) core.showToast("Updated 'All' page & default habit preferences.");
+      return;
+    }
     const formEl = core.elements.formHabit || document.getElementById('form-habit');
     let formData = null;
     try {

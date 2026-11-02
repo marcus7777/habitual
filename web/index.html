@@ -204,7 +204,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.30.0</p>
+      <p>Habitual &bull; v1.31.0</p>
     </footer>
   </div>
 
@@ -265,8 +265,31 @@
           </div>
         </div>
 
+              <!-- Sub-Habits Sorting Section (Visible ONLY when sub-habits exist) -->
+              <div class="form-group highlight-form-box hidden" id="parent-subhabit-display-section">
+                <label id="parent-subsort-title-label" style="font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                  📁 Sub-Habit Sorting
+                </label>
+                <div class="form-group">
+                  <label id="parent-subsort-select-label" for="habit-subhabit-sort-order">Sub-Habit Auto-Sort</label>
+                  <select id="habit-subhabit-sort-order" class="select-input">
+                    <option value="manual" selected>Manual</option>
+                    <option value="incomplete_first">Uncompleted First (Today)</option>
+                    <option value="incomplete_first_7">Least Completed First (Week)</option>
+                    <option value="recently_completed">Recently Logged</option>
+                    <option value="alphabetical">Alphabetical A-Z</option>
+                    <option value="streak_high">Highest Streak First</option>
+                    <option value="lowest_completion">Needs Attention (Lowest %)</option>
+                  </select>
+                  <label id="parent-subhabit-sort-reverse-container" class="checkbox-label margin-top-xs hidden" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" id="habit-subhabit-sort-reverse">
+                    <span>Reverse Sort Order</span>
+                  </label>
+                </div>
+              </div>
+
         <div id="habit-form-details" class="hidden">
-          <div class="form-group">
+          <div class="form-group" id="habit-goal-type-group">
             <label>Goal Type</label>
             <div class="segmented-control">
               <label class="segmented-btn">
@@ -281,7 +304,7 @@
           </div>
 
           <!-- Target Schedule & Frequency Section -->
-          <div class="form-group highlight-form-box">
+          <div class="form-group highlight-form-box" id="habit-frequency-group">
             <label for="habit-frequency-type"><strong>Target Schedule & Frequency</strong></label>
             <select name="habit-frequency-type" id="habit-frequency-type" class="select-input">
               <option value="daily" selected>Every Day (Daily)</option>
@@ -406,7 +429,7 @@
             </div>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" id="habit-color-theme-group">
             <label>Heatmap Colour Theme</label>
             <div class="custom-color-input-container">
               <div class="custom-color-picker-row">
@@ -475,28 +498,7 @@
                 </select>
               </div>
 
-              <!-- Sub-Habits Sorting Section (Visible ONLY when sub-habits exist) -->
-              <div class="form-group highlight-form-box hidden" id="parent-subhabit-display-section">
-                <label style="font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-                  📁 Sub-Habit Sorting
-                </label>
-                <div class="form-group">
-                  <label for="habit-subhabit-sort-order">Sub-Habit Auto-Sort</label>
-                  <select id="habit-subhabit-sort-order" class="select-input">
-                    <option value="manual" selected>Manual</option>
-                    <option value="incomplete_first">Uncompleted First (Today)</option>
-                    <option value="incomplete_first_7">Least Completed First (Week)</option>
-                    <option value="recently_completed">Recently Logged</option>
-                    <option value="alphabetical">Alphabetical A-Z</option>
-                    <option value="streak_high">Highest Streak First</option>
-                    <option value="lowest_completion">Needs Attention (Lowest %)</option>
-                  </select>
-                  <label id="parent-subhabit-sort-reverse-container" class="checkbox-label margin-top-xs hidden" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
-                    <input type="checkbox" id="habit-subhabit-sort-reverse">
-                    <span>Reverse Sort Order</span>
-                  </label>
-                </div>
-              </div>
+
 
               <!-- Display & Behavior Options Grid -->
               <div class="form-group margin-top-sm">

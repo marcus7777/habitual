@@ -1332,6 +1332,7 @@ body.dark-theme {
 
 .textarea-input {
   resize: vertical;
+  width: 100%;
 }
 
 .habit-id-preview {

@@ -517,7 +517,15 @@ window.HabitualCore = window.HabitualCore || {};
       dayBoundaryMode: (core.state && core.state.dayBoundaryMode) ? core.state.dayBoundaryMode : 'midnight',
       latitude: (core.state && typeof core.state.latitude === 'number') ? core.state.latitude : 51.5074,
       longitude: (core.state && typeof core.state.longitude === 'number') ? core.state.longitude : -0.1278,
-      locationName: (core.state && core.state.locationName) ? core.state.locationName : 'Default (London)'
+      locationName: (core.state && core.state.locationName) ? core.state.locationName : 'Default (London)',
+      allPreferences: (core.state && core.state.allPreferences) ? {
+        sortOrder: core.state.allPreferences.sortOrder || 'manual',
+        sortReverse: Boolean(core.state.allPreferences.sortReverse),
+        showStreak: Boolean(core.state.allPreferences.showStreak),
+        showCount: core.state.allPreferences.showCount !== false,
+        showDuration: Boolean(core.state.allPreferences.showDuration),
+        description: core.state.allPreferences.description || ''
+      } : { sortOrder: 'manual', sortReverse: false, showStreak: false, showCount: true, showDuration: false, description: '' }
     };
   };
 
@@ -644,6 +652,14 @@ window.HabitualCore = window.HabitualCore || {};
     core.state.latitude = typeof parsed.latitude === 'number' ? parsed.latitude : 51.5074;
     core.state.longitude = typeof parsed.longitude === 'number' ? parsed.longitude : -0.1278;
     core.state.locationName = parsed.locationName || 'Default (London)';
+    core.state.allPreferences = parsed.allPreferences ? {
+      sortOrder: parsed.allPreferences.sortOrder || 'manual',
+      sortReverse: Boolean(parsed.allPreferences.sortReverse),
+      showStreak: Boolean(parsed.allPreferences.showStreak),
+      showCount: parsed.allPreferences.showCount !== false,
+      showDuration: Boolean(parsed.allPreferences.showDuration),
+      description: parsed.allPreferences.description || ''
+    } : { sortOrder: 'manual', sortReverse: false, showStreak: false, showCount: true, showDuration: false, description: '' };
     core.state.updatedAt = parsed.updatedAt || Date.now();
   };
 

@@ -227,7 +227,14 @@ HabitualCore.resetState = function() {
     selectedHabitId: 'all',
     selectedYear: HabitualCore.CURRENT_YEAR,
     showQuickLogOnStartup: false,
-    backgroundSync: false
+    backgroundSync: false,
+    allPreferences: {
+      sortOrder: 'manual',
+      sortReverse: false,
+      showStreak: false,
+      showCount: true,
+      showDuration: false
+    }
   };
 };
 
@@ -4949,6 +4956,84 @@ describe('Feature 42: 📅 Floating Today Bar & Date Navigator', () => {
     assertEqual(HabitualCore.getCursorDateKey(), today, 'Clicking right arrow shifts date back to today');
 
     global.document.getElementById = origGet;
+  });
+});
+
+describe('Feature 43: ⚙️ All Page Options, Default Habit Preferences & Sorting', () => {
+  test('allPreferences defaults and persistence', () => {
+    HabitualCore.resetState();
+    assert(HabitualCore.state.allPreferences !== undefined, 'allPreferences exists in state');
+    assertEqual(HabitualCore.state.allPreferences.sortOrder, 'manual', 'Default sort order is manual');
+    assertEqual(HabitualCore.state.allPreferences.showCount, true, 'Default showCount is true');
+
+    HabitualCore.state.allPreferences.sortOrder = 'alphabetical';
+    HabitualCore.state.allPreferences.showStreak = true;
+
+    const payload = HabitualCore.getPayloadFromState();
+    assert(payload.allPreferences !== undefined, 'payload includes allPreferences');
+    assertEqual(payload.allPreferences.sortOrder, 'alphabetical', 'payload preserves sortOrder');
+    assertEqual(payload.allPreferences.showStreak, true, 'payload preserves showStreak');
+
+    HabitualCore.resetState();
+    HabitualCore.applyPayloadToState(payload);
+    assertEqual(HabitualCore.state.allPreferences.sortOrder, 'alphabetical', 'applyPayloadToState restores sortOrder');
+    assertEqual(HabitualCore.state.allPreferences.showStreak, true, 'applyPayloadToState restores showStreak');
+  });
+
+  test('new habits inherit default preferences from allPreferences', () => {
+    HabitualCore.resetState();
+    HabitualCore.state.allPreferences = {
+      sortOrder: 'alphabetical',
+      sortReverse: false,
+      showStreak: true,
+      showCount: false,
+      showDuration: true
+    };
+
+    let showStreakChecked = false;
+    let showCountChecked = true;
+    let showDurationChecked = false;
+
+    const mockStreak = { checked: false };
+    const mockCount = { checked: true };
+    const mockDuration = { checked: false };
+
+    const origGetId = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'habit-show-streak') return mockStreak;
+      if (id === 'habit-show-count') return mockCount;
+      if (id === 'habit-show-duration') return mockDuration;
+      return null;
+    };
+
+    HabitualCore.openHabitModal(null, null);
+
+    assertEqual(mockStreak.checked, true, 'New habit modal inherits showStreak=true from allPreferences');
+    assertEqual(mockCount.checked, false, 'New habit modal inherits showCount=false from allPreferences');
+    assertEqual(mockDuration.checked, true, 'New habit modal inherits showDuration=true from allPreferences');
+
+    global.document.getElementById = origGetId;
+  });
+
+  test('top-level habits sorting respects allPreferences sortOrder', () => {
+    HabitualCore.resetState();
+    HabitualCore.state.habits = [
+      { id: 'b', name: 'Banana', type: 'positive' },
+      { id: 'a', name: 'Apple', type: 'positive' },
+      { id: 'c', name: 'Cherry', type: 'positive' }
+    ];
+    HabitualCore.state.allPreferences = {
+      sortOrder: 'alphabetical',
+      sortReverse: false,
+      showStreak: false,
+      showCount: true,
+      showDuration: false
+    };
+
+    const sorted = HabitualCore.getSortedSubhabits(null, HabitualCore.state.habits, 2025);
+    assertEqual(sorted[0].id, 'a', 'First sorted top-level habit is Apple');
+    assertEqual(sorted[1].id, 'b', 'Second sorted top-level habit is Banana');
+    assertEqual(sorted[2].id, 'c', 'Third sorted top-level habit is Cherry');
   });
 });
 
