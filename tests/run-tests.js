@@ -579,6 +579,105 @@ describe('Feature 6: ⏱️ Quick Logging & Calendar Date Picker', () => {
     assertEqual(dateInputValue, '2026-10-02', 'Clicked date selected in quick add modal');
     assertEqual(selectValue, 'habit_2', 'Correct habit selected in quick add modal');
   });
+
+  test('Activity log dialogue selection reflects main page selectedHabitId and changing select updates state', () => {
+    HabitualCore.resetState();
+    const habit1 = { id: 'h1', name: 'Habit 1', type: 'positive' };
+    const habit2 = { id: 'h2', name: 'Habit 2', type: 'positive' };
+    HabitualCore.setState({
+      habits: [habit1, habit2],
+      selectedHabitId: 'h2'
+    });
+
+    let selectValue = '';
+    const coreElements = HabitualCore.getElements();
+    coreElements.modalLogHabitSelect = {
+      get value() { return selectValue; },
+      set value(val) { selectValue = val; },
+      innerHTML: ''
+    };
+    coreElements.modalLogDateInput = { value: '2026-10-02' };
+    coreElements.modalLogCount = { value: '1' };
+    coreElements.modalLogNote = { value: '' };
+
+    // 1. Calling openLogModal without preferredHabitId should reflect selectedHabitId ('h2')
+    HabitualCore.openLogModal('2026-10-02');
+
+    assertEqual(selectValue, 'h2', 'Dialogue selection reflects selectedHabitId h2 from main page');
+    assertEqual(HabitualCore.getState().selectedHabitId, 'h2', 'selectedHabitId remains h2');
+
+    // 2. Calling openLogModal with explicit preferredHabitId 'h1' should set selectedHabitId to 'h1'
+    HabitualCore.openLogModal('2026-10-02', 'h1');
+    assertEqual(selectValue, 'h1', 'Dialogue selection reflects explicit preferredHabitId h1');
+    assertEqual(HabitualCore.getState().selectedHabitId, 'h1', 'selectedHabitId is updated to h1');
+
+    // 3. Changing dropdown selection manually in dialogue should update selectedHabitId
+    selectValue = 'h2';
+    if (coreElements.modalLogHabitSelect.onchange) {
+      coreElements.modalLogHabitSelect.onchange();
+    }
+
+    assertEqual(HabitualCore.getState().selectedHabitId, 'h2', 'Changing dialogue dropdown updates selectedHabitId to h2');
+  });
+
+  test('Changing activity log dialogue selection updates DOM heatmap card selection classes', () => {
+    HabitualCore.resetState();
+    const habit1 = { id: 'card_h1', name: 'Card Habit 1', type: 'positive' };
+    const habit2 = { id: 'card_h2', name: 'Card Habit 2', type: 'positive' };
+    HabitualCore.setState({
+      habits: [habit1, habit2],
+      selectedHabitId: 'card_h1'
+    });
+
+    // Create mock card elements
+    const card1Classes = new Set(['heatmap-card', 'selected', 'selected-habit']);
+    const card2Classes = new Set(['heatmap-card']);
+    const card1 = {
+      getAttribute: (attr) => attr === 'data-habit-id' ? 'card_h1' : null,
+      classList: {
+        add: (c) => card1Classes.add(c),
+        remove: (c) => card1Classes.delete(c),
+        contains: (c) => card1Classes.has(c)
+      }
+    };
+    const card2 = {
+      getAttribute: (attr) => attr === 'data-habit-id' ? 'card_h2' : null,
+      classList: {
+        add: (c) => card2Classes.add(c),
+        remove: (c) => card2Classes.delete(c),
+        contains: (c) => card2Classes.has(c)
+      }
+    };
+
+    const originalQuerySelectorAll = document.querySelectorAll;
+    document.querySelectorAll = (sel) => sel === '.heatmap-card' ? [card1, card2] : [];
+
+    let selectValue = 'card_h1';
+    const coreElements = HabitualCore.getElements();
+    coreElements.modalLogHabitSelect = {
+      get value() { return selectValue; },
+      set value(val) { selectValue = val; },
+      innerHTML: ''
+    };
+    coreElements.modalLogDateInput = { value: '2026-10-02' };
+    coreElements.modalLogCount = { value: '1' };
+    coreElements.modalLogNote = { value: '' };
+
+    HabitualCore.openLogModal('2026-10-02');
+    assertEqual(card1Classes.has('selected'), true, 'Card 1 initially selected');
+
+    // Change selection in dialogue dropdown to card_h2
+    selectValue = 'card_h2';
+    if (coreElements.modalLogHabitSelect.onchange) {
+      coreElements.modalLogHabitSelect.onchange();
+    }
+
+    assertEqual(HabitualCore.getState().selectedHabitId, 'card_h2', 'State updated to card_h2');
+    assertEqual(card1Classes.has('selected'), false, 'Card 1 unselected on DOM');
+    assertEqual(card2Classes.has('selected'), true, 'Card 2 selected on DOM');
+
+    document.querySelectorAll = originalQuerySelectorAll;
+  });
 });
 
 // ============================================================================

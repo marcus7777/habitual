@@ -290,6 +290,35 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.modalLogNote = document.getElementById('modal-log-note');
     core.elements.modalLogShowOnStartup = document.getElementById('modal-log-show-on-startup');
 
+    if (core.elements.modalLogHabitSelect && typeof core.elements.modalLogHabitSelect.addEventListener === 'function') {
+      core.elements.modalLogHabitSelect.addEventListener('change', (e) => {
+        const newSelectedId = e.target ? e.target.value : (core.elements.modalLogHabitSelect ? core.elements.modalLogHabitSelect.value : null);
+        if (newSelectedId && newSelectedId !== 'all' && core.state) {
+          core.state.selectedHabitId = newSelectedId;
+          if (core.ensureHabitAncestorsExpanded) {
+            core.ensureHabitAncestorsExpanded(newSelectedId);
+          }
+          const allCards = (document.querySelectorAll && typeof document.querySelectorAll === 'function') ? document.querySelectorAll('.heatmap-card') : [];
+          allCards.forEach(c => {
+            const cId = c.getAttribute('data-habit-id');
+            const cRawId = c.getAttribute('data-habit-id-raw');
+            if (cId === newSelectedId || (cRawId && cRawId === newSelectedId)) {
+              if (c.classList && c.classList.add) {
+                c.classList.add('selected');
+                c.classList.add('selected-habit');
+              }
+            } else {
+              if (c.classList && c.classList.remove) {
+                c.classList.remove('selected');
+                c.classList.remove('selected-habit');
+              }
+            }
+          });
+        }
+        core.loadLogModalValues();
+      });
+    }
+
     if (core.elements.modalLogDateInput && typeof core.elements.modalLogDateInput.addEventListener === 'function') {
       core.elements.modalLogDateInput.addEventListener('change', (e) => {
         if (e.target.value) {
@@ -3491,6 +3520,28 @@ window.HabitualCore = window.HabitualCore || {};
       core.state.selectedHabitId = targetId;
     }
 
+    if (targetId && targetId !== 'all' && core.state) {
+      if (core.ensureHabitAncestorsExpanded) {
+        core.ensureHabitAncestorsExpanded(targetId);
+      }
+      const allCards = (document.querySelectorAll && typeof document.querySelectorAll === 'function') ? document.querySelectorAll('.heatmap-card') : [];
+      allCards.forEach(c => {
+        const cId = c.getAttribute('data-habit-id');
+        const cRawId = c.getAttribute('data-habit-id-raw');
+        if (cId === targetId || (cRawId && cRawId === targetId)) {
+          if (c.classList && c.classList.add) {
+            c.classList.add('selected');
+            c.classList.add('selected-habit');
+          }
+        } else {
+          if (c.classList && c.classList.remove) {
+            c.classList.remove('selected');
+            c.classList.remove('selected-habit');
+          }
+        }
+      });
+    }
+
     let habitSelectHTML = '';
     function appendLogOptions(parentId = null, depth = 0) {
       const children = core.state.habits.filter(h => (h.parentId || null) === parentId);
@@ -3510,7 +3561,32 @@ window.HabitualCore = window.HabitualCore || {};
       if (targetId) {
         core.elements.modalLogHabitSelect.value = targetId;
       }
-      core.elements.modalLogHabitSelect.onchange = () => core.loadLogModalValues();
+      core.elements.modalLogHabitSelect.onchange = () => {
+        const newSelectedId = core.elements.modalLogHabitSelect.value;
+        if (newSelectedId && newSelectedId !== 'all' && core.state) {
+          core.state.selectedHabitId = newSelectedId;
+          if (core.ensureHabitAncestorsExpanded) {
+            core.ensureHabitAncestorsExpanded(newSelectedId);
+          }
+          const allCards = (document.querySelectorAll && typeof document.querySelectorAll === 'function') ? document.querySelectorAll('.heatmap-card') : [];
+          allCards.forEach(c => {
+            const cId = c.getAttribute('data-habit-id');
+            const cRawId = c.getAttribute('data-habit-id-raw');
+            if (cId === newSelectedId || (cRawId && cRawId === newSelectedId)) {
+              if (c.classList && c.classList.add) {
+                c.classList.add('selected');
+                c.classList.add('selected-habit');
+              }
+            } else {
+              if (c.classList && c.classList.remove) {
+                c.classList.remove('selected');
+                c.classList.remove('selected-habit');
+              }
+            }
+          });
+        }
+        core.loadLogModalValues();
+      };
     }
     core.loadLogModalValues();
     if (core.elements.modalLogShowOnStartup) core.elements.modalLogShowOnStartup.checked = !!core.state.showQuickLogOnStartup;
