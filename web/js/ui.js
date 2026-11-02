@@ -2033,19 +2033,36 @@ window.HabitualCore = window.HabitualCore || {};
       e.stopPropagation();
       if (core.elements.customTooltip) core.elements.customTooltip.classList.add('hidden');
 
-      if (wasAlreadySelected) {
-        // If habit was ALREADY selected, short tap brings up quick add dialogue!
-        let targetHabitId = cardHabitId || 'all';
-        const sqHabitId = sq ? sq.getAttribute('data-habit-id') : null;
-        if (sqHabitId && sqHabitId !== 'all' && !sqHabitId.startsWith('group_')) targetHabitId = sqHabitId;
-        const targetDate = sq ? sq.getAttribute('data-date') : (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
+      let targetHabitId = clickedRawId || cardHabitId || 'all';
+      const sqHabitId = sq ? sq.getAttribute('data-habit-id') : null;
+      if (sqHabitId && sqHabitId !== 'all' && !sqHabitId.startsWith('group_')) targetHabitId = sqHabitId;
 
-        if (targetDate && core.setCursorDateKey) {
-          core.setCursorDateKey(targetDate, true);
+      if (targetHabitId && targetHabitId !== 'all' && !targetHabitId.startsWith('group_') && core.state) {
+        core.state.selectedHabitId = targetHabitId;
+        if (core.ensureHabitAncestorsExpanded) {
+          core.ensureHabitAncestorsExpanded(targetHabitId);
         }
-        if (core.openLogModal) {
-          core.openLogModal(targetDate, targetHabitId);
-        }
+        const allCards = gallery.querySelectorAll('.heatmap-card');
+        allCards.forEach(c => {
+          const cId = c.getAttribute('data-habit-id');
+          const cRawId = c.getAttribute('data-habit-id-raw');
+          if (cId === targetHabitId || (cRawId && cRawId === targetHabitId)) {
+            c.classList.add('selected');
+            c.classList.add('selected-habit');
+          } else {
+            c.classList.remove('selected');
+            c.classList.remove('selected-habit');
+          }
+        });
+      }
+
+      const targetDate = sq ? sq.getAttribute('data-date') : (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
+
+      if (targetDate && core.setCursorDateKey) {
+        core.setCursorDateKey(targetDate, true);
+      }
+      if (core.openLogModal) {
+        core.openLogModal(targetDate, targetHabitId);
       }
     });
 
@@ -3287,7 +3304,12 @@ window.HabitualCore = window.HabitualCore || {};
           finishSave();
         };
 
-        if (directSubhabits.length > 0) {
+        const cascadeCheckbox = document.getElementById('habit-cascade-display-options');
+        const shouldCascade = cascadeCheckbox ? cascadeCheckbox.checked : false;
+
+        if (shouldCascade) {
+          performCascadeAndContinue(true);
+        } else if (directSubhabits.length > 0) {
           const askRes = core.showConfirmModal(
             `Would you like all ${directSubhabits.length} sub-habits to also update to matching options?`,
             { title: 'Update Sub-Habits?', yesText: 'Yes', noText: 'No' }
@@ -3461,6 +3483,14 @@ window.HabitualCore = window.HabitualCore || {};
     }
     if (core.elements.modalLogDateInput) core.elements.modalLogDateInput.value = dateStr;
 
+    let targetId = (preferredHabitId && preferredHabitId !== 'all' && !preferredHabitId.startsWith('group_')) ? preferredHabitId : core.state.selectedHabitId;
+    if (targetId && targetId !== 'all' && core.state.habits.some(h => h.id === targetId)) {
+      core.state.selectedHabitId = targetId;
+    } else if (core.state.habits.length > 0) {
+      targetId = core.state.habits[0].id;
+      core.state.selectedHabitId = targetId;
+    }
+
     let habitSelectHTML = '';
     function appendLogOptions(parentId = null, depth = 0) {
       const children = core.state.habits.filter(h => (h.parentId || null) === parentId);
@@ -3468,7 +3498,8 @@ window.HabitualCore = window.HabitualCore || {};
         const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
         const icon = h.type === 'negative' ? '🛑 ' : '';
         const pausedSuffix = h.isPaused ? ' (Paused)' : '';
-        habitSelectHTML += `<option value="${h.id}">${indent}${icon}${core.escapeHTML(h.name)}${pausedSuffix}</option>`;
+        const isSelected = h.id === targetId;
+        habitSelectHTML += `<option value="${h.id}" ${isSelected ? 'selected' : ''}>${indent}${icon}${core.escapeHTML(h.name)}${pausedSuffix}</option>`;
         appendLogOptions(h.id, depth + 1);
       });
     }
@@ -3476,8 +3507,7 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (core.elements.modalLogHabitSelect) {
       core.elements.modalLogHabitSelect.innerHTML = habitSelectHTML || '<option value="">No habits</option>';
-      let targetId = (preferredHabitId && preferredHabitId !== 'all' && !preferredHabitId.startsWith('group_')) ? preferredHabitId : core.state.selectedHabitId;
-      if (targetId !== 'all' && core.state.habits.some(h => h.id === targetId)) {
+      if (targetId) {
         core.elements.modalLogHabitSelect.value = targetId;
       }
       core.elements.modalLogHabitSelect.onchange = () => core.loadLogModalValues();

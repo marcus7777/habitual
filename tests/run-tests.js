@@ -1579,7 +1579,7 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     HabitualCore.elements = originalElements;
   });
 
-  test('Short click selects card, second click on selected card opens log modal; long press opens habit edit modal', () => {
+  test('Short click selects card and opens log modal immediately; long press opens habit edit modal', () => {
     HabitualCore.resetState();
     const habit = { id: 'water', name: 'Water', type: 'positive', dailyTarget: 1, logs: {} };
     HabitualCore.setState({ habits: [habit], selectedHabitId: 'other', selectedYear: 2026 });
@@ -1610,14 +1610,10 @@ describe('Feature 20: 🎯 Prominent Quick Log Button & Tick Mark Goal Reached',
     mockSquare.setAttribute('data-habit-id', 'water');
     card.appendChild(mockSquare);
 
-    // First short click selects the card
+    // Short click selects card AND opens log modal immediately
     mockSquare.click();
-    assertEqual(HabitualCore.getState().selectedHabitId, 'water', 'First short click selects habit card');
-    assertEqual(openedLogHabitId, null, 'First short click on unselected card does not open log modal');
-
-    // Second short click on selected card opens quick add modal
-    mockSquare.click();
-    assertEqual(openedLogHabitId, 'water', 'Second short click on selected card opens quick add log modal');
+    assertEqual(HabitualCore.getState().selectedHabitId, 'water', 'Short click selects habit card');
+    assertEqual(openedLogHabitId, 'water', 'Short click opens log modal with habit selected');
 
     // Verify openHabitModal for long press action
     HabitualCore.openHabitModal(habit);
