@@ -21,7 +21,15 @@ window.HabitualCore = window.HabitualCore || {};
     latitude: 51.5074,
     longitude: -0.1278,
     locationName: 'Default (London)',
-    expandedHabitIds: new Set()
+    expandedHabitIds: new Set(),
+    allPreferences: {
+      sortOrder: 'manual',
+      sortReverse: false,
+      showStreak: false,
+      showCount: true,
+      showDuration: false,
+      description: ''
+    }
   };
 
   core.resetState = function() {
@@ -40,7 +48,14 @@ window.HabitualCore = window.HabitualCore || {};
       latitude: 51.5074,
       longitude: -0.1278,
       locationName: 'Default (London)',
-      expandedHabitIds: new Set()
+      expandedHabitIds: new Set(),
+      allPreferences: {
+        sortOrder: 'manual',
+        sortReverse: false,
+        showStreak: false,
+        showCount: true,
+        showDuration: false
+      }
     };
   };
 
@@ -574,8 +589,8 @@ window.HabitualCore = window.HabitualCore || {};
       return Array.isArray(subhabitsList) ? [...subhabitsList] : [];
     }
 
-    const sortOrder = (parentHabit && parentHabit.subhabitSortOrder) ? parentHabit.subhabitSortOrder : 'manual';
-    const isReverse = Boolean(parentHabit && parentHabit.subhabitSortReverse);
+    const sortOrder = parentHabit ? (parentHabit.subhabitSortOrder || 'manual') : (core.state && core.state.allPreferences ? (core.state.allPreferences.sortOrder || 'manual') : 'manual');
+    const isReverse = parentHabit ? Boolean(parentHabit.subhabitSortReverse) : (core.state && core.state.allPreferences ? Boolean(core.state.allPreferences.sortReverse) : false);
 
     if (sortOrder === 'manual') {
       const items = [...subhabitsList];

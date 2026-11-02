@@ -541,9 +541,18 @@ window.HabitualCore = window.HabitualCore || {};
       : document.createElement('div');
 
     if (route.view === 'home') {
-      const topLevelHabits = core.state.habits.filter(h => !h.parentId);
+      const rawTopLevelHabits = core.state.habits.filter(h => !h.parentId);
+      const topLevelHabits = core.getSortedSubhabits ? core.getSortedSubhabits(null, rawTopLevelHabits, core.state.selectedYear) : rawTopLevelHabits;
       const visibleTopLevelHabits = topLevelHabits.filter(h => !(h.isPaused && h.hideHeatmapWhenPaused));
       const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
+
+      if (core.state.allPreferences && core.state.allPreferences.description && core.state.allPreferences.description.trim()) {
+        const descBox = document.createElement('div');
+        descBox.style.cssText = 'background: transparent; border: none; padding: 0; margin: 0 0 16px 0;';
+        descBox.innerHTML = core.renderMarkdown ? core.renderMarkdown(core.state.allPreferences.description) : core.escapeHTML(core.state.allPreferences.description);
+        fragment.appendChild(descBox);
+      }
+
       if (topLevelHabits.length > 1 && habitsInAll.length > 0) {
         const combinedCard = core.buildHeatmapCard(null, core.state.selectedYear);
         fragment.appendChild(combinedCard);
