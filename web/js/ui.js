@@ -2473,7 +2473,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.openHabitModal = function(habitToEdit = null, defaultParentId = null) {
-    if (!core.elements || (!core.elements.habitModal && !core.elements.modalHabit)) {
+    if (!core.elements || (!core.elements.modalHabit && !core.elements.modalHabit)) {
       if (core.initUI) core.initUI();
     }
     {
@@ -2486,6 +2486,16 @@ window.HabitualCore = window.HabitualCore || {};
     if (titleLabel) titleLabel.textContent = '📁 Sub-Habit Sorting';
     const selectLabel = document.getElementById('parent-subsort-select-label');
     if (selectLabel) selectLabel.textContent = 'Sub-Habit Auto-Sort';
+
+    const parentSubsortSec = document.getElementById('parent-subhabit-display-section');
+    if (parentSubsortSec) {
+      const hasSubs = habitToEdit ? core.state.habits.some(h => h.parentId === habitToEdit.id) : Boolean(defaultParentId);
+      if (hasSubs) {
+        parentSubsortSec.classList.remove('hidden');
+      } else {
+        parentSubsortSec.classList.add('hidden');
+      }
+    }
 
     const formEl = (core.elements && core.elements.formHabit) ? core.elements.formHabit : document.getElementById('form-habit');
     const goalTypeGroup = document.getElementById('habit-goal-type-group');
