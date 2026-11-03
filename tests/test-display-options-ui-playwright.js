@@ -69,10 +69,10 @@ async function runDisplayOptionsTests() {
     // Check display options via UI checkboxes
     await page.check('#habit-show-streak');
     await page.check('#habit-show-duration');
-    await page.selectOption('#habit-subhabit-sort-order', 'alphabetical');
 
-    // Ensure "Apply to all sub-habits" is checked
-    await page.check('#habit-cascade-display-options');
+    // Switch to Sub-Habits tab for sort order
+    await page.click('#tab-btn-subhabit-options');
+    await page.selectOption('#habit-subhabit-sort-order', 'alphabetical');
 
     // Click save
     await page.click('#form-habit button[type="submit"]');

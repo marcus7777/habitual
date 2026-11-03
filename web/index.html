@@ -204,7 +204,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.31.14</p>
+      <p>Habitual &bull; v1.32.0</p>
     </footer>
   </div>
 
@@ -270,62 +270,106 @@
           <label id="parent-subsort-title-label" style="font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
             🎨 Display Options & Sort Order
           </label>
-          <div class="form-group">
-            <label id="parent-subsort-select-label" for="habit-subhabit-sort-order">Sort Order</label>
-            <select id="habit-subhabit-sort-order" class="select-input">
-              <option value="manual" selected>Manual</option>
-              <option value="incomplete_first">Uncompleted First (Today)</option>
-              <option value="incomplete_first_7">Least Completed First (Week)</option>
-              <option value="recently_completed">Recently Logged</option>
-              <option value="alphabetical">Alphabetical A-Z</option>
-              <option value="streak_high">Highest Streak First</option>
-              <option value="lowest_completion">Needs Attention (Lowest %)</option>
-            </select>
-            <label id="parent-subhabit-sort-reverse-container" class="checkbox-label margin-top-xs hidden" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
-              <input type="checkbox" id="habit-subhabit-sort-reverse">
-              <span>Reverse Sort Order</span>
-            </label>
+
+          <!-- Tab Bar for Display Options -->
+          <div class="segmented-control" id="display-options-tab-bar" style="margin-bottom: 12px;">
+            <button type="button" class="segmented-btn active" id="tab-btn-parent-options" data-tab="parent">
+              <span>👤 This Habit</span>
+            </button>
+            <button type="button" class="segmented-btn" id="tab-btn-subhabit-options" data-tab="subhabits">
+              <span>📁 Sub-Habits</span>
+            </button>
           </div>
 
-          <div class="form-group margin-top-sm">
-            <label><strong>Display & Behavior Options</strong></label>
-            <div class="display-options-grid">
-              <label class="checkbox-label">
-                <input type="checkbox" name="habit-show-streak" id="habit-show-streak">
-                <span>Show Streak</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" name="habit-show-count" id="habit-show-count" checked>
-                <span>Show Stats</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" name="habit-show-duration" id="habit-show-duration">
-                <span>Show Duration</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" name="habit-hide-from-all" id="habit-hide-from-all">
-                <span>Hide from 'All'</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" name="habit-is-paused" id="habit-is-paused">
-                <span>Pause Habit</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" name="habit-hide-heatmap-when-paused" id="habit-hide-heatmap-when-paused">
-                <span>Mini when Paused</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" name="habit-hide-heatmap" id="habit-hide-heatmap">
-                <span>Mini View</span>
-              </label>
+          <!-- TAB 1: Parent Habit Options -->
+          <div id="tab-content-parent-options">
+            <div class="form-group">
+              <label><strong>Display & Behavior Options</strong></label>
+              <div class="display-options-grid">
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-show-streak" id="habit-show-streak">
+                  <span>Show Streak</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-show-count" id="habit-show-count" checked>
+                  <span>Show Stats</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-show-duration" id="habit-show-duration">
+                  <span>Show Duration</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-hide-from-all" id="habit-hide-from-all">
+                  <span>Hide from 'All'</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-is-paused" id="habit-is-paused">
+                  <span>Pause Habit</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-hide-heatmap-when-paused" id="habit-hide-heatmap-when-paused">
+                  <span>Mini when Paused</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-hide-heatmap" id="habit-hide-heatmap">
+                  <span>Mini View</span>
+                </label>
+              </div>
             </div>
           </div>
 
-          <div class="form-group margin-top-sm" id="cascade-display-options-container">
-            <label class="checkbox-label">
-              <input type="checkbox" id="habit-cascade-display-options" checked>
-              <span><strong>Apply to all sub-habits</strong> (Cascade display options & sort order to existing sub-habits)</span>
-            </label>
+          <!-- TAB 2: Sub-Habits Options (Its own little tab!) -->
+          <div id="tab-content-subhabit-options" class="hidden">
+            <div class="form-group">
+              <label id="parent-subsort-select-label" for="habit-subhabit-sort-order">Sort Order</label>
+              <select id="habit-subhabit-sort-order" class="select-input">
+                <option value="manual" selected>Manual</option>
+                <option value="incomplete_first">Uncompleted First (Today)</option>
+                <option value="incomplete_first_7">Least Completed First (Week)</option>
+                <option value="recently_completed">Recently Logged</option>
+                <option value="alphabetical">Alphabetical A-Z</option>
+                <option value="streak_high">Highest Streak First</option>
+                <option value="lowest_completion">Needs Attention (Lowest %)</option>
+              </select>
+              <label id="parent-subhabit-sort-reverse-container" class="checkbox-label margin-top-xs hidden" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="habit-subhabit-sort-reverse">
+                <span>Reverse Sort Order</span>
+              </label>
+            </div>
+
+            <div class="form-group margin-top-sm">
+              <label><strong>Sub-Habit Display & Behavior Options</strong></label>
+              <div class="display-options-grid">
+                <label class="checkbox-label">
+                  <input type="checkbox" name="subhabit-show-streak" id="subhabit-show-streak">
+                  <span>Show Streak</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="subhabit-show-count" id="subhabit-show-count" checked>
+                  <span>Show Stats</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="subhabit-show-duration" id="subhabit-show-duration">
+                  <span>Show Duration</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="subhabit-hide-from-all" id="subhabit-hide-from-all">
+                  <span>Hide from 'All'</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="subhabit-is-paused" id="subhabit-is-paused">
+                  <span>Pause Sub-habits</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="subhabit-hide-heatmap-when-paused" id="subhabit-hide-heatmap-when-paused">
+                  <span>Mini when Paused</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="subhabit-hide-heatmap" id="subhabit-hide-heatmap">
+                  <span>Mini View</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 

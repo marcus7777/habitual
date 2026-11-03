@@ -252,6 +252,47 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.habitHideHeatmapWhenPaused = document.getElementById('habit-hide-heatmap-when-paused');
     core.elements.habitHideHeatmap = document.getElementById('habit-hide-heatmap');
 
+    core.switchDisplayOptionsTab = function(tabName) {
+      const parentBtn = document.getElementById('tab-btn-parent-options');
+      const subhabitBtn = document.getElementById('tab-btn-subhabit-options');
+      const parentContent = document.getElementById('tab-content-parent-options');
+      const subhabitContent = document.getElementById('tab-content-subhabit-options');
+
+      if (tabName === 'subhabits') {
+        if (parentBtn) parentBtn.classList.remove('active');
+        if (subhabitBtn) subhabitBtn.classList.add('active');
+        if (parentContent) parentContent.classList.add('hidden');
+        if (subhabitContent) subhabitContent.classList.remove('hidden');
+      } else {
+        if (parentBtn) parentBtn.classList.add('active');
+        if (subhabitBtn) subhabitBtn.classList.remove('active');
+        if (parentContent) parentContent.classList.remove('hidden');
+        if (subhabitContent) subhabitContent.classList.add('hidden');
+      }
+    };
+
+    const parentTabBtn = document.getElementById('tab-btn-parent-options');
+    if (parentTabBtn && typeof parentTabBtn.addEventListener === 'function' && !parentTabBtn._hasTabListener) {
+      parentTabBtn.addEventListener('click', () => core.switchDisplayOptionsTab('parent'));
+      parentTabBtn._hasTabListener = true;
+    }
+    const subhabitTabBtn = document.getElementById('tab-btn-subhabit-options');
+    if (subhabitTabBtn && typeof subhabitTabBtn.addEventListener === 'function' && !subhabitTabBtn._hasTabListener) {
+      subhabitTabBtn.addEventListener('click', () => core.switchDisplayOptionsTab('subhabits'));
+      subhabitTabBtn._hasTabListener = true;
+    }
+
+    ['show-streak', 'show-count', 'show-duration', 'hide-from-all', 'is-paused', 'hide-heatmap-when-paused', 'hide-heatmap'].forEach(key => {
+      const parentInput = document.getElementById(`habit-${key}`);
+      const subInput = document.getElementById(`subhabit-${key}`);
+      if (parentInput && subInput && typeof parentInput.addEventListener === 'function' && !parentInput._hasSubSyncListener) {
+        parentInput.addEventListener('change', () => {
+          subInput.checked = parentInput.checked;
+        });
+        parentInput._hasSubSyncListener = true;
+      }
+    });
+
     core.elements.modalPauseHabit = document.getElementById('modal-pause-habit');
     core.elements.modalPauseHabitTitle = document.getElementById('modal-pause-habit-title');
     core.elements.pauseHabitId = document.getElementById('pause-habit-id');
@@ -2518,6 +2559,7 @@ window.HabitualCore = window.HabitualCore || {};
 
     const parentSubsortSec = document.getElementById('parent-subhabit-display-section');
     if (parentSubsortSec) parentSubsortSec.classList.remove('hidden');
+    if (core.switchDisplayOptionsTab) core.switchDisplayOptionsTab('subhabits');
 
     {
       const hInput = document.getElementById('habit-name');
@@ -2798,6 +2840,25 @@ window.HabitualCore = window.HabitualCore || {};
 
     const subhabits = habitToEdit ? core.state.habits.filter(h => h.parentId === habitToEdit.id) : [];
     const hasSubhabits = subhabits.length > 0;
+
+    if (core.switchDisplayOptionsTab) core.switchDisplayOptionsTab('parent');
+
+    const subShowStreak = document.getElementById('subhabit-show-streak');
+    const subShowCount = document.getElementById('subhabit-show-count');
+    const subShowDuration = document.getElementById('subhabit-show-duration');
+    const subHideFromAll = document.getElementById('subhabit-hide-from-all');
+    const subIsPaused = document.getElementById('subhabit-is-paused');
+    const subHideHeatmapWhenPaused = document.getElementById('subhabit-hide-heatmap-when-paused');
+    const subHideHeatmap = document.getElementById('subhabit-hide-heatmap');
+
+    const refSub = subhabits.length > 0 ? subhabits[0] : (habitToEdit || {});
+    if (subShowStreak) subShowStreak.checked = Boolean(refSub.showStreak);
+    if (subShowCount) subShowCount.checked = refSub.showCount !== false;
+    if (subShowDuration) subShowDuration.checked = Boolean(refSub.showDuration);
+    if (subHideFromAll) subHideFromAll.checked = Boolean(refSub.hideFromAll);
+    if (subIsPaused) subIsPaused.checked = Boolean(refSub.isPaused);
+    if (subHideHeatmapWhenPaused) subHideHeatmapWhenPaused.checked = Boolean(refSub.hideHeatmapWhenPaused);
+    if (subHideHeatmap) subHideHeatmap.checked = Boolean(refSub.hideHeatmap);
 
     const subhabitDisplaySection = document.getElementById('parent-subhabit-display-section');
     const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
@@ -3305,18 +3366,36 @@ window.HabitualCore = window.HabitualCore || {};
             if (core.cascadeSubhabitPreferences) {
               core.cascadeSubhabitPreferences(habit);
             }
+            const subShowStreak = document.getElementById('subhabit-show-streak');
+            const subShowCount = document.getElementById('subhabit-show-count');
+            const subShowDuration = document.getElementById('subhabit-show-duration');
+            const subHideFromAll = document.getElementById('subhabit-hide-from-all');
+            const subHideHeatmap = document.getElementById('subhabit-hide-heatmap');
+            const subHideHeatmapWhenPaused = document.getElementById('subhabit-hide-heatmap-when-paused');
+            const subIsPaused = document.getElementById('subhabit-is-paused');
+
+            const cascadeStreak = subShowStreak ? subShowStreak.checked : habit.showStreak;
+            const cascadeCount = subShowCount ? subShowCount.checked : habit.showCount;
+            const cascadeDuration = subShowDuration ? subShowDuration.checked : habit.showDuration;
+            const cascadeHideFromAll = subHideFromAll ? subHideFromAll.checked : habit.hideFromAll;
+            const cascadeHideHeatmap = subHideHeatmap ? subHideHeatmap.checked : habit.hideHeatmap;
+            const cascadeHideHeatmapWhenPaused = subHideHeatmapWhenPaused ? subHideHeatmapWhenPaused.checked : habit.hideHeatmapWhenPaused;
+
             const descendantIds = core.getAllDescendantIds(habit.id);
             descendantIds.forEach(descId => {
               if (descId !== habit.id) {
                 const desc = core.state.habits.find(h => h.id === descId);
                 if (desc) {
                   desc.colorTheme = habit.colorTheme;
-                  desc.showStreak = habit.showStreak;
-                  desc.showCount = habit.showCount;
-                  desc.showDuration = habit.showDuration;
-                  desc.hideFromAll = habit.hideFromAll;
-                  desc.hideHeatmap = habit.hideHeatmap;
-                  desc.hideHeatmapWhenPaused = habit.hideHeatmapWhenPaused;
+                  desc.showStreak = cascadeStreak;
+                  desc.showCount = cascadeCount;
+                  desc.showDuration = cascadeDuration;
+                  desc.hideFromAll = cascadeHideFromAll;
+                  desc.hideHeatmap = cascadeHideHeatmap;
+                  desc.hideHeatmapWhenPaused = cascadeHideHeatmapWhenPaused;
+                  if (subIsPaused && subIsPaused.checked) {
+                    desc.isPaused = true;
+                  }
                   desc.subhabitSortOrder = habit.subhabitSortOrder;
                   desc.subhabitSortReverse = habit.subhabitSortReverse;
                   desc.updatedAt = Date.now();
@@ -3363,7 +3442,7 @@ window.HabitualCore = window.HabitualCore || {};
         };
 
         const cascadeCheckbox = document.getElementById('habit-cascade-display-options');
-        const shouldCascade = cascadeCheckbox ? cascadeCheckbox.checked : false;
+        const shouldCascade = cascadeCheckbox ? cascadeCheckbox.checked : true;
 
         if (shouldCascade) {
           performCascadeAndContinue(true);
