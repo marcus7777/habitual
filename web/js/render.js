@@ -1035,6 +1035,11 @@ window.HabitualCore = window.HabitualCore || {};
       if (parentHabit && parentHabit.subhabitSortOrder && parentHabit.subhabitSortOrder !== 'manual') {
         isManualSort = false;
       }
+    } else {
+      const mainSortOrder = (core.state && core.state.allPreferences && core.state.allPreferences.sortOrder) ? core.state.allPreferences.sortOrder : 'manual';
+      if (mainSortOrder !== 'manual') {
+        isManualSort = false;
+      }
     }
 
     const canMove = siblings.length > 1 && isManualSort;
