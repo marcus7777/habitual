@@ -36,7 +36,7 @@ window.HabitualCore = window.HabitualCore || {};
     const isGroup = habitId.startsWith('group_');
     const habit = (!isAll && !isGroup) ? core.state.habits.find(h => h.id === habitId) : null;
     const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
-    const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
+    const cursorDateStr = dateKey || (core.getCursorDateKey ? core.getCursorDateKey() : todayStr);
 
     cards.forEach(card => {
       const target = isAll ? 'all' : (isGroup ? habitId : habit);
@@ -228,6 +228,13 @@ window.HabitualCore = window.HabitualCore || {};
         }
         quickLogBtn.title = tooltipText;
         quickLogBtn.setAttribute('aria-label', tooltipText);
+      }
+
+      // 5. In-place update for selected day note container
+      const existingNoteContainer = card.querySelector('.heatmap-day-note-container');
+      if (existingNoteContainer && core.renderDayNoteInnerHTML) {
+        existingNoteContainer.setAttribute('data-date', cursorDateStr);
+        existingNoteContainer.innerHTML = core.renderDayNoteInnerHTML(target, cursorDateStr);
       }
     });
 
@@ -866,6 +873,88 @@ window.HabitualCore = window.HabitualCore || {};
     URL.revokeObjectURL(url);
   };
 
+  core.renderDayNoteInnerHTML = function(targetOrNull, dateKey) {
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+    const cursorDateStr = dateKey || (core.getCursorDateKey ? core.getCursorDateKey() : todayStr);
+    const formattedDate = core.formatPrettyDate ? core.formatPrettyDate(cursorDateStr) : cursorDateStr;
+
+    const isAll = targetOrNull === null;
+    const isGroup = targetOrNull && targetOrNull.isGroup;
+    const habit = (!isAll && !isGroup) ? targetOrNull : (isGroup && targetOrNull.habit ? targetOrNull.habit : null);
+    let cardHabitId = 'all';
+    if (isGroup) cardHabitId = 'group_' + targetOrNull.habitIds.join('_');
+    else if (habit) cardHabitId = habit.id;
+
+    if (habit) {
+      const log = (habit.logs && habit.logs[cursorDateStr]) ? habit.logs[cursorDateStr] : null;
+      const noteText = (log && log.note) ? log.note.trim() : '';
+      if (noteText) {
+        return `
+          <div class="heatmap-day-note has-note" title="Click to edit note">
+            <span class="note-icon">📝</span>
+            <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
+            <span class="note-content">${core.escapeHTML ? core.escapeHTML(noteText) : noteText}</span>
+            <button type="button" class="btn-edit-day-note" data-habit-id="${cardHabitId}" data-date="${cursorDateStr}" title="Edit note">✏️</button>
+          </div>`.trim();
+      } else {
+        return `
+          <div class="heatmap-day-note empty-note" title="Click to add note">
+            <span class="note-icon">📝</span>
+            <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
+            <span class="note-placeholder">No note</span>
+            <button type="button" class="btn-add-day-note" data-habit-id="${cardHabitId}" data-date="${cursorDateStr}" title="Add note">+ Add Note</button>
+          </div>`.trim();
+      }
+    } else {
+      let notesList = [];
+      if (isAll && core.state && Array.isArray(core.state.habits)) {
+        notesList = core.state.habits
+          .filter(h => !h.hideFromAll && h.logs && h.logs[cursorDateStr] && h.logs[cursorDateStr].note && h.logs[cursorDateStr].note.trim() !== '')
+          .map(h => ({ name: h.name, note: h.logs[cursorDateStr].note.trim(), habitId: h.id }));
+      } else if (isGroup && targetOrNull && Array.isArray(targetOrNull.habitIds) && core.state && Array.isArray(core.state.habits)) {
+        notesList = core.state.habits
+          .filter(h => targetOrNull.habitIds.includes(h.id) && h.logs && h.logs[cursorDateStr] && h.logs[cursorDateStr].note && h.logs[cursorDateStr].note.trim() !== '')
+          .map(h => ({ name: h.name, note: h.logs[cursorDateStr].note.trim(), habitId: h.id }));
+      }
+
+      if (notesList.length > 0) {
+        const notesItemsHTML = notesList.map(item => `
+          <span class="combined-note-item" data-habit-id="${item.habitId}">
+            <strong>${core.escapeHTML ? core.escapeHTML(item.name) : item.name}:</strong> "${core.escapeHTML ? core.escapeHTML(item.note) : item.note}"
+          </span>
+        `).join(' ');
+
+        return `
+          <div class="heatmap-day-note has-note">
+            <span class="note-icon">📝</span>
+            <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
+            <span class="note-content">${notesItemsHTML}</span>
+          </div>`.trim();
+      } else {
+        return `
+          <div class="heatmap-day-note empty-note">
+            <span class="note-icon">📝</span>
+            <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
+            <span class="note-placeholder">No notes for ${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}</span>
+          </div>`.trim();
+      }
+    }
+  };
+
+  core.renderDayNoteHTML = function(targetOrNull, dateKey) {
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+    const cursorDateStr = dateKey || (core.getCursorDateKey ? core.getCursorDateKey() : todayStr);
+    const isAll = targetOrNull === null;
+    const isGroup = targetOrNull && targetOrNull.isGroup;
+    const habit = (!isAll && !isGroup) ? targetOrNull : (isGroup && targetOrNull.habit ? targetOrNull.habit : null);
+    let cardHabitId = 'all';
+    if (isGroup) cardHabitId = 'group_' + targetOrNull.habitIds.join('_');
+    else if (habit) cardHabitId = habit.id;
+
+    const innerHTML = core.renderDayNoteInnerHTML(targetOrNull, cursorDateStr);
+    return `<div class="heatmap-day-note-container" data-habit-id="${cardHabitId}" data-date="${cursorDateStr}">${innerHTML}</div>`;
+  };
+
   core.buildHeatmapCard = function(targetOrNull, year) {
     const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
     const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : todayStr;
@@ -1226,6 +1315,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const shouldHideHeatmap = habit && (habit.hideHeatmap === true || (habit.isPaused && habit.hideHeatmapWhenPaused === true));
+    const dayNoteHTML = core.renderDayNoteHTML ? core.renderDayNoteHTML(targetOrNull, cursorDateStr) : '';
 
     if (shouldHideHeatmap) {
       card.classList.add('minimal-checkbox-card');
@@ -1233,7 +1323,7 @@ window.HabitualCore = window.HabitualCore || {};
       return card;
     }
 
-    card.innerHTML = reorderArrowsHTML + headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>`;
+    card.innerHTML = reorderArrowsHTML + headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>` + dayNoteHTML;
     return card;
   };
 
