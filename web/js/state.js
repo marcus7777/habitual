@@ -482,6 +482,9 @@ window.HabitualCore = window.HabitualCore || {};
     if (core.updateFloatingDateBar) {
       core.updateFloatingDateBar();
     }
+    if (core.updateAllDayNoteContainers) {
+      core.updateAllDayNoteContainers();
+    }
     if (isNew && core.showCursorTooltip) {
       core.showCursorTooltip(1200);
     }
@@ -562,6 +565,9 @@ window.HabitualCore = window.HabitualCore || {};
           c.classList.remove('selected-habit');
         }
       });
+      if (core.updateAllDayNoteContainers) {
+        core.updateAllDayNoteContainers();
+      }
     }
   };
 

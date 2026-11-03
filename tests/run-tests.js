@@ -5254,7 +5254,7 @@ describe('Feature 43: ⚙️ All Page Options, Default Habit Preferences & Sorti
 });
 
 describe('Feature 44: 📝 Selected Day Notes Display under Heatmap Card', () => {
-  test('buildHeatmapCard renders note for selected day under the heat map when note exists', () => {
+  test('buildHeatmapCard renders note for selected day under heat map when card is selected and note exists', () => {
     HabitualCore.resetState();
     const dateKey = '2026-10-15';
     const habit = {
@@ -5266,27 +5266,45 @@ describe('Feature 44: 📝 Selected Day Notes Display under Heatmap Card', () =>
       }
     };
     HabitualCore.setState({ habits: [habit] });
+    HabitualCore.state.selectedHabitId = 'running';
     HabitualCore.setCursorDateKey(dateKey);
 
     const card = HabitualCore.buildHeatmapCard(habit, 2026);
     const html = card.innerHTML;
-    assert(html.includes('heatmap-day-note-container'), 'Card includes heatmap-day-note-container');
+    assert(html.includes('heatmap-day-note-container'), 'Selected card includes heatmap-day-note-container');
     assert(html.includes('Ran 5km in morning'), 'Card renders note text for selected day');
     assert(html.includes('has-note'), 'Note container has has-note class');
+
+    // Unselected card omits note container
+    HabitualCore.state.selectedHabitId = 'other_habit';
+    const unselectedCard = HabitualCore.buildHeatmapCard(habit, 2026);
+    assert(!unselectedCard.innerHTML.includes('heatmap-day-note-container'), 'Unselected card omits note container');
   });
 
-  test('buildHeatmapCard renders placeholder note for selected day under heat map when note is empty', () => {
+  test('buildHeatmapCard omits note container for selected day under heat map when note is empty', () => {
     HabitualCore.resetState();
     const dateKey = '2026-10-16';
     const habit = { id: 'reading', name: 'Reading', type: 'positive', logs: {} };
     HabitualCore.setState({ habits: [habit] });
+    HabitualCore.state.selectedHabitId = 'reading';
     HabitualCore.setCursorDateKey(dateKey);
 
     const card = HabitualCore.buildHeatmapCard(habit, 2026);
     const html = card.innerHTML;
-    assert(html.includes('heatmap-day-note-container'), 'Card includes heatmap-day-note-container');
-    assert(html.includes('empty-note'), 'Note container has empty-note class');
-    assert(html.includes('+ Add Note'), 'Card renders + Add Note button when empty');
+    assert(!html.includes('heatmap-day-note-container'), 'Card omits heatmap-day-note-container when note is empty');
+  });
+
+  test('buildHeatmapCard omits note container when hideHeatmap is true even if selected and note exists', () => {
+    HabitualCore.resetState();
+    const dateKey = '2026-10-16';
+    const habit = { id: 'hidden_hm', name: 'Task without heatmap', type: 'positive', hideHeatmap: true, logs: { [dateKey]: { count: 1, note: 'Important note' } } };
+    HabitualCore.setState({ habits: [habit] });
+    HabitualCore.state.selectedHabitId = 'hidden_hm';
+    HabitualCore.setCursorDateKey(dateKey);
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    const html = card.innerHTML;
+    assert(!html.includes('heatmap-day-note-container'), 'Card omits note container when hideHeatmap is true');
   });
 
   test('patchHeatmapCard updates the selected day note container in-place when updated', () => {
@@ -5294,15 +5312,21 @@ describe('Feature 44: 📝 Selected Day Notes Display under Heatmap Card', () =>
     const dateKey = '2026-10-17';
     const habit = { id: 'yoga', name: 'Yoga', type: 'positive', logs: { [dateKey]: { count: 1, note: 'Initial note' } } };
     HabitualCore.setState({ habits: [habit] });
+    HabitualCore.state.selectedHabitId = 'yoga';
     HabitualCore.setCursorDateKey(dateKey);
 
     const card = document.createElement('div');
-    card.className = 'heatmap-card';
+    card.className = 'heatmap-card selected selected-habit';
     card.setAttribute('data-habit-id', 'yoga');
 
     const noteContainer = document.createElement('div');
     noteContainer.className = 'heatmap-day-note-container';
     card.children.push(noteContainer);
+
+    card.querySelector = (sel) => {
+      if (sel === '.heatmap-day-note-container') return noteContainer;
+      return null;
+    };
 
     const origQuery = document.querySelectorAll;
     document.querySelectorAll = (sel) => {

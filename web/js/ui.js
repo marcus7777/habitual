@@ -1938,6 +1938,9 @@ window.HabitualCore = window.HabitualCore || {};
             c.classList.remove('selected-habit');
           }
         });
+        if (core.updateAllDayNoteContainers) {
+          core.updateAllDayNoteContainers();
+        }
       }
 
       // 1. Handle Quick Log Button clicks via Delegation
