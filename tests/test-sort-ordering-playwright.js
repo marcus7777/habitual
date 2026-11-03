@@ -185,7 +185,7 @@ async function runTests() {
       throw new Error('Expected reorder arrows on manual sub-habits, found 0');
     }
 
-    // --- TEST 6: UI Modal Submission Refresh (Changing Sort Order via UI Form Refreshes Page) ---
+    // --- TEST 6: UI Modal Submission Refresh ---
     console.log('🧪 TEST 6: UI Modal Submission Refresh...');
     await page.evaluate(() => {
       HabitualCore.state.allPreferences = { sortOrder: 'manual', sortReverse: false };
@@ -210,6 +210,48 @@ async function runTests() {
       console.log('  ✅ [PASS] Saving sort order in modal refreshed page & re-rendered gallery (Apple -> Banana -> Zebra)');
     } else {
       throw new Error(`Expected modal save to refresh gallery to Apple -> Banana -> Zebra, got ${names.join(', ')}`);
+    }
+
+    // --- TEST 7: Page Reload Sort Order Persistence ---
+    console.log('🧪 TEST 7: Page Reload Sort Order & Sub-Habit Sort Persistence...');
+    await page.evaluate(() => {
+      HabitualCore.state.allPreferences = { sortOrder: 'alphabetical', sortReverse: false };
+      HabitualCore.state.expandedHabitIds = new Set(['parent_p1']);
+      HabitualCore.state.habits = [
+        {
+          id: 'parent_p1', name: 'Zebra Parent', type: 'positive', dailyTarget: 1, logs: {},
+          subhabitSortOrder: 'alphabetical', subhabitSortReverse: false
+        },
+        { id: 'sub_z2', name: 'Sub Z2', parentId: 'parent_p1', type: 'positive', dailyTarget: 1, logs: {} },
+        { id: 'sub_a2', name: 'Sub A2', parentId: 'parent_p1', type: 'positive', dailyTarget: 1, logs: {} },
+        { id: 'h_apple_top', name: 'Apple Top', type: 'positive', dailyTarget: 1, logs: {} }
+      ];
+      HabitualCore.saveState();
+    });
+
+    // Reload page to simulate cold boot / browser refresh
+    await page.reload();
+    await page.waitForTimeout(500);
+
+    // Verify main list sort order persisted across reload (Apple Top before Zebra Parent)
+    const topLevelTitlesAfterReload = await page.locator('.heatmap-card:not([data-habit-id="all"]) .tab-title').allTextContents();
+    const topNamesAfterReload = topLevelTitlesAfterReload.map(t => t.trim());
+    if (topNamesAfterReload[0] === 'Apple Top' && topNamesAfterReload[1] === 'Zebra Parent') {
+      console.log('  ✅ [PASS] Page reload preserved main list sortOrder (Apple Top -> Zebra Parent)');
+    } else {
+      throw new Error(`Expected Apple Top -> Zebra Parent after reload, got ${topNamesAfterReload.join(', ')}`);
+    }
+
+    // Verify parent subhabitSortOrder persisted across reload
+    const storedParent = await page.evaluate(() => {
+      const p = HabitualCore.state.habits.find(h => h.id === 'parent_p1');
+      return p ? { subhabitSortOrder: p.subhabitSortOrder } : null;
+    });
+
+    if (storedParent && storedParent.subhabitSortOrder === 'alphabetical') {
+      console.log('  ✅ [PASS] Page reload preserved parent habit subhabitSortOrder ("alphabetical")');
+    } else {
+      throw new Error(`Expected subhabitSortOrder "alphabetical" after reload, got ${JSON.stringify(storedParent)}`);
     }
 
     const screenshotPath = path.join(screenshotsDir, 'sort_ordering_ui.png');

@@ -634,6 +634,9 @@ window.HabitualCore = window.HabitualCore || {};
         customUnit: h.customUnit || 'days',
         colorWholeWeek: Boolean(h.colorWholeWeek),
         colorWholeMonth: Boolean(h.colorWholeMonth),
+        subhabitDisplayMode: h.subhabitDisplayMode || 'cards',
+        subhabitSortOrder: h.subhabitSortOrder || 'manual',
+        subhabitSortReverse: Boolean(h.subhabitSortReverse),
         parentId: h.parentId || null,
         parentDependency: h.parentDependency || 'none',
         createdAt: h.createdAt || core.getTodayKey(),
@@ -956,6 +959,7 @@ window.HabitualCore = window.HabitualCore || {};
       selectedHabitId: remoteIsNewer ? (remotePayload.selectedHabitId || localPayload.selectedHabitId || 'all') : (localPayload.selectedHabitId || remotePayload.selectedHabitId || 'all'),
       selectedYear: remoteIsNewer ? (remotePayload.selectedYear || localPayload.selectedYear || core.CURRENT_YEAR) : (localPayload.selectedYear || remotePayload.selectedYear || core.CURRENT_YEAR),
       showQuickLogOnStartup: remoteIsNewer ? (remotePayload.showQuickLogOnStartup !== undefined ? remotePayload.showQuickLogOnStartup : localPayload.showQuickLogOnStartup) : (localPayload.showQuickLogOnStartup !== undefined ? localPayload.showQuickLogOnStartup : remotePayload.showQuickLogOnStartup),
+      allPreferences: remoteIsNewer ? (remotePayload.allPreferences || localPayload.allPreferences) : (localPayload.allPreferences || remotePayload.allPreferences),
       deletedHabitIds: mergedDeletedHabitIds,
       habits: []
     };
