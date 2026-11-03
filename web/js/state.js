@@ -1493,4 +1493,183 @@ window.HabitualCore = window.HabitualCore || {};
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
   };
 
+  // Template Sharing Helpers (Issue #25: Encoded Link via JSURL & Firebase Firestore Template Links)
+  core.JSURL = (typeof window !== 'undefined' && window.JSURL) ? window.JSURL : (typeof JSURL !== 'undefined' ? JSURL : null);
+
+  core.encodeHabitTemplate = function(habit, autoIncrementCount = 0) {
+    if (!habit || !habit.name) return null;
+
+    const min = { h: String(habit.name).trim() };
+
+    const inc = parseInt(autoIncrementCount, 10);
+    if (!isNaN(inc) && inc > 0) {
+      min.inc = inc;
+    }
+
+    if (habit.type && habit.type !== 'positive') {
+      min.t = habit.type;
+    }
+    if (habit.description && String(habit.description).trim()) {
+      min.d = String(habit.description).trim();
+    }
+    if (habit.category && habit.category !== 'General') {
+      min.cat = habit.category;
+    }
+
+    const dailyTarget = parseInt(habit.dailyTarget, 10);
+    if (!isNaN(dailyTarget) && dailyTarget !== 1) {
+      min.g = dailyTarget;
+    }
+
+    if (habit.frequencyType && habit.frequencyType !== 'daily') {
+      min.f = habit.frequencyType;
+    }
+
+    if (habit.frequencyType === 'specific_days' && Array.isArray(habit.targetDays)) {
+      const defaultDays = [1, 2, 3, 4, 5, 6, 0];
+      if (JSON.stringify(habit.targetDays) !== JSON.stringify(defaultDays)) {
+        min.td = habit.targetDays;
+      }
+    }
+
+    if (habit.frequencyType === 'weekly' && habit.weeklyTarget && habit.weeklyTarget !== 1) {
+      min.wt = parseInt(habit.weeklyTarget, 10);
+    }
+
+    if (habit.frequencyType === 'monthly') {
+      if (habit.monthlyDay && habit.monthlyDay !== 1) min.md = parseInt(habit.monthlyDay, 10);
+      if (habit.monthlyTarget && habit.monthlyTarget !== 1) min.mt = parseInt(habit.monthlyTarget, 10);
+    }
+
+    if (habit.frequencyType === 'custom_interval') {
+      if (habit.customInterval && habit.customInterval !== 3) min.ci = parseInt(habit.customInterval, 10);
+      if (habit.customUnit && habit.customUnit !== 'days') min.cu = habit.customUnit;
+    }
+
+    if (habit.colorTheme) {
+      const normColor = (core.normalizeHex && habit.colorTheme.startsWith('#')) ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
+      const derivedDefault = core.getDefaultColorForId ? core.getDefaultColorForId(habit.name) : null;
+      if (!derivedDefault || normColor.toLowerCase() !== derivedDefault.toLowerCase()) {
+        min.c = normColor;
+      }
+    }
+
+    if (habit.showCount === false) min.sc = false;
+    if (habit.showDuration === true) min.sd = true;
+    if (habit.hideHeatmap === true) min.hh = true;
+    if (habit.hideFromAll === true) min.ha = true;
+
+    // Sub-habits
+    let childrenList = [];
+    if (Array.isArray(habit.children) && habit.children.length > 0) {
+      childrenList = habit.children;
+    } else if (core.state && Array.isArray(core.state.habits)) {
+      childrenList = core.state.habits.filter(h => h.parentId === habit.id);
+    }
+
+    if (childrenList.length > 0) {
+      min.s = childrenList.map(child => {
+        const childMin = { h: String(child.name).trim() };
+        if (child.type && child.type !== 'positive') childMin.t = child.type;
+        const childTarget = parseInt(child.dailyTarget, 10);
+        if (!isNaN(childTarget) && childTarget !== 1) childMin.g = childTarget;
+        if (child.colorTheme) {
+          const normC = (core.normalizeHex && child.colorTheme.startsWith('#')) ? core.normalizeHex(child.colorTheme) : child.colorTheme;
+          if (!min.c || normC.toLowerCase() !== min.c.toLowerCase()) {
+            childMin.c = normC;
+          }
+        }
+        return childMin;
+      });
+    }
+
+    return min;
+  };
+
+  core.decodeHabitTemplate = function(minPayload) {
+    let min = minPayload;
+    if (typeof minPayload === 'string') {
+      const jsurlEngine = core.JSURL || (typeof window !== 'undefined' ? window.JSURL : null) || (typeof JSURL !== 'undefined' ? JSURL : null);
+      if (jsurlEngine && typeof jsurlEngine.parse === 'function') {
+        min = jsurlEngine.parse(minPayload);
+      }
+    }
+
+    if (!min || typeof min !== 'object') return null;
+
+    const name = min.h || min.name;
+    if (!name) return null;
+
+    const baseId = 'tmpl_h_' + Math.random().toString(36).substring(2, 10);
+    const today = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+
+    const habit = {
+      id: baseId,
+      name: String(name).trim(),
+      type: min.t || min.type || 'positive',
+      description: min.d || min.description || '',
+      category: min.cat || min.category || 'General',
+      dailyTarget: parseInt(min.g || min.dailyTarget || 1, 10),
+      frequencyType: min.f || min.frequencyType || 'daily',
+      targetDays: min.td || min.targetDays || [1, 2, 3, 4, 5, 6, 0],
+      weeklyTarget: parseInt(min.wt || min.weeklyTarget || 1, 10),
+      monthlyDay: parseInt(min.md || min.monthlyDay || 1, 10),
+      monthlyTarget: parseInt(min.mt || min.monthlyTarget || 1, 10),
+      customInterval: parseInt(min.ci || min.customInterval || 3, 10),
+      customUnit: min.cu || min.customUnit || 'days',
+      showCount: min.sc !== undefined ? Boolean(min.sc) : (min.showCount !== undefined ? Boolean(min.showCount) : true),
+      showDuration: min.sd !== undefined ? Boolean(min.sd) : (min.showDuration !== undefined ? Boolean(min.showDuration) : false),
+      hideHeatmap: min.hh !== undefined ? Boolean(min.hh) : (min.hideHeatmap !== undefined ? Boolean(min.hideHeatmap) : false),
+      hideFromAll: min.ha !== undefined ? Boolean(min.ha) : (min.hideFromAll !== undefined ? Boolean(min.hideFromAll) : false),
+      autoIncrement: parseInt(min.inc || min.autoIncrement || 0, 10),
+      createdAt: today,
+      logs: {}
+    };
+
+    const color = min.c || min.colorTheme;
+    if (color) {
+      habit.colorTheme = (core.normalizeHex && color.startsWith('#')) ? core.normalizeHex(color) : color;
+    } else {
+      habit.colorTheme = core.getDefaultColorForId ? core.getDefaultColorForId(habit.id) : '#039BE5';
+    }
+
+    const subMinList = min.s || min.children || [];
+    if (Array.isArray(subMinList) && subMinList.length > 0) {
+      habit.children = subMinList.map(subMin => {
+        const subName = subMin.h || subMin.name;
+        const subId = 'tmpl_sub_' + Math.random().toString(36).substring(2, 10);
+        const subColor = (subMin.c || subMin.colorTheme) ?
+          ((core.normalizeHex && (subMin.c || subMin.colorTheme).startsWith('#')) ? core.normalizeHex(subMin.c || subMin.colorTheme) : (subMin.c || subMin.colorTheme))
+          : habit.colorTheme;
+
+        return {
+          id: subId,
+          parentId: habit.id,
+          name: String(subName).trim(),
+          type: subMin.t || subMin.type || habit.type,
+          dailyTarget: parseInt(subMin.g || subMin.dailyTarget || 1, 10),
+          colorTheme: subColor,
+          createdAt: today,
+          logs: {}
+        };
+      });
+    } else {
+      habit.children = [];
+    }
+
+    return habit;
+  };
+
+  core.generateJSURLTemplateLink = function(habit, autoIncrementCount = 0) {
+    const minPayload = core.encodeHabitTemplate(habit, autoIncrementCount);
+    if (!minPayload) return '';
+
+    const jsurlEngine = core.JSURL || (typeof window !== 'undefined' ? window.JSURL : null) || (typeof JSURL !== 'undefined' ? JSURL : null);
+    if (!jsurlEngine || typeof jsurlEngine.stringify !== 'function') return '';
+
+    const jsurlStr = jsurlEngine.stringify(minPayload);
+    const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
+    return `${baseUrl}#template?data=${jsurlStr}`;
+  };
+
 })(window.HabitualCore);

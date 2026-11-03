@@ -1,6 +1,6 @@
 /* Habitual Service Worker */
 
-const CACHE_NAME = 'habitual-v1.32.0';
+const CACHE_NAME = 'habitual-v1.33.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   './favicon.svg',
   './js/colours.js',
+  './js/jsurl.js',
   './js/state.js',
   './js/storage.js',
   './js/audio-sync.js',

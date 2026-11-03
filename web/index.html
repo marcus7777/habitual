@@ -204,7 +204,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.32.0</p>
+      <p>Habitual &bull; v1.33.0</p>
     </footer>
   </div>
 
@@ -672,6 +672,42 @@
                 </div>
               </div>
 
+              <!-- Share Habit Template Section -->
+              <div class="form-group highlight-form-box margin-top-sm" id="share-template-section">
+                <div class="share-habit-header-row" style="display: flex; justify-content: space-between; align-items: center;">
+                  <span><strong>📋 Share Habit Template</strong></span>
+                </div>
+                <small class="muted-text">Share habit configuration as an encoded URL or cloud template (for NFC tags, QR codes, or sharing habit routines).</small>
+
+                <div class="share-template-container margin-top-sm">
+                  <div class="form-group margin-top-xs">
+                    <label class="checkbox-label">
+                      <input type="checkbox" name="habit-template-auto-log" id="habit-template-auto-log">
+                      <span><strong>⚡ Auto-increment count on scan / open (e.g. Gym NFC tag / QR)</strong></span>
+                    </label>
+                  </div>
+
+                  <div class="form-group margin-top-xs hidden" id="habit-template-auto-log-count-group">
+                    <label for="habit-template-auto-log-count">Auto-log Increment Count</label>
+                    <input type="number" id="habit-template-auto-log-count" class="text-input" min="1" max="99" value="1" style="max-width: 120px;">
+                  </div>
+
+                  <div class="share-actions-row margin-top-sm" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" id="btn-copy-template-jsurl" class="btn btn-secondary btn-sm" title="Option 1: JSURL Encoded Link">
+                      📋 Copy JSURL Link
+                    </button>
+                    <button type="button" id="btn-copy-template-firestore" class="btn btn-secondary btn-sm" title="Option 2: Firebase Firestore Link">
+                      ☁️ Copy Cloud Template Link
+                    </button>
+                  </div>
+
+                  <div class="qr-code-wrapper margin-top-sm hidden" id="qr-code-template-wrapper">
+                    <label><strong id="qr-code-template-title">Scan QR Code for Habit Template</strong></label>
+                    <div id="qr-code-template-display" class="qr-code-box margin-top-sm" style="display: flex; justify-content: center; align-items: center; padding: 16px; background: #ffffff; border-radius: 12px; margin: 14px auto; width: fit-content;"></div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Export & Danger Actions Section -->
               <div class="form-group margin-top-sm hidden" id="habit-actions-section" style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
                 <button type="button" id="btn-modal-clear-before-date" class="btn btn-secondary btn-sm">
@@ -873,7 +909,33 @@
     </div>
   </div>
 
+  <!-- MODAL: Import Habit Template -->
+  <div id="modal-import-template" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-dialog-wide">
+      <div class="modal-header">
+        <h3>📋 Import Habit Template</h3>
+        <button id="modal-import-template-close" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span id="import-template-color-pill" class="color-tab-pill" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block;"></span>
+          <strong id="import-template-name" style="font-size: 1.1rem; color: var(--text-main);"></strong>
+        </div>
+        <div id="import-template-details" style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 12px;"></div>
+        <div id="import-template-auto-log-banner" class="margin-top-sm hidden" style="padding: 10px 14px; background: rgba(3, 155, 229, 0.15); border: 1px solid #039BE5; border-radius: 8px; font-size: 0.85rem; color: var(--text-main);">
+          ⚡ <span>Auto-logging check-in (+1) configured for this link.</span>
+        </div>
+        <div id="import-template-subhabits-preview" class="margin-top-sm hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-import-template" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="btn-confirm-import-template" class="btn btn-primary">Add Template to My Habits</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/colours.js" defer></script>
+  <script src="js/jsurl.js" defer></script>
   <!-- Firebase Cloud Sync SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js" defer></script>
