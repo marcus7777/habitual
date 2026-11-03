@@ -264,13 +264,42 @@ window.HabitualCore = window.HabitualCore || {};
         }
         curr = core.state.habits.find(h => h.id === curr.parentId);
       }
+      if (core.recalculateSubhabitDOMOrder) {
+        core.recalculateSubhabitDOMOrder(null);
+      }
     }
 
     return patched;
   };
 
   core.recalculateSubhabitDOMOrder = function(parentId) {
-    if (!parentId || !core.state || !Array.isArray(core.state.habits) || typeof document === 'undefined') return false;
+    if (!core.state || !Array.isArray(core.state.habits) || typeof document === 'undefined') return false;
+
+    if (!parentId) {
+      const mainSortOrder = (core.state && core.state.allPreferences && core.state.allPreferences.sortOrder) ? core.state.allPreferences.sortOrder : 'manual';
+      if (mainSortOrder === 'manual') return false;
+
+      const rawTopLevelHabits = core.state.habits.filter(h => !h.parentId);
+      if (rawTopLevelHabits.length <= 1) return false;
+
+      const sortedTopLevel = core.getSortedSubhabits ? core.getSortedSubhabits(null, rawTopLevelHabits, core.state.selectedYear) : rawTopLevelHabits;
+
+      const gallery = (core.elements && core.elements.heatmapsGallery) ? core.elements.heatmapsGallery : document.getElementById('heatmaps-gallery');
+      if (!gallery || !gallery.children) return false;
+
+      let reordered = false;
+      const childrenArr = Array.from(gallery.children);
+
+      sortedTopLevel.forEach(habit => {
+        const childNode = childrenArr.find(c => c.getAttribute && (c.getAttribute('data-habit-id') === habit.id || c.getAttribute('data-habit-id-raw') === habit.id));
+        if (childNode) {
+          gallery.appendChild(childNode);
+          reordered = true;
+        }
+      });
+      return reordered;
+    }
+
     const parentHabit = core.state.habits.find(h => h.id === parentId);
     if (!parentHabit) return false;
 
