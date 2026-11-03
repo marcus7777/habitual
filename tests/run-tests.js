@@ -678,6 +678,127 @@ describe('Feature 6: ⏱️ Quick Logging & Calendar Date Picker', () => {
 
     document.querySelectorAll = originalQuerySelectorAll;
   });
+
+  test('Selection synchronization works sequentially back-and-forth across multiple modal opens and card clicks', () => {
+    HabitualCore.resetState();
+    const h1 = { id: 'multi_h1', name: 'Multi Habit 1', type: 'positive' };
+    const h2 = { id: 'multi_h2', name: 'Multi Habit 2', type: 'positive' };
+    const h3 = { id: 'multi_h3', name: 'Multi Habit 3', type: 'positive' };
+    HabitualCore.setState({
+      habits: [h1, h2, h3],
+      selectedHabitId: 'multi_h1'
+    });
+
+    const c1Classes = new Set(['heatmap-card', 'selected', 'selected-habit']);
+    const c2Classes = new Set(['heatmap-card']);
+    const c3Classes = new Set(['heatmap-card']);
+
+    const card1 = { getAttribute: (attr) => attr === 'data-habit-id' ? 'multi_h1' : null, classList: { add: (c) => c1Classes.add(c), remove: (c) => c1Classes.delete(c), contains: (c) => c1Classes.has(c) } };
+    const card2 = { getAttribute: (attr) => attr === 'data-habit-id' ? 'multi_h2' : null, classList: { add: (c) => c2Classes.add(c), remove: (c) => c2Classes.delete(c), contains: (c) => c2Classes.has(c) } };
+    const card3 = { getAttribute: (attr) => attr === 'data-habit-id' ? 'multi_h3' : null, classList: { add: (c) => c3Classes.add(c), remove: (c) => c3Classes.delete(c), contains: (c) => c3Classes.has(c) } };
+
+    const originalQuerySelectorAll = document.querySelectorAll;
+    document.querySelectorAll = (sel) => sel === '.heatmap-card' ? [card1, card2, card3] : [];
+
+    let selectValue = 'multi_h1';
+    const coreElements = HabitualCore.getElements();
+    coreElements.modalLogHabitSelect = {
+      get value() { return selectValue; },
+      set value(val) { selectValue = val; },
+      innerHTML: ''
+    };
+    coreElements.modalLogDateInput = { value: '2026-10-02' };
+    coreElements.modalLogCount = { value: '1' };
+    coreElements.modalLogNote = { value: '' };
+
+    // Step 1: Open modal for h1 initially
+    HabitualCore.openLogModal('2026-10-02');
+    assertEqual(selectValue, 'multi_h1', 'Step 1: Modal select is h1');
+    assertEqual(HabitualCore.getState().selectedHabitId, 'multi_h1', 'Step 1: State is h1');
+    assertEqual(c1Classes.has('selected'), true, 'Step 1: Card 1 DOM selected');
+
+    // Step 2: Change dropdown in modal to h2
+    selectValue = 'multi_h2';
+    if (coreElements.modalLogHabitSelect.onchange) coreElements.modalLogHabitSelect.onchange();
+    assertEqual(HabitualCore.getState().selectedHabitId, 'multi_h2', 'Step 2: State updated to h2');
+    assertEqual(c2Classes.has('selected'), true, 'Step 2: Card 2 DOM selected');
+    assertEqual(c1Classes.has('selected'), false, 'Step 2: Card 1 DOM unselected');
+
+    // Step 3: Simulate opening modal again without args (e.g. from header menu)
+    HabitualCore.openLogModal('2026-10-02');
+    assertEqual(selectValue, 'multi_h2', 'Step 3: Modal select retains h2');
+
+    // Step 4: User clicks card h3 on main page (preferredHabitId = multi_h3)
+    HabitualCore.openLogModal('2026-10-02', 'multi_h3');
+    assertEqual(selectValue, 'multi_h3', 'Step 4: Modal select updated to h3');
+    assertEqual(HabitualCore.getState().selectedHabitId, 'multi_h3', 'Step 4: State updated to h3');
+    assertEqual(c3Classes.has('selected'), true, 'Step 4: Card 3 DOM selected');
+    assertEqual(c2Classes.has('selected'), false, 'Step 4: Card 2 DOM unselected');
+
+    // Step 5: Change dropdown in modal back to h1
+    selectValue = 'multi_h1';
+    if (coreElements.modalLogHabitSelect.onchange) coreElements.modalLogHabitSelect.onchange();
+    assertEqual(HabitualCore.getState().selectedHabitId, 'multi_h1', 'Step 5: State updated to h1');
+    assertEqual(c1Classes.has('selected'), true, 'Step 5: Card 1 DOM selected');
+    assertEqual(c3Classes.has('selected'), false, 'Step 5: Card 3 DOM unselected');
+
+    // Step 6: User clicks card h2 on main page (preferredHabitId = multi_h2)
+    HabitualCore.openLogModal('2026-10-02', 'multi_h2');
+    assertEqual(selectValue, 'multi_h2', 'Step 6: Modal select updated to h2');
+    assertEqual(HabitualCore.getState().selectedHabitId, 'multi_h2', 'Step 6: State updated to h2');
+    assertEqual(c2Classes.has('selected'), true, 'Step 6: Card 2 DOM selected');
+    assertEqual(c1Classes.has('selected'), false, 'Step 6: Card 1 DOM unselected');
+
+    document.querySelectorAll = originalQuerySelectorAll;
+  });
+
+  test('Tapping a habit hides selection box and sets title to match habit name', () => {
+    HabitualCore.resetState();
+    const habit = { id: 'tap_h1', name: 'Drink Water', type: 'positive' };
+    HabitualCore.setState({
+      habits: [habit],
+      selectedHabitId: 'tap_h1'
+    });
+
+    const selectGroupClasses = new Set();
+    const mockSelectGroup = {
+      classList: {
+        add: (c) => selectGroupClasses.add(c),
+        remove: (c) => selectGroupClasses.delete(c)
+      }
+    };
+    const mockTitleEl = { textContent: '' };
+
+    const originalGetElementById = document.getElementById;
+    document.getElementById = (id) => {
+      if (id === 'modal-log-habit-select-group') return mockSelectGroup;
+      if (id === 'modal-log-title') return mockTitleEl;
+      return typeof originalGetElementById === 'function' ? originalGetElementById(id) : null;
+    };
+
+    let selectValue = 'tap_h1';
+    const coreElements = HabitualCore.getElements();
+    coreElements.modalLogHabitSelect = {
+      get value() { return selectValue; },
+      set value(val) { selectValue = val; },
+      innerHTML: ''
+    };
+    coreElements.modalLogDateInput = { value: '2026-10-02' };
+    coreElements.modalLogCount = { value: '1' };
+    coreElements.modalLogNote = { value: '' };
+
+    // Tapping specifically on habit tap_h1
+    HabitualCore.openLogModal('2026-10-02', 'tap_h1');
+    assertEqual(selectGroupClasses.has('hidden'), true, 'Habit select group is hidden when tapping habit');
+    assertEqual(mockTitleEl.textContent, 'Log Drink Water', 'Modal title matches habit name');
+
+    // Generic launch (preferredHabitId = null)
+    HabitualCore.openLogModal('2026-10-02');
+    assertEqual(selectGroupClasses.has('hidden'), false, 'Habit select group is visible for generic launch');
+    assertEqual(mockTitleEl.textContent, 'Log Activity', 'Modal title is Log Activity for generic launch');
+
+    document.getElementById = originalGetElementById;
+  });
 });
 
 // ============================================================================
