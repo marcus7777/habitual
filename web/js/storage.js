@@ -1928,6 +1928,49 @@ window.HabitualCore = window.HabitualCore || {};
             self.uploadPerHabitBackup(h);
           }
         });
+      },
+
+      uploadTemplateToFirestore: function(habit, autoIncrementCount = 0) {
+        const minPayload = core.encodeHabitTemplate(habit, autoIncrementCount);
+        if (!minPayload) return Promise.reject(new Error('Invalid habit template data'));
+
+        const docId = 'tmpl_hb_' + Math.random().toString(36).substring(2, 10);
+
+        return this.initDb().then(function(db) {
+          const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+            ? firebase.firestore.FieldValue.serverTimestamp()
+            : new Date();
+
+          return db.collection('templates').doc(docId).set({
+            template: minPayload,
+            createdAt: serverTs
+          }).then(function() {
+            const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
+            const url = `${baseUrl}#template?col=${docId}`;
+            return { docId: docId, url: url, payload: minPayload };
+          });
+        });
+      },
+
+      downloadTemplateFromFirestore: function(docId) {
+        if (!docId) return Promise.reject(new Error('Template Document ID required'));
+
+        return this.initDb().then(function(db) {
+          return db.collection('templates').doc(docId).get().then(function(docSnap) {
+            if (docSnap.exists) return docSnap.data();
+            return db.collection('template').doc(docId).get().then(function(snap2) {
+              if (snap2.exists) return snap2.data();
+              return db.collection('share').doc(docId).get().then(function(snap3) {
+                if (snap3.exists) return snap3.data();
+                return null;
+              });
+            });
+          }).then(function(data) {
+            if (!data) throw new Error('Template not found in Firestore cloud database.');
+            const tmplPayload = data.template || data.minPayload || data;
+            return core.decodeHabitTemplate(tmplPayload);
+          });
+        });
       }
     }
   };

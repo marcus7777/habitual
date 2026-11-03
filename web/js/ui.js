@@ -4079,9 +4079,86 @@ window.HabitualCore = window.HabitualCore || {};
         inputHabitName.addEventListener('input', () => core.updateShareLinkAndQR());
       }
 
+      // Template Sharing Event Listeners (Issue #25)
+      const chkTemplateAutoLog = document.getElementById('habit-template-auto-log');
+      const groupAutoLogCount = document.getElementById('habit-template-auto-log-count-group');
+      const inputAutoLogCount = document.getElementById('habit-template-auto-log-count');
+      const btnCopyTemplateJSURL = document.getElementById('btn-copy-template-jsurl');
+      const btnCopyTemplateFirestore = document.getElementById('btn-copy-template-firestore');
+      const qrTemplateWrapper = document.getElementById('qr-code-template-wrapper');
+      const qrTemplateDisplay = document.getElementById('qr-code-template-display');
+      const qrTemplateTitle = document.getElementById('qr-code-template-title');
+
+      if (chkTemplateAutoLog) {
+        chkTemplateAutoLog.addEventListener('change', function() {
+          if (groupAutoLogCount) {
+            if (chkTemplateAutoLog.checked) groupAutoLogCount.classList.remove('hidden');
+            else groupAutoLogCount.classList.add('hidden');
+          }
+        });
+      }
+
+      if (btnCopyTemplateJSURL) {
+        btnCopyTemplateJSURL.addEventListener('click', function() {
+          const habit = core.getCurrentModalHabitObject();
+          const autoInc = (chkTemplateAutoLog && chkTemplateAutoLog.checked) ? parseInt(inputAutoLogCount ? inputAutoLogCount.value || 1 : 1, 10) : 0;
+          const link = core.generateJSURLTemplateLink(habit, autoInc);
+
+          if (link) {
+            if (qrTemplateDisplay && core.generateQRCodeSVG) {
+              qrTemplateDisplay.innerHTML = core.generateQRCodeSVG(link, 200);
+              if (qrTemplateTitle) qrTemplateTitle.textContent = 'Scan QR Code for JSURL Habit Template';
+              if (qrTemplateWrapper) qrTemplateWrapper.classList.remove('hidden');
+            }
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(link).then(function() {
+                if (core.showToast) core.showToast('📋 JSURL template link copied to clipboard!', 'success');
+              }).catch(function() {
+                alert('JSURL Template link: ' + link);
+              });
+            } else {
+              alert('JSURL Template link: ' + link);
+            }
+          }
+        });
+      }
+
+      if (btnCopyTemplateFirestore) {
+        btnCopyTemplateFirestore.addEventListener('click', function() {
+          const habit = core.getCurrentModalHabitObject();
+          const autoInc = (chkTemplateAutoLog && chkTemplateAutoLog.checked) ? parseInt(inputAutoLogCount ? inputAutoLogCount.value || 1 : 1, 10) : 0;
+
+          if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.uploadTemplateToFirestore) {
+            if (core.showToast) core.showToast('⏳ Creating cloud template link...', 'info');
+            core.SyncTargets.Firestore.uploadTemplateToFirestore(habit, autoInc).then(function(res) {
+              if (res && res.url) {
+                if (qrTemplateDisplay && core.generateQRCodeSVG) {
+                  qrTemplateDisplay.innerHTML = core.generateQRCodeSVG(res.url, 200);
+                  if (qrTemplateTitle) qrTemplateTitle.textContent = 'Scan QR Code for Cloud Firestore Template';
+                  if (qrTemplateWrapper) qrTemplateWrapper.classList.remove('hidden');
+                }
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(res.url).then(function() {
+                    if (core.showToast) core.showToast('☁️ Cloud Firestore template link copied to clipboard!', 'success');
+                  }).catch(function() {
+                    alert('Cloud Template link: ' + res.url);
+                  });
+                } else {
+                  alert('Cloud Template link: ' + res.url);
+                }
+              }
+            }).catch(function(err) {
+              const msg = err && err.message ? err.message : String(err);
+              if (core.showToast) core.showToast(`❌ Error creating cloud template: ${msg}`, 'error');
+            });
+          }
+        });
+      }
+
       // Check URL Hash for shared habit invitation or device sync connection on load
       core.checkURLHashForSharedHabit();
       core.checkURLHashForSyncConnection();
+      core.checkURLHashForTemplate();
     });
   }
 
@@ -4089,8 +4166,275 @@ window.HabitualCore = window.HabitualCore || {};
     window.addEventListener('hashchange', function() {
       if (core.checkURLHashForSharedHabit) core.checkURLHashForSharedHabit();
       if (core.checkURLHashForSyncConnection) core.checkURLHashForSyncConnection();
+      if (core.checkURLHashForTemplate) core.checkURLHashForTemplate();
     });
   }
+
+  core.getCurrentModalHabitObject = function() {
+    const habitIdInput = document.getElementById('habit-id');
+    const editingId = habitIdInput ? habitIdInput.value.trim() : null;
+    let habit = editingId ? core.state.habits.find(h => h.id === editingId) : null;
+
+    if (!habit) {
+      const inputName = document.getElementById('habit-name');
+      const inputColorHex = document.getElementById('habit-custom-color-hex');
+      const inputColorSelect = document.getElementById('habit-calendar-color-select');
+      const inputTarget = document.getElementById('habit-daily-target');
+      const inputFreq = document.getElementById('habit-frequency-type');
+      const inputType = document.getElementById('habit-type');
+      const inputDesc = document.getElementById('habit-description');
+
+      const name = inputName ? inputName.value.trim() : 'New Habit';
+      const color = (inputColorSelect && inputColorSelect.value) ? inputColorSelect.value : (inputColorHex ? inputColorHex.value.trim() : '');
+      const target = inputTarget ? parseInt(inputTarget.value || 1, 10) : 1;
+      const freq = inputFreq ? inputFreq.value : 'daily';
+      const type = inputType ? inputType.value : 'positive';
+      const desc = inputDesc ? inputDesc.value.trim() : '';
+
+      habit = {
+        id: 'draft_' + Date.now(),
+        name: name,
+        colorTheme: color,
+        dailyTarget: target,
+        frequencyType: freq,
+        type: type,
+        description: desc
+      };
+    }
+
+    return habit;
+  };
+
+  core.importHabitTemplateToState = function(decodedHabit) {
+    if (!decodedHabit || !decodedHabit.name) return null;
+
+    if (!core.state || !Array.isArray(core.state.habits)) {
+      core.state = core.state || {};
+      core.state.habits = [];
+    }
+
+    const habitId = 'habit_tmpl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const today = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+
+    const newHabit = {
+      id: habitId,
+      name: decodedHabit.name,
+      type: decodedHabit.type || 'positive',
+      description: decodedHabit.description || '',
+      category: decodedHabit.category || 'General',
+      dailyTarget: decodedHabit.dailyTarget || 1,
+      frequencyType: decodedHabit.frequencyType || 'daily',
+      targetDays: decodedHabit.targetDays || [1, 2, 3, 4, 5, 6, 0],
+      weeklyTarget: decodedHabit.weeklyTarget || 1,
+      monthlyDay: decodedHabit.monthlyDay || 1,
+      monthlyTarget: decodedHabit.monthlyTarget || 1,
+      customInterval: decodedHabit.customInterval || 3,
+      customUnit: decodedHabit.customUnit || 'days',
+      colorTheme: decodedHabit.colorTheme || (core.getDefaultColorForId ? core.getDefaultColorForId(habitId) : '#039BE5'),
+      showCount: decodedHabit.showCount !== false,
+      showDuration: decodedHabit.showDuration === true,
+      hideHeatmap: decodedHabit.hideHeatmap === true,
+      hideFromAll: decodedHabit.hideFromAll === true,
+      createdAt: today,
+      logs: {}
+    };
+
+    core.state.habits.push(newHabit);
+
+    // Import sub-habits if present
+    if (Array.isArray(decodedHabit.children) && decodedHabit.children.length > 0) {
+      decodedHabit.children.forEach(child => {
+        const subId = 'habit_sub_tmpl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+        const subHabit = {
+          id: subId,
+          parentId: habitId,
+          name: child.name,
+          type: child.type || newHabit.type,
+          dailyTarget: child.dailyTarget || 1,
+          colorTheme: child.colorTheme || newHabit.colorTheme,
+          createdAt: today,
+          logs: {}
+        };
+        core.state.habits.push(subHabit);
+      });
+    }
+
+    if (core.saveState) core.saveState();
+    if (core.renderAll) core.renderAll();
+
+    return habitId;
+  };
+
+  core.showImportTemplateModal = function(decodedHabit) {
+    const modalImport = document.getElementById('modal-import-template');
+    const nameEl = document.getElementById('import-template-name');
+    const pillEl = document.getElementById('import-template-color-pill');
+    const detailsEl = document.getElementById('import-template-details');
+    const subhabitsEl = document.getElementById('import-template-subhabits-preview');
+    const autoLogBanner = document.getElementById('import-template-auto-log-banner');
+    const btnConfirm = document.getElementById('btn-confirm-import-template');
+    const btnCancel = document.getElementById('btn-cancel-import-template');
+    const btnClose = document.getElementById('modal-import-template-close');
+
+    if (!modalImport) return;
+
+    if (nameEl) nameEl.textContent = decodedHabit.name;
+    if (pillEl) pillEl.style.backgroundColor = decodedHabit.colorTheme || '#039BE5';
+
+    if (detailsEl) {
+      let text = `<span>🎯 Target: ${decodedHabit.dailyTarget || 1} unit(s) / ${decodedHabit.frequencyType || 'daily'}</span>`;
+      if (decodedHabit.description) {
+        text += `<br><span>📝 ${core.escapeHTML(decodedHabit.description)}</span>`;
+      }
+      detailsEl.innerHTML = text;
+    }
+
+    if (autoLogBanner) {
+      if (decodedHabit.autoIncrement && decodedHabit.autoIncrement > 0) {
+        autoLogBanner.innerHTML = `⚡ <span>Auto-logging check-in (+${decodedHabit.autoIncrement}) configured for this link.</span>`;
+        autoLogBanner.classList.remove('hidden');
+      } else {
+        autoLogBanner.classList.add('hidden');
+      }
+    }
+
+    if (subhabitsEl) {
+      if (Array.isArray(decodedHabit.children) && decodedHabit.children.length > 0) {
+        let subHtml = `<div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">📁 Included Sub-Habits (${decodedHabit.children.length}):</div><ul style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: var(--text-main);">`;
+        decodedHabit.children.forEach(c => {
+          subHtml += `<li><strong>${core.escapeHTML(c.name)}</strong> (Target: ${c.dailyTarget || 1})</li>`;
+        });
+        subHtml += `</ul>`;
+        subhabitsEl.innerHTML = subHtml;
+        subhabitsEl.classList.remove('hidden');
+      } else {
+        subhabitsEl.innerHTML = '';
+        subhabitsEl.classList.add('hidden');
+      }
+    }
+
+    function closeModal() {
+      modalImport.classList.add('hidden');
+      if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+
+    if (btnCancel) btnCancel.onclick = closeModal;
+    if (btnClose) btnClose.onclick = closeModal;
+
+    if (btnConfirm) {
+      btnConfirm.onclick = function() {
+        const newId = core.importHabitTemplateToState(decodedHabit);
+        closeModal();
+        if (core.showToast) core.showToast(`📋 Successfully imported template "${decodedHabit.name}"!`, 'success');
+      };
+    }
+
+    modalImport.classList.remove('hidden');
+  };
+
+  core.checkURLHashForTemplate = function() {
+    const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';
+    const search = (typeof window !== 'undefined' && window.location && window.location.search) ? String(window.location.search).trim() : '';
+
+    if (!hash.includes('template') && !hash.includes('tmpl=') && !hash.includes('data=~') &&
+        !search.includes('template') && !search.includes('tmpl=') && !search.includes('data=~')) return;
+
+    try {
+      let jsurlData = null;
+      let colDocId = null;
+
+      const fullString = hash.includes('template') ? hash : (search.includes('template') ? search : hash || search);
+
+      if (fullString.includes('data=')) {
+        const queryStr = fullString.substring(fullString.indexOf('?') + 1);
+        const params = new URLSearchParams(queryStr);
+        jsurlData = params.get('data') || params.get('tmpl');
+      } else if (fullString.includes('col=') || fullString.includes('doc=')) {
+        const queryStr = fullString.substring(fullString.indexOf('?') + 1);
+        const params = new URLSearchParams(queryStr);
+        colDocId = params.get('col') || params.get('doc');
+      } else if (fullString.includes('~(') || fullString.includes('~')) {
+        const idx = fullString.indexOf('~');
+        if (idx !== -1) {
+          jsurlData = fullString.substring(idx);
+        }
+      }
+
+      function processDecodedTemplate(decodedHabit) {
+        if (!decodedHabit) return;
+
+        const autoInc = decodedHabit.autoIncrement || 0;
+        const todayKey = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+
+        // Check if habit already exists by matching habit name (case-insensitive)
+        const existingHabit = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
+          h.name && h.name.toLowerCase() === decodedHabit.name.toLowerCase()
+        ) : null;
+
+        if (autoInc > 0) {
+          let targetHabitId = null;
+          let isNewImport = false;
+
+          if (existingHabit) {
+            targetHabitId = existingHabit.id;
+          } else {
+            // Import new habit template first
+            targetHabitId = core.importHabitTemplateToState(decodedHabit);
+            isNewImport = true;
+          }
+
+          // Auto-log check-in count for today
+          if (targetHabitId && core.toggleHabitForDate) {
+            core.toggleHabitForDate(targetHabitId, todayKey, autoInc);
+          }
+
+          if (core.saveState) core.saveState();
+          if (core.renderAll) core.renderAll();
+
+          // Clear URL Hash
+          if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+
+          const toastMsg = isNewImport
+            ? `⚡ Imported "${decodedHabit.name}" & auto-logged check-in (+${autoInc})!`
+            : `⚡ Auto-logged check-in for "${existingHabit.name}" (+${autoInc})!`;
+          if (core.showToast) core.showToast(toastMsg, 'success');
+          return;
+        }
+
+        // Standard template import modal preview
+        core.showImportTemplateModal(decodedHabit);
+      }
+
+      if (jsurlData) {
+        const decoded = core.decodeHabitTemplate(jsurlData);
+        if (decoded) {
+          processDecodedTemplate(decoded);
+        } else {
+          if (core.showToast) core.showToast('❌ Failed to decode habit template from URL link.', 'error');
+        }
+      } else if (colDocId) {
+        if (core.showToast) core.showToast('⏳ Fetching cloud habit template...', 'info');
+        if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.downloadTemplateFromFirestore) {
+          core.SyncTargets.Firestore.downloadTemplateFromFirestore(colDocId).then(function(decoded) {
+            if (decoded) {
+              processDecodedTemplate(decoded);
+            } else {
+              if (core.showToast) core.showToast('❌ Template not found in Firestore.', 'error');
+            }
+          }).catch(function(err) {
+            const msg = err && err.message ? err.message : String(err);
+            if (core.showToast) core.showToast(`❌ Error loading cloud template: ${msg}`, 'error');
+          });
+        }
+      }
+    } catch(e) {
+      console.warn('Error parsing template URL hash:', e);
+    }
+  };
 
   core.checkURLHashForSyncConnection = function() {
     const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';

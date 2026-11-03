@@ -1,0 +1,155 @@
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define([], factory);
+  } else if (typeof exports === 'object') {
+    var lib = factory();
+    if (typeof root !== 'undefined') {
+      root.JSURL = lib;
+      if (root.window) root.window.JSURL = lib;
+    }
+    module.exports = lib;
+  } else {
+    root.JSURL = factory();
+  }
+}(typeof self !== 'undefined' ? self : (typeof global !== 'undefined' ? global : this), function () {
+  var ease = {
+    '~': '%7E',
+    '(': '%28',
+    ')': '%29',
+    "'": '%27'
+  };
+
+  function encodeString(s) {
+    return encodeURIComponent(s).replace(/[~()']/g, function (c) {
+      return ease[c];
+    });
+  }
+
+  function stringify(v) {
+    if (v === null || v === undefined) return '~null';
+    var t = typeof v;
+    if (t === 'number') return isFinite(v) ? '~' + v : '~null';
+    if (t === 'boolean') return '~' + v;
+    if (t === 'string') return "~'" + encodeString(v);
+    if (t === 'object') {
+      if (Array.isArray(v)) {
+        var r = [];
+        for (var i = 0; i < v.length; i++) {
+          r.push(stringify(v[i]) || '~null');
+        }
+        return '~(' + r.join('') + ')';
+      } else {
+        var r = [];
+        for (var k in v) {
+          if (Object.prototype.hasOwnProperty.call(v, k)) {
+            var val = stringify(v[k]);
+            if (val !== undefined) {
+              r.push(encodeString(k) + val);
+            }
+          }
+        }
+        return '~(' + r.join('~') + ')';
+      }
+    }
+    return undefined;
+  }
+
+  function parse(s) {
+    if (!s || typeof s !== 'string') return undefined;
+    var i = 0;
+
+    s = s.trim();
+    if (s.startsWith('#')) {
+      var qIdx = s.indexOf('data=');
+      if (qIdx !== -1) {
+        s = s.substring(qIdx + 5);
+      } else {
+        var tIdx = s.indexOf('tmpl=');
+        if (tIdx !== -1) s = s.substring(tIdx + 5);
+        else s = s.replace(/^#\/?/, '');
+      }
+    }
+
+    if (s.includes('%7E') || s.includes('%28') || s.includes('%29') || s.includes('%27')) {
+      s = decodeURIComponent(s);
+    }
+
+    function parseVal() {
+      if (i >= s.length) return undefined;
+      var c = s.charAt(i);
+      if (c !== '~') return undefined;
+      i++;
+      c = s.charAt(i);
+
+      if (c === 'n') {
+        if (s.substr(i, 4) === 'null') { i += 4; return null; }
+      }
+      if (c === 't') {
+        if (s.substr(i, 4) === 'true') { i += 4; return true; }
+      }
+      if (c === 'f') {
+        if (s.substr(i, 5) === 'false') { i += 5; return false; }
+      }
+      if (c === "'") {
+        i++;
+        var start = i;
+        while (i < s.length && s.charAt(i) !== '~' && s.charAt(i) !== ')') {
+          i++;
+        }
+        return decodeURIComponent(s.substring(start, i));
+      }
+      if (c === '(') {
+        i++;
+        if (s.charAt(i) === ')') {
+          i++;
+          return [];
+        }
+        if (s.charAt(i) === '~') {
+          // Array
+          var arr = [];
+          while (i < s.length && s.charAt(i) !== ')') {
+            arr.push(parseVal());
+          }
+          if (s.charAt(i) === ')') i++;
+          return arr;
+        } else {
+          // Object
+          var obj = {};
+          while (i < s.length && s.charAt(i) !== ')') {
+            if (s.charAt(i) === '~') i++;
+            if (s.charAt(i) === ')') break;
+
+            var keyStart = i;
+            while (i < s.length && s.charAt(i) !== '~' && s.charAt(i) !== ')') {
+              i++;
+            }
+            var key = decodeURIComponent(s.substring(keyStart, i));
+            var val = parseVal();
+            obj[key] = val;
+          }
+          if (s.charAt(i) === ')') i++;
+          return obj;
+        }
+      }
+
+      // Number
+      var numStart = i;
+      while (i < s.length && (s.charAt(i) === '-' || s.charAt(i) === '.' || (s.charAt(i) >= '0' && s.charAt(i) <= '9'))) {
+        i++;
+      }
+      if (numStart < i) {
+        var numStr = s.substring(numStart, i);
+        var num = Number(numStr);
+        if (!isNaN(num)) return num;
+      }
+      return undefined;
+    }
+
+    return parseVal();
+  }
+
+  return {
+    stringify: stringify,
+    parse: parse
+  };
+}));

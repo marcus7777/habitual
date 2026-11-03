@@ -212,6 +212,7 @@ global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } }
 
 // Load Habitual Core Files
 require('../web/js/colours.js');
+require('../web/js/jsurl.js');
 require('../web/js/qr.js');
 require('../web/js/state.js');
 require('../web/js/storage.js');
@@ -5340,6 +5341,187 @@ describe('Feature 44: 📝 Selected Day Notes Display under Heatmap Card', () =>
     assert(noteContainer.innerHTML.includes('Sunset stretch session'), 'In-place patch updated note text');
 
     document.querySelectorAll = origQuery;
+  });
+});
+
+describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore Links)', () => {
+  test('JSURL stringify and parse roundtrip encodes and decodes JSON objects', () => {
+    const jsurl = HabitualCore.JSURL || window.JSURL || require('../web/js/jsurl.js');
+    assert(jsurl, 'JSURL module is available');
+
+    const originalObj = {
+      h: 'Pushups Routine',
+      g: 50,
+      c: '#039BE5',
+      inc: 1,
+      s: [{ h: 'Set 1', g: 25 }, { h: 'Set 2', g: 25 }]
+    };
+
+    const encoded = jsurl.stringify(originalObj);
+    assert(typeof encoded === 'string', 'JSURL stringify returns string');
+    assert(encoded.startsWith('~('), 'JSURL stringify starts with ~(');
+    assert(encoded.includes('Pushups'), 'JSURL stringify includes habit name');
+
+    const decoded = jsurl.parse(encoded);
+    assertEqual(decoded.h, 'Pushups Routine', 'Decoded habit name matches');
+    assertEqual(decoded.g, 50, 'Decoded daily target matches');
+    assertEqual(decoded.c, '#039BE5', 'Decoded color matches');
+    assertEqual(decoded.inc, 1, 'Decoded autoIncrement matches');
+    assertEqual(decoded.s.length, 2, 'Decoded sub-habits array length matches');
+    assertEqual(decoded.s[0].h, 'Set 1', 'Sub-habit 1 name matches');
+  });
+
+  test('encodeHabitTemplate compresses keys and omits default values', () => {
+    const habitDefault = {
+      id: 'h_default',
+      name: 'Hydrate',
+      type: 'positive',
+      category: 'General',
+      dailyTarget: 1,
+      frequencyType: 'daily',
+      showCount: true,
+      showDuration: false,
+      hideHeatmap: false,
+      hideFromAll: false,
+      colorTheme: HabitualCore.getDefaultColorForId('Hydrate')
+    };
+
+    const minDefault = HabitualCore.encodeHabitTemplate(habitDefault);
+    assertEqual(minDefault.h, 'Hydrate', 'Habit name stored under compressed key h');
+    assertEqual(minDefault.t, undefined, 'Default positive type is omitted from payload');
+    assertEqual(minDefault.cat, undefined, 'Default General category is omitted from payload');
+    assertEqual(minDefault.g, undefined, 'Default target of 1 is omitted from payload');
+    assertEqual(minDefault.f, undefined, 'Default daily frequency is omitted from payload');
+    assertEqual(minDefault.c, undefined, 'Default derived color is omitted from payload');
+
+    const habitCustom = {
+      id: 'h_custom',
+      name: 'Heavy Bench Press',
+      type: 'positive',
+      category: 'Fitness',
+      dailyTarget: 5,
+      frequencyType: 'weekly',
+      weeklyTarget: 3,
+      colorTheme: '#8E24AA',
+      description: 'Chest day workout',
+      children: [
+        { id: 'sub_1', name: 'Warmup Set', dailyTarget: 1, colorTheme: '#8E24AA' },
+        { id: 'sub_2', name: 'Working Set', dailyTarget: 4, colorTheme: '#D81B60' }
+      ]
+    };
+
+    const minCustom = HabitualCore.encodeHabitTemplate(habitCustom, 2);
+    assertEqual(minCustom.h, 'Heavy Bench Press', 'Custom habit name encoded');
+    assertEqual(minCustom.inc, 2, 'Auto-increment count stored under inc key');
+    assertEqual(minCustom.cat, 'Fitness', 'Custom category encoded under cat key');
+    assertEqual(minCustom.g, 5, 'Custom dailyTarget encoded under g key');
+    assertEqual(minCustom.f, 'weekly', 'Custom frequencyType encoded under f key');
+    assertEqual(minCustom.wt, 3, 'Custom weeklyTarget encoded under wt key');
+    assertEqual(minCustom.c.toLowerCase(), '#8e24aa', 'Custom colorTheme encoded under c key');
+    assertEqual(minCustom.d, 'Chest day workout', 'Custom description encoded under d key');
+    assert(Array.isArray(minCustom.s), 'Sub-habits stored in s array');
+    assertEqual(minCustom.s.length, 2, 'Sub-habits array length matches');
+    assertEqual(minCustom.s[0].h, 'Warmup Set', 'Sub-habit 1 name encoded');
+    assertEqual(minCustom.s[1].c.toLowerCase(), '#d81b60', 'Sub-habit 2 distinct color encoded');
+  });
+
+  test('decodeHabitTemplate reconstructs full habit format for state and storage', () => {
+    const minPayload = {
+      h: 'Meditation',
+      d: '15 mins mindfulness',
+      g: 2,
+      c: '#00ACC1',
+      s: [{ h: 'Breathing Exercises' }]
+    };
+
+    const decoded = HabitualCore.decodeHabitTemplate(minPayload);
+    assert(decoded, 'Decoded habit object created');
+    assertEqual(decoded.name, 'Meditation', 'Habit name decoded');
+    assertEqual(decoded.description, '15 mins mindfulness', 'Description decoded');
+    assertEqual(decoded.dailyTarget, 2, 'Daily target decoded');
+    assertEqual(decoded.colorTheme.toLowerCase(), '#00acc1', 'Color theme decoded');
+    assertEqual(decoded.frequencyType, 'daily', 'Frequency defaults to daily');
+    assertEqual(decoded.children.length, 1, 'Sub-habit array reconstructed');
+    assertEqual(decoded.children[0].name, 'Breathing Exercises', 'Sub-habit name decoded');
+    assertEqual(decoded.children[0].parentId, decoded.id, 'Sub-habit parentId points to parent habit ID');
+  });
+
+  test('generateJSURLTemplateLink generates valid URL with encoded JSURL hash', () => {
+    const habit = {
+      id: 'h_link_test',
+      name: 'Gym Workout',
+      dailyTarget: 3,
+      colorTheme: '#E67C73'
+    };
+
+    const link = HabitualCore.generateJSURLTemplateLink(habit, 1);
+    assert(link.includes('#template?data='), 'Link contains #template?data= hash');
+    assert(link.includes('Gym%20Workout') || link.includes('Gym'), 'Link contains encoded habit name');
+
+    // Decode generated link hash
+    const queryStr = link.substring(link.indexOf('data=') + 5);
+    const decodedHabit = HabitualCore.decodeHabitTemplate(queryStr);
+    assert(decodedHabit, 'Generated JSURL link can be decoded back');
+    assertEqual(decodedHabit.name, 'Gym Workout', 'Decoded habit name matches original');
+    assertEqual(decodedHabit.dailyTarget, 3, 'Decoded dailyTarget matches original');
+    assertEqual(decodedHabit.autoIncrement, 1, 'Decoded autoIncrement matches original');
+  });
+
+  test('Firestore template link upload and download roundtrip', async () => {
+    const mockStore = {};
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: (colName) => ({
+        doc: (docId) => ({
+          set: async (data) => { mockStore[`${colName}_${docId}`] = data; return true; },
+          get: async () => ({
+            exists: !!mockStore[`${colName}_${docId}`],
+            data: () => mockStore[`${colName}_${docId}`]
+          })
+        })
+      })
+    };
+
+    const habit = {
+      id: 'cloud_tmpl_habit',
+      name: 'Morning Routine',
+      dailyTarget: 2,
+      colorTheme: '#33B679'
+    };
+
+    const uploadRes = await HabitualCore.SyncTargets.Firestore.uploadTemplateToFirestore(habit, 1);
+    assert(uploadRes.docId && uploadRes.docId.startsWith('tmpl_hb_'), 'Doc ID generated for cloud template');
+    assert(uploadRes.url.includes('#template?col='), 'Firestore template link contains #template?col=');
+
+    const downloadedHabit = await HabitualCore.SyncTargets.Firestore.downloadTemplateFromFirestore(uploadRes.docId);
+    assert(downloadedHabit, 'Cloud template payload retrieved and decoded');
+    assertEqual(downloadedHabit.name, 'Morning Routine', 'Downloaded habit name matches');
+    assertEqual(downloadedHabit.dailyTarget, 2, 'Downloaded habit dailyTarget matches');
+    assertEqual(downloadedHabit.autoIncrement, 1, 'Downloaded autoIncrement matches');
+  });
+
+  test('checkURLHashForTemplate handles JSURL hash and auto-increments count on scan', () => {
+    HabitualCore.resetState();
+    const todayKey = HabitualCore.getTodayKey();
+
+    // Case 1: Template with autoIncrement opens when habit does NOT exist yet
+    const templatePayload = {
+      h: 'Plank Challenge',
+      g: 1,
+      inc: 1,
+      c: '#F4511E'
+    };
+    const jsurlStr = (HabitualCore.JSURL || window.JSURL).stringify(templatePayload);
+    global.window.location = { hash: `#template?data=${jsurlStr}`, search: '', pathname: '/index.html' };
+
+    HabitualCore.checkURLHashForTemplate();
+
+    const createdHabit = HabitualCore.state.habits.find(h => h.name === 'Plank Challenge');
+    assert(createdHabit, 'Habit automatically imported when template link with autoIncrement is opened');
+    assertEqual(createdHabit.logs[todayKey].count, 1, 'Auto-incremented check-in count for today');
+
+    // Case 2: Opening the same link again auto-logs another count on existing habit
+    HabitualCore.checkURLHashForTemplate();
+    assertEqual(createdHabit.logs[todayKey].count, 2, 'Auto-incremented count for existing habit on second scan');
   });
 });
 
