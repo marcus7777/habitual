@@ -1896,6 +1896,27 @@ window.HabitualCore = window.HabitualCore || {};
       const card = e.target.closest('.heatmap-card');
       if (!card) return; // Only process clicks inside cards
 
+      const dayNoteContainer = e.target.closest('.heatmap-day-note-container');
+      if (dayNoteContainer) {
+        e.stopPropagation();
+        e.preventDefault();
+        const habitId = dayNoteContainer.getAttribute('data-habit-id') || dayNoteContainer.dataset.habitId;
+        const dateStr = dayNoteContainer.getAttribute('data-date') || dayNoteContainer.dataset.date || (core.getCursorDateKey ? core.getCursorDateKey() : core.getTodayKey());
+
+        const combinedItem = e.target.closest('.combined-note-item');
+        const targetHabitId = combinedItem ? (combinedItem.getAttribute('data-habit-id') || combinedItem.dataset.habitId) : (habitId !== 'all' && !habitId.startsWith('group_') ? habitId : null);
+
+        if (core.openLogModal) {
+          core.openLogModal(dateStr, targetHabitId);
+          if (core.elements && core.elements.modalLogNote && typeof core.elements.modalLogNote.focus === 'function') {
+            setTimeout(() => {
+              try { core.elements.modalLogNote.focus(); } catch (err) {}
+            }, 50);
+          }
+        }
+        return;
+      }
+
       const cardHabitId = card.getAttribute('data-habit-id');
       const clickedRawId = card.getAttribute('data-habit-id-raw');
       const wasAlreadySelected = card.classList.contains('selected') || card.classList.contains('selected-habit') || (core.state && (core.state.selectedHabitId === cardHabitId || (clickedRawId && core.state.selectedHabitId === clickedRawId)));

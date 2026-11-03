@@ -5253,6 +5253,72 @@ describe('Feature 43: ⚙️ All Page Options, Default Habit Preferences & Sorti
   });
 });
 
+describe('Feature 44: 📝 Selected Day Notes Display under Heatmap Card', () => {
+  test('buildHeatmapCard renders note for selected day under the heat map when note exists', () => {
+    HabitualCore.resetState();
+    const dateKey = '2026-10-15';
+    const habit = {
+      id: 'running',
+      name: 'Running',
+      type: 'positive',
+      logs: {
+        [dateKey]: { count: 1, note: 'Ran 5km in morning' }
+      }
+    };
+    HabitualCore.setState({ habits: [habit] });
+    HabitualCore.setCursorDateKey(dateKey);
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    const html = card.innerHTML;
+    assert(html.includes('heatmap-day-note-container'), 'Card includes heatmap-day-note-container');
+    assert(html.includes('Ran 5km in morning'), 'Card renders note text for selected day');
+    assert(html.includes('has-note'), 'Note container has has-note class');
+  });
+
+  test('buildHeatmapCard renders placeholder note for selected day under heat map when note is empty', () => {
+    HabitualCore.resetState();
+    const dateKey = '2026-10-16';
+    const habit = { id: 'reading', name: 'Reading', type: 'positive', logs: {} };
+    HabitualCore.setState({ habits: [habit] });
+    HabitualCore.setCursorDateKey(dateKey);
+
+    const card = HabitualCore.buildHeatmapCard(habit, 2026);
+    const html = card.innerHTML;
+    assert(html.includes('heatmap-day-note-container'), 'Card includes heatmap-day-note-container');
+    assert(html.includes('empty-note'), 'Note container has empty-note class');
+    assert(html.includes('+ Add Note'), 'Card renders + Add Note button when empty');
+  });
+
+  test('patchHeatmapCard updates the selected day note container in-place when updated', () => {
+    HabitualCore.resetState();
+    const dateKey = '2026-10-17';
+    const habit = { id: 'yoga', name: 'Yoga', type: 'positive', logs: { [dateKey]: { count: 1, note: 'Initial note' } } };
+    HabitualCore.setState({ habits: [habit] });
+    HabitualCore.setCursorDateKey(dateKey);
+
+    const card = document.createElement('div');
+    card.className = 'heatmap-card';
+    card.setAttribute('data-habit-id', 'yoga');
+
+    const noteContainer = document.createElement('div');
+    noteContainer.className = 'heatmap-day-note-container';
+    card.children.push(noteContainer);
+
+    const origQuery = document.querySelectorAll;
+    document.querySelectorAll = (sel) => {
+      if (sel.includes('heatmap-card')) return [card];
+      return origQuery ? origQuery(sel) : [];
+    };
+
+    HabitualCore.state.habits[0].logs[dateKey] = { count: 1, note: 'Sunset stretch session' };
+    HabitualCore.patchHeatmapCard('yoga', dateKey);
+
+    assert(noteContainer.innerHTML.includes('Sunset stretch session'), 'In-place patch updated note text');
+
+    document.querySelectorAll = origQuery;
+  });
+});
+
 // ============================================================================
 // FINAL REPORT
 // ============================================================================
