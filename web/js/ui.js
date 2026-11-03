@@ -3512,7 +3512,8 @@ window.HabitualCore = window.HabitualCore || {};
     }
     if (core.elements.modalLogDateInput) core.elements.modalLogDateInput.value = dateStr;
 
-    let targetId = (preferredHabitId && preferredHabitId !== 'all' && !preferredHabitId.startsWith('group_')) ? preferredHabitId : core.state.selectedHabitId;
+    const isSpecificHabitTap = !!(preferredHabitId && preferredHabitId !== 'all' && !preferredHabitId.startsWith('group_'));
+    let targetId = isSpecificHabitTap ? preferredHabitId : core.state.selectedHabitId;
     if (targetId && targetId !== 'all' && core.state.habits.some(h => h.id === targetId)) {
       core.state.selectedHabitId = targetId;
     } else if (core.state.habits.length > 0) {
@@ -3588,6 +3589,27 @@ window.HabitualCore = window.HabitualCore || {};
         core.loadLogModalValues();
       };
     }
+
+    const targetHabit = core.state.habits.find(h => h.id === targetId);
+    const selectGroup = (typeof document !== 'undefined' && document.getElementById) ? (document.getElementById('modal-log-habit-select-group') || (core.elements.modalLogHabitSelect && core.elements.modalLogHabitSelect.closest ? core.elements.modalLogHabitSelect.closest('.form-group') : null)) : null;
+    const titleEl = (typeof document !== 'undefined' && document.getElementById) ? (document.getElementById('modal-log-title') || (core.elements.modalLog && core.elements.modalLog.querySelector ? core.elements.modalLog.querySelector('.modal-header h3') : null)) : null;
+
+    if (selectGroup) {
+      if (isSpecificHabitTap) {
+        if (selectGroup.classList && selectGroup.classList.add) selectGroup.classList.add('hidden');
+      } else {
+        if (selectGroup.classList && selectGroup.classList.remove) selectGroup.classList.remove('hidden');
+      }
+    }
+
+    if (titleEl) {
+      if (isSpecificHabitTap && targetHabit) {
+        titleEl.textContent = `Log ${targetHabit.name}`;
+      } else {
+        titleEl.textContent = 'Log Activity';
+      }
+    }
+
     core.loadLogModalValues();
     if (core.elements.modalLogShowOnStartup) core.elements.modalLogShowOnStartup.checked = !!core.state.showQuickLogOnStartup;
     if (core.elements.modalLog) {
