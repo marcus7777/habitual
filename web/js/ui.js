@@ -1986,6 +1986,11 @@ window.HabitualCore = window.HabitualCore || {};
           if (parentHabit && parentHabit.subhabitSortOrder && parentHabit.subhabitSortOrder !== 'manual') {
             return; // Sub-habits are auto-sorted, manual move is disabled
           }
+        } else {
+          const mainSortOrder = (core.state && core.state.allPreferences && core.state.allPreferences.sortOrder) ? core.state.allPreferences.sortOrder : 'manual';
+          if (mainSortOrder !== 'manual') {
+            return; // Main list habits are auto-sorted, manual move is disabled
+          }
         }
 
         const siblings = core.state.habits.filter(h => (h.parentId || null) === (habit.parentId || null));
