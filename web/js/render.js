@@ -928,7 +928,6 @@ window.HabitualCore = window.HabitualCore || {};
       return `
         <div class="heatmap-day-note has-note" title="Click to edit note">
           <span class="note-icon">📝</span>
-          <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
           <span class="note-content">${core.escapeHTML ? core.escapeHTML(noteText) : noteText}</span>
           <button type="button" class="btn-edit-day-note" data-habit-id="${cardHabitId}" data-date="${cursorDateStr}" title="Edit note">✏️</button>
         </div>`.trim();
