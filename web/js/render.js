@@ -231,10 +231,8 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       // 5. In-place update for selected day note container
-      const existingNoteContainer = card.querySelector('.heatmap-day-note-container');
-      if (existingNoteContainer && core.renderDayNoteInnerHTML) {
-        existingNoteContainer.setAttribute('data-date', cursorDateStr);
-        existingNoteContainer.innerHTML = core.renderDayNoteInnerHTML(target, cursorDateStr);
+      if (core.updateAllDayNoteContainers) {
+        core.updateAllDayNoteContainers();
       }
     });
 
@@ -885,26 +883,26 @@ window.HabitualCore = window.HabitualCore || {};
     if (isGroup) cardHabitId = 'group_' + targetOrNull.habitIds.join('_');
     else if (habit) cardHabitId = habit.id;
 
+    // Do not show note under heat map if heat map is hidden for this habit
+    const shouldHideHeatmap = habit && (habit.hideHeatmap === true || (habit.isPaused && habit.hideHeatmapWhenPaused === true));
+    if (shouldHideHeatmap) return '';
+
+    // Notes appear under heat map ONLY for the selected habit
+    const isSelectedHabit = core.state && cardHabitId !== 'all' && core.state.selectedHabitId === cardHabitId;
+    if (!isSelectedHabit) return '';
+
     if (habit) {
       const log = (habit.logs && habit.logs[cursorDateStr]) ? habit.logs[cursorDateStr] : null;
       const noteText = (log && log.note) ? log.note.trim() : '';
-      if (noteText) {
-        return `
-          <div class="heatmap-day-note has-note" title="Click to edit note">
-            <span class="note-icon">📝</span>
-            <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
-            <span class="note-content">${core.escapeHTML ? core.escapeHTML(noteText) : noteText}</span>
-            <button type="button" class="btn-edit-day-note" data-habit-id="${cardHabitId}" data-date="${cursorDateStr}" title="Edit note">✏️</button>
-          </div>`.trim();
-      } else {
-        return `
-          <div class="heatmap-day-note empty-note" title="Click to add note">
-            <span class="note-icon">📝</span>
-            <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
-            <span class="note-placeholder">No note</span>
-            <button type="button" class="btn-add-day-note" data-habit-id="${cardHabitId}" data-date="${cursorDateStr}" title="Add note">+ Add Note</button>
-          </div>`.trim();
-      }
+      if (!noteText) return '';
+
+      return `
+        <div class="heatmap-day-note has-note" title="Click to edit note">
+          <span class="note-icon">📝</span>
+          <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
+          <span class="note-content">${core.escapeHTML ? core.escapeHTML(noteText) : noteText}</span>
+          <button type="button" class="btn-edit-day-note" data-habit-id="${cardHabitId}" data-date="${cursorDateStr}" title="Edit note">✏️</button>
+        </div>`.trim();
     } else {
       let notesList = [];
       if (isAll && core.state && Array.isArray(core.state.habits)) {
@@ -917,27 +915,20 @@ window.HabitualCore = window.HabitualCore || {};
           .map(h => ({ name: h.name, note: h.logs[cursorDateStr].note.trim(), habitId: h.id }));
       }
 
-      if (notesList.length > 0) {
-        const notesItemsHTML = notesList.map(item => `
-          <span class="combined-note-item" data-habit-id="${item.habitId}">
-            <strong>${core.escapeHTML ? core.escapeHTML(item.name) : item.name}:</strong> "${core.escapeHTML ? core.escapeHTML(item.note) : item.note}"
-          </span>
-        `).join(' ');
+      if (notesList.length === 0) return '';
 
-        return `
-          <div class="heatmap-day-note has-note">
-            <span class="note-icon">📝</span>
-            <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
-            <span class="note-content">${notesItemsHTML}</span>
-          </div>`.trim();
-      } else {
-        return `
-          <div class="heatmap-day-note empty-note">
-            <span class="note-icon">📝</span>
-            <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
-            <span class="note-placeholder">No notes for ${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}</span>
-          </div>`.trim();
-      }
+      const notesItemsHTML = notesList.map(item => `
+        <span class="combined-note-item" data-habit-id="${item.habitId}">
+          <strong>${core.escapeHTML ? core.escapeHTML(item.name) : item.name}:</strong> "${core.escapeHTML ? core.escapeHTML(item.note) : item.note}"
+        </span>
+      `).join(' ');
+
+      return `
+        <div class="heatmap-day-note has-note">
+          <span class="note-icon">📝</span>
+          <span class="note-date-label">${core.escapeHTML ? core.escapeHTML(formattedDate) : formattedDate}:</span>
+          <span class="note-content">${notesItemsHTML}</span>
+        </div>`.trim();
     }
   };
 
@@ -952,7 +943,53 @@ window.HabitualCore = window.HabitualCore || {};
     else if (habit) cardHabitId = habit.id;
 
     const innerHTML = core.renderDayNoteInnerHTML(targetOrNull, cursorDateStr);
+    if (!innerHTML) return '';
     return `<div class="heatmap-day-note-container" data-habit-id="${cardHabitId}" data-date="${cursorDateStr}">${innerHTML}</div>`;
+  };
+
+  core.updateAllDayNoteContainers = function() {
+    if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
+    const cards = document.querySelectorAll('.heatmap-card');
+    if (!cards || cards.length === 0) return;
+
+    const cursorDateStr = core.getCursorDateKey ? core.getCursorDateKey() : new Date().toISOString().split('T')[0];
+
+    cards.forEach(card => {
+      if (!card || typeof card.getAttribute !== 'function') return;
+      const cardHabitId = card.getAttribute('data-habit-id') || card.getAttribute('data-habit-id-raw');
+      if (!cardHabitId) return;
+
+      const isAll = cardHabitId === 'all';
+      const isGroup = cardHabitId.startsWith('group_');
+      const habit = (!isAll && !isGroup && core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h => h.id === cardHabitId) : null;
+      const target = isAll ? null : (isGroup ? cardHabitId : habit);
+
+      const existingNoteContainer = (typeof card.querySelector === 'function') ? card.querySelector('.heatmap-day-note-container') : null;
+      const newInner = core.renderDayNoteInnerHTML ? core.renderDayNoteInnerHTML(target, cursorDateStr) : '';
+
+      if (newInner) {
+        if (existingNoteContainer) {
+          existingNoteContainer.setAttribute('data-date', cursorDateStr);
+          existingNoteContainer.innerHTML = newInner;
+        } else if (core.renderDayNoteHTML) {
+          const newNoteHTML = core.renderDayNoteHTML(target, cursorDateStr);
+          if (newNoteHTML) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = newNoteHTML.trim();
+            const newElem = tempDiv.firstElementChild || (tempDiv.children && tempDiv.children[0]);
+            if (newElem && typeof card.appendChild === 'function') {
+              card.appendChild(newElem);
+            }
+          }
+        }
+      } else {
+        if (existingNoteContainer && typeof existingNoteContainer.remove === 'function') {
+          existingNoteContainer.remove();
+        } else if (existingNoteContainer && existingNoteContainer.parentNode && typeof existingNoteContainer.parentNode.removeChild === 'function') {
+          existingNoteContainer.parentNode.removeChild(existingNoteContainer);
+        }
+      }
+    });
   };
 
   core.buildHeatmapCard = function(targetOrNull, year) {
