@@ -63,8 +63,9 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 
 ### ☁️ Storage Engines, Cloud Sync & E2EE
 - **Granular Storage ($O(1)$ Writes)**: High-performance IndexedDB persistence with debounced coalescing. Switchable storage engines (`localStorage`, `IndexedDB`).
-- **End-to-End Encryption**: Zero-Knowledge AES-256-GCM encryption client-side using Web Crypto API.
-- **Multi-Target Live Sync**: Live sync across devices using Encrypted Firestore Cloud Sync and Acoustic Sound Sync.
+- **Zero-Knowledge End-to-End Encryption (E2EE)**: Client-side AES-256-GCM encryption with PBKDF2 SHA-256 key derivation (100,000 iterations, 16-byte SHA-256 salt, 12-byte random IV) via Web Crypto API for Firebase Cloud Backup and local JSON backup downloads.
+- **Encrypted Local JSON Exports & Imports**: Local JSON backup downloads use the same AES-256-GCM encryption format (`ENC:...`). Restoring an encrypted backup file automatically prompts for or decrypts using the Master Passphrase.
+- **Multi-Target Live Sync**: Live sync across devices using Zero-Knowledge Encrypted Firestore Cloud Sync (`/habit_data/{syncCode}`) and Acoustic Sound Sync.
 - **Shared Habit Deletion**: Deleting a shared habit unlinks and removes it locally from your device while keeping the remote Firestore document intact for other collaborators.
 
 ---
@@ -117,6 +118,23 @@ habitual/
 ├── firebase.json          # Firebase Hosting configuration
 └── package.json           # Node project manifest and test scripts
 ```
+
+---
+
+## 🔐 E2EE Cloud Backup & Local Export Encryption Architecture
+
+Habitual implements a **Zero-Knowledge Client-Side End-to-End Encryption (E2EE)** architecture for both Firebase Cloud Backup and local JSON backup downloads:
+
+- **Client-Side Processing**: All encryption and decryption operations take place entirely within the user's browser via the native W3C **Web Crypto API** (`crypto.subtle`).
+- **Zero-Knowledge Model**: Firebase Firestore and local disk backups store only opaque ciphertext strings starting with `ENC:`. Neither Google Cloud, Firebase servers, nor network intermediaries ever receive unencrypted payloads or the Master Passphrase.
+- **Cryptographic Specifications**:
+  - **Cipher**: `AES-256-GCM` (Galois/Counter Mode) with a 128-bit authentication tag for AEAD integrity protection.
+  - **Key Derivation (KDF)**: `PBKDF2` with `SHA-256` hashing and **100,000 iterations** in production.
+  - **Salt**: 16-byte salt derived deterministically per passphrase (`SHA-256("habitual_salt_v1_" + passphrase)`).
+  - **Initialization Vector (IV)**: 12 random bytes generated per encryption via `crypto.getRandomValues()`.
+- **Payload Format**: `ENC:<Base64(16-byte Salt + 12-byte IV + Ciphertext)>`.
+- **Firebase Storage Path**: Stored in Firestore under `/habit_data/{syncCode}` (`ciphertext`, `updatedAt`, `hashOfdata`).
+- **Local Download Encryption**: The same encryption engine is used when exporting local JSON backups, allowing users to save password-protected local backup files (`ENC:...`). Restoring an encrypted JSON backup file automatically prompts for or decrypts using the Master Passphrase.
 
 ---
 
