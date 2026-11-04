@@ -5476,8 +5476,7 @@ describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore L
       showCount: true,
       showDuration: false,
       hideHeatmap: false,
-      hideFromAll: false,
-      colorTheme: HabitualCore.getDefaultColorForId('Hydrate')
+      hideFromAll: false
     };
 
     const minDefault = HabitualCore.encodeHabitTemplate(habitDefault);
@@ -5616,6 +5615,71 @@ describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore L
     // Case 2: Opening the same link again auto-logs another count on existing habit
     HabitualCore.checkURLHashForTemplate();
     assertEqual(createdHabit.logs[todayKey].count, 2, 'Auto-incremented count for existing habit on second scan');
+  });
+
+  test('3-Level Deep Color Preservation for Custom Hex & Default Colors', () => {
+    HabitualCore.resetState();
+
+    // Level 1: Parent with custom hex #8E24AA
+    const parent = {
+      id: 'h_lvl1',
+      name: 'Fitness Blueprint',
+      colorTheme: '#8E24AA'
+    };
+
+    // Level 2: Child 1 with custom hex #D81B60, Child 2 with default color
+    const child1 = {
+      id: 'h_lvl2_a',
+      parentId: 'h_lvl1',
+      name: 'Leg Day',
+      colorTheme: '#D81B60'
+    };
+    const child2 = {
+      id: 'h_lvl2_b',
+      parentId: 'h_lvl1',
+      name: 'Hydration Track'
+      // No colorTheme -> default derived color
+    };
+
+    // Level 3: Grandchild 1 under Child 1 with custom hex #F4511E, Grandchild 2 under Child 2 with default color
+    const grandchild1 = {
+      id: 'h_lvl3_a',
+      parentId: 'h_lvl2_a',
+      name: 'Barbell Squats',
+      colorTheme: '#F4511E'
+    };
+    const grandchild2 = {
+      id: 'h_lvl3_b',
+      parentId: 'h_lvl2_b',
+      name: 'Electrolyte Mix'
+      // No colorTheme -> default derived color
+    };
+
+    HabitualCore.state.habits = [parent, child1, child2, grandchild1, grandchild2];
+
+    // Encode
+    const minPayload = HabitualCore.encodeHabitTemplate(parent);
+    assertEqual(minPayload.c, '#8e24aa', 'L1 parent custom hex preserved');
+    assertEqual(minPayload.s[0].c, '#d81b60', 'L2 child 1 custom hex preserved');
+    assertEqual(minPayload.s[0].s[0].c, '#f4511e', 'L3 grandchild 1 custom hex preserved');
+
+    // Decode
+    const jsurlStr = HabitualCore.JSURL.stringify(minPayload);
+    const decodedParent = HabitualCore.decodeHabitTemplate(jsurlStr);
+
+    assertEqual(decodedParent.colorTheme.toLowerCase(), '#8e24aa', 'L1 decoded parent hex matches');
+
+    const decodedChild1 = decodedParent.children.find(c => c.name === 'Leg Day');
+    assertEqual(decodedChild1.colorTheme.toLowerCase(), '#d81b60', 'L2 decoded child 1 hex matches');
+
+    const decodedGrandchild1 = decodedChild1.children.find(gc => gc.name === 'Barbell Squats');
+    assertEqual(decodedGrandchild1.colorTheme.toLowerCase(), '#f4511e', 'L3 decoded grandchild 1 hex matches');
+
+    const decodedChild2 = decodedParent.children.find(c => c.name === 'Hydration Track');
+    assert(decodedChild2.colorTheme !== decodedParent.colorTheme, 'L2 child 2 with default color gets its OWN default, not parent color');
+
+    const decodedGrandchild2 = decodedChild2.children.find(gc => gc.name === 'Electrolyte Mix');
+    assert(decodedGrandchild2.colorTheme !== decodedParent.colorTheme, 'L3 grandchild 2 with default color gets its OWN default, not parent color');
   });
 });
 
