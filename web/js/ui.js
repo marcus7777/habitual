@@ -4213,56 +4213,56 @@ window.HabitualCore = window.HabitualCore || {};
       core.state.habits = [];
     }
 
-    const habitId = 'habit_tmpl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
     const today = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
 
-    const newHabit = {
-      id: habitId,
-      name: decodedHabit.name,
-      type: decodedHabit.type || 'positive',
-      description: decodedHabit.description || '',
-      category: decodedHabit.category || 'General',
-      dailyTarget: decodedHabit.dailyTarget || 1,
-      frequencyType: decodedHabit.frequencyType || 'daily',
-      targetDays: decodedHabit.targetDays || [1, 2, 3, 4, 5, 6, 0],
-      weeklyTarget: decodedHabit.weeklyTarget || 1,
-      monthlyDay: decodedHabit.monthlyDay || 1,
-      monthlyTarget: decodedHabit.monthlyTarget || 1,
-      customInterval: decodedHabit.customInterval || 3,
-      customUnit: decodedHabit.customUnit || 'days',
-      colorTheme: decodedHabit.colorTheme || (core.getDefaultColorForId ? core.getDefaultColorForId(habitId) : '#039BE5'),
-      showCount: decodedHabit.showCount !== false,
-      showDuration: decodedHabit.showDuration === true,
-      hideHeatmap: decodedHabit.hideHeatmap === true,
-      hideFromAll: decodedHabit.hideFromAll === true,
-      createdAt: today,
-      logs: {}
-    };
+    function importNode(node, newParentId) {
+      const isRoot = !newParentId;
+      const newId = (isRoot ? 'habit_tmpl_' : 'habit_sub_tmpl_') + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
 
-    core.state.habits.push(newHabit);
+      const habitObj = {
+        id: newId,
+        parentId: newParentId || null,
+        name: node.name,
+        type: node.type || 'positive',
+        description: node.description || '',
+        category: node.category || 'General',
+        dailyTarget: node.dailyTarget || 1,
+        frequencyType: node.frequencyType || 'daily',
+        targetDays: node.targetDays || [1, 2, 3, 4, 5, 6, 0],
+        weeklyTarget: node.weeklyTarget || 1,
+        monthlyDay: node.monthlyDay || 1,
+        monthlyTarget: node.monthlyTarget || 1,
+        customInterval: node.customInterval || 3,
+        customUnit: node.customUnit || 'days',
+        colorTheme: node.colorTheme || (core.getDefaultColorForId ? core.getDefaultColorForId(newId) : '#039BE5'),
+        showCount: node.showCount !== false,
+        showDuration: node.showDuration === true,
+        hideHeatmap: node.hideHeatmap === true,
+        hideFromAll: node.hideFromAll === true,
+        colorWholeWeek: node.colorWholeWeek !== false,
+        colorWholeMonth: node.colorWholeMonth !== false,
+        subhabitSortOrder: node.subhabitSortOrder || 'manual',
+        subhabitSortReverse: node.subhabitSortReverse === true,
+        parentDependency: node.parentDependency || 'none',
+        createdAt: today,
+        logs: {}
+      };
 
-    // Import sub-habits if present
-    if (Array.isArray(decodedHabit.children) && decodedHabit.children.length > 0) {
-      decodedHabit.children.forEach(child => {
-        const subId = 'habit_sub_tmpl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-        const subHabit = {
-          id: subId,
-          parentId: habitId,
-          name: child.name,
-          type: child.type || newHabit.type,
-          dailyTarget: child.dailyTarget || 1,
-          colorTheme: child.colorTheme || newHabit.colorTheme,
-          createdAt: today,
-          logs: {}
-        };
-        core.state.habits.push(subHabit);
-      });
+      core.state.habits.push(habitObj);
+
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        node.children.forEach(child => importNode(child, newId));
+      }
+
+      return newId;
     }
+
+    const rootId = importNode(decodedHabit, null);
 
     if (core.saveState) core.saveState();
     if (core.renderAll) core.renderAll();
 
-    return habitId;
+    return rootId;
   };
 
   core.showImportTemplateModal = function(decodedHabit) {

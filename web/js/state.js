@@ -1499,91 +1499,81 @@ window.HabitualCore = window.HabitualCore || {};
   core.encodeHabitTemplate = function(habit, autoIncrementCount = 0) {
     if (!habit || !habit.name) return null;
 
-    const min = { h: String(habit.name).trim() };
+    function encodeSubTree(node, isRootNode) {
+      if (!node || !node.name) return null;
 
-    const inc = parseInt(autoIncrementCount, 10);
-    if (!isNaN(inc) && inc > 0) {
-      min.inc = inc;
-    }
+      const min = { h: String(node.name).trim() };
 
-    if (habit.type && habit.type !== 'positive') {
-      min.t = habit.type;
-    }
-    if (habit.description && String(habit.description).trim()) {
-      min.d = String(habit.description).trim();
-    }
-    if (habit.category && habit.category !== 'General') {
-      min.cat = habit.category;
-    }
-
-    const dailyTarget = parseInt(habit.dailyTarget, 10);
-    if (!isNaN(dailyTarget) && dailyTarget !== 1) {
-      min.g = dailyTarget;
-    }
-
-    if (habit.frequencyType && habit.frequencyType !== 'daily') {
-      min.f = habit.frequencyType;
-    }
-
-    if (habit.frequencyType === 'specific_days' && Array.isArray(habit.targetDays)) {
-      const defaultDays = [1, 2, 3, 4, 5, 6, 0];
-      if (JSON.stringify(habit.targetDays) !== JSON.stringify(defaultDays)) {
-        min.td = habit.targetDays;
+      if (isRootNode) {
+        const inc = parseInt(autoIncrementCount, 10);
+        if (!isNaN(inc) && inc > 0) min.inc = inc;
       }
-    }
 
-    if (habit.frequencyType === 'weekly' && habit.weeklyTarget && habit.weeklyTarget !== 1) {
-      min.wt = parseInt(habit.weeklyTarget, 10);
-    }
+      if (node.type && node.type !== 'positive') min.t = node.type;
+      if (node.description && String(node.description).trim()) min.d = String(node.description).trim();
+      if (node.category && node.category !== 'General') min.cat = node.category;
 
-    if (habit.frequencyType === 'monthly') {
-      if (habit.monthlyDay && habit.monthlyDay !== 1) min.md = parseInt(habit.monthlyDay, 10);
-      if (habit.monthlyTarget && habit.monthlyTarget !== 1) min.mt = parseInt(habit.monthlyTarget, 10);
-    }
+      const dailyTarget = parseInt(node.dailyTarget, 10);
+      if (!isNaN(dailyTarget) && dailyTarget !== 1) min.g = dailyTarget;
 
-    if (habit.frequencyType === 'custom_interval') {
-      if (habit.customInterval && habit.customInterval !== 3) min.ci = parseInt(habit.customInterval, 10);
-      if (habit.customUnit && habit.customUnit !== 'days') min.cu = habit.customUnit;
-    }
+      if (node.frequencyType && node.frequencyType !== 'daily') min.f = node.frequencyType;
 
-    if (habit.colorTheme) {
-      const normColor = (core.normalizeHex && habit.colorTheme.startsWith('#')) ? core.normalizeHex(habit.colorTheme) : habit.colorTheme;
-      const derivedDefault = core.getDefaultColorForId ? core.getDefaultColorForId(habit.name) : null;
-      if (!derivedDefault || normColor.toLowerCase() !== derivedDefault.toLowerCase()) {
-        min.c = normColor;
+      if (node.frequencyType === 'specific_days' && Array.isArray(node.targetDays)) {
+        const defaultDays = [1, 2, 3, 4, 5, 6, 0];
+        if (JSON.stringify(node.targetDays) !== JSON.stringify(defaultDays)) min.td = node.targetDays;
       }
-    }
 
-    if (habit.showCount === false) min.sc = false;
-    if (habit.showDuration === true) min.sd = true;
-    if (habit.hideHeatmap === true) min.hh = true;
-    if (habit.hideFromAll === true) min.ha = true;
+      if (node.frequencyType === 'weekly' && node.weeklyTarget && node.weeklyTarget !== 1) {
+        min.wt = parseInt(node.weeklyTarget, 10);
+      }
 
-    // Sub-habits
-    let childrenList = [];
-    if (Array.isArray(habit.children) && habit.children.length > 0) {
-      childrenList = habit.children;
-    } else if (core.state && Array.isArray(core.state.habits)) {
-      childrenList = core.state.habits.filter(h => h.parentId === habit.id);
-    }
+      if (node.frequencyType === 'monthly') {
+        if (node.monthlyDay && node.monthlyDay !== 1) min.md = parseInt(node.monthlyDay, 10);
+        if (node.monthlyTarget && node.monthlyTarget !== 1) min.mt = parseInt(node.monthlyTarget, 10);
+      }
 
-    if (childrenList.length > 0) {
-      min.s = childrenList.map(child => {
-        const childMin = { h: String(child.name).trim() };
-        if (child.type && child.type !== 'positive') childMin.t = child.type;
-        const childTarget = parseInt(child.dailyTarget, 10);
-        if (!isNaN(childTarget) && childTarget !== 1) childMin.g = childTarget;
-        if (child.colorTheme) {
-          const normC = (core.normalizeHex && child.colorTheme.startsWith('#')) ? core.normalizeHex(child.colorTheme) : child.colorTheme;
-          if (!min.c || normC.toLowerCase() !== min.c.toLowerCase()) {
-            childMin.c = normC;
-          }
+      if (node.frequencyType === 'custom_interval') {
+        if (node.customInterval && node.customInterval !== 3) min.ci = parseInt(node.customInterval, 10);
+        if (node.customUnit && node.customUnit !== 'days') min.cu = node.customUnit;
+      }
+
+      if (node.colorTheme) {
+        const normColor = (core.normalizeHex && node.colorTheme.startsWith('#')) ? core.normalizeHex(node.colorTheme) : node.colorTheme;
+        const derivedNameColor = core.getDefaultColorForId ? core.getDefaultColorForId(node.name) : null;
+        const derivedIdColor = (node.id && core.getDefaultColorForId) ? core.getDefaultColorForId(node.id) : null;
+        const isDefault = (derivedNameColor && normColor.toLowerCase() === derivedNameColor.toLowerCase()) ||
+                          (derivedIdColor && normColor.toLowerCase() === derivedIdColor.toLowerCase());
+        if (!isDefault) {
+          min.c = normColor;
         }
-        return childMin;
-      });
+      }
+
+      if (node.showCount === false) min.sc = false;
+      if (node.showDuration === true) min.sd = true;
+      if (node.hideHeatmap === true) min.hh = true;
+      if (node.hideFromAll === true) min.ha = true;
+      if (node.colorWholeWeek === false) min.cww = false;
+      if (node.colorWholeMonth === false) min.cwm = false;
+      if (node.subhabitSortOrder && node.subhabitSortOrder !== 'manual') min.sso = node.subhabitSortOrder;
+      if (node.subhabitSortReverse === true) min.ssr = true;
+      if (node.parentDependency && node.parentDependency !== 'none') min.dr = node.parentDependency;
+
+      // Children list (supports arbitrary nesting)
+      let childrenList = [];
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        childrenList = node.children;
+      } else if (core.state && Array.isArray(core.state.habits)) {
+        childrenList = core.state.habits.filter(h => h.parentId === node.id);
+      }
+
+      if (childrenList.length > 0) {
+        min.s = childrenList.map(child => encodeSubTree(child, false)).filter(Boolean);
+      }
+
+      return min;
     }
 
-    return min;
+    return encodeSubTree(habit, true);
   };
 
   core.decodeHabitTemplate = function(minPayload) {
@@ -1597,67 +1587,66 @@ window.HabitualCore = window.HabitualCore || {};
 
     if (!min || typeof min !== 'object') return null;
 
-    const name = min.h || min.name;
-    if (!name) return null;
+    function decodeSubTree(minNode, parentType, isRootNode, parentId) {
+      const name = minNode.h || minNode.name;
+      if (!name) return null;
 
-    const baseId = 'tmpl_h_' + Math.random().toString(36).substring(2, 10);
-    const today = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+      const today = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
+      const baseId = (isRootNode ? 'tmpl_h_' : 'tmpl_sub_') + Math.random().toString(36).substring(2, 10);
 
-    const habit = {
-      id: baseId,
-      name: String(name).trim(),
-      type: min.t || min.type || 'positive',
-      description: min.d || min.description || '',
-      category: min.cat || min.category || 'General',
-      dailyTarget: parseInt(min.g || min.dailyTarget || 1, 10),
-      frequencyType: min.f || min.frequencyType || 'daily',
-      targetDays: min.td || min.targetDays || [1, 2, 3, 4, 5, 6, 0],
-      weeklyTarget: parseInt(min.wt || min.weeklyTarget || 1, 10),
-      monthlyDay: parseInt(min.md || min.monthlyDay || 1, 10),
-      monthlyTarget: parseInt(min.mt || min.monthlyTarget || 1, 10),
-      customInterval: parseInt(min.ci || min.customInterval || 3, 10),
-      customUnit: min.cu || min.customUnit || 'days',
-      showCount: min.sc !== undefined ? Boolean(min.sc) : (min.showCount !== undefined ? Boolean(min.showCount) : true),
-      showDuration: min.sd !== undefined ? Boolean(min.sd) : (min.showDuration !== undefined ? Boolean(min.showDuration) : false),
-      hideHeatmap: min.hh !== undefined ? Boolean(min.hh) : (min.hideHeatmap !== undefined ? Boolean(min.hideHeatmap) : false),
-      hideFromAll: min.ha !== undefined ? Boolean(min.ha) : (min.hideFromAll !== undefined ? Boolean(min.hideFromAll) : false),
-      autoIncrement: parseInt(min.inc || min.autoIncrement || 0, 10),
-      createdAt: today,
-      logs: {}
-    };
+      const rawColor = minNode.c || minNode.colorTheme;
+      let nodeColor = null;
+      if (rawColor) {
+        nodeColor = (core.normalizeHex && rawColor.startsWith('#')) ? core.normalizeHex(rawColor) : rawColor;
+      } else {
+        // Reconstruct default color for THIS habit/sub-habit (NOT the parent's color)
+        nodeColor = core.getDefaultColorForId ? (core.getDefaultColorForId(baseId) || core.getDefaultColorForId(name)) : '#039BE5';
+      }
 
-    const color = min.c || min.colorTheme;
-    if (color) {
-      habit.colorTheme = (core.normalizeHex && color.startsWith('#')) ? core.normalizeHex(color) : color;
-    } else {
-      habit.colorTheme = core.getDefaultColorForId ? core.getDefaultColorForId(habit.id) : '#039BE5';
+      const node = {
+        id: baseId,
+        parentId: parentId || null,
+        name: String(name).trim(),
+        type: minNode.t || minNode.type || parentType || 'positive',
+        description: minNode.d || minNode.description || '',
+        category: minNode.cat || minNode.category || 'General',
+        dailyTarget: parseInt(minNode.g || minNode.dailyTarget || 1, 10),
+        frequencyType: minNode.f || minNode.frequencyType || 'daily',
+        targetDays: minNode.td || minNode.targetDays || [1, 2, 3, 4, 5, 6, 0],
+        weeklyTarget: parseInt(minNode.wt || minNode.weeklyTarget || 1, 10),
+        monthlyDay: parseInt(minNode.md || minNode.monthlyDay || 1, 10),
+        monthlyTarget: parseInt(minNode.mt || minNode.monthlyTarget || 1, 10),
+        customInterval: parseInt(minNode.ci || minNode.customInterval || 3, 10),
+        customUnit: minNode.cu || minNode.customUnit || 'days',
+        colorTheme: nodeColor,
+        showCount: minNode.sc !== undefined ? Boolean(minNode.sc) : (minNode.showCount !== undefined ? Boolean(minNode.showCount) : true),
+        showDuration: minNode.sd !== undefined ? Boolean(minNode.sd) : (minNode.showDuration !== undefined ? Boolean(minNode.showDuration) : false),
+        hideHeatmap: minNode.hh !== undefined ? Boolean(minNode.hh) : (minNode.hideHeatmap !== undefined ? Boolean(minNode.hideHeatmap) : false),
+        hideFromAll: minNode.ha !== undefined ? Boolean(minNode.ha) : (minNode.hideFromAll !== undefined ? Boolean(minNode.hideFromAll) : false),
+        colorWholeWeek: minNode.cww !== undefined ? Boolean(minNode.cww) : (minNode.colorWholeWeek !== undefined ? Boolean(minNode.colorWholeWeek) : true),
+        colorWholeMonth: minNode.cwm !== undefined ? Boolean(minNode.cwm) : (minNode.colorWholeMonth !== undefined ? Boolean(minNode.colorWholeMonth) : true),
+        subhabitSortOrder: minNode.sso || minNode.subhabitSortOrder || 'manual',
+        subhabitSortReverse: minNode.ssr !== undefined ? Boolean(minNode.ssr) : (minNode.subhabitSortReverse !== undefined ? Boolean(minNode.subhabitSortReverse) : false),
+        parentDependency: minNode.dr || minNode.parentDependency || minNode.dependencyRule || 'none',
+        createdAt: today,
+        logs: {}
+      };
+
+      if (isRootNode) {
+        node.autoIncrement = parseInt(minNode.inc || minNode.autoIncrement || 0, 10);
+      }
+
+      const subMinList = minNode.s || minNode.children || [];
+      if (Array.isArray(subMinList) && subMinList.length > 0) {
+        node.children = subMinList.map(subMin => decodeSubTree(subMin, node.type, false, node.id)).filter(Boolean);
+      } else {
+        node.children = [];
+      }
+
+      return node;
     }
 
-    const subMinList = min.s || min.children || [];
-    if (Array.isArray(subMinList) && subMinList.length > 0) {
-      habit.children = subMinList.map(subMin => {
-        const subName = subMin.h || subMin.name;
-        const subId = 'tmpl_sub_' + Math.random().toString(36).substring(2, 10);
-        const subColor = (subMin.c || subMin.colorTheme) ?
-          ((core.normalizeHex && (subMin.c || subMin.colorTheme).startsWith('#')) ? core.normalizeHex(subMin.c || subMin.colorTheme) : (subMin.c || subMin.colorTheme))
-          : habit.colorTheme;
-
-        return {
-          id: subId,
-          parentId: habit.id,
-          name: String(subName).trim(),
-          type: subMin.t || subMin.type || habit.type,
-          dailyTarget: parseInt(subMin.g || subMin.dailyTarget || 1, 10),
-          colorTheme: subColor,
-          createdAt: today,
-          logs: {}
-        };
-      });
-    } else {
-      habit.children = [];
-    }
-
-    return habit;
+    return decodeSubTree(min, 'positive', true, null);
   };
 
   core.generateJSURLTemplateLink = function(habit, autoIncrementCount = 0) {
