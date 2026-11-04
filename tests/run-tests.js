@@ -2171,6 +2171,73 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     assertEqual(parent.hideFromAll, true, 'Parent remains true when child is individually updated');
   });
 
+  test('sub-habit display options tab updates only sub-habit options and preserves sub-habit color', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+
+    const parent = { id: 'p_color', name: 'Parent Color', colorTheme: '#d50000', showStreak: false, logs: {} };
+    const child = { id: 'c_color', name: 'Child Color', parentId: 'p_color', colorTheme: '#00ff00', showStreak: false, logs: {} };
+    state.habits.push(parent, child);
+
+    const prevGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'habit-id') return { value: 'p_color' };
+      if (id === 'habit-name') return { value: 'Parent Color' };
+      if (id === 'subhabit-show-streak') return { checked: true };
+      return prevGetElementById ? prevGetElementById(id) : null;
+    };
+
+    HabitualCore.elements.habitShowStreak = { checked: false };
+    HabitualCore.handleHabitFormSubmit({ preventDefault: () => {} });
+
+    global.document.getElementById = prevGetElementById;
+
+    assertEqual(parent.colorTheme, '#d50000', 'Parent retains red color');
+    assertEqual(child.colorTheme, '#00ff00', 'Child retains green color (not overwritten by parent color)');
+    assertEqual(parent.showStreak, false, 'Parent showStreak remains false from parent tab');
+    assertEqual(child.showStreak, true, 'Child showStreak updated to true from subhabit tab');
+  });
+
+  test('sub-habit options do not inherit parent color or parent tab hideFromAll when parent options change', () => {
+    HabitualCore.resetState();
+    const state = HabitualCore.getState();
+
+    const parent = { id: 'p_test', name: 'Parent', colorTheme: '#112233', hideFromAll: false, showCount: true, logs: {} };
+    const child1 = { id: 'c1_test', name: 'Child 1', parentId: 'p_test', colorTheme: '#aabbcc', hideFromAll: false, showCount: true, logs: {} };
+    const child2 = { id: 'c2_test', name: 'Child 2', parentId: 'p_test', colorTheme: '#ddeeff', hideFromAll: false, showCount: true, logs: {} };
+    state.habits.push(parent, child1, child2);
+
+    const prevGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'habit-id') return { value: 'p_test' };
+      if (id === 'habit-name') return { value: 'Parent' };
+      if (id === 'subhabit-show-count') return { checked: false };
+      if (id === 'subhabit-hide-from-all') return { checked: false };
+      return prevGetElementById ? prevGetElementById(id) : null;
+    };
+
+    // Changing parent's hideFromAll to true in Tab 1
+    HabitualCore.elements.habitHideFromAll = { checked: true };
+    HabitualCore.elements.habitShowCount = { checked: true };
+    HabitualCore.handleHabitFormSubmit({ preventDefault: () => {} });
+
+    global.document.getElementById = prevGetElementById;
+
+    // Verify parent updated hideFromAll to true
+    assertEqual(parent.hideFromAll, true, 'Parent hideFromAll updated to true');
+    // Verify children did NOT inherit parent's hideFromAll (remains false from subhabit tab)
+    assertEqual(child1.hideFromAll, false, 'Child 1 hideFromAll remains false from subhabit tab');
+    assertEqual(child2.hideFromAll, false, 'Child 2 hideFromAll remains false from subhabit tab');
+
+    // Verify children updated showCount to false from subhabit tab
+    assertEqual(child1.showCount, false, 'Child 1 showCount updated to false from subhabit tab');
+    assertEqual(child2.showCount, false, 'Child 2 showCount updated to false from subhabit tab');
+
+    // Verify colors were untouched
+    assertEqual(child1.colorTheme, '#aabbcc', 'Child 1 color theme untouched');
+    assertEqual(child2.colorTheme, '#ddeeff', 'Child 2 color theme untouched');
+  });
+
   test('creating a new sub-habit copies preferences from parent habit', () => {
     HabitualCore.resetState();
     const state = HabitualCore.getState();

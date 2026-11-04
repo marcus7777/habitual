@@ -298,16 +298,7 @@ window.HabitualCore = window.HabitualCore || {};
       subhabitTabBtn._hasTabListener = true;
     }
 
-    ['show-streak', 'show-count', 'show-duration', 'hide-from-all', 'is-paused', 'hide-heatmap-when-paused', 'hide-heatmap'].forEach(key => {
-      const parentInput = document.getElementById(`habit-${key}`);
-      const subInput = document.getElementById(`subhabit-${key}`);
-      if (parentInput && subInput && typeof parentInput.addEventListener === 'function' && !parentInput._hasSubSyncListener) {
-        parentInput.addEventListener('change', () => {
-          subInput.checked = parentInput.checked;
-        });
-        parentInput._hasSubSyncListener = true;
-      }
-    });
+
 
     core.elements.modalPauseHabit = document.getElementById('modal-pause-habit');
     core.elements.modalPauseHabitTitle = document.getElementById('modal-pause-habit-title');
@@ -3402,15 +3393,21 @@ window.HabitualCore = window.HabitualCore || {};
               if (descId !== habit.id) {
                 const desc = core.state.habits.find(h => h.id === descId);
                 if (desc) {
-                  desc.colorTheme = habit.colorTheme;
                   desc.showStreak = cascadeStreak;
                   desc.showCount = cascadeCount;
                   desc.showDuration = cascadeDuration;
                   desc.hideFromAll = cascadeHideFromAll;
                   desc.hideHeatmap = cascadeHideHeatmap;
                   desc.hideHeatmapWhenPaused = cascadeHideHeatmapWhenPaused;
-                  if (subIsPaused && subIsPaused.checked) {
-                    desc.isPaused = true;
+                  if (subIsPaused) {
+                    const subIsPausedVal = subIsPaused.checked;
+                    if (subIsPausedVal !== Boolean(desc.isPaused)) {
+                      if (core.setHabitPauseState) {
+                        core.setHabitPauseState(desc, subIsPausedVal, core.getTodayKey(), { hideHeatmap: cascadeHideHeatmapWhenPaused });
+                      } else {
+                        desc.isPaused = subIsPausedVal;
+                      }
+                    }
                   }
                   desc.subhabitSortOrder = habit.subhabitSortOrder;
                   desc.subhabitSortReverse = habit.subhabitSortReverse;
@@ -3430,17 +3427,6 @@ window.HabitualCore = window.HabitualCore || {};
           }
 
           habit.updatedAt = Date.now();
-          if (previousHideFromAll !== hideFromAll) {
-            const descendantIds = core.getAllDescendantIds(habit.id);
-            descendantIds.forEach(descId => {
-              if (descId !== habit.id) {
-                const descendant = core.state.habits.find(h => h.id === descId);
-                if (descendant) {
-                  descendant.hideFromAll = hideFromAll;
-                }
-              }
-            });
-          }
 
           if (core.elements.habitEnableBackfill && core.elements.habitEnableBackfill.checked) {
             const durationVal = (core.elements.habitHistoryStartDate && core.elements.habitHistoryStartDate.value) ? core.elements.habitHistoryStartDate.value : (core.elements.habitHistoryDuration ? core.elements.habitHistoryDuration.value : '30');
