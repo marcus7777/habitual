@@ -1,0 +1,43 @@
+{
+  "version": 2,
+  "updatedAt": 1793750862652,
+  "habits": [
+    {
+      "id": "dailyReading135",
+      "updatedAt": 1793750862652,
+      "name": "Daily Reading 135",
+      "colorTheme": "#616161",
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-11-04",
+      "logs": {
+        "2026-11-04": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "deletedHabitIds": [],
+  "updateLog": [],
+  "remoteHashHistory": [],
+  "selectedHabitId": "dailyReading135",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false,
+  "dayBoundaryMode": "midnight",
+  "latitude": 51.5074,
+  "longitude": -0.1278,
+  "locationName": "Default (London)",
+  "allPreferences": {
+    "sortOrder": "manual",
+    "sortReverse": false,
+    "showStreak": false,
+    "showCount": true,
+    "showDuration": false,
+    "description": ""
+  }
+}
