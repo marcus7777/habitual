@@ -3,6 +3,9 @@ window.HabitualCore = window.HabitualCore || {};
 (function(core) {
   'use strict';
 
+  const TICK_ICON = '<svg class="icon-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const PLUS_ICON = '<svg class="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+
   // Helper functions for formatting card badge labels DRYly
   core.formatCountLabel = function(stats, isNegative = false) {
     if (!stats) return '';
@@ -201,9 +204,7 @@ window.HabitualCore = window.HabitualCore || {};
           bgStyle = `background-color: ${alphaHex}; border-color: ${hexColor}; color: var(--text-main);`;
         }
 
-        const tickIcon = '<svg class="icon-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-        const plusIcon = '<svg class="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-        const iconHTML = isGoalMet ? tickIcon : plusIcon;
+        const iconHTML = isGoalMet ? TICK_ICON : PLUS_ICON;
 
         quickLogBtn.className = `btn-card-quick-log ${isGoalMet ? 'goal-met' : ''}`;
         quickLogBtn.setAttribute('data-goal-met', isGoalMet ? 'true' : 'false');
@@ -1266,9 +1267,7 @@ window.HabitualCore = window.HabitualCore || {};
       const count = log ? log.count : 0;
       const target = Math.max(1, habit.dailyTarget || 1);
 
-      const tickIcon = '<svg class="icon-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-      const plusIcon = '<svg class="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-      const iconHTML = isGoalMet ? tickIcon : plusIcon;
+      const iconHTML = isGoalMet ? TICK_ICON : PLUS_ICON;
 
       let bgStyle = '';
       if (isGoalMet) {
