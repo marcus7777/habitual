@@ -530,7 +530,9 @@ window.HabitualCore = window.HabitualCore || {};
     const listContainer = document.createElement('div');
     listContainer.className = 'subhabits-list-container cards-mode';
 
-    sortedSubhabits.forEach(sub => {
+    const visibleSubhabits = sortedSubhabits.filter(sub => !(core.shouldHideHabit && core.shouldHideHabit(sub)));
+
+    visibleSubhabits.forEach(sub => {
       const subNode = core.renderHabitTree(sub, year);
       listContainer.appendChild(subNode);
     });
@@ -606,10 +608,26 @@ window.HabitualCore = window.HabitualCore || {};
       : document.createElement('div');
 
     if (route.view === 'home') {
+      const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().slice(0, 10);
       const rawTopLevelHabits = core.state.habits.filter(h => !h.parentId);
       const topLevelHabits = core.getSortedSubhabits ? core.getSortedSubhabits(null, rawTopLevelHabits, core.state.selectedYear) : rawTopLevelHabits;
-      const visibleTopLevelHabits = topLevelHabits.filter(h => !(h.isPaused && h.hideHeatmapWhenPaused));
+      const visibleTopLevelHabits = topLevelHabits.filter(h => !(h.isPaused && h.hideHeatmapWhenPaused) && !(core.shouldHideHabit && core.shouldHideHabit(h, todayStr)));
       const habitsInAll = core.state.habits.filter(h => !h.hideFromAll);
+
+      const totalHiddenCount = core.state.habits.filter(h => core.shouldHideHabit && core.shouldHideHabit(h, todayStr)).length;
+
+      const menuToggleContainer = document.getElementById('menu-toggle-show-hidden-container');
+      const menuToggleCheckbox = document.getElementById('menu-toggle-show-hidden');
+      if (menuToggleCheckbox && core.state) {
+        menuToggleCheckbox.checked = Boolean(core.state.showHiddenOverride);
+      }
+      if (menuToggleContainer) {
+        if (totalHiddenCount > 0 || (core.state && core.state.showHiddenOverride)) {
+          menuToggleContainer.classList.remove('hidden');
+        } else {
+          menuToggleContainer.classList.add('hidden');
+        }
+      }
 
       if (core.state.allPreferences && core.state.allPreferences.description && core.state.allPreferences.description.trim()) {
         const descBox = document.createElement('div');
@@ -628,15 +646,46 @@ window.HabitualCore = window.HabitualCore || {};
         fragment.appendChild(habitNode);
       });
 
-      const hiddenPausedCount = topLevelHabits.length - visibleTopLevelHabits.length;
-      if (hiddenPausedCount > 0) {
+      if (totalHiddenCount > 0 && !(core.state && core.state.showHiddenOverride)) {
         const hiddenInfo = document.createElement('div');
         hiddenInfo.className = 'paused-hidden-info muted-text margin-top-sm';
         hiddenInfo.style.textAlign = 'center';
         hiddenInfo.style.padding = '8px';
         hiddenInfo.style.fontSize = '0.9em';
-        hiddenInfo.innerHTML = `🙈 ${hiddenPausedCount} paused habit heatmap${hiddenPausedCount === 1 ? '' : 's'} hidden.`;
+        hiddenInfo.innerHTML = `🙈 ${totalHiddenCount} habit${totalHiddenCount === 1 ? '' : 's'} hidden. <button type="button" id="btn-show-hidden-override" class="btn btn-secondary btn-sm" style="margin-left: 8px; font-size: 0.8rem; padding: 2px 8px;">Show Hidden Habits</button>`;
+
         fragment.appendChild(hiddenInfo);
+
+        setTimeout(() => {
+          const btnShow = document.getElementById('btn-show-hidden-override');
+          if (btnShow) {
+            btnShow.onclick = () => {
+              if (core.state) core.state.showHiddenOverride = true;
+              if (core.saveState) core.saveState();
+              if (core.render) core.render();
+            };
+          }
+        }, 0);
+      } else if (core.state && core.state.showHiddenOverride && totalHiddenCount > 0) {
+        const hiddenInfo = document.createElement('div');
+        hiddenInfo.className = 'paused-hidden-info muted-text margin-top-sm';
+        hiddenInfo.style.textAlign = 'center';
+        hiddenInfo.style.padding = '8px';
+        hiddenInfo.style.fontSize = '0.9em';
+        hiddenInfo.innerHTML = `👁️ Showing all ${totalHiddenCount} hidden habit${totalHiddenCount === 1 ? '' : 's'}. <button type="button" id="btn-hide-override" class="btn btn-secondary btn-sm" style="margin-left: 8px; font-size: 0.8rem; padding: 2px 8px;">Re-enable Hiding Rules</button>`;
+
+        fragment.appendChild(hiddenInfo);
+
+        setTimeout(() => {
+          const btnHide = document.getElementById('btn-hide-override');
+          if (btnHide) {
+            btnHide.onclick = () => {
+              if (core.state) core.state.showHiddenOverride = false;
+              if (core.saveState) core.saveState();
+              if (core.render) core.render();
+            };
+          }
+        }, 0);
       }
     } else if (route.view === 'habit') {
       let decodedRouteId = route.habitId;

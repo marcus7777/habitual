@@ -152,6 +152,15 @@
           </button>
 
           <div id="header-menu-content" class="dropdown-menu-content hidden">
+            <div id="menu-toggle-show-hidden-container" class="hidden">
+              <label class="dropdown-item" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 500;">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  👁️ Show Hidden Habits
+                </span>
+                <input type="checkbox" id="menu-toggle-show-hidden" style="cursor: pointer;">
+              </label>
+              <div class="dropdown-divider"></div>
+            </div>
             <button id="menu-btn-add-habit" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               New Habit
@@ -204,7 +213,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.33.16</p>
+      <p>Habitual &bull; v1.33.17</p>
     </footer>
   </div>
 
@@ -267,9 +276,22 @@
 
         <!-- Display Options & Sort Order Section -->
         <div class="form-group highlight-form-box hidden" id="parent-subhabit-display-section">
-          <label id="parent-subsort-title-label" style="font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            🎨 Display Options & Sort Order
-          </label>
+          <div class="form-group margin-bottom-sm">
+            <label id="parent-subsort-select-label" for="habit-subhabit-sort-order">Sort Order</label>
+            <select id="habit-subhabit-sort-order" class="select-input">
+              <option value="manual" selected>Manual</option>
+              <option value="incomplete_first">Uncompleted First (Today)</option>
+              <option value="incomplete_first_7">Least Completed First (Week)</option>
+              <option value="recently_completed">Recently Logged</option>
+              <option value="alphabetical">Alphabetical A-Z</option>
+              <option value="streak_high">Highest Streak First</option>
+              <option value="lowest_completion">Needs Attention (Lowest %)</option>
+            </select>
+            <label id="parent-subhabit-sort-reverse-container" class="checkbox-label margin-top-xs hidden" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="habit-subhabit-sort-reverse">
+              <span>Reverse Sort Order</span>
+            </label>
+          </div>
 
           <!-- Tab Bar for Display Options -->
           <div class="segmented-control" id="display-options-tab-bar" style="margin-bottom: 12px;">
@@ -279,10 +301,14 @@
             <button type="button" class="segmented-btn" id="tab-btn-subhabit-options" data-tab="subhabits">
               <span>📁 Sub-Habits</span>
             </button>
+            <button type="button" class="segmented-btn" id="tab-btn-hiding-options" data-tab="hiding">
+              <span>🙈 Hiding Rules</span>
+            </button>
           </div>
 
           <!-- TAB 1: Parent Habit Options -->
           <div id="tab-content-parent-options">
+
             <div class="form-group">
               <label><strong>Display & Behavior Options</strong></label>
               <div class="display-options-grid">
@@ -320,23 +346,6 @@
 
           <!-- TAB 2: Sub-Habits Options (Its own little tab!) -->
           <div id="tab-content-subhabit-options" class="hidden">
-            <div class="form-group">
-              <label id="parent-subsort-select-label" for="habit-subhabit-sort-order">Sort Order</label>
-              <select id="habit-subhabit-sort-order" class="select-input">
-                <option value="manual" selected>Manual</option>
-                <option value="incomplete_first">Uncompleted First (Today)</option>
-                <option value="incomplete_first_7">Least Completed First (Week)</option>
-                <option value="recently_completed">Recently Logged</option>
-                <option value="alphabetical">Alphabetical A-Z</option>
-                <option value="streak_high">Highest Streak First</option>
-                <option value="lowest_completion">Needs Attention (Lowest %)</option>
-              </select>
-              <label id="parent-subhabit-sort-reverse-container" class="checkbox-label margin-top-xs hidden" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" id="habit-subhabit-sort-reverse">
-                <span>Reverse Sort Order</span>
-              </label>
-            </div>
-
             <div class="form-group margin-top-sm">
               <label><strong>Sub-Habit Display & Behavior Options</strong></label>
               <div class="display-options-grid">
@@ -368,6 +377,125 @@
                   <input type="checkbox" name="subhabit-hide-heatmap" id="subhabit-hide-heatmap">
                   <span>Mini View</span>
                 </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: Circumstantial Hiding Rules -->
+          <div id="tab-content-hiding-options" class="hidden">
+            <div class="form-group">
+              <label><strong>General Circumstantial Hiding</strong></label>
+              <div class="display-options-grid">
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-hide-when-completed" id="habit-hide-when-completed">
+                  <span>Hide when Completed Today</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-hide-not-scheduled" id="habit-hide-not-scheduled">
+                  <span>Hide when Not Scheduled Today</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="habit-hide-when-paused" id="habit-hide-when-paused">
+                  <span>Hide when Paused</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Time of Day Rule -->
+            <div class="form-group highlight-form-box margin-top-sm">
+              <label class="checkbox-label">
+                <input type="checkbox" id="habit-hide-time-enabled">
+                <span><strong>Hide based on Time of Day</strong></span>
+              </label>
+              <div id="habit-hide-time-settings" class="margin-top-xs hidden">
+                <div class="form-group">
+                  <label for="habit-hide-time-mode">Condition</label>
+                  <select id="habit-hide-time-mode" class="select-input">
+                    <option value="before" selected>Hide before Start Time</option>
+                    <option value="after">Hide after Start Time</option>
+                    <option value="outside">Hide outside Time Window (Start to End)</option>
+                  </select>
+                </div>
+                <div class="form-row margin-top-xs" style="display: flex; gap: 8px;">
+                  <div class="form-group" style="flex: 1;">
+                    <label for="habit-hide-time-start">Start Time</label>
+                    <input type="time" id="habit-hide-time-start" class="text-input" value="09:00">
+                  </div>
+                  <div class="form-group" style="flex: 1;" id="habit-hide-time-end-group">
+                    <label for="habit-hide-time-end">End Time</label>
+                    <input type="time" id="habit-hide-time-end" class="text-input" value="18:00">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Geohash Location Rule -->
+            <div class="form-group highlight-form-box margin-top-sm">
+              <label class="checkbox-label">
+                <input type="checkbox" id="habit-hide-location-enabled">
+                <span><strong>Hide based on Location (Geohash)</strong></span>
+              </label>
+              <div id="habit-hide-location-settings" class="margin-top-xs hidden">
+                <div class="form-group">
+                  <label for="habit-hide-location-mode">Condition</label>
+                  <select id="habit-hide-location-mode" class="select-input">
+                    <option value="at" selected>Hide when at any of these locations</option>
+                    <option value="away">Hide when away from all of these locations</option>
+                  </select>
+                </div>
+                <div class="form-group margin-top-xs">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Saved Locations (~150m grid)</label>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-current-location">
+                      📍 Add Current Location
+                    </button>
+                  </div>
+                  <div id="habit-locations-badges" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; padding: 4px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px;">
+                    <!-- Populated dynamically by JS -->
+                  </div>
+                  <small class="muted-text" style="display: block; margin-top: 4px; font-size: 0.78rem;">
+                    Location permissions are requested on-demand only when you click "Add Current Location".
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prerequisite Habit / Sub-Habits Rule -->
+            <div class="form-group highlight-form-box margin-top-sm">
+              <label class="checkbox-label">
+                <input type="checkbox" id="habit-hide-dep-enabled">
+                <span><strong>Hide until Habit / Sub-habits are Completed</strong></span>
+              </label>
+              <div id="habit-hide-dep-settings" class="margin-top-xs hidden">
+                <div class="form-group">
+                  <label for="habit-hide-dep-target-id">Prerequisite Habit</label>
+                  <select id="habit-hide-dep-target-id" class="select-input">
+                    <option value="parent" selected>Parent Habit (if available)</option>
+                    <!-- Populated dynamically with all habits -->
+                  </select>
+                </div>
+                <div class="form-group margin-top-xs">
+                  <label for="habit-hide-dep-criterion">Requirement Criterion</label>
+                  <select id="habit-hide-dep-criterion" class="select-input">
+                    <option value="habit_completed" selected>Target Habit itself is completed</option>
+                    <option value="subhabits_completed">Sub-habits of Target Habit are completed</option>
+                  </select>
+                </div>
+                <div class="form-row margin-top-xs" style="display: flex; gap: 8px;">
+                  <div class="form-group" style="flex: 1;">
+                    <label for="habit-hide-dep-count">Required Completions</label>
+                    <input type="number" id="habit-hide-dep-count" class="text-input" value="1" min="1" max="99">
+                  </div>
+                  <div class="form-group" style="flex: 1;">
+                    <label for="habit-hide-dep-timeframe">Timeframe</label>
+                    <select id="habit-hide-dep-timeframe" class="select-input">
+                      <option value="today" selected>Today</option>
+                      <option value="past_7_days">Past 7 Days</option>
+                      <option value="past_30_days">Past 30 Days</option>
+                      <option value="all_time">All Time</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -725,13 +853,13 @@
               <!-- Export & Danger Actions Section -->
               <div class="form-group margin-top-sm hidden" id="habit-actions-section" style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
                 <button type="button" id="btn-modal-clear-before-date" class="btn btn-secondary btn-sm">
-                  🧹 Clear Before Date...
+                  Clear Before Date...
                 </button>
                 <button type="button" id="btn-modal-download-svg" class="btn btn-secondary btn-sm">
-                  📥 Download SVG
+                  Download SVG
                 </button>
                 <button type="button" id="btn-modal-delete-habit" class="btn btn-outline-danger btn-sm">
-                  🗑️ Delete Habit
+                  Delete
                 </button>
               </div>
             </div>
@@ -766,7 +894,7 @@
         <div id="modal-log-reminder-box" class="reminder-box hidden">
           <div class="reminder-box-header">
 
-            <span>⏰ Future Date Reminder</span>
+            <span>Future Date Reminder</span>
           </div>
 
           <p class="reminder-box-desc">Future date - add a calendar reminder.</p>
@@ -775,7 +903,7 @@
               📅 Download .ics
             </button>
             <a id="link-modal-google-cal" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
-              🌐 Google Calendar
+              Google Calendar
             </a>
           </div>
         </div>

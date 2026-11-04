@@ -21,6 +21,8 @@ window.HabitualCore = window.HabitualCore || {};
     latitude: 51.5074,
     longitude: -0.1278,
     locationName: 'Default (London)',
+    currentGeohash: '',
+    showHiddenOverride: false,
     expandedHabitIds: new Set(),
     allPreferences: {
       sortOrder: 'manual',
@@ -49,6 +51,8 @@ window.HabitualCore = window.HabitualCore || {};
       latitude: 51.5074,
       longitude: -0.1278,
       locationName: 'Default (London)',
+      currentGeohash: '',
+      showHiddenOverride: false,
       expandedHabitIds: new Set(),
       allPreferences: {
         sortOrder: 'manual',
@@ -1271,6 +1275,184 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     return true;
+  };
+
+  core.encodeGeohash = function(lat, lon, precision) {
+    precision = precision || 7;
+    const BASE32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+    let latMin = -90.0, latMax = 90.0;
+    let lonMin = -180.0, lonMax = 180.0;
+    let geohash = '';
+    let bits = 0;
+    let ch = 0;
+    let even = true;
+
+    while (geohash.length < precision) {
+      if (even) {
+        const lonMid = (lonMin + lonMax) / 2;
+        if (lon >= lonMid) {
+          ch = (ch << 1) | 1;
+          lonMin = lonMid;
+        } else {
+          ch = (ch << 1) | 0;
+          lonMax = lonMid;
+        }
+      } else {
+        const latMid = (latMin + latMax) / 2;
+        if (lat >= latMid) {
+          ch = (ch << 1) | 1;
+          latMin = latMid;
+        } else {
+          ch = (ch << 1) | 0;
+          latMax = latMid;
+        }
+      }
+      even = !even;
+      bits++;
+      if (bits === 5) {
+        geohash += BASE32.charAt(ch);
+        bits = 0;
+        ch = 0;
+      }
+    }
+    return geohash;
+  };
+
+  core.getHabitCompletionCountForTimeframe = function(habit, timeframe, todayStr) {
+    if (!habit || !habit.logs) return 0;
+    const refDateStr = todayStr || (core.getTodayKey ? core.getTodayKey() : new Date().toISOString().slice(0, 10));
+
+    if (timeframe === 'today') {
+      const cell = core.getCellData ? core.getCellData(refDateStr, habit, refDateStr) : null;
+      if (cell && (cell.isDone || cell.ratio >= 1.0)) return 1;
+      return (habit.logs[refDateStr] && habit.logs[refDateStr].count) ? habit.logs[refDateStr].count : 0;
+    }
+
+    if (timeframe === 'past_7_days' || timeframe === 'past_30_days') {
+      const numDays = timeframe === 'past_7_days' ? 7 : 30;
+      const refDate = core.parseDateKey ? core.parseDateKey(refDateStr) : new Date(refDateStr + 'T00:00:00');
+      let total = 0;
+      for (let i = 0; i < numDays; i++) {
+        const d = new Date(refDate);
+        d.setDate(d.getDate() - i);
+        const dStr = core.formatDateKey ? core.formatDateKey(d) : d.toISOString().slice(0, 10);
+        if (habit.logs[dStr] && habit.logs[dStr].count > 0) {
+          total += habit.logs[dStr].count;
+        }
+      }
+      return total;
+    }
+
+    if (timeframe === 'all_time') {
+      return Object.keys(habit.logs).reduce((sum, k) => sum + (habit.logs[k].count || 0), 0);
+    }
+
+    return 0;
+  };
+
+  core.shouldHideHabit = function(habit, dateStr, nowTimeStr, currentGeohash) {
+    if (!habit) return false;
+
+    // 1. Global override check
+    if (core.state && core.state.showHiddenOverride) {
+      return false;
+    }
+
+    const todayStr = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().slice(0, 10);
+    const targetDateStr = dateStr || todayStr;
+
+    // 2. Hide when paused
+    if (habit.hideWhenPaused && habit.isPaused) {
+      if (core.isHabitPausedOnDate ? core.isHabitPausedOnDate(habit, targetDateStr) : habit.isPaused) {
+        return true;
+      }
+    }
+
+    // 3. Hide when completed today
+    if (habit.hideWhenCompleted && targetDateStr === todayStr) {
+      const cell = core.getCellData ? core.getCellData(targetDateStr, habit, todayStr) : null;
+      if (cell && (cell.isDone || cell.ratio >= 1.0)) {
+        return true;
+      }
+    }
+
+    // 4. Hide when not scheduled today
+    if (habit.hideNotScheduled && targetDateStr === todayStr) {
+      const isActive = core.isHabitActiveOnDate ? core.isHabitActiveOnDate(habit, targetDateStr) : true;
+      if (!isActive) {
+        return true;
+      }
+    }
+
+    // 5. Time of Day Rule
+    if (habit.hideTimeOfDay && habit.hideTimeOfDay.enabled && targetDateStr === todayStr) {
+      let nowStr = nowTimeStr;
+      if (!nowStr && typeof Date !== 'undefined') {
+        const now = new Date();
+        nowStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      }
+      if (nowStr) {
+        const mode = habit.hideTimeOfDay.mode || 'before';
+        const start = habit.hideTimeOfDay.startTime || '09:00';
+        const end = habit.hideTimeOfDay.endTime || '18:00';
+
+        if (mode === 'before' && nowStr < start) return true;
+        if (mode === 'after' && nowStr > start) return true;
+        if (mode === 'outside' && (nowStr < start || nowStr > end)) return true;
+      }
+    }
+
+    // 6. Location / Geohash Rule
+    if (habit.hideLocation && habit.hideLocation.enabled && Array.isArray(habit.hideLocation.geohashes) && habit.hideLocation.geohashes.length > 0) {
+      const userGeohash = currentGeohash || (core.state ? core.state.currentGeohash : '');
+      if (userGeohash) {
+        const mode = habit.hideLocation.mode || 'at';
+        const userGeo7 = userGeohash.slice(0, 7).toLowerCase();
+        const isMatch = habit.hideLocation.geohashes.some(g => {
+          if (!g) return false;
+          const g7 = String(g).slice(0, 7).toLowerCase();
+          return userGeo7.startsWith(g7) || g7.startsWith(userGeo7);
+        });
+
+        if (mode === 'at' && isMatch) return true;
+        if (mode === 'away' && !isMatch) return true;
+      }
+    }
+
+    // 7. Prerequisite Habit / Sub-Habits Rule
+    if (habit.hideDependency && habit.hideDependency.enabled) {
+      const dep = habit.hideDependency;
+      let targetHabitId = dep.targetId;
+      if (targetHabitId === 'parent' || !targetHabitId) {
+        targetHabitId = habit.parentId;
+      }
+
+      if (targetHabitId && core.state && Array.isArray(core.state.habits)) {
+        const targetHabit = core.state.habits.find(h => h.id === targetHabitId);
+        if (targetHabit) {
+          const criterion = dep.criterion || 'habit_completed';
+          const requiredCount = dep.requiredCount || 1;
+          const timeframe = dep.timeframe || 'today';
+
+          let actualCount = 0;
+          if (criterion === 'habit_completed') {
+            actualCount = core.getHabitCompletionCountForTimeframe(targetHabit, timeframe, todayStr);
+          } else if (criterion === 'subhabits_completed') {
+            const subhabits = core.state.habits.filter(h => h.parentId === targetHabitId);
+            actualCount = subhabits.filter(sub => {
+              const cnt = core.getHabitCompletionCountForTimeframe(sub, timeframe, todayStr);
+              return cnt >= 1;
+            }).length;
+          }
+
+          if (actualCount < requiredCount) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
   };
 
   core.calculateStreakForTarget = function(target) {
