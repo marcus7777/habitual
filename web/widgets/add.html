@@ -94,6 +94,9 @@
           if (hash.startsWith('#habit/')) {
             return decodeURIComponent(hash.replace('#habit/', '').trim());
           }
+          if (hash.startsWith('#/habit/')) {
+            return decodeURIComponent(hash.replace('#/habit/', '').trim());
+          }
           return null;
         }
 

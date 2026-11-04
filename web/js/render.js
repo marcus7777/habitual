@@ -357,7 +357,7 @@ window.HabitualCore = window.HabitualCore || {};
         if (isLast) {
           breadcrumbHTML += `<span class="breadcrumb-current">${core.escapeHTML(h.name)}</span>`;
         } else {
-          breadcrumbHTML += `<a href="#/habit/${h.id}" class="breadcrumb-item">${core.escapeHTML(h.name)}</a>`;
+          breadcrumbHTML += `<a href="#/habit/${encodeURIComponent(h.id)}" class="breadcrumb-item">${core.escapeHTML(h.name)}</a>`;
         }
       });
 
@@ -608,7 +608,13 @@ window.HabitualCore = window.HabitualCore || {};
         fragment.appendChild(hiddenInfo);
       }
     } else if (route.view === 'habit') {
-      const targetHabit = core.state.habits.find(h => h.id === route.habitId);
+      let decodedRouteId = route.habitId;
+      try { decodedRouteId = decodeURIComponent(route.habitId || ''); } catch(e) {}
+      const targetHabit = core.state.habits.find(h =>
+        h.id === route.habitId ||
+        h.id === decodedRouteId ||
+        (h.name && h.name.toLowerCase() === decodedRouteId.toLowerCase())
+      );
 
       if (!targetHabit) {
         core.elements.heatmapsGallery.innerHTML = `
@@ -1042,7 +1048,12 @@ window.HabitualCore = window.HabitualCore || {};
     const stats = core.calculateYearStatsForTarget ? core.calculateYearStatsForTarget(isAll ? 'all' : (isGroup ? targetOrNull : habit), year) : { activeDaysCount: 0, totalCount: 0 };
 
     const route = core.parseHash ? core.parseHash() : { view: 'home' };
-    const isCurrentOpenPage = route.view === 'habit' && route.habitId === (habit ? habit.id : null);
+    let decodedRouteId = route.habitId;
+    try { decodedRouteId = decodeURIComponent(route.habitId || ''); } catch(e) {}
+    const isCurrentOpenPage = route.view === 'habit' && (
+      route.habitId === (habit ? habit.id : null) ||
+      decodedRouteId === (habit ? habit.id : null)
+    );
 
     const parentIdFilter = habit ? habit.parentId : null;
 
@@ -1130,7 +1141,7 @@ window.HabitualCore = window.HabitualCore || {};
     const safeTitle = core.escapeHTML ? core.escapeHTML(titleText) : titleText;
     let titleContent = safeTitle;
     if (habit && !isCurrentOpenPage) {
-      titleContent = `<a href="#/habit/${habit.id}" class="card-title-link" title="Open ${safeTitle}">${safeTitle}</a>`;
+      titleContent = `<a href="#/habit/${encodeURIComponent(habit.id)}" class="card-title-link" title="Open ${safeTitle}">${safeTitle}</a>`;
     }
 
     const habitTabHTML = `

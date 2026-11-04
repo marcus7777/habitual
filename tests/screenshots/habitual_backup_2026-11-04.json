@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "updatedAt": 1793750862652,
+  "updatedAt": 1793751402395,
   "habits": [
     {
-      "id": "dailyReading135",
-      "updatedAt": 1793750862652,
-      "name": "Daily Reading 135",
+      "id": "dailyReading641",
+      "updatedAt": 1793751402395,
+      "name": "Daily Reading 641",
       "colorTheme": "#616161",
       "targetDays": [
         1
@@ -25,7 +25,7 @@
   "deletedHabitIds": [],
   "updateLog": [],
   "remoteHashHistory": [],
-  "selectedHabitId": "dailyReading135",
+  "selectedHabitId": "dailyReading641",
   "selectedYear": 2026,
   "showQuickLogOnStartup": false,
   "dayBoundaryMode": "midnight",
