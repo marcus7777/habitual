@@ -114,6 +114,7 @@ async function runTemplateSharePlaywrightTests() {
         colorTheme: '#d81b60', // Flamingo theme
         showCount: false,
         showDuration: true,
+        hideHeatmap: true, // Minimal View
         parentDependency: 'requires_parent'
       };
 
@@ -123,6 +124,7 @@ async function runTemplateSharePlaywrightTests() {
         parentId: 'tmpl_e2e_child1',
         name: 'Grip Strength Holds',
         dailyTarget: 3,
+        hideHeatmap: true, // Minimal View
         colorTheme: '#f4511e' // Tangerine theme
       };
 
@@ -158,7 +160,8 @@ async function runTemplateSharePlaywrightTests() {
     assert(templateData.minPayload.h === 'CrossFit Fitness Routine', 'Parent habit name encoded in minified payload');
     assert(templateData.minPayload.ha === true, 'Parent hideFromAll option encoded in minified payload');
     assert(templateData.minPayload.s.length === 3, 'Three direct sub-habits encoded in minified payload');
-    assert(templateData.minPayload.s[0].s && templateData.minPayload.s[0].s[0].h === 'Grip Strength Holds', 'Nested grandchild sub-habit encoded recursively');
+    assert(templateData.minPayload.s[0].hh === true, 'Sub-habit 1 minimal view (hideHeatmap: true) encoded in payload');
+    assert(templateData.minPayload.s[0].s && templateData.minPayload.s[0].s[0].hh === true, 'Grandchild minimal view (hideHeatmap: true) encoded recursively in payload');
     assert(templateData.minPayload.s[0].c === '#d81b60', 'Sub-habit 1 distinct Flamingo color encoded in payload');
     assert(templateData.minPayload.s[1].c === '#00acc1', 'Sub-habit 2 distinct Peacock color encoded in payload');
     assert(templateData.minPayload.s[2].c === undefined, 'Sub-habit 3 default color is omitted from minified payload');
@@ -192,11 +195,13 @@ async function runTemplateSharePlaywrightTests() {
         child1Rule: child1 ? child1.parentDependency : null,
         child1ShowCount: child1 ? child1.showCount : null,
         child1ShowDuration: child1 ? child1.showDuration : null,
+        child1HideHeatmap: child1 ? child1.hideHeatmap : null,
         child2Color: child2 ? child2.colorTheme : null,
         child2Rule: child2 ? child2.parentDependency : null,
         grandchildFound: grandchildren.length > 0,
         grandchildName: grandchildren[0] ? grandchildren[0].name : null,
         grandchildColor: grandchildren[0] ? grandchildren[0].colorTheme : null,
+        grandchildHideHeatmap: grandchildren[0] ? grandchildren[0].hideHeatmap : null,
         child3Color: child3 ? child3.colorTheme : null,
         child3NotParentColor: child3 ? (child3.colorTheme !== parent.colorTheme) : false,
         todayCount: (parent && parent.logs && core.getTodayKey) ? (parent.logs[core.getTodayKey()] ? parent.logs[core.getTodayKey()].count : 0) : 0
@@ -213,11 +218,13 @@ async function runTemplateSharePlaywrightTests() {
     assert(importedState.child1Rule === 'requires_parent', 'Sub-habit 1 parentDependency rule preserved (requires_parent)');
     assert(importedState.child1ShowCount === false, 'Sub-habit 1 display option showCount: false preserved');
     assert(importedState.child1ShowDuration === true, 'Sub-habit 1 display option showDuration: true preserved');
+    assert(importedState.child1HideHeatmap === true, 'Sub-habit 1 minimal view option (hideHeatmap: true) preserved and restored');
     assert(importedState.child2Color === '#00acc1', 'Sub-habit 2 distinct Peacock color preserved (#00acc1)');
     assert(importedState.child2Rule === 'auto_complete_from_parent', 'Sub-habit 2 parentDependency rule preserved (auto_complete_from_parent)');
     assert(importedState.grandchildFound, 'Nested sub-sub-habit (grandchild) imported recursively');
     assert(importedState.grandchildName === 'Grip Strength Holds', 'Grandchild habit name matches');
     assert(importedState.grandchildColor === '#f4511e', 'Grandchild habit color preserved (#f4511e)');
+    assert(importedState.grandchildHideHeatmap === true, 'Grandchild sub-sub-habit minimal view option (hideHeatmap: true) preserved and restored');
     assert(importedState.child3NotParentColor, 'Sub-habit 3 reconstructed with its OWN default color, NOT parent color');
     assert(importedState.todayCount === 1, 'Auto-increment count (+1) logged for today on import');
 
