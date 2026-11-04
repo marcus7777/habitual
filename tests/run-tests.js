@@ -5842,6 +5842,66 @@ describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore L
     assert(legPressHabit, 'Leg Press Machine sub-habit found in state');
     assertEqual(legPressHabit.logs[todayKey].count, 1, 'Check-in count logged for today specifically on target sub-habit "Leg Press Machine"');
   });
+
+  test('Multi-task auto-increment & daily max cap QR scan behavior (Gym Session scenario)', () => {
+    HabitualCore.resetState();
+    const todayKey = HabitualCore.getTodayKey();
+
+    const gymParent = {
+      id: 'gym_main',
+      name: 'Gym Visit',
+      dailyTarget: 1,
+      maxCap: 1
+    };
+    const benchChild = {
+      id: 'gym_bench',
+      parentId: 'gym_main',
+      name: 'Bench Press',
+      dailyTarget: 5,
+      maxCap: 10
+    };
+    HabitualCore.state.habits = [gymParent, benchChild];
+
+    // Configure QR code / template auto-increment config:
+    // Main task "Gym Visit": Inc = 1, Max Cap = 1
+    // Sub-task "Bench Press": Inc = 1, Max Cap = 10
+    const autoIncConfig = {
+      'gym_main': { inc: 1, max: 1 },
+      'gym_bench': { inc: 1, max: 10 }
+    };
+
+    const minPayload = HabitualCore.encodeHabitTemplate(gymParent, autoIncConfig);
+    assertEqual(minPayload.inc, 1, 'Root habit "Gym Visit" receives inc: 1');
+    assertEqual(minPayload.m, 1, 'Root habit "Gym Visit" receives max cap m: 1');
+    assert(minPayload.s && minPayload.s[0].inc === 1, 'Sub-habit "Bench Press" receives inc: 1');
+    assert(minPayload.s && minPayload.s[0].m === 10, 'Sub-habit "Bench Press" receives max cap m: 10');
+
+    const jsurlStr = HabitualCore.JSURL.stringify(minPayload);
+
+    // 1st Scan: Main Gym Visit goes to 1, Bench Press goes to 1
+    global.window.location = { hash: `#template?data=${jsurlStr}`, search: '', pathname: '/index.html' };
+    HabitualCore.checkURLHashForTemplate();
+
+    const mainObj = HabitualCore.state.habits.find(h => h.id === 'gym_main');
+    const subObj = HabitualCore.state.habits.find(h => h.id === 'gym_bench');
+
+    assertEqual(mainObj.logs[todayKey].count, 1, '1st scan: Main habit logged 1 check-in');
+    assertEqual(subObj.logs[todayKey].count, 1, '1st scan: Sub-habit logged 1 check-in');
+
+    // 2nd Scan: Main Gym Visit stays at 1 (capped at max 1), Bench Press goes to 2
+    global.window.location = { hash: `#template?data=${jsurlStr}`, search: '', pathname: '/index.html' };
+    HabitualCore.checkURLHashForTemplate();
+
+    assertEqual(mainObj.logs[todayKey].count, 1, '2nd scan: Main habit remains capped at 1 (max 1 limit reached)');
+    assertEqual(subObj.logs[todayKey].count, 2, '2nd scan: Sub-habit incremented to 2');
+
+    // 3rd Scan: Main Gym Visit stays at 1, Bench Press goes to 3
+    global.window.location = { hash: `#template?data=${jsurlStr}`, search: '', pathname: '/index.html' };
+    HabitualCore.checkURLHashForTemplate();
+
+    assertEqual(mainObj.logs[todayKey].count, 1, '3rd scan: Main habit remains capped at 1');
+    assertEqual(subObj.logs[todayKey].count, 3, '3rd scan: Sub-habit incremented to 3');
+  });
 });
 
 // ============================================================================

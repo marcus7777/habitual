@@ -1396,7 +1396,7 @@ window.HabitualCore = window.HabitualCore || {};
 
         return ensureFirebaseLibs().then(function() {
           if (!firebase.apps.length) {
-            try { firebase.initializeApp({ projectId: "habitual-log" }); } catch(e) {}
+            try { firebase.initializeApp({ projectId: "habitual-log", storageBucket: "habitual-log.firebasestorage.app" }); } catch(e) {}
           }
           self.db = firebase.firestore();
           self._setupEmulatorIfRequested(self.db);
@@ -1405,7 +1405,7 @@ window.HabitualCore = window.HabitualCore || {};
         }).catch(function(err) {
           if (typeof firebase !== 'undefined' && firebase.firestore) {
             if (!firebase.apps.length) {
-              try { firebase.initializeApp({ projectId: "habitual-log" }); } catch (e) {}
+              try { firebase.initializeApp({ projectId: "habitual-log", storageBucket: "habitual-log.firebasestorage.app" }); } catch (e) {}
             }
             self.db = firebase.firestore();
             return self.db;

@@ -1007,7 +1007,21 @@ window.HabitualCore = window.HabitualCore || {};
     const currentCount = currentLog ? (currentLog.count || 0) : 0;
     const incAmount = (typeof countOrBtn === 'number' && countOrBtn > 0) ? countOrBtn : 1;
     const btnElem = (typeof countOrBtn === 'number') ? null : countOrBtn;
-    core.setHabitCountForDate(habitId, dateKey, currentCount + incAmount, btnElem, '+' + incAmount);
+
+    let targetCount = currentCount + incAmount;
+    if (habit.maxCap && habit.maxCap > 0) {
+      if (currentCount >= habit.maxCap) {
+        targetCount = currentCount;
+      } else {
+        targetCount = Math.min(targetCount, habit.maxCap);
+      }
+    }
+
+    const badgeText = (habit.maxCap && habit.maxCap > 0 && currentCount >= habit.maxCap)
+      ? ('Max ' + habit.maxCap)
+      : ('+' + (targetCount - currentCount));
+
+    core.setHabitCountForDate(habitId, dateKey, targetCount, btnElem, badgeText);
   };
 
   core.getOrdinalSuffix = function(i) {
@@ -1513,18 +1527,46 @@ window.HabitualCore = window.HabitualCore || {};
   core.encodeHabitTemplate = function(habit, autoIncrementCount = 0, targetNodeId = null) {
     if (!habit || !habit.name) return null;
 
+    const nodeConfigs = {};
+
+    if (autoIncrementCount && typeof autoIncrementCount === 'object') {
+      Object.assign(nodeConfigs, autoIncrementCount);
+    } else if (targetNodeId && typeof targetNodeId === 'object') {
+      Object.assign(nodeConfigs, targetNodeId);
+    } else {
+      const inc = parseInt(autoIncrementCount, 10);
+      if (!isNaN(inc) && inc > 0) {
+        if (targetNodeId) {
+          nodeConfigs[String(targetNodeId)] = { inc: inc };
+        } else {
+          nodeConfigs['_root_'] = { inc: inc };
+        }
+      }
+    }
+
     function encodeSubTree(node, isRootNode) {
       if (!node || !node.name) return null;
 
       const min = { h: String(node.name).trim() };
 
-      const inc = parseInt(autoIncrementCount, 10);
-      if (!isNaN(inc) && inc > 0) {
-        if (targetNodeId && String(node.id) === String(targetNodeId)) {
-          min.inc = inc;
-        } else if (!targetNodeId && isRootNode) {
-          min.inc = inc;
+      const cfg = nodeConfigs[String(node.id)] ||
+                  nodeConfigs[String(node.name).trim()] ||
+                  nodeConfigs[String(node.name).trim().toLowerCase()] ||
+                  (isRootNode ? nodeConfigs['_root_'] : null);
+
+      if (cfg) {
+        const incVal = parseInt(cfg.inc !== undefined ? cfg.inc : cfg.autoIncrement, 10);
+        if (!isNaN(incVal) && incVal > 0) {
+          min.inc = incVal;
         }
+        const maxVal = parseInt(cfg.max !== undefined ? cfg.max : (cfg.maxCap !== undefined ? cfg.maxCap : cfg.m), 10);
+        if (!isNaN(maxVal) && maxVal > 0) {
+          min.m = maxVal;
+        }
+      }
+
+      if (!min.m && node.maxCap && parseInt(node.maxCap, 10) > 0) {
+        min.m = parseInt(node.maxCap, 10);
       }
 
       if (node.type && node.type !== 'positive') min.t = node.type;
@@ -1649,6 +1691,14 @@ window.HabitualCore = window.HabitualCore || {};
       };
 
       const autoIncVal = parseInt(minNode.inc || minNode.autoIncrement || 0, 10);
+      if (!isNaN(autoIncVal) && autoIncVal > 0) {
+        node.autoIncrement = autoIncVal;
+      }
+
+      const maxCapVal = parseInt(minNode.m || minNode.max || minNode.maxCap || 0, 10);
+      if (!isNaN(maxCapVal) && maxCapVal > 0) {
+        node.maxCap = maxCapVal;
+      }
       if (!isNaN(autoIncVal) && autoIncVal > 0) {
         node.autoIncrement = autoIncVal;
       }
