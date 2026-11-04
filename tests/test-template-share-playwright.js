@@ -210,11 +210,11 @@ async function runTemplateSharePlaywrightTests() {
 
     assert(importedState.parentFound, 'Recipient imported top-level habit from template link');
     assert(importedState.parentName === 'CrossFit Fitness Routine', 'Imported parent habit name matches original');
-    assert(importedState.parentColor === '#8e24aa', 'Imported parent habit color preserved (#8e24aa)');
+    assert((importedState.parentColor || '').toLowerCase() === '#8e24aa', 'Imported parent habit color preserved (#8e24aa)');
     assert(importedState.parentHideFromAll === true, 'Imported parent habit display option hideFromAll preserved');
     assert(importedState.parentShowDuration === true, 'Imported parent habit display option showDuration preserved');
     assert(importedState.childrenCount === 3, 'Recipient imported all 3 direct sub-habits');
-    assert(importedState.child1Color === '#d81b60', 'Sub-habit 1 distinct Flamingo color preserved (#d81b60)');
+    assert((importedState.child1Color || '').toLowerCase() === '#d81b60', 'Sub-habit 1 distinct Flamingo color preserved (#d81b60)');
     assert(importedState.child1Rule === 'requires_parent', 'Sub-habit 1 parentDependency rule preserved (requires_parent)');
     assert(importedState.child1ShowCount === false, 'Sub-habit 1 display option showCount: false preserved');
     assert(importedState.child1ShowDuration === true, 'Sub-habit 1 display option showDuration: true preserved');

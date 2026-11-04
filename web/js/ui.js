@@ -4219,46 +4219,63 @@ window.HabitualCore = window.HabitualCore || {};
 
     function importNode(node, newParentId) {
       const isRoot = !newParentId;
-      const newId = (isRoot ? 'habit_tmpl_' : 'habit_sub_tmpl_') + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+      const targetParentId = newParentId || null;
+      const nodeNameNorm = (node.name || '').trim().toLowerCase();
 
-      const habitObj = {
-        id: newId,
-        parentId: newParentId || null,
-        name: node.name,
-        type: node.type || 'positive',
-        description: node.description || '',
-        category: node.category || 'General',
-        dailyTarget: node.dailyTarget || 1,
-        frequencyType: node.frequencyType || 'daily',
-        targetDays: node.targetDays || [1, 2, 3, 4, 5, 6, 0],
-        weeklyTarget: node.weeklyTarget || 1,
-        monthlyDay: node.monthlyDay || 1,
-        monthlyTarget: node.monthlyTarget || 1,
-        customInterval: node.customInterval || 3,
-        customUnit: node.customUnit || 'days',
-        colorTheme: node.colorTheme || (core.getDefaultColorForId ? core.getDefaultColorForId(newId) : '#039BE5'),
-        showStreak: node.showStreak !== false,
-        showCount: node.showCount !== false,
-        showDuration: node.showDuration === true,
-        hideHeatmap: node.hideHeatmap === true,
-        hideFromAll: node.hideFromAll === true,
-        colorWholeWeek: node.colorWholeWeek !== false,
-        colorWholeMonth: node.colorWholeMonth !== false,
-        subhabitSortOrder: node.subhabitSortOrder || 'manual',
-        subhabitSortReverse: node.subhabitSortReverse === true,
-        parentDependency: node.parentDependency || 'none',
-        isPaused: node.isPaused === true,
-        createdAt: today,
-        logs: {}
-      };
+      // Search for existing habit under the same parent to avoid duplicates and combine tree
+      const existing = core.state.habits.find(h =>
+        (h.parentId || null) === targetParentId &&
+        (h.name || '').trim().toLowerCase() === nodeNameNorm
+      );
 
-      core.state.habits.push(habitObj);
+      let targetId = null;
 
-      if (Array.isArray(node.children) && node.children.length > 0) {
-        node.children.forEach(child => importNode(child, newId));
+      if (existing) {
+        targetId = existing.id;
+        if (!existing.description && node.description) existing.description = node.description;
+        if (!existing.colorTheme && node.colorTheme) existing.colorTheme = node.colorTheme;
+      } else {
+        targetId = (isRoot ? 'habit_tmpl_' : 'habit_sub_tmpl_') + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+
+        const habitObj = {
+          id: targetId,
+          parentId: targetParentId,
+          name: node.name,
+          type: node.type || 'positive',
+          description: node.description || '',
+          category: node.category || 'General',
+          dailyTarget: node.dailyTarget || 1,
+          frequencyType: node.frequencyType || 'daily',
+          targetDays: node.targetDays || [1, 2, 3, 4, 5, 6, 0],
+          weeklyTarget: node.weeklyTarget || 1,
+          monthlyDay: node.monthlyDay || 1,
+          monthlyTarget: node.monthlyTarget || 1,
+          customInterval: node.customInterval || 3,
+          customUnit: node.customUnit || 'days',
+          colorTheme: node.colorTheme || (core.getDefaultColorForId ? core.getDefaultColorForId(targetId) : '#039BE5'),
+          showStreak: node.showStreak !== false,
+          showCount: node.showCount !== false,
+          showDuration: node.showDuration === true,
+          hideHeatmap: node.hideHeatmap === true,
+          hideFromAll: node.hideFromAll === true,
+          colorWholeWeek: node.colorWholeWeek !== false,
+          colorWholeMonth: node.colorWholeMonth !== false,
+          subhabitSortOrder: node.subhabitSortOrder || 'manual',
+          subhabitSortReverse: node.subhabitSortReverse === true,
+          parentDependency: node.parentDependency || 'none',
+          isPaused: node.isPaused === true,
+          createdAt: today,
+          logs: {}
+        };
+
+        core.state.habits.push(habitObj);
       }
 
-      return newId;
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        node.children.forEach(child => importNode(child, targetId));
+      }
+
+      return targetId;
     }
 
     const rootId = importNode(decodedHabit, null);
@@ -4359,11 +4376,42 @@ window.HabitualCore = window.HabitualCore || {};
       btnConfirm.onclick = function() {
         const newId = core.importHabitTemplateToState(decodedHabit);
         closeModal();
+        if (newId && core.navigateToHabitPage) {
+          core.navigateToHabitPage(newId);
+        }
         if (core.showToast) core.showToast(`📋 Successfully imported template "${decodedHabit.name}"!`, 'success');
       };
     }
 
     modalImport.classList.remove('hidden');
+  };
+
+  core.navigateToHabitPage = function(habitId) {
+    if (!habitId) return;
+
+    let targetHabit = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h => h.id === habitId) : null;
+    while (targetHabit && targetHabit.parentId) {
+      const parent = core.state.habits.find(h => h.id === targetHabit.parentId);
+      if (!parent) break;
+      targetHabit = parent;
+    }
+
+    const finalId = targetHabit ? targetHabit.id : habitId;
+    if (core.state) {
+      core.state.selectedHabitId = finalId;
+    }
+    if (core.saveState) core.saveState();
+
+    const targetHash = '#/habit/' + finalId;
+    if (typeof window !== 'undefined' && window.location) {
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname + targetHash);
+      } else {
+        window.location.hash = targetHash;
+      }
+    }
+
+    if (core.renderAll) core.renderAll();
   };
 
   core.checkURLHashForTemplate = function() {
@@ -4405,6 +4453,18 @@ window.HabitualCore = window.HabitualCore || {};
           h.name && h.name.toLowerCase() === decodedHabit.name.toLowerCase()
         ) : null;
 
+        if (existingHabit && autoInc === 0) {
+          // User ALREADY has this habit -> navigate directly to existing habit page!
+          const modalImport = document.getElementById('modal-import-template');
+          if (modalImport) modalImport.classList.add('hidden');
+
+          if (core.navigateToHabitPage) {
+            core.navigateToHabitPage(existingHabit.id);
+          }
+          if (core.showToast) core.showToast(`📋 Opened existing habit "${existingHabit.name}"!`, 'info');
+          return;
+        }
+
         if (autoInc > 0) {
           let targetHabitId = null;
           let isNewImport = false;
@@ -4422,12 +4482,8 @@ window.HabitualCore = window.HabitualCore || {};
             core.toggleHabitForDate(targetHabitId, todayKey, autoInc);
           }
 
-          if (core.saveState) core.saveState();
-          if (core.renderAll) core.renderAll();
-
-          // Clear URL Hash
-          if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
-            window.history.replaceState(null, '', window.location.pathname);
+          if (core.navigateToHabitPage) {
+            core.navigateToHabitPage(targetHabitId);
           }
 
           const toastMsg = isNewImport
