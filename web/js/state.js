@@ -35,6 +35,7 @@ window.HabitualCore = window.HabitualCore || {};
   core.resetState = function() {
     core.cursorDateKey = null;
     core.hasMovedCursor = false;
+    core._lastRouteKey = null;
     core.state = {
       habits: [],
       deletedHabitIds: [],

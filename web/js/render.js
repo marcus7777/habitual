@@ -546,8 +546,39 @@ window.HabitualCore = window.HabitualCore || {};
     const route = core.parseHash ? core.parseHash() : { view: 'home', habitId: null };
     core.renderViewNavigation(route);
 
-    if (core.state && core.state.selectedHabitId && core.ensureHabitAncestorsExpanded) {
-      core.ensureHabitAncestorsExpanded(core.state.selectedHabitId);
+    let routeKey = 'home';
+    if (route.view === 'habit' && route.habitId) {
+      let decodedRouteId = route.habitId;
+      try { decodedRouteId = decodeURIComponent(route.habitId || ''); } catch(e) {}
+      const targetHabit = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
+        h.id === route.habitId ||
+        h.id === decodedRouteId ||
+        (h.name && h.name.toLowerCase() === decodedRouteId.toLowerCase())
+      ) : null;
+      routeKey = 'habit:' + (targetHabit ? targetHabit.id : (route.habitId || ''));
+    }
+
+    if (!core.state) core.state = {};
+    if (!core.state.expandedHabitIds) core.state.expandedHabitIds = new Set();
+
+    if (core._lastRouteKey !== routeKey) {
+      core._lastRouteKey = routeKey;
+      if (route.view === 'home') {
+        core.state.expandedHabitIds = new Set();
+      } else if (route.view === 'habit') {
+        let decodedRouteId = route.habitId;
+        try { decodedRouteId = decodeURIComponent(route.habitId || ''); } catch(e) {}
+        const targetHabit = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
+          h.id === route.habitId ||
+          h.id === decodedRouteId ||
+          (h.name && h.name.toLowerCase() === decodedRouteId.toLowerCase())
+        ) : null;
+        if (targetHabit) {
+          core.state.expandedHabitIds = new Set([targetHabit.id]);
+        } else {
+          core.state.expandedHabitIds = new Set();
+        }
+      }
     }
 
     if (!core.state || !core.state.habits || core.state.habits.length === 0) {
