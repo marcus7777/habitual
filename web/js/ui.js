@@ -4237,6 +4237,7 @@ window.HabitualCore = window.HabitualCore || {};
         customInterval: node.customInterval || 3,
         customUnit: node.customUnit || 'days',
         colorTheme: node.colorTheme || (core.getDefaultColorForId ? core.getDefaultColorForId(newId) : '#039BE5'),
+        showStreak: node.showStreak !== false,
         showCount: node.showCount !== false,
         showDuration: node.showDuration === true,
         hideHeatmap: node.hideHeatmap === true,
@@ -4246,6 +4247,7 @@ window.HabitualCore = window.HabitualCore || {};
         subhabitSortOrder: node.subhabitSortOrder || 'manual',
         subhabitSortReverse: node.subhabitSortReverse === true,
         parentDependency: node.parentDependency || 'none',
+        isPaused: node.isPaused === true,
         createdAt: today,
         logs: {}
       };
