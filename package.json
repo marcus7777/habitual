@@ -1,6 +1,6 @@
 {
   "name": "habitual",
-  "version": "1.34.1",
+  "version": "1.34.2",
   "description": "Minimalist 100% fluid GitHub-style habit progression visualizer",
   "main": "web/app.js",
   "scripts": {
@@ -17,6 +17,7 @@
     "test:diag": "node tests/test-playwright-diag.js",
     "benchmark": "node tests/benchmark-playwright.js",
     "audit": "node tests/test-lighthouse-audit.js",
+    "build": "node build.js",
     "bump": "node bump-version.js",
     "deploy": "node deploy.js"
   },
