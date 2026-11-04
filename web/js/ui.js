@@ -4228,6 +4228,102 @@ window.HabitualCore = window.HabitualCore || {};
     return habit;
   };
 
+  core.renderTemplateTasksConfig = function() {
+    const habit = core.getCurrentModalHabitObject ? core.getCurrentModalHabitObject() : null;
+    const container = document.getElementById('habit-template-tasks-container');
+    const chkTemplateAutoLog = document.getElementById('habit-template-auto-log');
+    if (!container) return;
+
+    if (!chkTemplateAutoLog || !chkTemplateAutoLog.checked || !habit) {
+      container.innerHTML = '';
+      container.classList.add('hidden');
+      return;
+    }
+
+    function getSubTreeList(node) {
+      let list = [node];
+      if (core.state && Array.isArray(core.state.habits)) {
+        const children = core.state.habits.filter(h => h.parentId === node.id);
+        children.forEach(child => {
+          list = list.concat(getSubTreeList(child));
+        });
+      }
+      return list;
+    }
+
+    const allTasks = getSubTreeList(habit);
+    container.classList.remove('hidden');
+
+    let html = `<label class="margin-top-xs" style="display: block; margin-bottom: 6px;"><strong>🎯 Configure Task Auto-Increments & Daily Max Caps on QR Scan</strong></label>`;
+
+    allTasks.forEach(task => {
+      const isMain = task.id === habit.id;
+      const defaultInc = 1;
+      const defaultMaxCap = (task.maxCap !== undefined && task.maxCap !== null)
+        ? task.maxCap
+        : (isMain ? 1 : '');
+
+      html += `
+        <div class="template-task-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; padding: 6px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+          <label class="checkbox-label" style="flex: 1; margin: 0; min-width: 130px; font-size: 0.9rem;">
+            <input type="checkbox" class="chk-tmpl-task" data-task-id="${task.id}" checked>
+            <span><strong>${core.escapeHTML ? core.escapeHTML(task.name) : task.name}</strong> ${isMain ? '<small class="muted-text">(Main)</small>' : ''}</span>
+          </label>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: 0.78rem; opacity: 0.85;">Inc:</label>
+            <input type="number" class="text-input input-tmpl-inc" data-task-id="${task.id}" min="0" max="99" value="${defaultInc}" style="width: 52px; padding: 2px 4px; text-align: center; font-size: 0.85rem;">
+            <label style="font-size: 0.78rem; opacity: 0.85;">Max:</label>
+            <input type="number" class="text-input input-tmpl-max" data-task-id="${task.id}" min="1" max="999" value="${defaultMaxCap}" placeholder="∞" style="width: 52px; padding: 2px 4px; text-align: center; font-size: 0.85rem;" title="Maximum daily count limit for this task on scan (e.g. 1)">
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  };
+
+  core.getTemplateAutoIncConfig = function() {
+    const chkTemplateAutoLog = document.getElementById('habit-template-auto-log');
+    if (!chkTemplateAutoLog || !chkTemplateAutoLog.checked) return 0;
+
+    const container = document.getElementById('habit-template-tasks-container');
+    const rows = container ? container.querySelectorAll('.template-task-row') : [];
+
+    if (rows.length === 0) {
+      const inputAutoLogCount = document.getElementById('habit-template-auto-log-count');
+      const selectAutoLogTarget = document.getElementById('habit-template-target-select');
+      const inc = parseInt(inputAutoLogCount ? inputAutoLogCount.value || 1 : 1, 10);
+      const targetId = selectAutoLogTarget ? selectAutoLogTarget.value : null;
+      return targetId ? { [targetId]: { inc: inc } } : inc;
+    }
+
+    const configMap = {};
+    let countEnabled = 0;
+
+    rows.forEach(row => {
+      const chk = row.querySelector('.chk-tmpl-task');
+      if (chk && chk.checked) {
+        const taskId = chk.dataset.taskId;
+        const inputInc = row.querySelector('.input-tmpl-inc');
+        const inputMax = row.querySelector('.input-tmpl-max');
+
+        const incVal = parseInt(inputInc ? inputInc.value : '1', 10);
+        const maxVal = parseInt(inputMax ? inputMax.value : '', 10);
+
+        if (!isNaN(incVal) && incVal >= 0) {
+          configMap[taskId] = {
+            inc: incVal,
+            max: (!isNaN(maxVal) && maxVal > 0) ? maxVal : null
+          };
+          countEnabled++;
+        }
+      }
+    });
+
+    if (countEnabled === 0) return 0;
+    return configMap;
+  };
+
   core.importHabitTemplateToState = function(decodedHabit) {
     if (!decodedHabit || !decodedHabit.name) return null;
 
