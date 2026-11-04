@@ -447,6 +447,12 @@ window.HabitualCore = window.HabitualCore || {};
     if (habit.isPaused) h.isPaused = true;
     if (habit.hideHeatmapWhenPaused) h.hideHeatmapWhenPaused = true;
     if (habit.hideHeatmap) h.hideHeatmap = true;
+    if (habit.hideWhenCompleted) h.hideWhenCompleted = true;
+    if (habit.hideNotScheduled) h.hideNotScheduled = true;
+    if (habit.hideWhenPaused) h.hideWhenPaused = true;
+    if (habit.hideTimeOfDay && typeof habit.hideTimeOfDay === 'object') h.hideTimeOfDay = habit.hideTimeOfDay;
+    if (habit.hideLocation && typeof habit.hideLocation === 'object') h.hideLocation = habit.hideLocation;
+    if (habit.hideDependency && typeof habit.hideDependency === 'object') h.hideDependency = habit.hideDependency;
     if (Array.isArray(habit.pauseHistory) && habit.pauseHistory.length > 0) h.pauseHistory = habit.pauseHistory;
     if (habit.dailyTarget && habit.dailyTarget !== 1) h.dailyTarget = habit.dailyTarget;
     if (habit.frequencyType && habit.frequencyType !== 'daily') h.frequencyType = habit.frequencyType;
@@ -621,6 +627,12 @@ window.HabitualCore = window.HabitualCore || {};
         isPaused: Boolean(h.isPaused),
         hideHeatmapWhenPaused: Boolean(h.hideHeatmapWhenPaused),
         hideHeatmap: Boolean(h.hideHeatmap),
+        hideWhenCompleted: Boolean(h.hideWhenCompleted),
+        hideNotScheduled: Boolean(h.hideNotScheduled),
+        hideWhenPaused: Boolean(h.hideWhenPaused),
+        hideTimeOfDay: h.hideTimeOfDay && typeof h.hideTimeOfDay === 'object' ? h.hideTimeOfDay : { enabled: false, mode: 'before', startTime: '09:00', endTime: '18:00' },
+        hideLocation: h.hideLocation && typeof h.hideLocation === 'object' ? h.hideLocation : { enabled: false, geohashes: [], mode: 'at' },
+        hideDependency: h.hideDependency && typeof h.hideDependency === 'object' ? h.hideDependency : { enabled: false, targetId: 'parent', criterion: 'habit_completed', requiredCount: 1, timeframe: 'today' },
         pauseHistory: Array.isArray(h.pauseHistory) ? h.pauseHistory : [],
         colorTheme: h.colorTheme || derivedColor,
         dailyTarget: h.dailyTarget || 1,
@@ -1230,6 +1242,14 @@ window.HabitualCore = window.HabitualCore || {};
       showDuration: habit.showDuration,
       hideFromAll: habit.hideFromAll,
       isPaused: habit.isPaused,
+      hideHeatmapWhenPaused: habit.hideHeatmapWhenPaused,
+      hideHeatmap: habit.hideHeatmap,
+      hideWhenCompleted: habit.hideWhenCompleted,
+      hideNotScheduled: habit.hideNotScheduled,
+      hideWhenPaused: habit.hideWhenPaused,
+      hideTimeOfDay: habit.hideTimeOfDay,
+      hideLocation: habit.hideLocation,
+      hideDependency: habit.hideDependency,
       createdAt: habit.createdAt || todayStr,
       logs: habit.logs || {}
     };
@@ -1266,6 +1286,14 @@ window.HabitualCore = window.HabitualCore || {};
           showDuration: child.showDuration,
           hideFromAll: child.hideFromAll,
           isPaused: child.isPaused,
+          hideHeatmapWhenPaused: child.hideHeatmapWhenPaused,
+          hideHeatmap: child.hideHeatmap,
+          hideWhenCompleted: child.hideWhenCompleted,
+          hideNotScheduled: child.hideNotScheduled,
+          hideWhenPaused: child.hideWhenPaused,
+          hideTimeOfDay: child.hideTimeOfDay,
+          hideLocation: child.hideLocation,
+          hideDependency: child.hideDependency,
           createdAt: child.createdAt || todayStr,
           logs: child.logs || {}
         }));
@@ -1713,6 +1741,8 @@ window.HabitualCore = window.HabitualCore || {};
                   'weeklyTarget', 'monthlyDay', 'monthlyTarget', 'customTarget', 'customInterval', 'customUnit',
                   'colorWholeWeek', 'colorWholeMonth', 'showStreak', 'showCount', 'showDuration',
                   'hideFromAll', 'isPaused', 'hideHeatmapWhenPaused', 'hideHeatmap',
+                  'hideWhenCompleted', 'hideNotScheduled', 'hideWhenPaused',
+                  'hideTimeOfDay', 'hideLocation', 'hideDependency',
                   'subhabitDisplayMode', 'subhabitSortOrder', 'subhabitSortReverse'
                 ];
 

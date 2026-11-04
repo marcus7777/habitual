@@ -1,12 +1,30 @@
 {
   "version": 2,
-  "updatedAt": 1793812099668,
+  "updatedAt": 1793814904544,
   "habits": [
     {
-      "id": "dailyReading700",
-      "updatedAt": 1793812099668,
-      "name": "Daily Reading 700",
+      "id": "dailyReading239",
+      "updatedAt": 1793814904543,
+      "name": "Daily Reading 239",
       "colorTheme": "#616161",
+      "hideTimeOfDay": {
+        "enabled": false,
+        "mode": "before",
+        "startTime": "09:00",
+        "endTime": "18:00"
+      },
+      "hideLocation": {
+        "enabled": false,
+        "mode": "at",
+        "geohashes": []
+      },
+      "hideDependency": {
+        "enabled": false,
+        "targetId": "parent",
+        "criterion": "habit_completed",
+        "requiredCount": 1,
+        "timeframe": "today"
+      },
       "targetDays": [
         1
       ],
@@ -25,7 +43,7 @@
   "deletedHabitIds": [],
   "updateLog": [],
   "remoteHashHistory": [],
-  "selectedHabitId": "dailyReading700",
+  "selectedHabitId": "dailyReading239",
   "selectedYear": 2026,
   "showQuickLogOnStartup": false,
   "dayBoundaryMode": "midnight",

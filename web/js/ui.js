@@ -268,23 +268,45 @@ window.HabitualCore = window.HabitualCore || {};
     core.elements.habitHideHeatmapWhenPaused = document.getElementById('habit-hide-heatmap-when-paused');
     core.elements.habitHideHeatmap = document.getElementById('habit-hide-heatmap');
 
+    core.elements.menuToggleShowHiddenContainer = document.getElementById('menu-toggle-show-hidden-container');
+    core.elements.menuToggleShowHidden = document.getElementById('menu-toggle-show-hidden');
+    core.elements.habitHideWhenCompleted = document.getElementById('habit-hide-when-completed');
+    core.elements.habitHideNotScheduled = document.getElementById('habit-hide-not-scheduled');
+    core.elements.habitHideWhenPaused = document.getElementById('habit-hide-when-paused');
+    core.elements.habitHideTimeEnabled = document.getElementById('habit-hide-time-enabled');
+    core.elements.habitHideTimeSettings = document.getElementById('habit-hide-time-settings');
+    core.elements.habitHideTimeMode = document.getElementById('habit-hide-time-mode');
+    core.elements.habitHideTimeStart = document.getElementById('habit-hide-time-start');
+    core.elements.habitHideTimeEnd = document.getElementById('habit-hide-time-end');
+    core.elements.habitHideTimeEndGroup = document.getElementById('habit-hide-time-end-group');
+    core.elements.habitHideLocationEnabled = document.getElementById('habit-hide-location-enabled');
+    core.elements.habitHideLocationSettings = document.getElementById('habit-hide-location-settings');
+    core.elements.habitHideLocationMode = document.getElementById('habit-hide-location-mode');
+    core.elements.btnAddCurrentLocation = document.getElementById('btn-add-current-location');
+    core.elements.habitLocationsBadges = document.getElementById('habit-locations-badges');
+    core.elements.habitHideDepEnabled = document.getElementById('habit-hide-dep-enabled');
+    core.elements.habitHideDepSettings = document.getElementById('habit-hide-dep-settings');
+    core.elements.habitHideDepTargetId = document.getElementById('habit-hide-dep-target-id');
+    core.elements.habitHideDepCriterion = document.getElementById('habit-hide-dep-criterion');
+    core.elements.habitHideDepCount = document.getElementById('habit-hide-dep-count');
+    core.elements.habitHideDepTimeframe = document.getElementById('habit-hide-dep-timeframe');
+
     core.switchDisplayOptionsTab = function(tabName) {
       const parentBtn = document.getElementById('tab-btn-parent-options');
       const subhabitBtn = document.getElementById('tab-btn-subhabit-options');
+      const hidingBtn = document.getElementById('tab-btn-hiding-options');
+
       const parentContent = document.getElementById('tab-content-parent-options');
       const subhabitContent = document.getElementById('tab-content-subhabit-options');
+      const hidingContent = document.getElementById('tab-content-hiding-options');
 
-      if (tabName === 'subhabits') {
-        if (parentBtn) parentBtn.classList.remove('active');
-        if (subhabitBtn) subhabitBtn.classList.add('active');
-        if (parentContent) parentContent.classList.add('hidden');
-        if (subhabitContent) subhabitContent.classList.remove('hidden');
-      } else {
-        if (parentBtn) parentBtn.classList.add('active');
-        if (subhabitBtn) subhabitBtn.classList.remove('active');
-        if (parentContent) parentContent.classList.remove('hidden');
-        if (subhabitContent) subhabitContent.classList.add('hidden');
-      }
+      if (parentBtn) parentBtn.classList.toggle('active', tabName === 'parent');
+      if (subhabitBtn) subhabitBtn.classList.toggle('active', tabName === 'subhabits');
+      if (hidingBtn) hidingBtn.classList.toggle('active', tabName === 'hiding');
+
+      if (parentContent) parentContent.classList.toggle('hidden', tabName !== 'parent');
+      if (subhabitContent) subhabitContent.classList.toggle('hidden', tabName !== 'subhabits');
+      if (hidingContent) hidingContent.classList.toggle('hidden', tabName !== 'hiding');
     };
 
     const parentTabBtn = document.getElementById('tab-btn-parent-options');
@@ -296,6 +318,21 @@ window.HabitualCore = window.HabitualCore || {};
     if (subhabitTabBtn && typeof subhabitTabBtn.addEventListener === 'function' && !subhabitTabBtn._hasTabListener) {
       subhabitTabBtn.addEventListener('click', () => core.switchDisplayOptionsTab('subhabits'));
       subhabitTabBtn._hasTabListener = true;
+    }
+    const hidingTabBtn = document.getElementById('tab-btn-hiding-options');
+    if (hidingTabBtn && typeof hidingTabBtn.addEventListener === 'function' && !hidingTabBtn._hasTabListener) {
+      hidingTabBtn.addEventListener('click', () => core.switchDisplayOptionsTab('hiding'));
+      hidingTabBtn._hasTabListener = true;
+    }
+
+    if (core.elements.menuToggleShowHidden && typeof core.elements.menuToggleShowHidden.addEventListener === 'function' && !core.elements.menuToggleShowHidden._hasShowHiddenListener) {
+      core.elements.menuToggleShowHidden.addEventListener('change', (e) => {
+        if (!core.state) return;
+        core.state.showHiddenOverride = Boolean(e.target.checked);
+        if (core.saveState) core.saveState();
+        if (core.render) core.render();
+      });
+      core.elements.menuToggleShowHidden._hasShowHiddenListener = true;
     }
 
 
@@ -2546,8 +2583,6 @@ window.HabitualCore = window.HabitualCore || {};
     if (chkSortReverse) chkSortReverse.checked = Boolean(prefs.sortReverse);
     if (core.updateSortReverseVisibility) core.updateSortReverseVisibility();
 
-    const titleLabel = document.getElementById('parent-subsort-title-label');
-    if (titleLabel) titleLabel.textContent = '↕️ Habit Display Sort Order';
     const selectLabel = document.getElementById('parent-subsort-select-label');
     if (selectLabel) selectLabel.textContent = 'Homepage & Default Habit Sort Order';
 
@@ -2566,7 +2601,7 @@ window.HabitualCore = window.HabitualCore || {};
 
     const parentSubsortSec = document.getElementById('parent-subhabit-display-section');
     if (parentSubsortSec) parentSubsortSec.classList.remove('hidden');
-    if (core.switchDisplayOptionsTab) core.switchDisplayOptionsTab('subhabits');
+    if (core.switchDisplayOptionsTab) core.switchDisplayOptionsTab('parent');
 
     {
       const hInput = document.getElementById('habit-name');
@@ -2596,6 +2631,97 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
+  core.renderLocationGeohashBadges = function() {
+    const container = document.getElementById('habit-locations-badges');
+    if (!container) return;
+    container.innerHTML = '';
+    const list = Array.isArray(core._editingHabitGeohashes) ? core._editingHabitGeohashes : [];
+    if (list.length === 0) {
+      container.innerHTML = '<span class="muted-text" style="font-size: 0.8rem; padding: 4px;">No locations saved yet. Click "Add Current Location" to add one.</span>';
+      return;
+    }
+
+    list.forEach((geo, idx) => {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--bg-hover, #eee); border-radius: 12px; font-size: 0.8rem; border: 1px solid var(--border-color);';
+      badge.innerHTML = `📍 <strong>${core.escapeHTML ? core.escapeHTML(geo) : geo}</strong> <button type="button" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.85rem; padding: 0 2px;" title="Remove Location">✕</button>`;
+      const btn = badge.querySelector('button');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          core._editingHabitGeohashes.splice(idx, 1);
+          core.renderLocationGeohashBadges();
+        });
+      }
+      container.appendChild(badge);
+    });
+  };
+
+  core.setupHidingRulesListeners = function() {
+    if (core._hidingListenersSetup) return;
+    core._hidingListenersSetup = true;
+
+    const timeChk = document.getElementById('habit-hide-time-enabled');
+    const timeSettings = document.getElementById('habit-hide-time-settings');
+    const timeMode = document.getElementById('habit-hide-time-mode');
+    const timeEndGroup = document.getElementById('habit-hide-time-end-group');
+
+    if (timeChk && timeSettings && typeof timeChk.addEventListener === 'function') {
+      timeChk.addEventListener('change', (e) => {
+        if (timeSettings && timeSettings.classList) timeSettings.classList.toggle('hidden', !e.target.checked);
+      });
+    }
+    if (timeMode && timeEndGroup && typeof timeMode.addEventListener === 'function') {
+      timeMode.addEventListener('change', (e) => {
+        if (timeEndGroup && timeEndGroup.style) timeEndGroup.style.display = (e.target.value === 'outside') ? 'block' : 'none';
+      });
+    }
+
+    const locChk = document.getElementById('habit-hide-location-enabled');
+    const locSettings = document.getElementById('habit-hide-location-settings');
+    if (locChk && locSettings && typeof locChk.addEventListener === 'function') {
+      locChk.addEventListener('change', (e) => {
+        if (locSettings && locSettings.classList) locSettings.classList.toggle('hidden', !e.target.checked);
+      });
+    }
+
+    const btnAddLoc = document.getElementById('btn-add-current-location');
+    if (btnAddLoc && typeof btnAddLoc.addEventListener === 'function') {
+      btnAddLoc.addEventListener('click', () => {
+        if (typeof navigator !== 'undefined' && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const lat = pos.coords.latitude;
+              const lon = pos.coords.longitude;
+              const geo7 = core.encodeGeohash ? core.encodeGeohash(lat, lon, 7) : 'location';
+              if (!Array.isArray(core._editingHabitGeohashes)) core._editingHabitGeohashes = [];
+              if (!core._editingHabitGeohashes.includes(geo7)) {
+                core._editingHabitGeohashes.push(geo7);
+              }
+              if (core.state) core.state.currentGeohash = geo7;
+              if (core.renderLocationGeohashBadges) core.renderLocationGeohashBadges();
+              if (core.showToast) core.showToast(`📍 Location added (${geo7})`, 'success');
+            },
+            (err) => {
+              console.warn('Geolocation error:', err);
+              if (core.showToast) core.showToast('Unable to access current location.', 'warning');
+            },
+            { timeout: 10000, enableHighAccuracy: true }
+          );
+        } else {
+          if (core.showToast) core.showToast('Geolocation is not supported by your browser.', 'warning');
+        }
+      });
+    }
+
+    const depChk = document.getElementById('habit-hide-dep-enabled');
+    const depSettings = document.getElementById('habit-hide-dep-settings');
+    if (depChk && depSettings && typeof depChk.addEventListener === 'function') {
+      depChk.addEventListener('change', (e) => {
+        if (depSettings && depSettings.classList) depSettings.classList.toggle('hidden', !e.target.checked);
+      });
+    }
+  };
+
   core.openHabitModal = function(habitToEdit = null, defaultParentId = null) {
     if (!core.elements || (!core.elements.modalHabit && !core.elements.modalHabit)) {
       if (core.initUI) core.initUI();
@@ -2606,19 +2732,17 @@ window.HabitualCore = window.HabitualCore || {};
       if (nGroup) nGroup.style.display = '';
     }
 
-    const titleLabel = document.getElementById('parent-subsort-title-label');
-    if (titleLabel) titleLabel.textContent = '📁 Sub-Habit Sorting';
     const selectLabel = document.getElementById('parent-subsort-select-label');
     if (selectLabel) selectLabel.textContent = 'Sub-Habit Auto-Sort';
 
     const parentSubsortSec = document.getElementById('parent-subhabit-display-section');
     if (parentSubsortSec) {
+      parentSubsortSec.classList.remove('hidden');
+    }
+    const subhabitTabBtn = document.getElementById('tab-btn-subhabit-options');
+    if (subhabitTabBtn && subhabitTabBtn.style) {
       const hasSubs = habitToEdit ? core.state.habits.some(h => h.parentId === habitToEdit.id) : Boolean(defaultParentId);
-      if (hasSubs) {
-        parentSubsortSec.classList.remove('hidden');
-      } else {
-        parentSubsortSec.classList.add('hidden');
-      }
+      subhabitTabBtn.style.display = hasSubs ? '' : 'none';
     }
 
     const formEl = (core.elements && core.elements.formHabit) ? core.elements.formHabit : document.getElementById('form-habit');
@@ -2875,12 +2999,52 @@ window.HabitualCore = window.HabitualCore || {};
     const selectSortOrder = document.getElementById('habit-subhabit-sort-order');
 
     if (subhabitDisplaySection) {
-      if (hasSubhabits) {
-        subhabitDisplaySection.classList.remove('hidden');
-      } else {
-        subhabitDisplaySection.classList.add('hidden');
-      }
+      subhabitDisplaySection.classList.remove('hidden');
     }
+
+    // Setup and populate Hiding Rules Tab
+    if (core.setupHidingRulesListeners) core.setupHidingRulesListeners();
+
+    if (core.elements.habitHideWhenCompleted) core.elements.habitHideWhenCompleted.checked = habitToEdit ? habitToEdit.hideWhenCompleted === true : false;
+    if (core.elements.habitHideNotScheduled) core.elements.habitHideNotScheduled.checked = habitToEdit ? habitToEdit.hideNotScheduled === true : false;
+    if (core.elements.habitHideWhenPaused) core.elements.habitHideWhenPaused.checked = habitToEdit ? habitToEdit.hideWhenPaused === true : false;
+
+    // Time of Day
+    const hideTime = (habitToEdit && habitToEdit.hideTimeOfDay) ? habitToEdit.hideTimeOfDay : { enabled: false, mode: 'before', startTime: '09:00', endTime: '18:00' };
+    if (core.elements.habitHideTimeEnabled) core.elements.habitHideTimeEnabled.checked = Boolean(hideTime.enabled);
+    if (core.elements.habitHideTimeSettings && core.elements.habitHideTimeSettings.classList && typeof core.elements.habitHideTimeSettings.classList.toggle === 'function') core.elements.habitHideTimeSettings.classList.toggle('hidden', !hideTime.enabled);
+    if (core.elements.habitHideTimeMode) core.elements.habitHideTimeMode.value = hideTime.mode || 'before';
+    if (core.elements.habitHideTimeStart) core.elements.habitHideTimeStart.value = hideTime.startTime || '09:00';
+    if (core.elements.habitHideTimeEnd) core.elements.habitHideTimeEnd.value = hideTime.endTime || '18:00';
+    if (core.elements.habitHideTimeEndGroup && core.elements.habitHideTimeEndGroup.style) core.elements.habitHideTimeEndGroup.style.display = (hideTime.mode === 'outside') ? 'block' : 'none';
+
+    // Location
+    const hideLoc = (habitToEdit && habitToEdit.hideLocation) ? habitToEdit.hideLocation : { enabled: false, geohashes: [], mode: 'at' };
+    if (core.elements.habitHideLocationEnabled) core.elements.habitHideLocationEnabled.checked = Boolean(hideLoc.enabled);
+    if (core.elements.habitHideLocationSettings && core.elements.habitHideLocationSettings.classList && typeof core.elements.habitHideLocationSettings.classList.toggle === 'function') core.elements.habitHideLocationSettings.classList.toggle('hidden', !hideLoc.enabled);
+    if (core.elements.habitHideLocationMode) core.elements.habitHideLocationMode.value = hideLoc.mode || 'at';
+    core._editingHabitGeohashes = Array.isArray(hideLoc.geohashes) ? [...hideLoc.geohashes] : [];
+    if (core.renderLocationGeohashBadges) core.renderLocationGeohashBadges();
+
+    // Prerequisite Habit Dropdown & Settings
+    const hideDep = (habitToEdit && habitToEdit.hideDependency) ? habitToEdit.hideDependency : { enabled: false, targetId: 'parent', criterion: 'habit_completed', requiredCount: 1, timeframe: 'today' };
+    if (core.elements.habitHideDepEnabled) core.elements.habitHideDepEnabled.checked = Boolean(hideDep.enabled);
+    if (core.elements.habitHideDepSettings && core.elements.habitHideDepSettings.classList && typeof core.elements.habitHideDepSettings.classList.toggle === 'function') core.elements.habitHideDepSettings.classList.toggle('hidden', !hideDep.enabled);
+    if (core.elements.habitHideDepTargetId) {
+      let optHtml = '<option value="parent" ' + (hideDep.targetId === 'parent' || !hideDep.targetId ? 'selected' : '') + '>Parent Habit (if available)</option>';
+      if (core.state && Array.isArray(core.state.habits)) {
+        core.state.habits.forEach(h => {
+          if (!habitToEdit || h.id !== habitToEdit.id) {
+            const isSel = (hideDep.targetId === h.id);
+            optHtml += `<option value="${core.escapeHTML ? core.escapeHTML(h.id) : h.id}" ${isSel ? 'selected' : ''}>${core.escapeHTML ? core.escapeHTML(h.name) : h.name}</option>`;
+          }
+        });
+      }
+      core.elements.habitHideDepTargetId.innerHTML = optHtml;
+    }
+    if (core.elements.habitHideDepCriterion) core.elements.habitHideDepCriterion.value = hideDep.criterion || 'habit_completed';
+    if (core.elements.habitHideDepCount) core.elements.habitHideDepCount.value = hideDep.requiredCount || 1;
+    if (core.elements.habitHideDepTimeframe) core.elements.habitHideDepTimeframe.value = hideDep.timeframe || 'today';
 
     const chkSortReverse = document.getElementById('habit-subhabit-sort-reverse');
     const containerSortReverse = document.getElementById('parent-subhabit-sort-reverse-container');
@@ -3268,6 +3432,31 @@ window.HabitualCore = window.HabitualCore || {};
     const hideHeatmapInput = core.elements.habitHideHeatmap || document.getElementById('habit-hide-heatmap');
     const hideHeatmap = (hideHeatmapInput && typeof hideHeatmapInput.checked === 'boolean') ? hideHeatmapInput.checked : hasVal('habit-hide-heatmap');
 
+    const hideWhenCompleted = core.elements.habitHideWhenCompleted ? core.elements.habitHideWhenCompleted.checked : false;
+    const hideNotScheduled = core.elements.habitHideNotScheduled ? core.elements.habitHideNotScheduled.checked : false;
+    const hideWhenPaused = core.elements.habitHideWhenPaused ? core.elements.habitHideWhenPaused.checked : false;
+
+    const hideTimeOfDay = {
+      enabled: core.elements.habitHideTimeEnabled ? core.elements.habitHideTimeEnabled.checked : false,
+      mode: core.elements.habitHideTimeMode ? core.elements.habitHideTimeMode.value : 'before',
+      startTime: core.elements.habitHideTimeStart ? core.elements.habitHideTimeStart.value : '09:00',
+      endTime: core.elements.habitHideTimeEnd ? core.elements.habitHideTimeEnd.value : '18:00'
+    };
+
+    const hideLocation = {
+      enabled: core.elements.habitHideLocationEnabled ? core.elements.habitHideLocationEnabled.checked : false,
+      mode: core.elements.habitHideLocationMode ? core.elements.habitHideLocationMode.value : 'at',
+      geohashes: Array.isArray(core._editingHabitGeohashes) ? [...core._editingHabitGeohashes] : []
+    };
+
+    const hideDependency = {
+      enabled: core.elements.habitHideDepEnabled ? core.elements.habitHideDepEnabled.checked : false,
+      targetId: core.elements.habitHideDepTargetId ? core.elements.habitHideDepTargetId.value : 'parent',
+      criterion: core.elements.habitHideDepCriterion ? core.elements.habitHideDepCriterion.value : 'habit_completed',
+      requiredCount: parseInt(core.elements.habitHideDepCount ? core.elements.habitHideDepCount.value : '1', 10) || 1,
+      timeframe: core.elements.habitHideDepTimeframe ? core.elements.habitHideDepTimeframe.value : 'today'
+    };
+
     const freqSelect = document.getElementById('habit-frequency-type');
     const freqType = getVal('habit-frequency-type') || (freqSelect ? freqSelect.value : 'daily');
     let targetDays = [1], weeklyTarget = 1, monthlyDay = '1', monthlyTarget = 1, colorWholeWeek = true, colorWholeMonth = true, customTarget = 1, customInterval = 3, customUnit = 'days';
@@ -3364,6 +3553,7 @@ window.HabitualCore = window.HabitualCore || {};
         savedTargetHabit = habit;
         const previousHideFromAll = Boolean(habit.hideFromAll);
         habit.name = name; habit.type = type; habit.description = description; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused; habit.hideHeatmap = hideHeatmap;
+        habit.hideWhenCompleted = hideWhenCompleted; habit.hideNotScheduled = hideNotScheduled; habit.hideWhenPaused = hideWhenPaused; habit.hideTimeOfDay = hideTimeOfDay; habit.hideLocation = hideLocation; habit.hideDependency = hideDependency;
         if (maxCap && maxCap > 0) habit.maxCap = maxCap; else delete habit.maxCap;
         habit.subhabitSortOrder = subhabitSortOrder;
         habit.subhabitSortReverse = subhabitSortReverse;
@@ -3492,7 +3682,9 @@ window.HabitualCore = window.HabitualCore || {};
 
       const newHabit = {
         id: (parentId ? parentId + '_' : '') + idGen(name),
-        name, type, description, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap, pauseHistory: isPaused ? [{ startDate: todayKeyGen(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
+        name, type, description, showStreak, showCount, showDuration, hideFromAll, isPaused, hideHeatmapWhenPaused, hideHeatmap,
+        hideWhenCompleted, hideNotScheduled, hideWhenPaused, hideTimeOfDay, hideLocation, hideDependency,
+        pauseHistory: isPaused ? [{ startDate: todayKeyGen(), endDate: null, hideHeatmap: hideHeatmapWhenPaused }] : [],
         subhabitSortOrder: inheritedSortOrder,
         subhabitSortReverse: inheritedSortReverse,
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, updatedAt: Date.now(), logs: backfilledLogs
