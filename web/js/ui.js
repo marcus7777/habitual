@@ -2700,6 +2700,8 @@ window.HabitualCore = window.HabitualCore || {};
       if (core.updateMarkdownPreviewVisibility) core.updateMarkdownPreviewVisibility();
       const habitTargetEl = document.getElementById('habit-daily-target');
       if (habitTargetEl) habitTargetEl.value = habitToEdit.dailyTarget || 1;
+      const habitMaxCapEl = document.getElementById('habit-max-cap');
+      if (habitMaxCapEl) habitMaxCapEl.value = (habitToEdit && habitToEdit.maxCap) ? habitToEdit.maxCap : '';
       if (core.elements.habitShowStreak) core.elements.habitShowStreak.checked = habitToEdit.showStreak === true;
       if (core.elements.habitShowCount) core.elements.habitShowCount.checked = habitToEdit.showCount !== false;
       if (core.elements.habitShowDuration) core.elements.habitShowDuration.checked = habitToEdit.showDuration === true;
@@ -2790,6 +2792,8 @@ window.HabitualCore = window.HabitualCore || {};
       if (showCountEl) showCountEl.checked = initialParent ? initialParent.showCount !== false : allPrefs.showCount;
       const showDurationEl = core.elements.habitShowDuration || document.getElementById('habit-show-duration');
       if (showDurationEl) showDurationEl.checked = initialParent ? initialParent.showDuration === true : allPrefs.showDuration;
+      const maxCapEl = document.getElementById('habit-max-cap');
+      if (maxCapEl) maxCapEl.value = '';
       if (core.elements.habitHideFromAll) core.elements.habitHideFromAll.checked = initialParent ? initialParent.hideFromAll === true : false;
       if (core.elements.habitHideHeatmap) core.elements.habitHideHeatmap.checked = initialParent ? initialParent.hideHeatmap === true : false;
       if (core.elements.habitIsPaused) core.elements.habitIsPaused.checked = false;
@@ -3234,6 +3238,9 @@ window.HabitualCore = window.HabitualCore || {};
     const description = (getVal('habit-description') || (document.getElementById('habit-description') ? document.getElementById('habit-description').value : '')).trim();
     const dailyTargetInput = document.getElementById('habit-daily-target');
     const dailyTarget = parseInt(getVal('habit-daily-target') || (dailyTargetInput ? dailyTargetInput.value : '1'), 10) || 1;
+    const inputMaxCap = document.getElementById('habit-max-cap');
+    const maxCapVal = parseInt(getVal('habit-max-cap') || (inputMaxCap ? inputMaxCap.value : ''), 10);
+    const maxCap = (!isNaN(maxCapVal) && maxCapVal > 0) ? maxCapVal : null;
     const colorRadio = (formEl && typeof formEl.querySelector === 'function') ? formEl.querySelector('input[name="habit-color"]:checked') : null;
     const selectedColorRadio = colorRadio ? colorRadio.value : (getVal('habit-color') || 'green');
     const parentIdVal = (getVal('habit-parent') || (document.getElementById('habit-parent') ? document.getElementById('habit-parent').value : '')).trim();
@@ -3357,6 +3364,7 @@ window.HabitualCore = window.HabitualCore || {};
         savedTargetHabit = habit;
         const previousHideFromAll = Boolean(habit.hideFromAll);
         habit.name = name; habit.type = type; habit.description = description; habit.dailyTarget = dailyTarget; habit.showStreak = showStreak; habit.showCount = showCount; habit.showDuration = showDuration; habit.hideFromAll = hideFromAll; habit.hideHeatmapWhenPaused = hideHeatmapWhenPaused; habit.hideHeatmap = hideHeatmap;
+        if (maxCap && maxCap > 0) habit.maxCap = maxCap; else delete habit.maxCap;
         habit.subhabitSortOrder = subhabitSortOrder;
         habit.subhabitSortReverse = subhabitSortReverse;
         core.setHabitPauseState(habit, isPaused, core.getTodayKey(), { hideHeatmap: hideHeatmapWhenPaused });
@@ -3489,6 +3497,9 @@ window.HabitualCore = window.HabitualCore || {};
         subhabitSortReverse: inheritedSortReverse,
         dailyTarget, frequencyType: freqType, targetDays, weeklyTarget, monthlyDay, monthlyTarget, colorWholeWeek, colorWholeMonth, customTarget, customInterval, customUnit, parentId, parentDependency, createdAt: createdAtKey, updatedAt: Date.now(), logs: backfilledLogs
       };
+      if (maxCap && maxCap > 0) {
+        newHabit.maxCap = maxCap;
+      }
       if (colorTheme) {
         newHabit.colorTheme = colorTheme;
       }
@@ -4100,22 +4111,21 @@ window.HabitualCore = window.HabitualCore || {};
           const hasSubs = habit && core.state && Array.isArray(core.state.habits) && core.state.habits.some(h => h.parentId === habit.id);
 
           if (groupAutoLogCount) {
-            if (chkTemplateAutoLog.checked) groupAutoLogCount.classList.remove('hidden');
+            if (chkTemplateAutoLog.checked && !hasSubs) groupAutoLogCount.classList.remove('hidden');
             else groupAutoLogCount.classList.add('hidden');
           }
           if (groupAutoLogTarget) {
-            if (chkTemplateAutoLog.checked && hasSubs) groupAutoLogTarget.classList.remove('hidden');
-            else groupAutoLogTarget.classList.add('hidden');
+            groupAutoLogTarget.classList.add('hidden');
           }
+          core.renderTemplateTasksConfig();
         });
       }
 
       if (btnCopyTemplateJSURL) {
         btnCopyTemplateJSURL.addEventListener('click', function() {
           const habit = core.getCurrentModalHabitObject();
-          const targetId = (selectAutoLogTarget && selectAutoLogTarget.value) ? selectAutoLogTarget.value : (habit ? habit.id : null);
-          const autoInc = (chkTemplateAutoLog && chkTemplateAutoLog.checked) ? parseInt(inputAutoLogCount ? inputAutoLogCount.value || 1 : 1, 10) : 0;
-          const link = core.generateJSURLTemplateLink(habit, autoInc, targetId);
+          const autoIncCfg = core.getTemplateAutoIncConfig();
+          const link = core.generateJSURLTemplateLink(habit, autoIncCfg);
 
           if (link) {
             if (qrTemplateDisplay && core.generateQRCodeSVG) {
@@ -4139,12 +4149,11 @@ window.HabitualCore = window.HabitualCore || {};
       if (btnCopyTemplateFirestore) {
         btnCopyTemplateFirestore.addEventListener('click', function() {
           const habit = core.getCurrentModalHabitObject();
-          const targetId = (selectAutoLogTarget && selectAutoLogTarget.value) ? selectAutoLogTarget.value : (habit ? habit.id : null);
-          const autoInc = (chkTemplateAutoLog && chkTemplateAutoLog.checked) ? parseInt(inputAutoLogCount ? inputAutoLogCount.value || 1 : 1, 10) : 0;
+          const autoIncCfg = core.getTemplateAutoIncConfig();
 
           if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.uploadTemplateToFirestore) {
             if (core.showToast) core.showToast('⏳ Creating cloud template link...', 'info');
-            core.SyncTargets.Firestore.uploadTemplateToFirestore(habit, autoInc, targetId).then(function(res) {
+            core.SyncTargets.Firestore.uploadTemplateToFirestore(habit, autoIncCfg).then(function(res) {
               if (res && res.url) {
                 if (qrTemplateDisplay && core.generateQRCodeSVG) {
                   qrTemplateDisplay.innerHTML = core.generateQRCodeSVG(res.url, 200);
@@ -4246,6 +4255,7 @@ window.HabitualCore = window.HabitualCore || {};
         targetId = existing.id;
         if (!existing.description && node.description) existing.description = node.description;
         if (!existing.colorTheme && node.colorTheme) existing.colorTheme = node.colorTheme;
+        if (!existing.maxCap && node.maxCap) existing.maxCap = node.maxCap;
       } else {
         targetId = (isRoot ? 'habit_tmpl_' : 'habit_sub_tmpl_') + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
 
@@ -4257,6 +4267,7 @@ window.HabitualCore = window.HabitualCore || {};
           description: node.description || '',
           category: node.category || 'General',
           dailyTarget: node.dailyTarget || 1,
+          maxCap: node.maxCap || null,
           frequencyType: node.frequencyType || 'daily',
           targetDays: node.targetDays || [1, 2, 3, 4, 5, 6, 0],
           weeklyTarget: node.weeklyTarget || 1,
@@ -4493,24 +4504,25 @@ window.HabitualCore = window.HabitualCore || {};
         }
       }
 
-      function findAutoIncNode(node) {
-        if (!node) return null;
+      function findAllAutoIncNodes(node) {
+        if (!node) return [];
+        let list = [];
         const inc = parseInt(node.autoIncrement || 0, 10);
-        if (!isNaN(inc) && inc > 0) return node;
+        if (!isNaN(inc) && inc > 0) {
+          list.push(node);
+        }
         if (Array.isArray(node.children)) {
           for (const child of node.children) {
-            const found = findAutoIncNode(child);
-            if (found) return found;
+            list = list.concat(findAllAutoIncNodes(child));
           }
         }
-        return null;
+        return list;
       }
 
       function processDecodedTemplate(decodedHabit) {
         if (!decodedHabit) return;
 
-        const autoIncNode = findAutoIncNode(decodedHabit);
-        const autoInc = autoIncNode ? (autoIncNode.autoIncrement || 0) : 0;
+        const autoIncNodes = findAllAutoIncNodes(decodedHabit);
         const todayKey = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
 
         // Check if top-level parent habit already exists
@@ -4518,7 +4530,7 @@ window.HabitualCore = window.HabitualCore || {};
           !h.parentId && h.name && h.name.trim().toLowerCase() === decodedHabit.name.trim().toLowerCase()
         ) : null;
 
-        if (existingParent && autoInc === 0) {
+        if (existingParent && autoIncNodes.length === 0) {
           const modalImport = document.getElementById('modal-import-template');
           if (modalImport) modalImport.classList.add('hidden');
 
@@ -4529,36 +4541,74 @@ window.HabitualCore = window.HabitualCore || {};
           return;
         }
 
-        if (autoInc > 0 && autoIncNode) {
+        if (autoIncNodes.length > 0) {
           // Import or combine template into state
           const rootHabitId = core.importHabitTemplateToState(decodedHabit);
+          let loggedSummaries = [];
+          let primaryTargetId = rootHabitId;
 
-          // Find matching habit or sub-habit in state for autoIncrement check-in
-          let targetHabitObj = null;
-          if (autoIncNode.name === decodedHabit.name) {
-            targetHabitObj = (core.state && Array.isArray(core.state.habits))
-              ? core.state.habits.find(h => h.id === rootHabitId) : null;
-          } else {
-            // Find matching sub-habit under rootHabitId
-            targetHabitObj = (core.state && Array.isArray(core.state.habits))
-              ? core.state.habits.find(h =>
-                  (h.parentId === rootHabitId || h.id === rootHabitId) &&
-                  h.name && h.name.trim().toLowerCase() === autoIncNode.name.trim().toLowerCase()
-                ) : null;
-          }
+          autoIncNodes.forEach(function(autoIncNode) {
+            const inc = autoIncNode.autoIncrement || 1;
+            let targetHabitObj = null;
 
-          if (!targetHabitObj) {
-            targetHabitObj = (core.state && Array.isArray(core.state.habits))
-              ? core.state.habits.find(h => h.id === rootHabitId) : null;
-          }
+            if (autoIncNode.name === decodedHabit.name) {
+              targetHabitObj = (core.state && Array.isArray(core.state.habits))
+                ? core.state.habits.find(h => h.id === rootHabitId) : null;
+            } else {
+              targetHabitObj = (core.state && Array.isArray(core.state.habits))
+                ? core.state.habits.find(h =>
+                    (h.parentId === rootHabitId || h.id === rootHabitId) &&
+                    h.name && h.name.trim().toLowerCase() === autoIncNode.name.trim().toLowerCase()
+                  ) : null;
+            }
 
-          // Auto-log check-in count for today
-          if (targetHabitObj && targetHabitObj.id && core.toggleHabitForDate) {
-            core.toggleHabitForDate(targetHabitObj.id, todayKey, autoInc);
-          }
+            if (!targetHabitObj) {
+              targetHabitObj = (core.state && Array.isArray(core.state.habits))
+                ? core.state.habits.find(h => h.id === rootHabitId) : null;
+            }
 
-          if (targetHabitObj && targetHabitObj.id && core.navigateToHabitPage) {
-            core.navigateToHabitPage(targetHabitObj.id);
+            if (targetHabitObj && targetHabitObj.id) {
+              primaryTargetId = targetHabitObj.id;
+              const currentLog = (targetHabitObj.logs && targetHabitObj.logs[todayKey]) ? targetHabitObj.logs[todayKey] : null;
+              const currentCount = currentLog ? (parseInt(currentLog.count, 10) || 0) : 0;
+              const maxCap = autoIncNode.maxCap || targetHabitObj.maxCap || null;
+
+              let newCount = currentCount + inc;
+              let isAtCap = false;
+
+              if (maxCap && maxCap > 0) {
+                if (currentCount >= maxCap) {
+                  newCount = currentCount;
+                  isAtCap = true;
+                } else if (newCount > maxCap) {
+                  newCount = maxCap;
+                  isAtCap = true;
+                }
+              }
+
+              if (newCount !== currentCount || currentCount === 0) {
+                if (core.toggleHabitForDate) {
+                  const deltaInc = newCount - currentCount;
+                  if (deltaInc > 0) {
+                    core.toggleHabitForDate(targetHabitObj.id, todayKey, deltaInc);
+                  } else if (currentCount === 0 && newCount === 0) {
+                    core.toggleHabitForDate(targetHabitObj.id, todayKey, 1);
+                  }
+                }
+              }
+
+              if (isAtCap && currentCount >= maxCap) {
+                loggedSummaries.push(`"${targetHabitObj.name}" at max ${maxCap}`);
+              } else if (isAtCap) {
+                loggedSummaries.push(`"${targetHabitObj.name}" +${newCount - currentCount} (capped at ${maxCap})`);
+              } else {
+                loggedSummaries.push(`"${targetHabitObj.name}" +${inc}`);
+              }
+            }
+          });
+
+          if (primaryTargetId && core.navigateToHabitPage) {
+            core.navigateToHabitPage(primaryTargetId);
           }
 
           if (core.saveState) core.saveState();
@@ -4569,9 +4619,9 @@ window.HabitualCore = window.HabitualCore || {};
             window.history.replaceState(null, '', window.location.pathname);
           }
 
-          const toastMsg = targetHabitObj
-            ? `⚡ Auto-logged check-in for "${targetHabitObj.name}" (+${autoInc})!`
-            : `⚡ Auto-logged check-in (+${autoInc})!`;
+          const toastMsg = loggedSummaries.length > 0
+            ? `⚡ Auto-logged check-in: ${loggedSummaries.join(', ')}!`
+            : `⚡ Auto-logged check-in!`;
           if (core.showToast) core.showToast(toastMsg, 'success');
           return;
         }
@@ -5297,9 +5347,13 @@ window.HabitualCore = window.HabitualCore || {};
 
     ensureStorageLib().then(function() {
       if (!firebase.apps.length) {
-        try { firebase.initializeApp({ projectId: "habitual-log" }); } catch(e) {}
+        try { firebase.initializeApp({ projectId: "habitual-log", storageBucket: "habitual-log.firebasestorage.app" }); } catch(e) {}
       }
-      const storageRef = firebase.storage().ref();
+      const defaultBucket = (firebase.app().options && firebase.app().options.storageBucket)
+        ? undefined
+        : 'gs://habitual-log.firebasestorage.app';
+      const storageInstance = defaultBucket ? firebase.storage(defaultBucket) : firebase.storage();
+      const storageRef = storageInstance.ref();
       const fileName = `habit-media/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
       const fileRef = storageRef.child(fileName);
 
