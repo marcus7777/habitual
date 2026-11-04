@@ -1551,13 +1551,7 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (node.colorTheme) {
         const normColor = (core.normalizeHex && node.colorTheme.startsWith('#')) ? core.normalizeHex(node.colorTheme) : node.colorTheme;
-        const derivedNameColor = core.getDefaultColorForId ? core.getDefaultColorForId(node.name) : null;
-        const derivedIdColor = (node.id && core.getDefaultColorForId) ? core.getDefaultColorForId(node.id) : null;
-        const isDefault = (derivedNameColor && normColor.toLowerCase() === derivedNameColor.toLowerCase()) ||
-                          (derivedIdColor && normColor.toLowerCase() === derivedIdColor.toLowerCase());
-        if (!isDefault) {
-          min.c = normColor;
-        }
+        min.c = normColor;
       }
 
       if (node.showStreak === false) min.ss = false;
