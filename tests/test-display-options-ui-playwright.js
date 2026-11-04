@@ -66,12 +66,13 @@ async function runDisplayOptionsTests() {
     await page.waitForSelector('#modal-habit:not(.hidden)', { timeout: 3000 });
     console.log('  ✅ [PASS] Parent Habit Modal opened successfully');
 
-    // Check display options via UI checkboxes
+    // Check parent display options
     await page.check('#habit-show-streak');
-    await page.check('#habit-show-duration');
 
-    // Switch to Sub-Habits tab for sort order
+    // Switch to Sub-Habits tab for sub-habit options & sort order
     await page.click('#tab-btn-subhabit-options');
+    await page.check('#subhabit-show-streak');
+    await page.check('#subhabit-show-duration');
     await page.selectOption('#habit-subhabit-sort-order', 'alphabetical');
 
     // Click save
