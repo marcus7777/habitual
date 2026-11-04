@@ -135,7 +135,9 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.idFromName = function(name) {
     if (!name) return 'habit_' + Math.random().toString(36).substring(2, 8);
-    return String(name).trim().replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
+    let str = String(name).trim().replace(/[\/#?%&'"\\]/g, '');
+    if (!str) return 'habit_' + Math.random().toString(36).substring(2, 8);
+    return str.replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
       return index == 0 ? word.toLowerCase() : word.toUpperCase();
     }).replace(/\s+/g, '');
   };
@@ -159,13 +161,22 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.getAncestryChain = function(habitId) {
     if (!habitId) return [];
+    let decodedId = habitId;
+    try { decodedId = decodeURIComponent(habitId); } catch(e) {}
     const habits = (core.state && core.state.habits) ? core.state.habits : [];
-    let cur = habits.find(h => h.id === habitId);
+    let cur = habits.find(h =>
+      h.id === habitId ||
+      h.id === decodedId ||
+      (h.name && h.name.toLowerCase() === decodedId.toLowerCase())
+    );
     if (!cur) return [];
     const chain = [];
     while (cur && !chain.includes(cur)) {
       chain.push(cur);
-      cur = cur.parentId ? habits.find(h => h.id === cur.parentId) : null;
+      cur = cur.parentId ? habits.find(h =>
+        h.id === cur.parentId ||
+        (decodedId && h.id === decodeURIComponent(cur.parentId))
+      ) : null;
     }
     return chain.reverse();
   };

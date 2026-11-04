@@ -169,13 +169,19 @@ window.HabitualCore = window.HabitualCore || {};
   core.parseHash = function() {
     const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? String(window.location.hash).trim() : '';
     if (hash.startsWith('#/habit/')) {
-      const habitId = hash.replace('#/habit/', '').trim();
+      let habitId = hash.replace('#/habit/', '').trim();
+      try { habitId = decodeURIComponent(habitId); } catch(e) {}
       if (habitId) return { view: 'habit', habitId };
     }
     if (hash.startsWith('#/+1c/')) {
-      const habitId = hash.replace('#/+1c/', '').trim();
+      let habitId = hash.replace('#/+1c/', '').trim();
+      try { habitId = decodeURIComponent(habitId); } catch(e) {}
       if (habitId) {
-        let habit = core.state.habits.find(h => h.id === habitId);
+        let habit = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
+          h.id === habitId ||
+          h.id === encodeURIComponent(habitId) ||
+          (h.name && h.name.toLowerCase() === habitId.toLowerCase())
+        ) : null;
         if (!habit) {
           const namesFromPath = habitId.split('_');
           let parentId = null; let habitName = habitId;
@@ -209,7 +215,7 @@ window.HabitualCore = window.HabitualCore || {};
         habit.logs[todayKey] = { count: currentCount + 1, note: currentNote };
         if (core.saveState) core.saveState();
         core.showToast(`+1 logged for "${habit.name}"! Window closing in 7s...`);
-        window.location.hash = '#/habit/' + habit.id;
+        window.location.hash = '#/habit/' + encodeURIComponent(habit.id);
         setTimeout(() => { window.close(); }, 7000);
         return { view: 'habit', habitId: habit.id };
       }
@@ -218,8 +224,18 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.navigateTo = function(hash) {
-    if (window.location.hash !== hash) window.location.hash = hash;
-    else if (core.renderAll) core.renderAll();
+    let currentDecoded = '';
+    let newDecoded = '';
+    try { currentDecoded = decodeURIComponent((typeof window !== 'undefined' && window.location && window.location.hash) || ''); } catch(e) { currentDecoded = window.location.hash || ''; }
+    try { newDecoded = decodeURIComponent(hash || ''); } catch(e) { newDecoded = hash || ''; }
+
+    if (currentDecoded !== newDecoded) {
+      if (typeof window !== 'undefined' && window.location) {
+        window.location.hash = hash;
+      }
+    } else if (core.renderAll) {
+      core.renderAll();
+    }
   };
 
   core.initUI = function() {
@@ -4514,10 +4530,19 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (!col || !pwd) return;
 
+      let decodedCol = col;
+      try { decodedCol = decodeURIComponent(col); } catch(e) {}
+
       // If user ALREADY has this habit in state, take them directly to the habit page instead of showing preview
       const existingInState = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
         h.id === col ||
-        (h.sharing && (h.sharing.collection === col || h.sharing.docId === col))
+        h.id === decodedCol ||
+        (h.sharing && (
+          h.sharing.collection === col ||
+          h.sharing.docId === col ||
+          h.sharing.collection === decodedCol ||
+          h.sharing.docId === decodedCol
+        ))
       ) : null;
 
       if (existingInState) {

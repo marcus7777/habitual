@@ -5526,6 +5526,93 @@ describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore L
 });
 
 // ============================================================================
+// ISSUE FIX: UNICODE HABIT NAMES & HABIT URL DECODING
+// ============================================================================
+describe('Issue Fix: 🌐 Unicode Habit Names & Habit URL Decoding', () => {
+  test('idFromName preserves Unicode letters & emojis and strips unsafe URL characters', () => {
+    assertEqual(HabitualCore.idFromName('Café au lait'), 'caféAuLait', 'Preserves accented characters');
+    assertEqual(HabitualCore.idFromName('读书'), '读书', 'Preserves CJK non-ASCII characters');
+    assertEqual(HabitualCore.idFromName('🏃 Daily Run'), '🏃DailyRun', 'Preserves emoji characters');
+    assertEqual(HabitualCore.idFromName('Habit #1? / %'), 'habit1', 'Strips unsafe URL fragment characters (#, ?, /, %)');
+  });
+
+  test('parseHash decodes percent-encoded Unicode habit IDs and URLs', () => {
+    const origLoc = global.window.location;
+
+    // Test 1: Percent-encoded CJK habit URL (#/habit/%E8%AF%BB%E4%B9%A6)
+    global.window.location = { hash: '#/habit/' + encodeURIComponent('读书'), search: '', pathname: '/index.html' };
+    let route = HabitualCore.parseHash();
+    assertEqual(route.view, 'habit', 'Route view is habit');
+    assertEqual(route.habitId, '读书', 'parseHash decodes percent-encoded CJK habit ID');
+
+    // Test 2: Percent-encoded accented habit URL (#/habit/caf%C3%A9)
+    global.window.location = { hash: '#/habit/' + encodeURIComponent('café'), search: '', pathname: '/index.html' };
+    route = HabitualCore.parseHash();
+    assertEqual(route.view, 'habit', 'Route view is habit');
+    assertEqual(route.habitId, 'café', 'parseHash decodes percent-encoded accented habit ID');
+
+    // Test 3: Unencoded Unicode habit URL (#/habit/café)
+    global.window.location = { hash: '#/habit/café', search: '', pathname: '/index.html' };
+    route = HabitualCore.parseHash();
+    assertEqual(route.view, 'habit', 'Route view is habit');
+    assertEqual(route.habitId, 'café', 'parseHash handles unencoded habit ID in hash');
+
+    // Test 4: Quick log +1c percent-encoded route (#/+1c/%E8%AF%BB%E4%B9%A6)
+    HabitualCore.resetState();
+    global.window.location = { hash: '#/+1c/' + encodeURIComponent('读书'), search: '', pathname: '/index.html' };
+    route = HabitualCore.parseHash();
+    assertEqual(route.view, 'habit', '+1c route view is habit');
+    assertEqual(route.habitId, '读书', '+1c route decodes habit ID and creates habit');
+
+    global.window.location = origLoc;
+  });
+
+  test('Single habit page view resolves habit with Unicode name and ID', () => {
+    HabitualCore.resetState();
+    const habitCJK = { id: '读书', name: '读书', type: 'positive', dailyTarget: 1, logs: {} };
+    HabitualCore.setState({ habits: [habitCJK] });
+
+    const origLoc = global.window.location;
+    global.window.location = { hash: '#/habit/' + encodeURIComponent('读书'), search: '', pathname: '/index.html' };
+
+    const route = HabitualCore.parseHash();
+    assertEqual(route.habitId, '读书', 'parseHash returns decoded habitId');
+
+    const chain = HabitualCore.getAncestryChain(route.habitId);
+    assertEqual(chain.length, 1, 'getAncestryChain resolves habit chain for Unicode habit ID');
+    assertEqual(chain[0].id, '读书', 'Ancestry chain target habit is 读书');
+
+    const card = HabitualCore.buildHeatmapCard(habitCJK, 2026);
+    assert(card, 'buildHeatmapCard renders card for Unicode habit');
+
+    global.window.location = origLoc;
+  });
+
+  test('navigateTo handles hash comparison between decoded and encoded URL hashes', () => {
+    const origLoc = global.window.location;
+    let setHash = '';
+    global.window.location = {
+      get hash() { return setHash; },
+      set hash(v) { setHash = v; },
+      close: () => {}
+    };
+
+    setHash = '#/habit/' + encodeURIComponent('café'); // #/habit/caf%C3%A9
+    let renderCount = 0;
+    const origRender = HabitualCore.renderAll;
+    HabitualCore.renderAll = () => { renderCount++; };
+
+    // Attempt navigating to unencoded equivalent
+    HabitualCore.navigateTo('#/habit/café');
+
+    assertEqual(renderCount, 1, 'navigateTo recognizes identical decoded hash and calls renderAll without re-setting location.hash');
+
+    HabitualCore.renderAll = origRender;
+    global.window.location = origLoc;
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);
