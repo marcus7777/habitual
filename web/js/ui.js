@@ -2723,6 +2723,7 @@ window.HabitualCore = window.HabitualCore || {};
   };
 
   core.openHabitModal = function(habitToEdit = null, defaultParentId = null) {
+    core._isEditingAllPreferences = false;
     if (!core.elements || (!core.elements.modalHabit && !core.elements.modalHabit)) {
       if (core.initUI) core.initUI();
     }
@@ -2739,10 +2740,16 @@ window.HabitualCore = window.HabitualCore || {};
     if (parentSubsortSec) {
       parentSubsortSec.classList.remove('hidden');
     }
+
+    const hasSubs = habitToEdit ? core.state.habits.some(h => h.parentId === habitToEdit.id) : Boolean(defaultParentId);
+    const parentSubsortGroup = document.getElementById('parent-subsort-select-group');
+    if (parentSubsortGroup && parentSubsortGroup.style) {
+      parentSubsortGroup.style.display = (hasSubs || core._isEditingAllPreferences) ? '' : 'none';
+    }
+
     const subhabitTabBtn = document.getElementById('tab-btn-subhabit-options');
     if (subhabitTabBtn && subhabitTabBtn.style) {
-      const hasSubs = habitToEdit ? core.state.habits.some(h => h.parentId === habitToEdit.id) : Boolean(defaultParentId);
-      subhabitTabBtn.style.display = hasSubs ? '' : 'none';
+      subhabitTabBtn.style.display = (hasSubs || core._isEditingAllPreferences) ? '' : 'none';
     }
 
     const formEl = (core.elements && core.elements.formHabit) ? core.elements.formHabit : document.getElementById('form-habit');
