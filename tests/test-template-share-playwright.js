@@ -228,6 +228,37 @@ async function runTemplateSharePlaywrightTests() {
     assert(importedState.child3NotParentColor, 'Sub-habit 3 reconstructed with its OWN default color, NOT parent color');
     assert(importedState.todayCount === 1, 'Auto-increment count (+1) logged for today on import');
 
+    // --- STEP 3: Sub-Habit Auto-Increment Link Generation & Scanning ---
+    console.log('\n📌 STEP 3: Generating & Scanning Sub-Habit Auto-Increment Template Link...');
+
+    const subhabitLink = await page1.evaluate(() => {
+      const core = window.HabitualCore;
+      const habits = core.state.habits;
+      const parent = habits.find(h => !h.parentId && h.name === 'CrossFit Fitness Routine');
+      const child1 = habits.find(h => h.parentId === parent.id && h.name === 'Heavy Deadlifts');
+
+      return core.generateJSURLTemplateLink(parent, 2, child1.id);
+    });
+
+    await page2.goto(subhabitLink, { waitUntil: 'domcontentloaded' });
+    await page2.waitForFunction(() => window.HabitualCore && Array.isArray(window.HabitualCore.state.habits));
+
+    const subhabitScanState = await page2.evaluate(() => {
+      const core = window.HabitualCore;
+      const habits = core.state.habits;
+      const parent = habits.find(h => !h.parentId && h.name === 'CrossFit Fitness Routine');
+      const child1 = habits.find(h => h.parentId === parent.id && h.name === 'Heavy Deadlifts');
+      const todayKey = core.getTodayKey();
+
+      return {
+        child1Found: !!child1,
+        child1TodayCount: (child1 && child1.logs && child1.logs[todayKey]) ? child1.logs[todayKey].count : 0
+      };
+    });
+
+    assert(subhabitScanState.child1Found, 'Sub-habit "Heavy Deadlifts" found on recipient context');
+    assert(subhabitScanState.child1TodayCount === 2, 'Auto-increment count (+2) logged specifically on target sub-habit "Heavy Deadlifts"');
+
     console.log(`\n📊 Playwright Test Results: ${passed}/${total} passed.`);
     if (passed !== total) {
       process.exit(1);
