@@ -5613,6 +5613,7 @@ describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore L
     assertEqual(createdHabit.logs[todayKey].count, 1, 'Auto-incremented check-in count for today');
 
     // Case 2: Opening the same link again auto-logs another count on existing habit
+    global.window.location = { hash: `#template?data=${jsurlStr}`, search: '', pathname: '/index.html' };
     HabitualCore.checkURLHashForTemplate();
     assertEqual(createdHabit.logs[todayKey].count, 2, 'Auto-incremented count for existing habit on second scan');
   });
@@ -5711,6 +5712,92 @@ describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore L
     assert(mockSubhabitsEl.innerHTML.includes('subhabit-color-bullet'), 'Sub-habit bullet dots rendered with subhabit-color-bullet class');
 
     global.document.getElementById = origGet;
+  });
+
+  test('Template import and existing template link open navigate directly to habit page', () => {
+    HabitualCore.resetState();
+
+    // Case 1: Import new template
+    const decoded = {
+      name: 'Swimming Laps',
+      dailyTarget: 10,
+      colorTheme: '#039BE5'
+    };
+
+    let confirmListener = null;
+    const mockConfirmBtn = {
+      set onclick(fn) { confirmListener = fn; }
+    };
+    const mockModal = createMockElement('div');
+    const origGet = global.document.getElementById;
+
+    global.document.getElementById = (id) => {
+      if (id === 'modal-import-template') return mockModal;
+      if (id === 'btn-confirm-import-template') return mockConfirmBtn;
+      return origGet ? origGet(id) : null;
+    };
+
+    HabitualCore.showImportTemplateModal(decoded);
+    assert(typeof confirmListener === 'function', 'Confirm button listener attached in import modal');
+
+    confirmListener();
+
+    const created = HabitualCore.state.habits.find(h => h.name === 'Swimming Laps');
+    assert(created, 'Habit created in state');
+    assertEqual(HabitualCore.state.selectedHabitId, created.id, 'Importing template selects newly created habit ID');
+    assert(global.window.location.hash.includes('#/habit/' + created.id), 'Importing template navigates URL hash to #/habit/<id>');
+
+    // Case 2: Opening template link for habit that ALREADY exists in state
+    const jsurlStr = HabitualCore.JSURL.stringify({ h: 'Swimming Laps' });
+    global.window.location = { hash: `#template?data=${jsurlStr}`, search: '', pathname: '/index.html' };
+
+    HabitualCore.checkURLHashForTemplate();
+
+    assertEqual(HabitualCore.state.selectedHabitId, created.id, 'Opening template for existing habit selects existing habit ID');
+    assert(global.window.location.hash.includes('#/habit/' + created.id), 'Opening template for existing habit navigates URL hash to #/habit/<id>');
+
+    global.document.getElementById = origGet;
+  });
+
+  test('importHabitTemplateToState deduplicates existing habits and combines missing sub-habits', () => {
+    HabitualCore.resetState();
+
+    // User already has top-level habit "Strength Training" with sub-habit "Bench Press"
+    const existingParent = {
+      id: 'existing_p1',
+      name: 'Strength Training',
+      dailyTarget: 1
+    };
+    const existingChild = {
+      id: 'existing_c1',
+      parentId: 'existing_p1',
+      name: 'Bench Press',
+      dailyTarget: 3
+    };
+    HabitualCore.state.habits = [existingParent, existingChild];
+
+    // Template link contains "Strength Training", sub-habit "Bench Press", and NEW sub-habit "Deadlifts"
+    const templateObj = {
+      name: 'Strength Training',
+      dailyTarget: 1,
+      children: [
+        { name: 'Bench Press', dailyTarget: 3 },
+        { name: 'Deadlifts', dailyTarget: 5 }
+      ]
+    };
+
+    const targetId = HabitualCore.importHabitTemplateToState(templateObj);
+
+    assertEqual(targetId, 'existing_p1', 'Returned habit ID matches existing parent habit ID');
+
+    const topLevelHabits = HabitualCore.state.habits.filter(h => !h.parentId);
+    assertEqual(topLevelHabits.length, 1, 'Top-level parent habit is NOT duplicated');
+
+    const subhabits = HabitualCore.state.habits.filter(h => h.parentId === 'existing_p1');
+    assertEqual(subhabits.length, 2, 'Sub-habits combined under existing parent (Bench Press reused, Deadlifts added)');
+
+    const deadliftsSub = subhabits.find(h => h.name === 'Deadlifts');
+    assert(deadliftsSub, 'New sub-habit "Deadlifts" cleanly added to existing habit tree');
   });
 });
 
