@@ -1930,8 +1930,8 @@ window.HabitualCore = window.HabitualCore || {};
         });
       },
 
-      uploadTemplateToFirestore: function(habit, autoIncrementCount = 0) {
-        const minPayload = core.encodeHabitTemplate(habit, autoIncrementCount);
+      uploadTemplateToFirestore: function(habit, autoIncrementCount = 0, targetNodeId = null) {
+        const minPayload = core.encodeHabitTemplate(habit, autoIncrementCount, targetNodeId);
         if (!minPayload) return Promise.reject(new Error('Invalid habit template data'));
 
         const docId = 'tmpl_hb_' + Math.random().toString(36).substring(2, 10);

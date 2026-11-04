@@ -1000,12 +1000,14 @@ window.HabitualCore = window.HabitualCore || {};
     }
   };
 
-  core.toggleHabitForDate = function(habitId, dateKey, targetBtn = null) {
+  core.toggleHabitForDate = function(habitId, dateKey, countOrBtn = null) {
     const habit = core.state.habits.find(h => h.id === habitId);
     if (!habit) return;
     const currentLog = (habit.logs && habit.logs[dateKey]) ? habit.logs[dateKey] : null;
     const currentCount = currentLog ? (currentLog.count || 0) : 0;
-    core.setHabitCountForDate(habitId, dateKey, currentCount + 1, targetBtn, '+1');
+    const incAmount = (typeof countOrBtn === 'number' && countOrBtn > 0) ? countOrBtn : 1;
+    const btnElem = (typeof countOrBtn === 'number') ? null : countOrBtn;
+    core.setHabitCountForDate(habitId, dateKey, currentCount + incAmount, btnElem, '+' + incAmount);
   };
 
   core.getOrdinalSuffix = function(i) {
@@ -1508,7 +1510,7 @@ window.HabitualCore = window.HabitualCore || {};
   // Template Sharing Helpers (Issue #25: Encoded Link via JSURL & Firebase Firestore Template Links)
   core.JSURL = (typeof window !== 'undefined' && window.JSURL) ? window.JSURL : (typeof JSURL !== 'undefined' ? JSURL : null);
 
-  core.encodeHabitTemplate = function(habit, autoIncrementCount = 0) {
+  core.encodeHabitTemplate = function(habit, autoIncrementCount = 0, targetNodeId = null) {
     if (!habit || !habit.name) return null;
 
     function encodeSubTree(node, isRootNode) {
@@ -1516,9 +1518,13 @@ window.HabitualCore = window.HabitualCore || {};
 
       const min = { h: String(node.name).trim() };
 
-      if (isRootNode) {
-        const inc = parseInt(autoIncrementCount, 10);
-        if (!isNaN(inc) && inc > 0) min.inc = inc;
+      const inc = parseInt(autoIncrementCount, 10);
+      if (!isNaN(inc) && inc > 0) {
+        if (targetNodeId && String(node.id) === String(targetNodeId)) {
+          min.inc = inc;
+        } else if (!targetNodeId && isRootNode) {
+          min.inc = inc;
+        }
       }
 
       if (node.type && node.type !== 'positive') min.t = node.type;
@@ -1642,8 +1648,9 @@ window.HabitualCore = window.HabitualCore || {};
         logs: {}
       };
 
-      if (isRootNode) {
-        node.autoIncrement = parseInt(minNode.inc || minNode.autoIncrement || 0, 10);
+      const autoIncVal = parseInt(minNode.inc || minNode.autoIncrement || 0, 10);
+      if (!isNaN(autoIncVal) && autoIncVal > 0) {
+        node.autoIncrement = autoIncVal;
       }
 
       const subMinList = minNode.s || minNode.children || [];
@@ -1659,8 +1666,9 @@ window.HabitualCore = window.HabitualCore || {};
     return decodeSubTree(min, 'positive', true, null);
   };
 
-  core.generateJSURLTemplateLink = function(habit, autoIncrementCount = 0) {
-    const minPayload = core.encodeHabitTemplate(habit, autoIncrementCount);
+  core.generateJSURLTemplateLink = function(habit, autoIncrementCount = 0, targetNodeId = null) {
+    const minPayload = core.encodeHabitTemplate(habit, autoIncrementCount, targetNodeId);
+    if (!minPayload) return '';
     if (!minPayload) return '';
 
     const jsurlEngine = core.JSURL || (typeof window !== 'undefined' ? window.JSURL : null) || (typeof JSURL !== 'undefined' ? JSURL : null);

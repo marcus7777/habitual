@@ -5799,6 +5799,49 @@ describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore L
     const deadliftsSub = subhabits.find(h => h.name === 'Deadlifts');
     assert(deadliftsSub, 'New sub-habit "Deadlifts" cleanly added to existing habit tree');
   });
+
+  test('Sub-habit auto-increment template encoding, decoding, and check-in scan', () => {
+    HabitualCore.resetState();
+    const todayKey = HabitualCore.getTodayKey();
+
+    const parent = {
+      id: 'gym_p',
+      name: 'Gym Equipment',
+      dailyTarget: 1
+    };
+    const child1 = {
+      id: 'gym_c1',
+      parentId: 'gym_p',
+      name: 'Leg Press Machine',
+      dailyTarget: 5
+    };
+    const child2 = {
+      id: 'gym_c2',
+      parentId: 'gym_p',
+      name: 'Bench Press',
+      dailyTarget: 3
+    };
+    HabitualCore.state.habits = [parent, child1, child2];
+
+    // Encode template targeted specifically to sub-habit "Leg Press Machine" (gym_c1)
+    const minPayload = HabitualCore.encodeHabitTemplate(parent, 1, 'gym_c1');
+    assertEqual(minPayload.inc, undefined, 'Root habit does NOT have inc attribute when sub-habit is targeted');
+    assert(minPayload.s && minPayload.s[0].inc === 1, 'Sub-habit "Leg Press Machine" receives inc: 1 attribute in payload');
+
+    // Decode template link
+    const jsurlStr = HabitualCore.JSURL.stringify(minPayload);
+    const decoded = HabitualCore.decodeHabitTemplate(jsurlStr);
+    const decodedLegPress = decoded.children.find(c => c.name === 'Leg Press Machine');
+    assert(decodedLegPress && decodedLegPress.autoIncrement === 1, 'Decoded sub-habit retains autoIncrement: 1');
+
+    // Scan/Open link
+    global.window.location = { hash: `#template?data=${jsurlStr}`, search: '', pathname: '/index.html' };
+    HabitualCore.checkURLHashForTemplate();
+
+    const legPressHabit = HabitualCore.state.habits.find(h => h.name === 'Leg Press Machine');
+    assert(legPressHabit, 'Leg Press Machine sub-habit found in state');
+    assertEqual(legPressHabit.logs[todayKey].count, 1, 'Check-in count logged for today specifically on target sub-habit "Leg Press Machine"');
+  });
 });
 
 // ============================================================================

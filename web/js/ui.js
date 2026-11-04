@@ -2946,6 +2946,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (btnToggleShare) btnToggleShare.classList.add('hidden');
     }
     if (core.updateShareLinkAndQR) core.updateShareLinkAndQR();
+    if (core.populateShareTemplateTargetSelect) core.populateShareTemplateTargetSelect(habitToEdit);
 
     const accordion = document.getElementById('advanced-settings-accordion');
     if (accordion) {
@@ -4084,7 +4085,9 @@ window.HabitualCore = window.HabitualCore || {};
       // Template Sharing Event Listeners (Issue #25)
       const chkTemplateAutoLog = document.getElementById('habit-template-auto-log');
       const groupAutoLogCount = document.getElementById('habit-template-auto-log-count-group');
+      const groupAutoLogTarget = document.getElementById('habit-template-target-group');
       const inputAutoLogCount = document.getElementById('habit-template-auto-log-count');
+      const selectAutoLogTarget = document.getElementById('habit-template-target-select');
       const btnCopyTemplateJSURL = document.getElementById('btn-copy-template-jsurl');
       const btnCopyTemplateFirestore = document.getElementById('btn-copy-template-firestore');
       const qrTemplateWrapper = document.getElementById('qr-code-template-wrapper');
@@ -4093,9 +4096,16 @@ window.HabitualCore = window.HabitualCore || {};
 
       if (chkTemplateAutoLog) {
         chkTemplateAutoLog.addEventListener('change', function() {
+          const habit = core.getCurrentModalHabitObject();
+          const hasSubs = habit && core.state && Array.isArray(core.state.habits) && core.state.habits.some(h => h.parentId === habit.id);
+
           if (groupAutoLogCount) {
             if (chkTemplateAutoLog.checked) groupAutoLogCount.classList.remove('hidden');
             else groupAutoLogCount.classList.add('hidden');
+          }
+          if (groupAutoLogTarget) {
+            if (chkTemplateAutoLog.checked && hasSubs) groupAutoLogTarget.classList.remove('hidden');
+            else groupAutoLogTarget.classList.add('hidden');
           }
         });
       }
@@ -4103,8 +4113,9 @@ window.HabitualCore = window.HabitualCore || {};
       if (btnCopyTemplateJSURL) {
         btnCopyTemplateJSURL.addEventListener('click', function() {
           const habit = core.getCurrentModalHabitObject();
+          const targetId = (selectAutoLogTarget && selectAutoLogTarget.value) ? selectAutoLogTarget.value : (habit ? habit.id : null);
           const autoInc = (chkTemplateAutoLog && chkTemplateAutoLog.checked) ? parseInt(inputAutoLogCount ? inputAutoLogCount.value || 1 : 1, 10) : 0;
-          const link = core.generateJSURLTemplateLink(habit, autoInc);
+          const link = core.generateJSURLTemplateLink(habit, autoInc, targetId);
 
           if (link) {
             if (qrTemplateDisplay && core.generateQRCodeSVG) {
@@ -4128,11 +4139,12 @@ window.HabitualCore = window.HabitualCore || {};
       if (btnCopyTemplateFirestore) {
         btnCopyTemplateFirestore.addEventListener('click', function() {
           const habit = core.getCurrentModalHabitObject();
+          const targetId = (selectAutoLogTarget && selectAutoLogTarget.value) ? selectAutoLogTarget.value : (habit ? habit.id : null);
           const autoInc = (chkTemplateAutoLog && chkTemplateAutoLog.checked) ? parseInt(inputAutoLogCount ? inputAutoLogCount.value || 1 : 1, 10) : 0;
 
           if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.uploadTemplateToFirestore) {
             if (core.showToast) core.showToast('⏳ Creating cloud template link...', 'info');
-            core.SyncTargets.Firestore.uploadTemplateToFirestore(habit, autoInc).then(function(res) {
+            core.SyncTargets.Firestore.uploadTemplateToFirestore(habit, autoInc, targetId).then(function(res) {
               if (res && res.url) {
                 if (qrTemplateDisplay && core.generateQRCodeSVG) {
                   qrTemplateDisplay.innerHTML = core.generateQRCodeSVG(res.url, 200);
@@ -4386,6 +4398,45 @@ window.HabitualCore = window.HabitualCore || {};
     modalImport.classList.remove('hidden');
   };
 
+  core.populateShareTemplateTargetSelect = function(habitToEdit) {
+    const targetSelect = document.getElementById('habit-template-target-select');
+    const targetGroup = document.getElementById('habit-template-target-group');
+    const chkAutoLog = document.getElementById('habit-template-auto-log');
+    if (!targetSelect) return;
+
+    if (!habitToEdit) {
+      targetSelect.innerHTML = '<option value="">Current Habit</option>';
+      if (targetGroup) targetGroup.classList.add('hidden');
+      return;
+    }
+
+    let optionsHtml = `<option value="${habitToEdit.id}">Entire Habit (${core.escapeHTML(habitToEdit.name)})</option>`;
+
+    function collectSubhabits(parentId, depth = 1) {
+      if (!core.state || !Array.isArray(core.state.habits)) return;
+      const children = core.state.habits.filter(h => h.parentId === parentId);
+      children.forEach(child => {
+        const indent = '↳ '.repeat(depth);
+        optionsHtml += `<option value="${child.id}">${indent}${core.escapeHTML(child.name)}</option>`;
+        collectSubhabits(child.id, depth + 1);
+      });
+    }
+
+    collectSubhabits(habitToEdit.id, 1);
+
+    targetSelect.innerHTML = optionsHtml;
+    targetSelect.value = habitToEdit.id;
+
+    const hasSubs = core.state && Array.isArray(core.state.habits) && core.state.habits.some(h => h.parentId === habitToEdit.id);
+    if (targetGroup) {
+      if (chkAutoLog && chkAutoLog.checked && hasSubs) {
+        targetGroup.classList.remove('hidden');
+      } else {
+        targetGroup.classList.add('hidden');
+      }
+    }
+  };
+
   core.navigateToHabitPage = function(habitId) {
     if (!habitId) return;
 
@@ -4442,53 +4493,85 @@ window.HabitualCore = window.HabitualCore || {};
         }
       }
 
+      function findAutoIncNode(node) {
+        if (!node) return null;
+        const inc = parseInt(node.autoIncrement || 0, 10);
+        if (!isNaN(inc) && inc > 0) return node;
+        if (Array.isArray(node.children)) {
+          for (const child of node.children) {
+            const found = findAutoIncNode(child);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
       function processDecodedTemplate(decodedHabit) {
         if (!decodedHabit) return;
 
-        const autoInc = decodedHabit.autoIncrement || 0;
+        const autoIncNode = findAutoIncNode(decodedHabit);
+        const autoInc = autoIncNode ? (autoIncNode.autoIncrement || 0) : 0;
         const todayKey = core.getTodayKey ? core.getTodayKey() : new Date().toISOString().split('T')[0];
 
-        // Check if habit already exists by matching habit name (case-insensitive)
-        const existingHabit = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
-          h.name && h.name.toLowerCase() === decodedHabit.name.toLowerCase()
+        // Check if top-level parent habit already exists
+        const existingParent = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
+          !h.parentId && h.name && h.name.trim().toLowerCase() === decodedHabit.name.trim().toLowerCase()
         ) : null;
 
-        if (existingHabit && autoInc === 0) {
-          // User ALREADY has this habit -> navigate directly to existing habit page!
+        if (existingParent && autoInc === 0) {
           const modalImport = document.getElementById('modal-import-template');
           if (modalImport) modalImport.classList.add('hidden');
 
           if (core.navigateToHabitPage) {
-            core.navigateToHabitPage(existingHabit.id);
+            core.navigateToHabitPage(existingParent.id);
           }
-          if (core.showToast) core.showToast(`📋 Opened existing habit "${existingHabit.name}"!`, 'info');
+          if (core.showToast) core.showToast(`📋 Opened existing habit "${existingParent.name}"!`, 'info');
           return;
         }
 
-        if (autoInc > 0) {
-          let targetHabitId = null;
-          let isNewImport = false;
+        if (autoInc > 0 && autoIncNode) {
+          // Import or combine template into state
+          const rootHabitId = core.importHabitTemplateToState(decodedHabit);
 
-          if (existingHabit) {
-            targetHabitId = existingHabit.id;
+          // Find matching habit or sub-habit in state for autoIncrement check-in
+          let targetHabitObj = null;
+          if (autoIncNode.name === decodedHabit.name) {
+            targetHabitObj = (core.state && Array.isArray(core.state.habits))
+              ? core.state.habits.find(h => h.id === rootHabitId) : null;
           } else {
-            // Import new habit template first
-            targetHabitId = core.importHabitTemplateToState(decodedHabit);
-            isNewImport = true;
+            // Find matching sub-habit under rootHabitId
+            targetHabitObj = (core.state && Array.isArray(core.state.habits))
+              ? core.state.habits.find(h =>
+                  (h.parentId === rootHabitId || h.id === rootHabitId) &&
+                  h.name && h.name.trim().toLowerCase() === autoIncNode.name.trim().toLowerCase()
+                ) : null;
+          }
+
+          if (!targetHabitObj) {
+            targetHabitObj = (core.state && Array.isArray(core.state.habits))
+              ? core.state.habits.find(h => h.id === rootHabitId) : null;
           }
 
           // Auto-log check-in count for today
-          if (targetHabitId && core.toggleHabitForDate) {
-            core.toggleHabitForDate(targetHabitId, todayKey, autoInc);
+          if (targetHabitObj && targetHabitObj.id && core.toggleHabitForDate) {
+            core.toggleHabitForDate(targetHabitObj.id, todayKey, autoInc);
           }
 
-          if (core.navigateToHabitPage) {
-            core.navigateToHabitPage(targetHabitId);
+          if (targetHabitObj && targetHabitObj.id && core.navigateToHabitPage) {
+            core.navigateToHabitPage(targetHabitObj.id);
           }
 
-          const toastMsg = isNewImport
-            ? `⚡ Imported "${decodedHabit.name}" & auto-logged check-in (+${autoInc})!`
-            : `⚡ Auto-logged check-in for "${existingHabit.name}" (+${autoInc})!`;
+          if (core.saveState) core.saveState();
+          if (core.renderAll) core.renderAll();
+
+          // Clear URL Hash
+          if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+
+          const toastMsg = targetHabitObj
+            ? `⚡ Auto-logged check-in for "${targetHabitObj.name}" (+${autoInc})!`
+            : `⚡ Auto-logged check-in (+${autoInc})!`;
           if (core.showToast) core.showToast(toastMsg, 'success');
           return;
         }
