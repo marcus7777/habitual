@@ -4999,6 +4999,33 @@ describe('Feature 39: 🟡 Issue #24 Updating Habits Keyboard Navigation & Yello
     const allClassName = allCard.className || '';
     assert(!allClassName.includes('selected-habit') && !allClassName.includes('selected'), 'All card does NOT include selected class when selectedHabitId is all');
   });
+
+  test('Top level page has all sub-levels contracted, habit page has sub-habits open 1 level deep', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'parent1', name: 'Parent', type: 'positive' };
+    const child = { id: 'child1', parentId: 'parent1', name: 'Child', type: 'positive' };
+    const grandChild = { id: 'grandchild1', parentId: 'child1', name: 'Grand Child', type: 'positive' };
+    HabitualCore.setState({ habits: [parent, child, grandChild] });
+
+    const origParseHash = HabitualCore.parseHash;
+    try {
+      // 1. Top level view
+      HabitualCore.parseHash = () => ({ view: 'home', habitId: null });
+      HabitualCore.renderHeatmapsGallery();
+
+      assertEqual(HabitualCore.state.expandedHabitIds.has('parent1'), false, 'Top level: parent1 subhabits contracted by default');
+      assertEqual(HabitualCore.state.expandedHabitIds.has('child1'), false, 'Top level: child1 subhabits contracted by default');
+
+      // 2. Open parent habit view
+      HabitualCore.parseHash = () => ({ view: 'habit', habitId: 'parent1' });
+      HabitualCore.renderHeatmapsGallery();
+
+      assertEqual(HabitualCore.state.expandedHabitIds.has('parent1'), true, 'Habit view: target habit parent1 concertina expanded by default (1 level deep)');
+      assertEqual(HabitualCore.state.expandedHabitIds.has('child1'), false, 'Habit view: child1 concertina contracted by default (level 2 contracted)');
+    } finally {
+      HabitualCore.parseHash = origParseHash;
+    }
+  });
 });
 
 // ============================================================================
