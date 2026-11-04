@@ -1559,6 +1559,7 @@ window.HabitualCore = window.HabitualCore || {};
         }
       }
 
+      if (node.showStreak === false) min.ss = false;
       if (node.showCount === false) min.sc = false;
       if (node.showDuration === true) min.sd = true;
       if (node.hideHeatmap === true) min.hh = true;
@@ -1568,6 +1569,7 @@ window.HabitualCore = window.HabitualCore || {};
       if (node.subhabitSortOrder && node.subhabitSortOrder !== 'manual') min.sso = node.subhabitSortOrder;
       if (node.subhabitSortReverse === true) min.ssr = true;
       if (node.parentDependency && node.parentDependency !== 'none') min.dr = node.parentDependency;
+      if (node.isPaused === true) min.p = true;
 
       // Children list (supports arbitrary nesting)
       let childrenList = [];
@@ -1630,6 +1632,7 @@ window.HabitualCore = window.HabitualCore || {};
         customInterval: parseInt(minNode.ci || minNode.customInterval || 3, 10),
         customUnit: minNode.cu || minNode.customUnit || 'days',
         colorTheme: nodeColor,
+        showStreak: minNode.ss !== undefined ? Boolean(minNode.ss) : (minNode.showStreak !== undefined ? Boolean(minNode.showStreak) : true),
         showCount: minNode.sc !== undefined ? Boolean(minNode.sc) : (minNode.showCount !== undefined ? Boolean(minNode.showCount) : true),
         showDuration: minNode.sd !== undefined ? Boolean(minNode.sd) : (minNode.showDuration !== undefined ? Boolean(minNode.showDuration) : false),
         hideHeatmap: minNode.hh !== undefined ? Boolean(minNode.hh) : (minNode.hideHeatmap !== undefined ? Boolean(minNode.hideHeatmap) : false),
@@ -1639,6 +1642,7 @@ window.HabitualCore = window.HabitualCore || {};
         subhabitSortOrder: minNode.sso || minNode.subhabitSortOrder || 'manual',
         subhabitSortReverse: minNode.ssr !== undefined ? Boolean(minNode.ssr) : (minNode.subhabitSortReverse !== undefined ? Boolean(minNode.subhabitSortReverse) : false),
         parentDependency: minNode.dr || minNode.parentDependency || minNode.dependencyRule || 'none',
+        isPaused: minNode.p !== undefined ? Boolean(minNode.p) : (minNode.isPaused !== undefined ? Boolean(minNode.isPaused) : false),
         createdAt: today,
         logs: {}
       };

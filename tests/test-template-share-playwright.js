@@ -190,7 +190,10 @@ async function runTemplateSharePlaywrightTests() {
         childrenCount: children.length,
         child1Color: child1 ? child1.colorTheme : null,
         child1Rule: child1 ? child1.parentDependency : null,
+        child1ShowCount: child1 ? child1.showCount : null,
+        child1ShowDuration: child1 ? child1.showDuration : null,
         child2Color: child2 ? child2.colorTheme : null,
+        child2Rule: child2 ? child2.parentDependency : null,
         grandchildFound: grandchildren.length > 0,
         grandchildName: grandchildren[0] ? grandchildren[0].name : null,
         grandchildColor: grandchildren[0] ? grandchildren[0].colorTheme : null,
@@ -208,7 +211,10 @@ async function runTemplateSharePlaywrightTests() {
     assert(importedState.childrenCount === 3, 'Recipient imported all 3 direct sub-habits');
     assert(importedState.child1Color === '#d81b60', 'Sub-habit 1 distinct Flamingo color preserved (#d81b60)');
     assert(importedState.child1Rule === 'requires_parent', 'Sub-habit 1 parentDependency rule preserved (requires_parent)');
+    assert(importedState.child1ShowCount === false, 'Sub-habit 1 display option showCount: false preserved');
+    assert(importedState.child1ShowDuration === true, 'Sub-habit 1 display option showDuration: true preserved');
     assert(importedState.child2Color === '#00acc1', 'Sub-habit 2 distinct Peacock color preserved (#00acc1)');
+    assert(importedState.child2Rule === 'auto_complete_from_parent', 'Sub-habit 2 parentDependency rule preserved (auto_complete_from_parent)');
     assert(importedState.grandchildFound, 'Nested sub-sub-habit (grandchild) imported recursively');
     assert(importedState.grandchildName === 'Grip Strength Holds', 'Grandchild habit name matches');
     assert(importedState.grandchildColor === '#f4511e', 'Grandchild habit color preserved (#f4511e)');
