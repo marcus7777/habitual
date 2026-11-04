@@ -5681,6 +5681,37 @@ describe('Issue #25: 📋 Sharing a Habit Template (JSURL & Firebase Firestore L
     const decodedGrandchild2 = decodedChild2.children.find(gc => gc.name === 'Electrolyte Mix');
     assert(decodedGrandchild2.colorTheme !== decodedParent.colorTheme, 'L3 grandchild 2 with default color gets its OWN default, not parent color');
   });
+
+  test('showImportTemplateModal renders colored bullets matching sub-habit colors', () => {
+    HabitualCore.resetState();
+
+    const decoded = {
+      name: 'Workout Program',
+      dailyTarget: 1,
+      colorTheme: '#8e24aa',
+      children: [
+        { name: 'Deadlifts', dailyTarget: 5, colorTheme: '#d81b60' },
+        { name: 'Warmup Burpees', dailyTarget: 20, colorTheme: '#00acc1' }
+      ]
+    };
+
+    const mockModal = createMockElement('div');
+    const mockSubhabitsEl = createMockElement('div');
+    const origGet = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'modal-import-template') return mockModal;
+      if (id === 'import-template-subhabits-preview') return mockSubhabitsEl;
+      return origGet ? origGet(id) : null;
+    };
+
+    HabitualCore.showImportTemplateModal(decoded);
+
+    assert(mockSubhabitsEl.innerHTML.includes('#d81b60'), 'Sub-habit 1 Flamingo bullet color rendered in import modal');
+    assert(mockSubhabitsEl.innerHTML.includes('#00acc1'), 'Sub-habit 2 Peacock bullet color rendered in import modal');
+    assert(mockSubhabitsEl.innerHTML.includes('subhabit-color-bullet'), 'Sub-habit bullet dots rendered with subhabit-color-bullet class');
+
+    global.document.getElementById = origGet;
+  });
 });
 
 // ============================================================================

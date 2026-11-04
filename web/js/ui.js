@@ -4303,12 +4303,40 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     if (subhabitsEl) {
-      if (Array.isArray(decodedHabit.children) && decodedHabit.children.length > 0) {
-        let subHtml = `<div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">📁 Included Sub-Habits (${decodedHabit.children.length}):</div><ul style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: var(--text-main);">`;
-        decodedHabit.children.forEach(c => {
-          subHtml += `<li><strong>${core.escapeHTML(c.name)}</strong> (Target: ${c.dailyTarget || 1})</li>`;
+      function countAllSubhabits(nodes) {
+        if (!Array.isArray(nodes)) return 0;
+        let count = nodes.length;
+        nodes.forEach(n => {
+          if (Array.isArray(n.children) && n.children.length > 0) {
+            count += countAllSubhabits(n.children);
+          }
         });
-        subHtml += `</ul>`;
+        return count;
+      }
+
+      function renderSubTreeHTML(nodes) {
+        if (!Array.isArray(nodes) || nodes.length === 0) return '';
+        let html = `<ul style="margin: 4px 0 6px 0; padding-left: 18px; font-size: 0.85rem; list-style-type: none;">`;
+        nodes.forEach(c => {
+          const subColor = c.colorTheme || decodedHabit.colorTheme || '#039BE5';
+          html += `<li style="color: ${subColor}; margin-bottom: 6px; display: flex; align-items: flex-start; flex-direction: column;">`;
+          html += `<div style="display: flex; align-items: center; gap: 8px;">`;
+          html += `<span class="subhabit-color-bullet" style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background-color: ${subColor}; flex-shrink: 0;"></span>`;
+          html += `<span style="color: var(--text-main);"><strong>${core.escapeHTML(c.name)}</strong> <span style="color: var(--text-muted); font-size: 0.8rem;">(Target: ${c.dailyTarget || 1})</span></span>`;
+          html += `</div>`;
+          if (Array.isArray(c.children) && c.children.length > 0) {
+            html += renderSubTreeHTML(c.children);
+          }
+          html += `</li>`;
+        });
+        html += `</ul>`;
+        return html;
+      }
+
+      if (Array.isArray(decodedHabit.children) && decodedHabit.children.length > 0) {
+        const totalSubs = countAllSubhabits(decodedHabit.children);
+        let subHtml = `<div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">📁 Included Sub-Habits (${totalSubs}):</div>`;
+        subHtml += renderSubTreeHTML(decodedHabit.children);
         subhabitsEl.innerHTML = subHtml;
         subhabitsEl.classList.remove('hidden');
       } else {
