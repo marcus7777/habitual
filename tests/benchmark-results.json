@@ -1,93 +1,183 @@
 {
-  "version": "1.34.2",
-  "timestamp": "2026-11-04T21:23:29.873Z",
+  "version": "1.34.4",
+  "timestamp": "2026-11-05T09:09:02.418Z",
   "latest": {
-    "version": "1.34.2",
-    "timestamp": "2026-11-04T21:23:29.873Z",
+    "version": "1.34.4",
+    "timestamp": "2026-11-05T09:09:02.418Z",
     "metrics": {
-      "bootDurationMs": 67,
+      "bootDurationMs": 69,
       "renderDurations": {
         "html": {
           "habits_10": {
-            "renderTimeMs": 51.6,
-            "domNodeCount": 4866
+            "renderTimeMs": 46.2,
+            "domNodeCount": 4867
           },
           "habits_50": {
-            "renderTimeMs": 231.7,
-            "domNodeCount": 22599
+            "renderTimeMs": 203.5,
+            "domNodeCount": 22598
           },
           "habits_100": {
-            "renderTimeMs": 452,
-            "domNodeCount": 44770
+            "renderTimeMs": 394.9,
+            "domNodeCount": 44765
           }
         },
         "svg": {
           "habits_10": {
-            "renderTimeMs": 53.7,
-            "domNodeCount": 9118
+            "renderTimeMs": 47.3,
+            "domNodeCount": 9115
           },
           "habits_50": {
-            "renderTimeMs": 207.2,
-            "domNodeCount": 27643
+            "renderTimeMs": 178.9,
+            "domNodeCount": 27680
           },
           "habits_100": {
-            "renderTimeMs": 439.5,
-            "domNodeCount": 50825
+            "renderTimeMs": 378.8,
+            "domNodeCount": 50873
           }
         }
       },
       "quickCheckInInpMs": {
-        "html": 53.3,
-        "svg": 41.9
+        "html": 62.3,
+        "svg": 36.8
       },
       "storageThroughput": {
-        "localStorageOpsPerSec": 169492,
-        "indexedDBOpsPerSec": 35971
+        "localStorageOpsPerSec": 204082,
+        "indexedDBOpsPerSec": 41841
       }
     }
   },
   "metrics": {
-    "bootDurationMs": 67,
+    "bootDurationMs": 69,
     "renderDurations": {
       "html": {
         "habits_10": {
-          "renderTimeMs": 51.6,
-          "domNodeCount": 4866
+          "renderTimeMs": 46.2,
+          "domNodeCount": 4867
         },
         "habits_50": {
-          "renderTimeMs": 231.7,
-          "domNodeCount": 22599
+          "renderTimeMs": 203.5,
+          "domNodeCount": 22598
         },
         "habits_100": {
-          "renderTimeMs": 452,
-          "domNodeCount": 44770
+          "renderTimeMs": 394.9,
+          "domNodeCount": 44765
         }
       },
       "svg": {
         "habits_10": {
-          "renderTimeMs": 53.7,
-          "domNodeCount": 9118
+          "renderTimeMs": 47.3,
+          "domNodeCount": 9115
         },
         "habits_50": {
-          "renderTimeMs": 207.2,
-          "domNodeCount": 27643
+          "renderTimeMs": 178.9,
+          "domNodeCount": 27680
         },
         "habits_100": {
-          "renderTimeMs": 439.5,
-          "domNodeCount": 50825
+          "renderTimeMs": 378.8,
+          "domNodeCount": 50873
         }
       }
     },
     "quickCheckInInpMs": {
-      "html": 53.3,
-      "svg": 41.9
+      "html": 62.3,
+      "svg": 36.8
     },
     "storageThroughput": {
-      "localStorageOpsPerSec": 169492,
-      "indexedDBOpsPerSec": 35971
+      "localStorageOpsPerSec": 204082,
+      "indexedDBOpsPerSec": 41841
     }
   },
   "history": [
+    {
+      "version": "1.34.4",
+      "timestamp": "2026-11-05T09:09:02.418Z",
+      "metrics": {
+        "bootDurationMs": 69,
+        "renderDurations": {
+          "html": {
+            "habits_10": {
+              "renderTimeMs": 46.2,
+              "domNodeCount": 4867
+            },
+            "habits_50": {
+              "renderTimeMs": 203.5,
+              "domNodeCount": 22598
+            },
+            "habits_100": {
+              "renderTimeMs": 394.9,
+              "domNodeCount": 44765
+            }
+          },
+          "svg": {
+            "habits_10": {
+              "renderTimeMs": 47.3,
+              "domNodeCount": 9115
+            },
+            "habits_50": {
+              "renderTimeMs": 178.9,
+              "domNodeCount": 27680
+            },
+            "habits_100": {
+              "renderTimeMs": 378.8,
+              "domNodeCount": 50873
+            }
+          }
+        },
+        "quickCheckInInpMs": {
+          "html": 62.3,
+          "svg": 36.8
+        },
+        "storageThroughput": {
+          "localStorageOpsPerSec": 204082,
+          "indexedDBOpsPerSec": 41841
+        }
+      }
+    },
+    {
+      "version": "1.34.3",
+      "timestamp": "2026-11-05T09:07:32.978Z",
+      "metrics": {
+        "bootDurationMs": 73,
+        "renderDurations": {
+          "html": {
+            "habits_10": {
+              "renderTimeMs": 55,
+              "domNodeCount": 4867
+            },
+            "habits_50": {
+              "renderTimeMs": 207.3,
+              "domNodeCount": 22611
+            },
+            "habits_100": {
+              "renderTimeMs": 414.6,
+              "domNodeCount": 44781
+            }
+          },
+          "svg": {
+            "habits_10": {
+              "renderTimeMs": 48.1,
+              "domNodeCount": 9088
+            },
+            "habits_50": {
+              "renderTimeMs": 202.7,
+              "domNodeCount": 27671
+            },
+            "habits_100": {
+              "renderTimeMs": 420.8,
+              "domNodeCount": 50874
+            }
+          }
+        },
+        "quickCheckInInpMs": {
+          "html": 50.1,
+          "svg": 47.7
+        },
+        "storageThroughput": {
+          "localStorageOpsPerSec": 151515,
+          "indexedDBOpsPerSec": 23095
+        }
+      }
+    },
     {
       "version": "1.34.2",
       "timestamp": "2026-11-04T21:23:29.873Z",
@@ -2245,96 +2335,6 @@
         "storageThroughput": {
           "localStorageOpsPerSec": 200000,
           "indexedDBOpsPerSec": 29326
-        }
-      }
-    },
-    {
-      "version": "1.29.9",
-      "timestamp": "2026-10-30T18:57:34.499Z",
-      "metrics": {
-        "bootDurationMs": 56,
-        "renderDurations": {
-          "html": {
-            "habits_10": {
-              "renderTimeMs": 45.8,
-              "domNodeCount": 4866
-            },
-            "habits_50": {
-              "renderTimeMs": 199.6,
-              "domNodeCount": 22609
-            },
-            "habits_100": {
-              "renderTimeMs": 391.6,
-              "domNodeCount": 44775
-            }
-          },
-          "svg": {
-            "habits_10": {
-              "renderTimeMs": 45.9,
-              "domNodeCount": 9029
-            },
-            "habits_50": {
-              "renderTimeMs": 175,
-              "domNodeCount": 27593
-            },
-            "habits_100": {
-              "renderTimeMs": 376.4,
-              "domNodeCount": 50797
-            }
-          }
-        },
-        "quickCheckInInpMs": {
-          "html": 31,
-          "svg": 21.9
-        },
-        "storageThroughput": {
-          "localStorageOpsPerSec": 163934,
-          "indexedDBOpsPerSec": 41322
-        }
-      }
-    },
-    {
-      "version": "1.29.8",
-      "timestamp": "2026-10-30T16:08:01.806Z",
-      "metrics": {
-        "bootDurationMs": 85,
-        "renderDurations": {
-          "html": {
-            "habits_10": {
-              "renderTimeMs": 61.9,
-              "domNodeCount": 4869
-            },
-            "habits_50": {
-              "renderTimeMs": 273,
-              "domNodeCount": 22595
-            },
-            "habits_100": {
-              "renderTimeMs": 551.9,
-              "domNodeCount": 44774
-            }
-          },
-          "svg": {
-            "habits_10": {
-              "renderTimeMs": 46.8,
-              "domNodeCount": 9036
-            },
-            "habits_50": {
-              "renderTimeMs": 199.8,
-              "domNodeCount": 27567
-            },
-            "habits_100": {
-              "renderTimeMs": 375.2,
-              "domNodeCount": 50791
-            }
-          }
-        },
-        "quickCheckInInpMs": {
-          "html": 45.6,
-          "svg": 25.1
-        },
-        "storageThroughput": {
-          "localStorageOpsPerSec": 163934,
-          "indexedDBOpsPerSec": 30303
         }
       }
     }

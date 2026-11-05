@@ -2741,7 +2741,7 @@ window.HabitualCore = window.HabitualCore || {};
       parentSubsortSec.classList.remove('hidden');
     }
 
-    const hasSubs = habitToEdit ? core.state.habits.some(h => h.parentId === habitToEdit.id) : Boolean(defaultParentId);
+    const hasSubs = habitToEdit ? core.state.habits.some(h => h.parentId === habitToEdit.id) : false;
     const parentSubsortGroup = document.getElementById('parent-subsort-select-group');
     if (parentSubsortGroup && parentSubsortGroup.style) {
       parentSubsortGroup.style.display = (hasSubs || core._isEditingAllPreferences) ? '' : 'none';
