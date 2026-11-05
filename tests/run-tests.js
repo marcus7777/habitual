@@ -1160,11 +1160,15 @@ describe('Feature 11: 📱 PWA & Offline Support', () => {
     assert(swContent.includes('widgets/add.html'), 'Caches widgets/add.html');
     assert(swContent.includes('widgets/heatmaps.html'), 'Caches widgets/heatmaps.html');
     assert(swContent.includes('widgets/settings.html'), 'Caches widgets/settings.html');
+    assert(swContent.includes('firebase-app-compat.js'), 'Pre-caches Firebase App SDK in SW');
+    assert(swContent.includes('firebase-firestore-compat.js'), 'Pre-caches Firebase Firestore SDK in SW');
 
     // Check caching strategy (Cache-First + Background Cache Replacement / Stale-While-Revalidate)
     assert(swContent.includes('cachedResponse'), 'Checks cached response first');
     assert(swContent.includes('cache.put'), 'Replaces cache in background');
     assert(swContent.includes('event.waitUntil'), 'Extends service worker lifetime for background revalidation');
+    assert(swContent.includes('ignoreSearch: true'), 'Ignores URL query parameters for cache matching');
+    assert(swContent.includes("event.request.mode === 'navigate'"), 'Includes offline navigation fallback to index.html');
   });
 
   test('Web Manifest manifest.json specifies required PWA fields', () => {
@@ -6132,6 +6136,129 @@ describe('Sub-Habit Persistence & Anti-Disappearance Safeguards', () => {
     assert(top2InState, 'Unrelated top-level habit 2 still in state');
     assertEqual(sub1InState.parentId, 'top_1', 'Sub-habit 1 parentId intact');
     assertEqual(sub2InState.parentId, 'top_1', 'Sub-habit 2 parentId intact');
+  });
+});
+
+// ============================================================================
+// FEATURE 45: 🚀 LOCAL-FIRST INITIALIZATION & BUILD MINIFICATION ASSETS
+// ============================================================================
+describe('Feature 45: 🚀 Local-First Initialization & Build Minification Assets', () => {
+  test('core.loadStateAsync loads local state before remote network sync calls', async () => {
+    HabitualCore.resetState();
+    HabitualCore.setState({ habits: [{ id: 'h_local_1', name: 'Local Habit' }] });
+    HabitualCore.saveState();
+
+    HabitualCore.resetState();
+    let renderCalledBeforeSync = false;
+    const origRender = HabitualCore.renderAll;
+    HabitualCore.renderAll = () => { renderCalledBeforeSync = true; };
+
+    await HabitualCore.loadStateAsync();
+
+    assertEqual(HabitualCore.state.habits.length, 1, 'Local state loaded asynchronously');
+    assertEqual(HabitualCore.state.habits[0].id, 'h_local_1', 'Local habit ID restored');
+    assertEqual(renderCalledBeforeSync, true, 'core.renderAll triggered immediately on local load');
+
+    HabitualCore.renderAll = origRender;
+  });
+
+  test('runBuild minifies CSS and JS files into non-empty minified assets', () => {
+    const { runBuild } = require('../build.js');
+    runBuild();
+
+    const minCssPath = path.join(__dirname, '../web/styles.min.css');
+    assert(fs.existsSync(minCssPath), 'styles.min.css generated');
+    const minCss = fs.readFileSync(minCssPath, 'utf8');
+    assert(minCss.length > 1000, 'styles.min.css is non-empty');
+
+    const minJsPath = path.join(__dirname, '../web/js/storage.min.js');
+    assert(fs.existsSync(minJsPath), 'storage.min.js generated');
+    const minJs = fs.readFileSync(minJsPath, 'utf8');
+    assert(minJs.includes('HabitualCore'), 'Minified storage.min.js preserves HabitualCore');
+  });
+});
+
+// ============================================================================
+// FEATURE 46: 🙈 CIRCUMSTANTIAL HIDING RULES EDGE CASES
+// ============================================================================
+describe('Feature 46: 🙈 Circumstantial Hiding Rules Edge Cases', () => {
+  test('shouldHideHabit time of day rule evaluates before, after, and outside modes', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+
+    // Mode: before 09:00
+    const habitBefore = {
+      id: 'h_before',
+      name: 'Morning Habit',
+      hideTimeOfDay: { enabled: true, mode: 'before', startTime: '09:00', endTime: '18:00' }
+    };
+
+    assertEqual(HabitualCore.shouldHideHabit(habitBefore, today, '08:30'), true, 'Hidden at 08:30 when before 09:00 mode is set');
+    assertEqual(HabitualCore.shouldHideHabit(habitBefore, today, '09:15'), false, 'Visible at 09:15 when after 09:00');
+
+    // Mode: after 18:00
+    const habitAfter = {
+      id: 'h_after',
+      name: 'Evening Habit',
+      hideTimeOfDay: { enabled: true, mode: 'after', startTime: '18:00', endTime: '22:00' }
+    };
+
+    assertEqual(HabitualCore.shouldHideHabit(habitAfter, today, '17:00'), false, 'Visible at 17:00 before start time 18:00');
+    assertEqual(HabitualCore.shouldHideHabit(habitAfter, today, '19:00'), true, 'Hidden at 19:00 after start time 18:00');
+
+    // Mode: outside 09:00 to 17:00
+    const habitOutside = {
+      id: 'h_outside',
+      name: 'Work Hours Habit',
+      hideTimeOfDay: { enabled: true, mode: 'outside', startTime: '09:00', endTime: '17:00' }
+    };
+
+    assertEqual(HabitualCore.shouldHideHabit(habitOutside, today, '12:00'), false, 'Visible at 12:00 inside time window');
+    assertEqual(HabitualCore.shouldHideHabit(habitOutside, today, '20:00'), true, 'Hidden at 20:00 outside time window');
+  });
+
+  test('shouldHideHabit geohash location rule evaluates at and away modes', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+
+    // Mode: at location (hide when at location)
+    const habitAt = {
+      id: 'h_at_loc',
+      name: 'Gym Habit',
+      hideLocation: { enabled: true, geohashes: ['gcpvj0u'], mode: 'at' }
+    };
+
+    assertEqual(HabitualCore.shouldHideHabit(habitAt, today, null, 'gcpvj0u123'), true, 'Hidden when at matching geohash location');
+    assertEqual(HabitualCore.shouldHideHabit(habitAt, today, null, 'u4pruyd123'), false, 'Visible when at different geohash location');
+
+    // Mode: away from location (hide when away from location)
+    const habitAway = {
+      id: 'h_away_loc',
+      name: 'Home Routine',
+      hideLocation: { enabled: true, geohashes: ['gcpvj0u'], mode: 'away' }
+    };
+
+    assertEqual(HabitualCore.shouldHideHabit(habitAway, today, null, 'u4pruyd123'), true, 'Hidden when away from home geohash location');
+    assertEqual(HabitualCore.shouldHideHabit(habitAway, today, null, 'gcpvj0u123'), false, 'Visible when at home geohash location');
+  });
+
+  test('shouldHideHabit prerequisite dependency rule checks completion criteria', () => {
+    HabitualCore.resetState();
+    const today = HabitualCore.getTodayKey();
+
+    const parent = { id: 'prereq_parent', name: 'Work Out', logs: {} };
+    const dependent = {
+      id: 'h_dependent',
+      name: 'Protein Shake',
+      hideDependency: { enabled: true, targetId: 'prereq_parent', criterion: 'habit_completed', requiredCount: 1, timeframe: 'today' }
+    };
+
+    HabitualCore.setState({ habits: [parent, dependent] });
+
+    assertEqual(HabitualCore.shouldHideHabit(dependent, today), true, 'Dependent habit is hidden when prerequisite is incomplete');
+
+    parent.logs[today] = { count: 1 };
+    assertEqual(HabitualCore.shouldHideHabit(dependent, today), false, 'Dependent habit becomes visible once prerequisite is completed');
   });
 });
 
