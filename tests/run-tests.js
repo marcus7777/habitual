@@ -2267,6 +2267,30 @@ describe('Feature 24: ⚙️ Habit Admin Options (Show/Hide Count, Duration, Hid
     assertEqual(HabitualCore.elements.habitHideFromAll.checked, true, 'New sub-habit copied parent hideFromAll true');
   });
 
+  test('creating a new habit hides sub-habit options tab and auto-sort dropdown', () => {
+    HabitualCore.resetState();
+
+    const mockSubhabitTab = createMockElement('button');
+    mockSubhabitTab.style = {};
+    const mockParentSubsortGroup = createMockElement('div');
+    mockParentSubsortGroup.style = {};
+
+    const prevGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'tab-btn-subhabit-options') return mockSubhabitTab;
+      if (id === 'parent-subsort-select-group') return mockParentSubsortGroup;
+      return prevGetElementById ? prevGetElementById(id) : createMockElement('div');
+    };
+
+    // Open modal for new habit (habitToEdit = null)
+    HabitualCore.openHabitModal(null);
+
+    global.document.getElementById = prevGetElementById;
+
+    assertEqual(mockSubhabitTab.style.display, 'none', 'Sub-habit tab is hidden for new habit');
+    assertEqual(mockParentSubsortGroup.style.display, 'none', 'Sub-habit auto-sort select is hidden for new habit');
+  });
+
   test('showConfirmModal renders custom modal dialog with Yes and No buttons', async () => {
     HabitualCore.resetState();
 
@@ -5988,6 +6012,126 @@ describe('Issue Fix: 🌐 Unicode Habit Names & Habit URL Decoding', () => {
 
     HabitualCore.renderAll = origRender;
     global.window.location = origLoc;
+  });
+});
+
+// ============================================================================
+// SUB-HABIT PERSISTENCE & ANTI-DISAPPEARANCE SAFEGUARDS
+// ============================================================================
+describe('Sub-Habit Persistence & Anti-Disappearance Safeguards', () => {
+  test('Sub-habits persist through saveState and loadState roundtrip', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'health_routine', name: 'Health Routine', type: 'positive', dailyTarget: 1, parentId: null, logs: {} };
+    const sub1 = { id: 'health_routine_vitamins', name: 'Take Vitamins', type: 'positive', dailyTarget: 1, parentId: 'health_routine', logs: {} };
+    const sub2 = { id: 'health_routine_water', name: 'Drink Water', type: 'positive', dailyTarget: 1, parentId: 'health_routine', logs: {} };
+
+    HabitualCore.setState({ habits: [parent, sub1, sub2] });
+    HabitualCore.saveState();
+
+    HabitualCore.resetState();
+    HabitualCore.loadState();
+
+    const loadedHabits = HabitualCore.state.habits;
+    assertEqual(loadedHabits.length, 3, 'All 3 habits (1 parent, 2 sub-habits) loaded from storage');
+
+    const loadedSub1 = loadedHabits.find(h => h.id === 'health_routine_vitamins');
+    const loadedSub2 = loadedHabits.find(h => h.id === 'health_routine_water');
+
+    assert(loadedSub1, 'Sub-habit 1 exists after loadState');
+    assert(loadedSub2, 'Sub-habit 2 exists after loadState');
+    assertEqual(loadedSub1.parentId, 'health_routine', 'Sub-habit 1 parentId is health_routine');
+    assertEqual(loadedSub2.parentId, 'health_routine', 'Sub-habit 2 parentId is health_routine');
+
+    const subhabits = HabitualCore.getSortedSubhabits ? HabitualCore.getSortedSubhabits(parent, [loadedSub1, loadedSub2]) : loadedHabits.filter(h => h.parentId === 'health_routine');
+    assertEqual(subhabits.length, 2, 'getSortedSubhabits returns both sub-habits');
+  });
+
+  test('Updating parent habit settings via saveHabit does not remove or drop sub-habits', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'morning_routine', name: 'Morning Routine', type: 'positive', dailyTarget: 1, showStreak: false, logs: {} };
+    const child = { id: 'morning_routine_meditation', name: 'Meditation', type: 'positive', dailyTarget: 1, parentId: 'morning_routine', logs: {} };
+
+    HabitualCore.setState({ habits: [parent, child] });
+
+    // Update parent habit settings
+    const updatedParent = { ...parent, showStreak: true, dailyTarget: 2 };
+    HabitualCore.saveHabit(updatedParent);
+
+    const habitsInState = HabitualCore.state.habits;
+    assertEqual(habitsInState.length, 2, 'State retains both parent and sub-habit after saveHabit on parent');
+
+    const childInState = habitsInState.find(h => h.id === 'morning_routine_meditation');
+    assert(childInState, 'Child sub-habit remains in state after parent update');
+    assertEqual(childInState.parentId, 'morning_routine', 'Child sub-habit parentId remains intact');
+  });
+
+  test('Sub-habit retains parentId through JSON backup export and import roundtrip', () => {
+    HabitualCore.resetState();
+    const todayKey = HabitualCore.getTodayKey();
+    const parent = { id: 'study_session', name: 'Study Session', type: 'positive', dailyTarget: 1, logs: {} };
+    const child = { id: 'study_session_math', name: 'Math Chapter', type: 'positive', dailyTarget: 1, parentId: 'study_session', logs: { [todayKey]: { count: 1 } } };
+
+    HabitualCore.setState({ habits: [parent, child] });
+
+    const backupObj = {
+      version: '1.34.1',
+      habits: HabitualCore.state.habits,
+      logs: HabitualCore.state.logs || {}
+    };
+
+    HabitualCore.resetState();
+    HabitualCore.applyPayloadToState(backupObj);
+
+    const importedChild = HabitualCore.state.habits.find(h => h.id === 'study_session_math');
+    assert(importedChild, 'Sub-habit imported from JSON backup');
+    assertEqual(importedChild.parentId, 'study_session', 'Imported sub-habit parentId points to parent');
+    assertEqual(importedChild.logs[todayKey].count, 1, 'Sub-habit check-in log preserved');
+  });
+
+  test('Sub-habits are preserved through state payload merges (mergeStatePayloads)', () => {
+    HabitualCore.resetState();
+    const parent = { id: 'workout', name: 'Workout', type: 'positive', updatedAt: 1000, logs: {} };
+    const child = { id: 'workout_cardio', name: 'Cardio 20m', type: 'positive', parentId: 'workout', updatedAt: 1000, logs: {} };
+
+    HabitualCore.setState({ habits: [parent, child] });
+
+    const remotePayload = {
+      habits: [
+        { id: 'workout', name: 'Workout Goal', type: 'positive', updatedAt: 2000, logs: {} }
+      ]
+    };
+
+    const merged = HabitualCore.mergeStatePayloads(HabitualCore.state, remotePayload);
+    assertEqual(merged.habits.length, 2, 'Merged state preserves local sub-habit when remote payload only updates parent');
+
+    const mergedChild = merged.habits.find(h => h.id === 'workout_cardio');
+    assert(mergedChild, 'Sub-habit preserved in merged state');
+    assertEqual(mergedChild.parentId, 'workout', 'Sub-habit parentId preserved after merge');
+  });
+
+  test('Adding a new sub-habit dynamically preserves all existing top-level and sibling habits', () => {
+    HabitualCore.resetState();
+    const top1 = { id: 'top_1', name: 'Top Level 1', type: 'positive', logs: {} };
+    const top2 = { id: 'top_2', name: 'Top Level 2', type: 'positive', logs: {} };
+    const sub1 = { id: 'top_1_sub1', name: 'Sub 1', type: 'positive', parentId: 'top_1', logs: {} };
+
+    HabitualCore.setState({ habits: [top1, top2, sub1] });
+
+    const newSub2 = { id: 'top_1_sub2', name: 'Sub 2', type: 'positive', parentId: 'top_1', logs: {} };
+    HabitualCore.saveHabit(newSub2);
+
+    const habits = HabitualCore.state.habits;
+    assertEqual(habits.length, 4, 'Habits array expanded to 4 items');
+
+    const sub1InState = habits.find(h => h.id === 'top_1_sub1');
+    const sub2InState = habits.find(h => h.id === 'top_1_sub2');
+    const top2InState = habits.find(h => h.id === 'top_2');
+
+    assert(sub1InState, 'Existing sub-habit 1 still in state');
+    assert(sub2InState, 'Newly added sub-habit 2 in state');
+    assert(top2InState, 'Unrelated top-level habit 2 still in state');
+    assertEqual(sub1InState.parentId, 'top_1', 'Sub-habit 1 parentId intact');
+    assertEqual(sub2InState.parentId, 'top_1', 'Sub-habit 2 parentId intact');
   });
 });
 
