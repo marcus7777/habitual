@@ -366,24 +366,9 @@ window.HabitualCore = window.HabitualCore || {};
         <div class="nav-left">
           <div class="breadcrumb-trail">${breadcrumbHTML}</div>
         </div>
-        <div class="nav-right">
-          <button type="button" class="btn btn-primary btn-sm" id="btn-nav-add-sub">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Add Sub-habit
-          </button>
-        </div>
       `;
 
       viewNav.classList.remove('hidden');
-
-      const navAddSub = (viewNav && viewNav.querySelector)
-        ? (viewNav.querySelector('#btn-nav-add-sub') || document.getElementById('btn-nav-add-sub'))
-        : document.getElementById('btn-nav-add-sub');
-      if (navAddSub) {
-        navAddSub.addEventListener('click', () => {
-          if (core.openHabitModal) core.openHabitModal(null, targetHabit.id);
-        });
-      }
     } else {
       viewNav.classList.add('hidden');
     }
@@ -722,17 +707,14 @@ window.HabitualCore = window.HabitualCore || {};
 
       fragment.appendChild(habitNode);
 
-      const subhabits = core.state.habits.filter(h => h.parentId === targetHabit.id);
-      if (subhabits.length === 0) {
-        const callout = document.createElement('div');
-        callout.className = 'subhabit-callout';
-        callout.innerHTML = `<button type="button" class="btn btn-secondary btn-sm btn-add-sub-callout">+ Add Sub-habit</button>`;
-        fragment.appendChild(callout);
+      const callout = document.createElement('div');
+      callout.className = 'subhabit-callout';
+      callout.innerHTML = `<button type="button" class="btn btn-secondary btn-sm btn-add-sub-callout">+ Add Sub-habit</button>`;
+      fragment.appendChild(callout);
 
-        callout.querySelector('.btn-add-sub-callout').addEventListener('click', () => {
-          if (core.openHabitModal) core.openHabitModal(null, targetHabit.id);
-        });
-      }
+      callout.querySelector('.btn-add-sub-callout').addEventListener('click', () => {
+        if (core.openHabitModal) core.openHabitModal(null, targetHabit.id);
+      });
     }
 
     if (core.elements.heatmapsGallery) {
