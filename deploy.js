@@ -3,16 +3,17 @@
  *
  * Workflow:
  *  1. Bumps application version using `bump-version.js`
- *  2. Runs core test suite (`node tests/run-tests.js`)
- *  3. Runs all Playwright test scripts & benchmarks:
+ *  2. Minifies and builds asset bundle using `build.js`
+ *  3. Runs core test suite (`node tests/run-tests.js`)
+ *  4. Runs all Playwright test scripts & benchmarks:
  *     - Share & Firestore Sync Roundtrip (`tests/test-share-roundtrip-playwright.js`)
  *     - Standalone Widgets E2E (`tests/test-widgets-playwright.js`)
  *     - Android Mobile Playwright E2E (`tests/test-android-playwright.js`)
  *     - Firefox Mobile Playwright E2E (`tests/test-firefox-android-playwright.js`)
  *     - Playwright Android Diagnostics (`tests/test-playwright-diag.js`)
  *     - Playwright Performance Benchmark (`tests/benchmark-playwright.js`)
- *  4. On success: Stages all changes (`git add .`), commits, and pushes to GitHub
- *  5. Deploys to Firebase Hosting (`npx firebase deploy --only hosting`)
+ *  5. On success: Stages all changes (`git add .`), commits, and pushes to GitHub
+ *  6. Deploys to Firebase Hosting (`npx firebase deploy --only hosting`)
  *
  * Usage:
  *  node deploy.js [bumpType] [--no-push] [--no-deploy] [--no-playwright]
@@ -84,7 +85,7 @@ async function deploy() {
 
   // 1. Version Bump using bump-version.js
   const bumpCmd = bumpType ? `node bump-version.js ${bumpType}` : 'node bump-version.js';
-  if (!runStep(bumpCmd, 'Step 1/5: Bumping Version')) {
+  if (!runStep(bumpCmd, 'Step 1/6: Bumping Version')) {
     console.error('\nAborting deployment because version bump failed or was cancelled.');
     process.exit(1);
   }
@@ -92,18 +93,24 @@ async function deploy() {
   const newVersion = getVersion();
   console.log(`\n[✓] Version successfully set to v${newVersion} (was v${oldVersion})`);
 
-  // 2. Run Core Test Suite
-  if (!runStep('node tests/run-tests.js', 'Step 2/5: Running Core Test Suite')) {
+  // 2. Build / Minify Production Assets
+  if (!runStep('node build.js', 'Step 2/6: Minifying Production Assets')) {
+    console.error('\n❌ Asset minification build failed! Halting deployment.');
+    process.exit(1);
+  }
+
+  // 3. Run Core Test Suite
+  if (!runStep('node tests/run-tests.js', 'Step 3/6: Running Core Test Suite')) {
     console.error(`\n❌ Core test suite failed! Halting git push and deployment.`);
     console.error(`Note: Version was bumped to v${newVersion} in package.json and HTML/SW files.`);
     console.error(`Please fix test failures. You can restore modified files via "git restore ." if needed.`);
     process.exit(1);
   }
 
-  // 3. Run Playwright Test Suite & Benchmarks
+  // 4. Run Playwright Test Suite & Benchmarks
   if (!skipPlaywright) {
     console.log(`\n========================================`);
-    console.log(`🎭 Step 3/5: Running Playwright E2E Suite & Benchmarks`);
+    console.log(`🎭 Step 4/6: Running Playwright E2E Suite & Benchmarks`);
     console.log(`========================================`);
 
     const playwrightScripts = [
@@ -132,19 +139,19 @@ async function deploy() {
     console.log('\n[Skipping Playwright Test Suite due to --no-playwright flag]');
   }
 
-  // 4. Git Operations: Stage, Commit, Push
+  // 5. Git Operations: Stage, Commit, Push
   if (!skipPush) {
-    if (!runStep('git add .', 'Step 4/5: Staging Changes with Git')) {
+    if (!runStep('git add .', 'Step 5/6: Staging Changes with Git')) {
       console.error('\n❌ Failed to stage changes with git.');
       process.exit(1);
     }
 
     const commitMsg = `Bump version to v${newVersion} and release`;
-    if (!runStep(`git commit -m "${commitMsg}"`, 'Step 4/5: Committing Release to Git')) {
+    if (!runStep(`git commit -m "${commitMsg}"`, 'Step 5/6: Committing Release to Git')) {
       console.warn('\n⚠️ Git commit returned non-zero exit (possibly no changes to commit). Proceeding...');
     }
 
-    if (!runStep('git push', 'Step 4/5: Pushing Changes to GitHub')) {
+    if (!runStep('git push', 'Step 5/6: Pushing Changes to GitHub')) {
       console.error('\n❌ Failed to push changes to GitHub. Aborting Firebase deployment.');
       process.exit(1);
     }
@@ -152,10 +159,10 @@ async function deploy() {
     console.log('\n[Skipping Git Push due to --no-push flag]');
   }
 
-  // 5. Deploy to Firebase Hosting
+  // 6. Deploy to Firebase Hosting
   if (!skipDeploy) {
     const firebaseCmd = 'npx firebase deploy --only hosting';
-    if (!runStep(firebaseCmd, 'Step 5/5: Deploying to Firebase Hosting')) {
+    if (!runStep(firebaseCmd, 'Step 6/6: Deploying to Firebase Hosting')) {
       console.error('\n❌ Firebase deployment failed!');
       process.exit(1);
     }

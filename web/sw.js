@@ -1,6 +1,6 @@
 /* Habitual Service Worker */
 
-const CACHE_NAME = 'habitual-v1.34.4';
+const CACHE_NAME = 'habitual-v1.34.5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -28,7 +28,9 @@ const ASSETS_TO_CACHE = [
   './widgets/quick-add-template.json',
   './lib/ggwave.js',
   './fonts/inter-latin.woff2',
-  './fonts/jetbrains-mono-latin.woff2'
+  './fonts/jetbrains-mono-latin.woff2',
+  'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js'
 ];
 
 // Install Event - Pre-cache Static Assets
@@ -68,7 +70,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
+    caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
       // Background fetch promise to update the cache asynchronously
       const fetchPromise = fetch(event.request)
         .then((networkResponse) => {
@@ -91,8 +93,12 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
 
-      // If not in cache, fallback to network fetch
-      return fetchPromise;
+      // If not in cache, fallback to network fetch with navigation fallback
+      return fetchPromise.catch(() => {
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html', { ignoreSearch: true });
+        }
+      });
     })
   );
 });
