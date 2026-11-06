@@ -4232,6 +4232,7 @@ window.HabitualCore = window.HabitualCore || {};
       const sharePanel = document.getElementById('share-habit-panel');
       const btnToggleShare = document.getElementById('btn-toggle-share-habit-panel');
       const btnCopyShareLink = document.getElementById('btn-copy-share-link');
+      const btnCreateInviteLink = document.getElementById('btn-create-invite-link');
       const btnRegenShareCreds = document.getElementById('btn-regen-share-creds');
 
       if (chkSharing) {
@@ -4261,6 +4262,32 @@ window.HabitualCore = window.HabitualCore || {};
           if (inputShareCol) inputShareCol.value = core.generateShareDocId();
           if (inputSharePwd) inputSharePwd.value = core.generateRandomPassword(16);
           core.ensureCurrentModalHabitSharedAndUploaded();
+        });
+      }
+
+      if (btnCreateInviteLink) {
+        btnCreateInviteLink.addEventListener('click', function() {
+          core.ensureCurrentModalHabitSharedAndUploaded();
+          const inputCol = document.getElementById('habit-share-collection');
+          const docId = inputCol ? inputCol.value.trim() : '';
+          if (!docId) return;
+
+          if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.createShareInviteToken) {
+            core.SyncTargets.Firestore.createShareInviteToken(docId).then(function(res) {
+              const inviteUrl = res.url;
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(inviteUrl).then(function() {
+                  if (core.showToast) core.showToast('🎟️ Editor invite link copied to clipboard!', 'success');
+                }).catch(function() {
+                  alert('Editor invite link: ' + inviteUrl);
+                });
+              } else {
+                alert('Editor invite link: ' + inviteUrl);
+              }
+            }).catch(function(err) {
+              if (core.showToast) core.showToast('❌ Failed creating invite link: ' + (err.message || String(err)), 'error');
+            });
+          }
         });
       }
 

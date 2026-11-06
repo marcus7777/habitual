@@ -211,6 +211,7 @@ global.localStorage = mockLocalStorage;
 global.navigator = { serviceWorker: { register: async () => ({ scope: '/' }) } };
 
 // Load Habitual Core Files
+require('../web/js/crypto-keys.js');
 require('../web/js/colours.js');
 require('../web/js/jsurl.js');
 require('../web/js/qr.js');
@@ -6259,6 +6260,171 @@ describe('Feature 46: 🙈 Circumstantial Hiding Rules Edge Cases', () => {
 
     parent.logs[today] = { count: 1 };
     assertEqual(HabitualCore.shouldHideHabit(dependent, today), false, 'Dependent habit becomes visible once prerequisite is completed');
+  });
+});
+
+// ============================================================================
+// ISSUE #26: 🔐 SECURE SHARED HABITS VIA ECDSA SIGNATURES & INVITE LINKS
+// ============================================================================
+describe('Issue #26: 🔐 Secure Shared Habits via ECDSA Signatures & Invite Links', () => {
+  test('core.CryptoKeys generates P-256 ECDSA keypair, exports SPKI public key, and caches in localStorage', async () => {
+    mockLocalStorage.clear();
+    const kp = await HabitualCore.CryptoKeys.getOrCreateUserKeyPair();
+
+    assert(kp.publicKey, 'Generated public key object');
+    assert(kp.privateKey, 'Generated private key object');
+    assert(typeof kp.publicKeyBase64 === 'string' && kp.publicKeyBase64.length > 50, 'Exports Base64 SPKI public key string');
+
+    const cachedKp = await HabitualCore.CryptoKeys.getOrCreateUserKeyPair();
+    assertEqual(cachedKp.publicKeyBase64, kp.publicKeyBase64, 'Subsequent call retrieves cached keypair from localStorage');
+  });
+
+  test('signPayload & verifySignature roundtrip verifies valid payload and rejects tampered data', async () => {
+    const kp = await HabitualCore.CryptoKeys.getOrCreateUserKeyPair();
+    const payload = 'doc123:ENC:ciphertext123:hashabc';
+
+    const sig = await HabitualCore.CryptoKeys.signPayload(kp.privateKey, payload);
+    assert(typeof sig === 'string' && sig.length > 20, 'Generates Base64 signature string');
+
+    const isValid = await HabitualCore.CryptoKeys.verifySignature(kp.publicKeyBase64, sig, payload);
+    assertEqual(isValid, true, 'verifySignature returns true for valid signature');
+
+    const isTampered = await HabitualCore.CryptoKeys.verifySignature(kp.publicKeyBase64, sig, 'doc123:ENC:TAMPERED_CIPHERTEXT:hashabc');
+    assertEqual(isTampered, false, 'verifySignature returns false for tampered payload');
+  });
+
+  test('uploadPerHabitBackup signs payload and attaches writerPublicKey & ownerPublicKey', async () => {
+    HabitualCore.resetState();
+    let savedDocData = null;
+
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: () => ({
+        doc: (docId) => ({
+          get: async () => ({ exists: false, data: () => null }),
+          set: async (data, opts) => { savedDocData = data; return Promise.resolve(); }
+        })
+      })
+    };
+
+    const sharedHabit = {
+      id: 'h_shared_1',
+      name: 'Shared Morning Run',
+      type: 'positive',
+      sharing: { enabled: true, docId: 'share_doc_100', password: 'test_pass_123' },
+      logs: {}
+    };
+
+    await HabitualCore.SyncTargets.Firestore.uploadPerHabitBackup(sharedHabit);
+
+    assert(savedDocData, 'Document saved to Firestore');
+    assert(savedDocData.ciphertext && savedDocData.ciphertext.startsWith('ENC:'), 'Ciphertext included in Firestore upload');
+    assert(savedDocData.writerPublicKey, 'writerPublicKey attached to uploaded shared habit');
+    assert(savedDocData.signature, 'Cryptographic ECDSA signature attached to uploaded shared habit');
+    assert(savedDocData.ownerPublicKey, 'ownerPublicKey initialized on initial upload');
+    assert(Array.isArray(savedDocData.allowedPublicKeys) && savedDocData.allowedPublicKeys.length >= 1, 'allowedPublicKeys array initialized with owner key');
+  });
+
+  test('downloadPerHabitBackup verifies signature and rejects unsigned writes on signed documents', async () => {
+    const kp = await HabitualCore.CryptoKeys.getOrCreateUserKeyPair();
+    const passphrase = 'secret_pass_123';
+    const cipher = await HabitualCore.E2EE.encrypt({ name: 'Signed Habit Data' }, passphrase);
+    const docId = 'doc_signed_test';
+    const payloadStr = `${docId}:${cipher}:hash_test`;
+    const sig = await HabitualCore.CryptoKeys.signPayload(kp.privateKey, payloadStr);
+
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: () => ({
+        doc: (dId) => ({
+          get: async () => ({
+            exists: true,
+            data: () => ({
+              ciphertext: cipher,
+              hashOfdata: 'hash_test',
+              writerPublicKey: kp.publicKeyBase64,
+              ownerPublicKey: kp.publicKeyBase64,
+              allowedPublicKeys: [kp.publicKeyBase64],
+              signature: sig
+            })
+          })
+        })
+      })
+    };
+
+    const decrypted = await HabitualCore.SyncTargets.Firestore.downloadPerHabitBackup(docId, passphrase);
+    assertEqual(decrypted.name, 'Signed Habit Data', 'downloadPerHabitBackup succeeds and decrypts valid signed document');
+
+    // Case 2: Reject unsigned update on signed document
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: () => ({
+        doc: (dId) => ({
+          get: async () => ({
+            exists: true,
+            data: () => ({
+              ciphertext: cipher,
+              ownerPublicKey: kp.publicKeyBase64 // Previously signed document missing current signature!
+            })
+          })
+        })
+      })
+    };
+
+    let rejected = false;
+    try {
+      await HabitualCore.SyncTargets.Firestore.downloadPerHabitBackup(docId, passphrase);
+    } catch (err) {
+      rejected = true;
+    }
+    assertEqual(rejected, true, 'Unsigned update on signed document is rejected');
+  });
+
+  test('createShareInviteToken and redeemShareInviteToken one-time invite lifecycle', async () => {
+    let inviteDoc = null;
+    let shareDoc = {
+      ownerPublicKey: 'owner_pub_key_123',
+      allowedPublicKeys: ['owner_pub_key_123']
+    };
+
+    HabitualCore.SyncTargets.Firestore.db = {
+      collection: (name) => ({
+        doc: (id) => ({
+          get: async () => {
+            if (name === 'share_invites') {
+              return { exists: Boolean(inviteDoc), data: () => inviteDoc };
+            }
+            return { exists: true, data: () => shareDoc };
+          },
+          set: async (data, opts) => {
+            if (name === 'share_invites') {
+              inviteDoc = opts && opts.merge ? Object.assign(inviteDoc || {}, data) : data;
+            } else if (name === 'share') {
+              shareDoc = opts && opts.merge ? Object.assign(shareDoc || {}, data) : data;
+            }
+            return Promise.resolve();
+          }
+        })
+      })
+    };
+
+    const inviteRes = await HabitualCore.SyncTargets.Firestore.createShareInviteToken('doc_invite_test');
+    assert(inviteRes.token && inviteRes.token.startsWith('inv_'), 'Generates single-use invite token');
+    assert(inviteRes.url && inviteRes.url.includes('#share-invite'), 'Generates share-invite URL');
+
+    // Redeem invite token
+    const recipientKp = await HabitualCore.CryptoKeys.getOrCreateUserKeyPair();
+    const redeemRes = await HabitualCore.SyncTargets.Firestore.redeemShareInviteToken('doc_invite_test', inviteRes.token);
+
+    assertEqual(redeemRes.success, true, 'redeemShareInviteToken succeeds');
+    assert(shareDoc.allowedPublicKeys.includes(recipientKp.publicKeyBase64), 'Recipient public key added to allowedPublicKeys array');
+    assertEqual(inviteDoc.used, true, 'Invite token invalidated (used: true)');
+
+    // Attempt redeeming second time fails
+    let reuseFailed = false;
+    try {
+      await HabitualCore.SyncTargets.Firestore.redeemShareInviteToken('doc_invite_test', inviteRes.token);
+    } catch (err) {
+      reuseFailed = true;
+    }
+    assertEqual(reuseFailed, true, 'Redeeming used invite token a second time fails');
   });
 });
 
