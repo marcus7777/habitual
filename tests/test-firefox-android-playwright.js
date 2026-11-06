@@ -132,8 +132,8 @@ async function runFirefoxMobileTestSuite() {
           logs: { [todayStr]: { count: 0 } }
         }
       ];
-      HabitualCore.state.expandedHabitIds.add('ff_parent');
       HabitualCore.renderAll();
+      HabitualCore.toggleConcertina('ff_parent');
     });
     await page.waitForTimeout(300);
 
