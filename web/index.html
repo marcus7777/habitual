@@ -112,7 +112,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Habitual &bull; v1.34.7</p>
+      <p>Habitual &bull; v1.34.8</p>
     </footer>
   </div>
 
@@ -690,8 +690,11 @@
                   </div>
 
                   <div class="share-actions-row margin-top-sm" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button type="button" id="btn-copy-share-link" class="btn btn-secondary btn-sm">
-                      📋 Copy Share Link
+                    <button type="button" id="btn-copy-share-link" class="btn btn-secondary btn-sm" title="Copy Read-Only View Link">
+                      👁️ Copy View Link
+                    </button>
+                    <button type="button" id="btn-create-invite-link" class="btn btn-primary btn-sm" title="Generate one-time invite link to grant editor access">
+                      🎟️ Create Editor Invite Link
                     </button>
                     <button type="button" id="btn-regen-share-creds" class="btn btn-secondary btn-sm">
                       🔄 Regenerate Keys
@@ -977,6 +980,7 @@
     </div>
   </div>
 
+  <script src="js/crypto-keys.js" defer></script>
   <script src="js/colours.js" defer></script>
   <script src="js/jsurl.js" defer></script>
   <!-- App Core -->

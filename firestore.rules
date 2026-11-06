@@ -2,6 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Zero-knowledge client-side encrypted habit payloads and shared habits
+    match /share/{docId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.ciphertext != null;
+      allow delete: if resource.data.ownerPublicKey == null;
+    }
+    match /share_invites/{tokenId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.docId != null;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

@@ -1720,160 +1720,190 @@ window.HabitualCore = window.HabitualCore || {};
               const targetHabit = core.state.habits.find(h => (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)) || h.id === habitId);
               const remoteHash = data.hashOfdata || data.hashOfData || data.dataHash || data.data_hash || data.hash;
 
-              if (remoteHash && targetHabit) {
-                const localPayload = core.getPerHabitPayload(targetHabit);
-                const localHash = core.computeDataHash(localPayload);
-                if (localHash === remoteHash) return;
-              } else if (data.writerId && data.writerId === core.CLIENT_ID) {
-                return;
-              }
-
-              core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remoteHabit) {
-                if (!remoteHabit) return;
-                const targetHabit = core.state.habits.find(h => (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)) || h.id === habitId);
-                if (!targetHabit) return;
-
-                let updated = false;
-
-                // 1. Synchronize Metadata & Display Settings on Parent Habit
-                const metaFields = [
-                  'name', 'type', 'description', 'category', 'dailyTarget', 'frequencyType',
-                  'weeklyTarget', 'monthlyDay', 'monthlyTarget', 'customTarget', 'customInterval', 'customUnit',
-                  'colorWholeWeek', 'colorWholeMonth', 'showStreak', 'showCount', 'showDuration',
-                  'hideFromAll', 'isPaused', 'hideHeatmapWhenPaused', 'hideHeatmap',
-                  'hideWhenCompleted', 'hideNotScheduled', 'hideWhenPaused',
-                  'hideTimeOfDay', 'hideLocation', 'hideDependency',
-                  'subhabitDisplayMode', 'subhabitSortOrder', 'subhabitSortReverse'
-                ];
-
-                metaFields.forEach(field => {
-                  if (remoteHabit[field] !== undefined && remoteHabit[field] !== targetHabit[field]) {
-                    targetHabit[field] = remoteHabit[field];
-                    updated = true;
+              // --- SIGNATURE & AUTHORIZATION VERIFICATION ---
+              const verifyPromise = (function() {
+                if (data.signature && data.writerPublicKey && core.CryptoKeys) {
+                  const allowed = Array.isArray(data.allowedPublicKeys) ? data.allowedPublicKeys : [];
+                  const owner = data.ownerPublicKey || data.writerPublicKey;
+                  const isAllowed = allowed.includes(data.writerPublicKey) || owner === data.writerPublicKey;
+                  if (!isAllowed) {
+                    console.warn('Rejected snapshot from unauthorized writer key:', data.writerPublicKey);
+                    return Promise.resolve(false);
                   }
-                });
+                  const payloadStr = docId + ':' + data.ciphertext + ':' + (data.hashOfdata || '');
+                  return core.CryptoKeys.verifySignature(data.writerPublicKey, data.signature, payloadStr);
+                } else if (data.ownerPublicKey || data.signature) {
+                  console.warn('Rejected unsigned update on signed habit document:', docId);
+                  return Promise.resolve(false);
+                }
+                return Promise.resolve(true);
+              })();
 
-                if (remoteHabit.colorTheme && remoteHabit.colorTheme !== targetHabit.colorTheme) {
-                  targetHabit.colorTheme = remoteHabit.colorTheme;
-                  updated = true;
+              verifyPromise.then(function(isValid) {
+                if (!isValid) return;
+
+                // Automatic Upgrade: If remote habit is unsigned and user is local owner, upgrade & sign!
+                if (!data.signature && !data.ownerPublicKey && targetHabit && core.CryptoKeys) {
+                  setTimeout(function() {
+                    self.uploadPerHabitBackup(targetHabit);
+                  }, 500);
                 }
 
-                if (remoteHabit.targetDays && Array.isArray(remoteHabit.targetDays)) {
-                  const currDays = targetHabit.targetDays || [];
-                  if (currDays.length !== remoteHabit.targetDays.length || !currDays.every((v, i) => v === remoteHabit.targetDays[i])) {
-                    targetHabit.targetDays = remoteHabit.targetDays;
-                    updated = true;
-                  }
+                if (remoteHash && targetHabit) {
+                  const localPayload = core.getPerHabitPayload(targetHabit);
+                  const localHash = core.computeDataHash(localPayload);
+                  if (localHash === remoteHash) return;
+                } else if (data.writerId && data.writerId === core.CLIENT_ID) {
+                  return;
                 }
 
-                // 2. Synchronize Check-In Logs on Parent Habit
-                if (remoteHabit.logs) {
-                  if (!targetHabit.logs) targetHabit.logs = {};
-                  Object.keys(remoteHabit.logs).forEach(dateKey => {
-                    const rLog = remoteHabit.logs[dateKey];
-                    const lLog = targetHabit.logs[dateKey];
-                    if (!rLog) return;
+                return core.E2EE.decrypt(data.ciphertext, passphrase).then(function(remoteHabit) {
+                  if (!remoteHabit) return;
+                  const targetHabit = core.state.habits.find(h => (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)) || h.id === habitId);
+                  if (!targetHabit) return;
 
-                    if (!lLog) {
-                      targetHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
-                      if (rLog.unverified) targetHabit.logs[dateKey].unverified = true;
+                  let updated = false;
+
+                  // 1. Synchronize Metadata & Display Settings on Parent Habit
+                  const metaFields = [
+                    'name', 'type', 'description', 'category', 'dailyTarget', 'frequencyType',
+                    'weeklyTarget', 'monthlyDay', 'monthlyTarget', 'customTarget', 'customInterval', 'customUnit',
+                    'colorWholeWeek', 'colorWholeMonth', 'showStreak', 'showCount', 'showDuration',
+                    'hideFromAll', 'isPaused', 'hideHeatmapWhenPaused', 'hideHeatmap',
+                    'hideWhenCompleted', 'hideNotScheduled', 'hideWhenPaused',
+                    'hideTimeOfDay', 'hideLocation', 'hideDependency',
+                    'subhabitDisplayMode', 'subhabitSortOrder', 'subhabitSortReverse'
+                  ];
+
+                  metaFields.forEach(field => {
+                    if (remoteHabit[field] !== undefined && remoteHabit[field] !== targetHabit[field]) {
+                      targetHabit[field] = remoteHabit[field];
                       updated = true;
-                    } else {
-                      const newCount = Math.max(lLog.count || 0, rLog.count || 0);
-                      const newNote = (rLog.note && rLog.note.trim() !== '') ? rLog.note : (lLog.note || '');
-                      const newUnverified = Boolean(lLog.unverified || rLog.unverified);
-                      if (lLog.count !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
-                        targetHabit.logs[dateKey] = { count: newCount, note: newNote };
-                        if (newUnverified) targetHabit.logs[dateKey].unverified = true;
-                        updated = true;
-                      }
                     }
                   });
-                }
 
-                // 3. Synchronize Sub-Habits (Children) Metadata, Settings & Logs
-                if (remoteHabit.children && Array.isArray(remoteHabit.children)) {
-                  remoteHabit.children.forEach(cData => {
-                    let childHabit = core.state.habits.find(h => h.id === cData.habitId || (h.parentId === targetHabit.id && h.name === cData.name));
-                    if (!childHabit) {
-                      childHabit = {
-                        id: cData.habitId || (targetHabit.id + '_' + core.idFromName(cData.name)),
-                        name: cData.name,
-                        type: cData.type || 'positive',
-                        description: cData.description || '',
-                        category: cData.category || 'General',
-                        dailyTarget: cData.dailyTarget || 1,
-                        frequencyType: cData.frequencyType || 'daily',
-                        targetDays: cData.targetDays || [1, 2, 3, 4, 5, 6, 0],
-                        weeklyTarget: cData.weeklyTarget || 1,
-                        monthlyDay: cData.monthlyDay || '1',
-                        monthlyTarget: cData.monthlyTarget || 1,
-                        colorWholeWeek: cData.colorWholeWeek !== false,
-                        colorWholeMonth: cData.colorWholeMonth !== false,
-                        customTarget: cData.customTarget || 1,
-                        customInterval: cData.customInterval || 3,
-                        customUnit: cData.customUnit || 'days',
-                        colorTheme: cData.colorTheme,
-                        showStreak: cData.showStreak,
-                        showCount: cData.showCount,
-                        showDuration: cData.showDuration,
-                        hideFromAll: cData.hideFromAll,
-                        isPaused: cData.isPaused,
-                        parentId: targetHabit.id,
-                        parentDependency: cData.parentDependency || 'none',
-                        createdAt: cData.createdAt || core.getTodayKey(),
-                        logs: cData.logs || {}
-                      };
-                      core.state.habits.push(childHabit);
+                  if (remoteHabit.colorTheme && remoteHabit.colorTheme !== targetHabit.colorTheme) {
+                    targetHabit.colorTheme = remoteHabit.colorTheme;
+                    updated = true;
+                  }
+
+                  if (remoteHabit.targetDays && Array.isArray(remoteHabit.targetDays)) {
+                    const currDays = targetHabit.targetDays || [];
+                    if (currDays.length !== remoteHabit.targetDays.length || !currDays.every((v, i) => v === remoteHabit.targetDays[i])) {
+                      targetHabit.targetDays = remoteHabit.targetDays;
                       updated = true;
-                    } else {
-                      metaFields.forEach(field => {
-                        if (cData[field] !== undefined && cData[field] !== childHabit[field]) {
-                          childHabit[field] = cData[field];
+                    }
+                  }
+
+                  // 2. Synchronize Check-In Logs on Parent Habit
+                  if (remoteHabit.logs) {
+                    if (!targetHabit.logs) targetHabit.logs = {};
+                    Object.keys(remoteHabit.logs).forEach(dateKey => {
+                      const rLog = remoteHabit.logs[dateKey];
+                      const lLog = targetHabit.logs[dateKey];
+                      if (!rLog) return;
+
+                      if (!lLog) {
+                        targetHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
+                        if (rLog.unverified) targetHabit.logs[dateKey].unverified = true;
+                        updated = true;
+                      } else {
+                        const newCount = Math.max(lLog.count || 0, rLog.count || 0);
+                        const newNote = (rLog.note && rLog.note.trim() !== '') ? rLog.note : (lLog.note || '');
+                        const newUnverified = Boolean(lLog.unverified || rLog.unverified);
+                        if (lLog.count !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
+                          targetHabit.logs[dateKey] = { count: newCount, note: newNote };
+                          if (newUnverified) targetHabit.logs[dateKey].unverified = true;
                           updated = true;
                         }
-                      });
-
-                      if (cData.colorTheme && cData.colorTheme !== childHabit.colorTheme) {
-                        childHabit.colorTheme = cData.colorTheme;
-                        updated = true;
                       }
+                    });
+                  }
 
-                      if (!childHabit.logs) childHabit.logs = {};
-                      if (cData.logs) {
-                        Object.keys(cData.logs).forEach(dateKey => {
-                          const rLog = cData.logs[dateKey];
-                          const lLog = childHabit.logs[dateKey];
-                          if (!rLog) return;
-
-                          if (!lLog) {
-                            childHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
-                            if (rLog.unverified) childHabit.logs[dateKey].unverified = true;
+                  // 3. Synchronize Sub-Habits (Children) Metadata, Settings & Logs
+                  if (remoteHabit.children && Array.isArray(remoteHabit.children)) {
+                    remoteHabit.children.forEach(cData => {
+                      let childHabit = core.state.habits.find(h => h.id === cData.habitId || (h.parentId === targetHabit.id && h.name === cData.name));
+                      if (!childHabit) {
+                        childHabit = {
+                          id: cData.habitId || (targetHabit.id + '_' + core.idFromName(cData.name)),
+                          name: cData.name,
+                          type: cData.type || 'positive',
+                          description: cData.description || '',
+                          category: cData.category || 'General',
+                          dailyTarget: cData.dailyTarget || 1,
+                          frequencyType: cData.frequencyType || 'daily',
+                          targetDays: cData.targetDays || [1, 2, 3, 4, 5, 6, 0],
+                          weeklyTarget: cData.weeklyTarget || 1,
+                          monthlyDay: cData.monthlyDay || '1',
+                          monthlyTarget: cData.monthlyTarget || 1,
+                          colorWholeWeek: cData.colorWholeWeek !== false,
+                          colorWholeMonth: cData.colorWholeMonth !== false,
+                          customTarget: cData.customTarget || 1,
+                          customInterval: cData.customInterval || 3,
+                          customUnit: cData.customUnit || 'days',
+                          colorTheme: cData.colorTheme,
+                          showStreak: cData.showStreak,
+                          showCount: cData.showCount,
+                          showDuration: cData.showDuration,
+                          hideFromAll: cData.hideFromAll,
+                          isPaused: cData.isPaused,
+                          parentId: targetHabit.id,
+                          parentDependency: cData.parentDependency || 'none',
+                          createdAt: cData.createdAt || core.getTodayKey(),
+                          logs: cData.logs || {}
+                        };
+                        core.state.habits.push(childHabit);
+                        updated = true;
+                      } else {
+                        metaFields.forEach(field => {
+                          if (cData[field] !== undefined && cData[field] !== childHabit[field]) {
+                            childHabit[field] = cData[field];
                             updated = true;
-                          } else {
-                            const newCount = Math.max(lLog.count || 0, rLog.count || 0);
-                            const newNote = (rLog.note && rLog.note.trim() !== '') ? rLog.note : (lLog.note || '');
-                            const newUnverified = Boolean(lLog.unverified || rLog.unverified);
-                            if (lLog.count !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
-                              childHabit.logs[dateKey] = { count: newCount, note: newNote };
-                              if (newUnverified) childHabit.logs[dateKey].unverified = true;
-                              updated = true;
-                            }
                           }
                         });
-                      }
-                    }
-                  });
-                }
 
-                if (updated) {
-                  targetHabit.updatedAt = remoteHabit.updatedAt || ((data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : Date.now());
-                  core.saveState(true);
-                  if (core.renderAll) core.renderAll();
-                  if (core.showToast) core.showToast(`⚡ Shared habit "${targetHabit.name}" updated!`, 'info');
-                }
-              }).catch(function(e) {
-                console.warn('Per-habit Firestore decrypt error:', e);
+                        if (cData.colorTheme && cData.colorTheme !== childHabit.colorTheme) {
+                          childHabit.colorTheme = cData.colorTheme;
+                          updated = true;
+                        }
+
+                        if (!childHabit.logs) childHabit.logs = {};
+                        if (cData.logs) {
+                          Object.keys(cData.logs).forEach(dateKey => {
+                            const rLog = cData.logs[dateKey];
+                            const lLog = childHabit.logs[dateKey];
+                            if (!rLog) return;
+
+                            if (!lLog) {
+                              childHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
+                              if (rLog.unverified) childHabit.logs[dateKey].unverified = true;
+                              updated = true;
+                            } else {
+                              const newCount = Math.max(lLog.count || 0, rLog.count || 0);
+                              const newNote = (rLog.note && rLog.note.trim() !== '') ? rLog.note : (lLog.note || '');
+                              const newUnverified = Boolean(lLog.unverified || rLog.unverified);
+                              if (lLog.count !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
+                                childHabit.logs[dateKey] = { count: newCount, note: newNote };
+                                if (newUnverified) childHabit.logs[dateKey].unverified = true;
+                                updated = true;
+                              }
+                            }
+                          });
+                        }
+                      }
+                    });
+                  }
+
+                  if (updated) {
+                    targetHabit.updatedAt = remoteHabit.updatedAt || ((data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : Date.now());
+                    core.saveState(true);
+                    if (core.renderAll) core.renderAll();
+                    if (core.showToast) core.showToast(`⚡ Shared habit "${targetHabit.name}" updated!`, 'info');
+                  }
+                }).catch(function(e) {
+                  console.warn('Per-habit Firestore decrypt error:', e);
+                });
               });
             }, function(err) {
               console.warn('Per-habit Firestore snapshot error:', err);
@@ -1894,17 +1924,58 @@ window.HabitualCore = window.HabitualCore || {};
         const self = this;
         const payload = core.getPerHabitPayload(habit);
         const dataHash = core.computeDataHash(payload);
+        let cipher = '';
+        let userKey = null;
 
         return self.init().then(function() {
           return core.E2EE.encrypt(payload, passphrase);
-        }).then(function(cipher) {
-          const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
-            ? firebase.firestore.FieldValue.serverTimestamp()
-            : Date.now();
-          return self.db.collection('share').doc(docId).set({
-            ciphertext: cipher,
-            updatedAt: serverTs,
-            hashOfdata: dataHash
+        }).then(function(encryptedCipher) {
+          cipher = encryptedCipher;
+          if (core.CryptoKeys) {
+            return core.CryptoKeys.getOrCreateUserKeyPair();
+          }
+          return null;
+        }).then(function(keyPairResult) {
+          userKey = keyPairResult;
+          if (!userKey) {
+            const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+              ? firebase.firestore.FieldValue.serverTimestamp()
+              : Date.now();
+            return self.db.collection('share').doc(docId).set({
+              ciphertext: cipher,
+              updatedAt: serverTs,
+              hashOfdata: dataHash
+            });
+          }
+
+          const payloadString = docId + ':' + cipher + ':' + dataHash;
+          return core.CryptoKeys.signPayload(userKey.privateKey, payloadString).then(function(signature) {
+            return self.db.collection('share').doc(docId).get().then(function(snap) {
+              const existingData = (snap && snap.exists) ? snap.data() : null;
+              let ownerKey = (existingData && existingData.ownerPublicKey) ? existingData.ownerPublicKey : userKey.publicKeyBase64;
+              let allowed = (existingData && Array.isArray(existingData.allowedPublicKeys)) ? existingData.allowedPublicKeys : [];
+
+              if (allowed.length > 0 && !allowed.includes(userKey.publicKeyBase64) && ownerKey !== userKey.publicKeyBase64) {
+                const errMsg = '❌ Cannot update shared habit: Your device key is not an authorized editor.';
+                if (core.showToast) core.showToast(errMsg, 'error');
+                return Promise.reject(new Error(errMsg));
+              }
+
+              const updatedAllowed = Array.from(new Set([...allowed, userKey.publicKeyBase64, ownerKey]));
+              const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+                ? firebase.firestore.FieldValue.serverTimestamp()
+                : Date.now();
+
+              return self.db.collection('share').doc(docId).set({
+                ciphertext: cipher,
+                updatedAt: serverTs,
+                hashOfdata: dataHash,
+                writerPublicKey: userKey.publicKeyBase64,
+                signature: signature,
+                ownerPublicKey: ownerKey,
+                allowedPublicKeys: updatedAllowed
+              }, { merge: true });
+            });
           });
         }).catch(function(e) {
           console.warn('Upload per-habit backup error:', e);
@@ -1926,10 +1997,109 @@ window.HabitualCore = window.HabitualCore || {};
           return self.db.collection('share').doc(docId).get();
         }).then(function(doc) {
           if (!doc || !doc.exists || !doc.data() || !doc.data().ciphertext) return null;
-          return core.E2EE.decrypt(doc.data().ciphertext, pwd);
+          const data = doc.data();
+
+          if (data.signature && data.writerPublicKey && core.CryptoKeys) {
+            const allowed = Array.isArray(data.allowedPublicKeys) ? data.allowedPublicKeys : [];
+            const owner = data.ownerPublicKey || data.writerPublicKey;
+            const isAllowed = allowed.includes(data.writerPublicKey) || owner === data.writerPublicKey;
+            if (!isAllowed) {
+              return Promise.reject(new Error('Unauthorized writer public key for shared document'));
+            }
+            const payloadStr = docId + ':' + data.ciphertext + ':' + (data.hashOfdata || '');
+            return core.CryptoKeys.verifySignature(data.writerPublicKey, data.signature, payloadStr).then(function(isValid) {
+              if (!isValid) throw new Error('Invalid signature on shared habit document');
+              return core.E2EE.decrypt(data.ciphertext, pwd);
+            });
+          } else if (data.ownerPublicKey || data.signature) {
+            return Promise.reject(new Error('Unsigned update rejected on signed shared document'));
+          }
+
+          return core.E2EE.decrypt(data.ciphertext, pwd);
         }).catch(function(err) {
           console.warn('Error downloading per-habit backup:', err);
           return Promise.reject(err);
+        });
+      },
+
+      createShareInviteToken: function(docId) {
+        const self = this;
+        if (!core.CryptoKeys) return Promise.reject(new Error('CryptoKeys module not loaded'));
+
+        let userKey = null;
+        const token = 'inv_' + Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
+
+        return core.CryptoKeys.getOrCreateUserKeyPair().then(function(kp) {
+          userKey = kp;
+          return core.CryptoKeys.signPayload(userKey.privateKey, docId + ':create_invite');
+        }).then(function(signature) {
+          return self.init().then(function() {
+            const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+              ? firebase.firestore.FieldValue.serverTimestamp()
+              : Date.now();
+            return self.db.collection('share_invites').doc(token).set({
+              docId: docId,
+              ownerPublicKey: userKey.publicKeyBase64,
+              signature: signature,
+              used: false,
+              createdAt: serverTs
+            });
+          });
+        }).then(function() {
+          const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
+          const inviteUrl = `${baseUrl}#share-invite?col=${docId}&token=${token}`;
+          return { token: token, url: inviteUrl };
+        });
+      },
+
+      redeemShareInviteToken: function(docId, token) {
+        const self = this;
+        if (!core.CryptoKeys) return Promise.reject(new Error('CryptoKeys module not loaded'));
+
+        let userKey = null;
+
+        return core.CryptoKeys.getOrCreateUserKeyPair().then(function(kp) {
+          userKey = kp;
+          return self.init();
+        }).then(function() {
+          return self.db.collection('share_invites').doc(token).get();
+        }).then(function(inviteSnap) {
+          if (!inviteSnap || !inviteSnap.exists) {
+            throw new Error('Invite link is invalid or expired.');
+          }
+          const invData = inviteSnap.data();
+          if (invData.docId !== docId) {
+            throw new Error('Invite link does not match this habit.');
+          }
+          if (invData.used === true) {
+            throw new Error('This invite link has already been used.');
+          }
+
+          return self.db.collection('share').doc(docId).get().then(function(shareSnap) {
+            if (!shareSnap || !shareSnap.exists) {
+              throw new Error('Shared habit document not found.');
+            }
+            const shareData = shareSnap.data() || {};
+            const allowed = Array.isArray(shareData.allowedPublicKeys) ? shareData.allowedPublicKeys : [];
+            const updatedAllowed = Array.from(new Set([...allowed, userKey.publicKeyBase64]));
+
+            const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+              ? firebase.firestore.FieldValue.serverTimestamp()
+              : Date.now();
+
+            return self.db.collection('share').doc(docId).set({
+              allowedPublicKeys: updatedAllowed,
+              updatedAt: serverTs
+            }, { merge: true }).then(function() {
+              return self.db.collection('share_invites').doc(token).set({
+                used: true,
+                usedAt: serverTs,
+                usedBy: userKey.publicKeyBase64
+              }, { merge: true });
+            });
+          });
+        }).then(function() {
+          return { success: true, docId: docId };
         });
       },
 
