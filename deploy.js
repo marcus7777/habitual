@@ -13,7 +13,7 @@
  *     - Playwright Android Diagnostics (`tests/test-playwright-diag.js`)
  *     - Playwright Performance Benchmark (`tests/benchmark-playwright.js`)
  *  5. On success: Stages all changes (`git add .`), commits, and pushes to GitHub
- *  6. Deploys to Firebase Hosting (`npx firebase deploy --only hosting`)
+ *  6. Deploys to Firebase Hosting & Cloud Functions (`npx firebase deploy`)
  *
  * Usage:
  *  node deploy.js [bumpType] [--no-push] [--no-deploy] [--no-playwright]
@@ -159,10 +159,10 @@ async function deploy() {
     console.log('\n[Skipping Git Push due to --no-push flag]');
   }
 
-  // 6. Deploy to Firebase Hosting
+  // 6. Deploy to Firebase Hosting, Cloud Functions, and Firestore Security Rules
   if (!skipDeploy) {
-    const firebaseCmd = 'npx firebase deploy --only hosting';
-    if (!runStep(firebaseCmd, 'Step 6/6: Deploying to Firebase Hosting')) {
+    const firebaseCmd = 'npx firebase deploy';
+    if (!runStep(firebaseCmd, 'Step 6/6: Deploying to Firebase (Hosting, Functions & Rules)')) {
       console.error('\n❌ Firebase deployment failed!');
       process.exit(1);
     }
@@ -175,7 +175,7 @@ async function deploy() {
   console.log(`   Version:    v${newVersion}`);
   console.log(`   Playwright: ${skipPlaywright ? 'Skipped' : 'All Playwright scripts passed'}`);
   console.log(`   Git Push:   ${skipPush ? 'Skipped' : 'Pushed to GitHub'}`);
-  console.log(`   Firebase:   ${skipDeploy ? 'Skipped' : 'Deployed to Firebase Hosting'}`);
+  console.log(`   Firebase:   ${skipDeploy ? 'Skipped' : 'Deployed to Firebase Hosting & Cloud Functions'}`);
   console.log(`========================================\n`);
 }
 
