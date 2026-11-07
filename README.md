@@ -61,9 +61,15 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
   - **Number Keys (`0`–`9`)**: Set check-in count directly to that number (e.g. `6` sets 6 check-ins, `0` marks as clear) while preserving notes.
   - **Capital Letters (`A`–`Z`)**: Open the log dialogue, start a new journal note or append to an existing note, and focus the note text field.
 
-### ☁️ Storage Engines, Cloud Sync & E2EE
+### ☁️ Storage Engines, Cloud Sync, E2EE & Cryptographic Signatures
 - **Granular Storage ($O(1)$ Writes)**: High-performance IndexedDB persistence with debounced coalescing. Switchable storage engines (`localStorage`, `IndexedDB`).
 - **Zero-Knowledge End-to-End Encryption (E2EE)**: Client-side AES-256-GCM encryption with PBKDF2 SHA-256 key derivation (100,000 iterations, 16-byte SHA-256 salt, 12-byte random IV) via Web Crypto API for Firebase Cloud Backup and local JSON backup downloads.
+- **Asymmetric Key Signatures (Zero-Login Public-Private Keys)**: Native W3C Web Crypto API **ECDSA P-256** digital signatures. Author keypairs stay strictly on-device; outbound writes to shared habits (`/share/{docId}`) are signed with private keys.
+- **Read-Only vs. Editor Invites**:
+  - *Read-Only View Link* (`#share?col=docId`): Allows viewers to view live updates without write permissions.
+  - *Single-Use Editor Invite Link* (`#share-invite?col=docId&token=...`): Generates a unique single-use token to invite co-editors. Redeeming an invite token appends the recipient's public key to `allowedPublicKeys` and invalidates the token.
+- **Server-Side Enforcement**: Real-time Firebase Cloud Function trigger (`onShareDocumentWrite`) verifies signatures on Node.js using `crypto.verify()` and automatically reverts any unauthorized or unsigned overwrites/deletions.
+- **Automatic Upgrades**: Unsigned shared habits are automatically assigned keypairs, signed, and upgraded upon next load.
 - **Encrypted Local JSON Exports & Imports**: Local JSON backup downloads use the same AES-256-GCM encryption format (`ENC:...`). Restoring an encrypted backup file automatically prompts for or decrypts using the Master Passphrase.
 - **Multi-Target Live Sync**: Live sync across devices using Zero-Knowledge Encrypted Firestore Cloud Sync (`/habit_data/{syncCode}`) and Acoustic Sound Sync.
 - **Shared Habit Deletion**: Deleting a shared habit unlinks and removes it locally from your device while keeping the remote Firestore document intact for other collaborators.
@@ -72,7 +78,7 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 
 ## 🧪 Automated Testing Suite
 
-Habitual features an automated test suite covering all core logic across **161 test specifications in 41 test suites** with a 100% pass rate.
+Habitual features an automated test suite covering all core logic across **223 test specifications in 47 test suites** with a 100% pass rate.
 
 ### 1. Terminal / CI Test Runner (Node.js)
 Execute the DOM-mocked unit test suite directly in command line:
@@ -83,10 +89,11 @@ node tests/run-tests.js
 ### 2. Interactive Web Browser Dashboard
 Open `web/tests.html` in any browser to run tests interactively with a visual pass/fail dashboard.
 
-### 3. Android Mobile Device E2E Verification
-Run end-to-end mobile browser automation tests on an attached Android device via ADB and Playwright:
+### 3. Android & Firefox Mobile Automation Verification
+Run end-to-end mobile browser automation tests via Playwright:
 ```bash
 node tests/test-android-playwright.js
+node tests/test-firefox-android-playwright.js
 ```
 
 ---
@@ -95,6 +102,9 @@ node tests/test-android-playwright.js
 
 ```
 habitual/
+├── functions/             # Firebase Cloud Functions (Node.js 22)
+│   ├── index.js           # Real-time onWrite Firestore trigger & invite token endpoints
+│   └── package.json       # Functions manifest & dependencies
 ├── web/
 │   ├── index.html         # Application markup & modal dialogues
 │   ├── styles.css         # Heatmap styles & responsive UI
@@ -104,8 +114,9 @@ habitual/
 │   ├── sync.html          # Device pairing & sync status dashboard
 │   ├── tests.html         # In-browser interactive test runner dashboard
 │   ├── js/
+│   │   ├── crypto-keys.js # ECDSA P-256 keypair generation, SPKI import/export & signing
 │   │   ├── state.js       # State management, color blending & hierarchy helpers
-│   │   ├── storage.js     # Storage drivers, E2EE & multi-target sync engine
+│   │   ├── storage.js     # Storage drivers, E2EE, signature verification & sync engine
 │   │   ├── render.js      # Heatmap rendering, combined grids & accordions
 │   │   ├── ui.js          # Modal controls, date navigation, ICS & CSV import
 │   │   ├── audio-sync.js  # GGwave ultrasound audio data sync
@@ -113,27 +124,38 @@ habitual/
 │   └── lib/
 │       └── ggwave.js      # GGwave WebAssembly library for audio sync
 ├── tests/
-│   └── run-tests.js       # Node.js automated test runner (81 tests)
-├── assets/                # Application logo assets and artwork
-├── firebase.json          # Firebase Hosting configuration
+│   ├── run-tests.js       # Node.js automated test runner (223 test specs)
+│   ├── test-share-signatures-playwright.js # Playwright signature verification tests
+│   └── test-firefox-android-playwright.js  # Firefox Mobile E2E automation suite
+├── build.js               # Production asset minification engine
+├── deploy.js              # Automated release & deployment script
+├── firebaserc             # Firebase project target configuration
+├── firebase.json          # Firebase Hosting, Functions & Firestore configuration
+├── firestore.rules        # Firestore Security Rules
 └── package.json           # Node project manifest and test scripts
 ```
 
 ---
 
-## 🔐 E2EE Cloud Backup & Local Export Encryption Architecture
+## 🔐 E2EE Cloud Backup & Cryptographic Authorization Architecture
 
-Habitual implements a **Zero-Knowledge Client-Side End-to-End Encryption (E2EE)** architecture for both Firebase Cloud Backup and local JSON backup downloads:
+Habitual implements a **Zero-Knowledge Client-Side End-to-End Encryption (E2EE)** and **Asymmetric Signature Authorization** architecture:
 
-- **Client-Side Processing**: All encryption and decryption operations take place entirely within the user's browser via the native W3C **Web Crypto API** (`crypto.subtle`).
+- **Client-Side Processing**: All encryption, decryption, keypair generation, and signing operations take place entirely within the user's browser via the native W3C **Web Crypto API** (`crypto.subtle`).
 - **Zero-Knowledge Model**: Firebase Firestore and local disk backups store only opaque ciphertext strings starting with `ENC:`. Neither Google Cloud, Firebase servers, nor network intermediaries ever receive unencrypted payloads or the Master Passphrase.
-- **Cryptographic Specifications**:
+- **Symmetric Encryption Specifications (E2EE Payload)**:
   - **Cipher**: `AES-256-GCM` (Galois/Counter Mode) with a 128-bit authentication tag for AEAD integrity protection.
   - **Key Derivation (KDF)**: `PBKDF2` with `SHA-256` hashing and **100,000 iterations** in production.
   - **Salt**: 16-byte salt derived deterministically per passphrase (`SHA-256("habitual_salt_v1_" + passphrase)`).
   - **Initialization Vector (IV)**: 12 random bytes generated per encryption via `crypto.getRandomValues()`.
+- **Asymmetric Signature Specifications (Write Authorization)**:
+  - **Algorithm**: `ECDSA` over curve `P-256` with `SHA-256` digests (`["sign", "verify"]`).
+  - **Private Keys**: Exported as JWK strings, cached strictly in `localStorage`, and **never transmitted over the network**.
+  - **Public Keys**: Exported as Base64 SPKI strings, attached to Firestore shared documents (`ownerPublicKey`, `allowedPublicKeys`).
+  - **Payload Signature**: `docId:ciphertext:hashOfdata` signed by author private key.
+- **Server Enforcement**: Real-time Firebase Cloud Function `onShareDocumentWrite` verifies ECDSA signatures using Node.js `crypto.verify()` and automatically reverts unauthorized or unsigned writes.
 - **Payload Format**: `ENC:<Base64(16-byte Salt + 12-byte IV + Ciphertext)>`.
-- **Firebase Storage Path**: Stored in Firestore under `/habit_data/{syncCode}` (`ciphertext`, `updatedAt`, `hashOfdata`).
+- **Firebase Storage Path**: Stored in Firestore under `/habit_data/{syncCode}` and `/share/{docId}` (`ciphertext`, `updatedAt`, `hashOfdata`, `writerPublicKey`, `signature`, `allowedPublicKeys`).
 - **Local Download Encryption**: The same encryption engine is used when exporting local JSON backups, allowing users to save password-protected local backup files (`ENC:...`). Restoring an encrypted JSON backup file automatically prompts for or decrypts using the Master Passphrase.
 
 ---
@@ -146,10 +168,11 @@ python -m http.server --directory web 8080
 ```
 Open `http://localhost:8080` in your browser.
 
-### Firebase Hosting Deployment
+### Full Build & Automated Firebase Deployment
 ```bash
-npx firebase deploy
+npm run deploy
 ```
+*Executes version bump, asset minification build, full test suites, git commit/push, and deploys Hosting, Cloud Functions, and Firestore Security Rules to Firebase.*
 
 ---
 
