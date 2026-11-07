@@ -4307,6 +4307,19 @@ window.HabitualCore = window.HabitualCore || {};
         });
       }
 
+      // Delegated listener for local private viewer notes on read-only shared habits
+      document.addEventListener('input', function(e) {
+        if (e.target && e.target.classList && e.target.classList.contains('viewer-note-input')) {
+          const habitId = e.target.getAttribute('data-habit-id');
+          const val = e.target.value;
+          const habit = core.state.habits.find(h => h.id === habitId);
+          if (habit) {
+            habit.viewerNote = val;
+            if (core.saveState) core.saveState();
+          }
+        }
+      });
+
       [inputShareCol, inputSharePwd].forEach(el => {
         if (el) el.addEventListener('change', () => {
           core.ensureCurrentModalHabitSharedAndUploaded();
@@ -5286,6 +5299,7 @@ window.HabitualCore = window.HabitualCore || {};
                 docId: col,
                 collection: col,
                 password: pwd,
+                readOnly: true,
                 includeChildren: hasRemoteChildren
               },
               logs: payload.logs || {}

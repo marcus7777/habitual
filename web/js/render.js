@@ -1235,11 +1235,19 @@ window.HabitualCore = window.HabitualCore || {};
       else if (habit.parentDependency === 'parent_days_only') dependencyBadgeHTML = `<span class="badge-dependency" title="Goal active only on days when '${core.escapeHTML(pName)}' is done">📅 Active on ${core.escapeHTML(pName)} Days</span>`;
     }
 
+    const isReadOnly = habit && habit.sharing && habit.sharing.enabled && habit.sharing.readOnly === true;
     let pausedBadgeHTML = (habit && habit.isPaused) ? '<span class="badge-paused" title="This habit is currently paused">⏸️ Paused</span>' : '';
-    let sharedBadgeHTML = (habit && habit.sharing && habit.sharing.enabled) ? `<span class="badge-shared" title="Shared Habit (Collection: ${core.escapeHTML(habit.sharing.collection || '')})">👥 Shared</span>` : '';
+    let sharedBadgeHTML = '';
+    if (habit && habit.sharing && habit.sharing.enabled) {
+      if (isReadOnly) {
+        sharedBadgeHTML = `<span class="badge-shared badge-readonly" title="Read-Only Shared Habit (View Only - Cannot check in)">👁️ Read-Only</span>`;
+      } else {
+        sharedBadgeHTML = `<span class="badge-shared" title="Shared Habit (Collection: ${core.escapeHTML(habit.sharing.collection || '')})">👥 Shared</span>`;
+      }
+    }
 
     let bigLogButtonHTML = '';
-    if (habit) {
+    if (habit && !isReadOnly) {
       const cellData = core.getCellData ? core.getCellData(cursorDateStr, habit, todayStr) : { ratio: (habit.logs && habit.logs[cursorDateStr] && habit.logs[cursorDateStr].count) ? 1.0 : 0 };
       const ratio = Math.min(1.0, Math.max(0, cellData.ratio || 0));
       const isGoalMet = ratio >= 1.0;
@@ -1459,13 +1467,30 @@ window.HabitualCore = window.HabitualCore || {};
     const shouldHideHeatmap = habit && (habit.hideHeatmap === true || (habit.isPaused && habit.hideHeatmapWhenPaused === true));
     const dayNoteHTML = core.renderDayNoteHTML ? core.renderDayNoteHTML(targetOrNull, cursorDateStr) : '';
 
+    let viewerNoteHTML = '';
+    if (isReadOnly && habit) {
+      const safeViewerNote = core.escapeHTML ? core.escapeHTML(habit.viewerNote || '') : (habit.viewerNote || '');
+      viewerNoteHTML = `
+        <div class="viewer-note-section margin-top-xs" style="padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin: 8px 12px 10px 12px;">
+          <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
+            <span>📝 Private Viewer Notes</span>
+            <small style="opacity: 0.7; font-weight: normal;">(saved locally on your device only)</small>
+          </label>
+          <input type="text" class="text-input viewer-note-input font-mono"
+                 data-habit-id="${habit.id}"
+                 placeholder="Add personal notes or thoughts on this shared habit..."
+                 value="${safeViewerNote}"
+                 style="font-size: 0.82rem; padding: 6px 10px; width: 100%; box-sizing: border-box;">
+        </div>`;
+    }
+
     if (shouldHideHeatmap) {
       card.classList.add('minimal-checkbox-card');
-      card.innerHTML = reorderArrowsHTML + headerHTML + focusedToolbarHTML;
+      card.innerHTML = reorderArrowsHTML + headerHTML + focusedToolbarHTML + viewerNoteHTML;
       return card;
     }
 
-    card.innerHTML = reorderArrowsHTML + headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>` + dayNoteHTML;
+    card.innerHTML = reorderArrowsHTML + headerHTML + focusedToolbarHTML + `<div class="heatmap-wrapper"><div class="heatmap-grid-container">${gridHTML}</div></div>` + dayNoteHTML + viewerNoteHTML;
     return card;
   };
 

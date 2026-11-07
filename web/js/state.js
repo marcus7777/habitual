@@ -919,6 +919,11 @@ window.HabitualCore = window.HabitualCore || {};
     const habit = core.state.habits.find(h => h.id === habitId);
     if (!habit) return;
 
+    if (habit.sharing && habit.sharing.readOnly === true) {
+      if (core.showToast) core.showToast('🔒 View-Only Shared Habit: You are viewing this habit in Read-Only mode and cannot add check-ins.', 'info');
+      return;
+    }
+
     // Resolve target button element if not explicitly passed
     let btn = targetBtn;
     if (!btn && typeof document !== 'undefined') {
