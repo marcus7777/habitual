@@ -143,6 +143,7 @@ window.HabitualCore = window.HabitualCore || {};
             publicKeyBase64: stored.publicKeySpki
           };
           self._cachedKeyPair = result;
+          if (core) core.CLIENT_ID = result.publicKeyBase64;
           return result;
         }).catch(function(err) {
           console.warn('Failed importing stored keypair, generating new keypair:', err);
@@ -183,6 +184,7 @@ window.HabitualCore = window.HabitualCore || {};
           publicKeyBase64: pubSpki
         };
         self._cachedKeyPair = result;
+        if (core) core.CLIENT_ID = pubSpki;
         return result;
       });
     },

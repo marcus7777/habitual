@@ -798,7 +798,7 @@ window.HabitualCore = window.HabitualCore || {};
     }
     let firestorePromise = Promise.resolve(true);
     if (core.SyncTargets && core.SyncTargets.Firestore && habit && habit.sharing && habit.sharing.enabled) {
-      firestorePromise = core.SyncTargets.Firestore.uploadPerHabitBackup(habit).catch(function(e) {
+      firestorePromise = core.SyncTargets.Firestore.uploadPerHabitBackupDebounced(habit).catch(function(e) {
         console.warn('Auto upload per-habit backup on saveHabit error:', e);
       });
     }
@@ -1131,10 +1131,19 @@ window.HabitualCore = window.HabitualCore || {};
     return path.endsWith('sync.html') || href.includes('sync.html');
   };
 
-  // Unique Client Instance Identifier for Self-Write Echo Suppression
+  // Unique Client Instance Identifier for Self-Write Echo Suppression (Uses Public Key when available)
   core.CLIENT_ID = (function() {
     if (typeof window !== 'undefined' && window.HabitualCore && window.HabitualCore.CLIENT_ID) {
       return window.HabitualCore.CLIENT_ID;
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const item = localStorage.getItem('habitual_ec_keypair');
+        if (item) {
+          const parsed = JSON.parse(item);
+          if (parsed && parsed.publicKeySpki) return parsed.publicKeySpki;
+        }
+      } catch (e) {}
     }
     return 'cli_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   })();
@@ -1753,7 +1762,7 @@ window.HabitualCore = window.HabitualCore || {};
                   const localPayload = core.getPerHabitPayload(targetHabit);
                   const localHash = core.computeDataHash(localPayload);
                   if (localHash === remoteHash) return;
-                } else if (data.writerId && data.writerId === core.CLIENT_ID) {
+                } else if ((data.writerPublicKey && data.writerPublicKey === core.CLIENT_ID) || (data.writerId && data.writerId === core.CLIENT_ID)) {
                   return;
                 }
 
@@ -1897,6 +1906,7 @@ window.HabitualCore = window.HabitualCore || {};
 
                   if (updated) {
                     targetHabit.updatedAt = remoteHabit.updatedAt || ((data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : Date.now());
+                    if (remoteHash) targetHabit._lastUploadedDataHash = remoteHash;
                     core.saveState(true);
                     if (core.renderAll) core.renderAll();
                     if (core.showToast) core.showToast(`⚡ Shared habit "${targetHabit.name}" updated!`, 'info');
@@ -1915,19 +1925,54 @@ window.HabitualCore = window.HabitualCore || {};
         });
       },
 
-      uploadPerHabitBackup: function(habit) {
+      perHabitDebounceTimers: {},
+      _inFlightUploadPromises: {},
+
+      uploadPerHabitBackupDebounced: function(habit, delayMs = 1200) {
+        if (!habit || !habit.id) return Promise.resolve(null);
+        const self = this;
+        const habitId = habit.id;
+
+        if (self.perHabitDebounceTimers[habitId]) {
+          clearTimeout(self.perHabitDebounceTimers[habitId]);
+        }
+
+        return new Promise(function(resolve) {
+          self.perHabitDebounceTimers[habitId] = setTimeout(function() {
+            delete self.perHabitDebounceTimers[habitId];
+            self.uploadPerHabitBackup(habit).then(resolve).catch(resolve);
+          }, delayMs);
+        });
+      },
+
+      uploadPerHabitBackup: function(habit, forceUpload = false) {
         if (!habit || !habit.sharing || !habit.sharing.enabled) return Promise.resolve(null);
         const docId = String(habit.sharing.docId || habit.sharing.collection || '').trim();
         const passphrase = String(habit.sharing.password || '').trim();
         if (!docId || !passphrase) return Promise.resolve(null);
 
         const self = this;
+
+        // --- IN-FLIGHT REQUEST LOCKING & COALESCING ---
+        if (self._inFlightUploadPromises[docId]) {
+          return self._inFlightUploadPromises[docId].then(function() {
+            return self.uploadPerHabitBackup(habit, forceUpload);
+          });
+        }
+
         const payload = core.getPerHabitPayload(habit);
         const dataHash = core.computeDataHash(payload);
+
+        // --- DUPLICATE UPLOAD SUPPRESSION ---
+        if (!forceUpload && habit._lastUploadedDataHash && habit._lastUploadedDataHash === dataHash) {
+          // Payload has NOT changed since last upload! Skip network request entirely!
+          return Promise.resolve(null);
+        }
+
         let cipher = '';
         let userKey = null;
 
-        return self.init().then(function() {
+        const uploadPromise = self.init().then(function() {
           return core.E2EE.encrypt(payload, passphrase);
         }).then(function(encryptedCipher) {
           cipher = encryptedCipher;
@@ -1945,6 +1990,8 @@ window.HabitualCore = window.HabitualCore || {};
               ciphertext: cipher,
               updatedAt: serverTs,
               hashOfdata: dataHash
+            }).then(function() {
+              habit._lastUploadedDataHash = dataHash;
             });
           }
 
@@ -1974,17 +2021,17 @@ window.HabitualCore = window.HabitualCore || {};
                 signature: signature,
                 ownerPublicKey: ownerKey,
                 allowedPublicKeys: updatedAllowed
-              }, { merge: true });
+              }, { merge: true }).then(function() {
+                habit._lastUploadedDataHash = dataHash;
+              });
             });
           });
-        }).catch(function(e) {
-          console.warn('Upload per-habit backup error:', e);
-          const errMsg = e && e.message ? e.message : String(e);
-          if (core.showToast) {
-            core.showToast('❌ Firestore Upload Error: ' + errMsg, 'error');
-          }
-          return Promise.reject(e);
+        }).finally(function() {
+          delete self._inFlightUploadPromises[docId];
         });
+
+        self._inFlightUploadPromises[docId] = uploadPromise;
+        return uploadPromise;
       },
 
       downloadPerHabitBackup: function(docIdParam, passphrase) {
@@ -2018,6 +2065,24 @@ window.HabitualCore = window.HabitualCore || {};
           return core.E2EE.decrypt(data.ciphertext, pwd);
         }).catch(function(err) {
           console.warn('Error downloading per-habit backup:', err);
+
+          // Local state fallback if client is offline
+          const existingHabit = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h =>
+            h.id === docId || (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId))
+          ) : null;
+
+          if (existingHabit) {
+            console.log('Using local habit copy while offline:', docId);
+            return Promise.resolve(existingHabit);
+          }
+
+          const isOffline = err && err.message && (err.message.includes('offline') || err.message.includes('network') || err.message.includes('Failed to get document'));
+          if (isOffline) {
+            const offlineMsg = '📡 Offline Mode: Internet connection required to download this shared habit for the first time.';
+            if (core.showToast) core.showToast(offlineMsg, 'info');
+            return Promise.reject(new Error(offlineMsg));
+          }
+
           return Promise.reject(err);
         });
       },
