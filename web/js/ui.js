@@ -4107,6 +4107,7 @@ window.HabitualCore = window.HabitualCore || {};
   core.updateShareLinkAndQR = function() {
     const inputCol = document.getElementById('habit-share-collection');
     const inputPwd = document.getElementById('habit-share-password');
+    const inputNote = document.getElementById('habit-share-initial-note');
     const inputName = document.getElementById('habit-name');
     const inputColorHex = document.getElementById('habit-custom-color-hex');
     const inputColorSelect = document.getElementById('habit-calendar-color-select');
@@ -4114,6 +4115,7 @@ window.HabitualCore = window.HabitualCore || {};
 
     const docId = inputCol ? inputCol.value.trim() : '';
     const pwd = inputPwd ? inputPwd.value.trim() : '';
+    const note = inputNote ? inputNote.value.trim() : '';
     const name = inputName ? inputName.value.trim() : 'Habit Goal';
     const color = (inputColorSelect && inputColorSelect.value) ? inputColorSelect.value : (inputColorHex ? inputColorHex.value.trim() : '');
 
@@ -4123,7 +4125,10 @@ window.HabitualCore = window.HabitualCore || {};
     }
 
     const baseUrl = (typeof window !== 'undefined' && window.location) ? (window.location.origin + window.location.pathname) : '';
-    const shareUrl = `${baseUrl}#share?col=${encodeURIComponent(docId)}&pwd=${encodeURIComponent(pwd)}`;
+    let shareUrl = `${baseUrl}#share?col=${encodeURIComponent(docId)}&pwd=${encodeURIComponent(pwd)}`;
+    if (note) {
+      shareUrl += `&note=${encodeURIComponent(note)}`;
+    }
 
     if (qrDisplay && core.generateQRCodeSVG) {
       qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, 200);
@@ -4319,6 +4324,11 @@ window.HabitualCore = window.HabitualCore || {};
           }
         }
       });
+
+      const inputShareNote = document.getElementById('habit-share-initial-note');
+      if (inputShareNote) {
+        inputShareNote.addEventListener('input', () => core.updateShareLinkAndQR());
+      }
 
       [inputShareCol, inputSharePwd].forEach(el => {
         if (el) el.addEventListener('change', () => {
@@ -5053,12 +5063,14 @@ window.HabitualCore = window.HabitualCore || {};
     try {
       let col = null;
       let pwd = null;
+      let urlNote = null;
 
       if (hash.includes('col=') || hash.includes('doc=') || hash.includes('share')) {
         const queryStr = hash.includes('?') ? hash.substring(hash.indexOf('?') + 1) : hash.replace(/^#\/?/, '');
         const params = new URLSearchParams(queryStr);
         col = params.get('col') || params.get('doc') || params.get('collection');
         pwd = params.get('pwd') || params.get('pass') || params.get('password');
+        urlNote = params.get('note') || params.get('vnote') || params.get('viewerNote');
       }
 
       if ((!col || !pwd) && (search.includes('col=') || search.includes('doc=') || search.includes('share'))) {
@@ -5066,6 +5078,7 @@ window.HabitualCore = window.HabitualCore || {};
         const params = new URLSearchParams(queryStr);
         col = col || params.get('col') || params.get('doc') || params.get('collection');
         pwd = pwd || params.get('pwd') || params.get('pass') || params.get('password');
+        urlNote = urlNote || params.get('note') || params.get('vnote') || params.get('viewerNote');
       }
 
       if (!col || !pwd) return;
@@ -5086,6 +5099,9 @@ window.HabitualCore = window.HabitualCore || {};
       ) : null;
 
       if (existingInState) {
+        if (urlNote && !existingInState.viewerNote) {
+          existingInState.viewerNote = urlNote;
+        }
         let targetHabit = existingInState;
         while (targetHabit && targetHabit.parentId) {
           const p = core.state.habits.find(h => h.id === targetHabit.parentId);
@@ -5167,7 +5183,7 @@ window.HabitualCore = window.HabitualCore || {};
               if (childCount > 0) {
                 infoText += ` & ${childCount} sub-habit${childCount === 1 ? '' : 's'}`;
               }
-              infoText += ` included in cloud history!</span>`;
+              infoText += ` included in cloud history!</span> <span class="badge-shared badge-readonly" style="margin-left: 6px;">👁️ Read-Only Mode</span>`;
               logsInfoEl.innerHTML = infoText;
             }
 
@@ -5195,6 +5211,13 @@ window.HabitualCore = window.HabitualCore || {};
                 colorTheme: habitColor,
                 colorWholeWeek: remoteData.colorWholeWeek !== false,
                 colorWholeMonth: remoteData.colorWholeMonth !== false,
+                viewerNote: urlNote || remoteData.viewerNote || '',
+                sharing: {
+                  enabled: true,
+                  readOnly: true,
+                  collection: col,
+                  docId: col
+                },
                 logs: remoteData.logs || {}
               };
 
@@ -5219,6 +5242,10 @@ window.HabitualCore = window.HabitualCore || {};
                     type: child.type || 'positive',
                     colorTheme: childColor,
                     dailyTarget: child.dailyTarget || 1,
+                    sharing: {
+                      enabled: true,
+                      readOnly: true
+                    },
                     logs: child.logs || {}
                   };
                   if (core.buildHeatmapCard) {
@@ -5294,6 +5321,7 @@ window.HabitualCore = window.HabitualCore || {};
               customUnit: payload.customUnit || 'days',
               colorTheme: habitColor,
               createdAt: payload.createdAt || core.getTodayKey(),
+              viewerNote: urlNote || '',
               sharing: {
                 enabled: true,
                 docId: col,

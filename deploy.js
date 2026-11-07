@@ -120,6 +120,7 @@ async function deploy() {
       { cmd: 'node tests/test-multi-device-sync-playwright.js', desc: 'Playwright: Multi-Device Sync E2E Test' },
       { cmd: 'node tests/test-color-sync-playwright.js', desc: 'Playwright: Habit Color Sync E2E Test' },
       { cmd: 'node tests/test-share-roundtrip-playwright.js', desc: 'Playwright: Share & Sync Roundtrip E2E Test' },
+      { cmd: 'node tests/test-read-only-share-playwright.js', desc: 'Playwright: Read-Only Share & Pre-populated Note E2E Test' },
       { cmd: 'node tests/test-widgets-playwright.js', desc: 'Playwright: Standalone Widgets E2E Test' },
       { cmd: 'node tests/test-android-playwright.js', desc: 'Playwright: Android Mobile Browser E2E Test' },
       { cmd: 'node tests/test-firefox-android-playwright.js', desc: 'Playwright: Firefox Mobile Browser E2E Test' },
