@@ -2161,10 +2161,18 @@ window.HabitualCore = window.HabitualCore || {};
                 usedAt: serverTs,
                 usedBy: userKey.publicKeyBase64
               }, { merge: true });
+            }).then(function() {
+              if (core.state && Array.isArray(core.state.habits)) {
+                const localHabit = core.state.habits.find(h => h.id === docId || (h.sharing && (h.sharing.docId === docId || h.sharing.collection === docId)));
+                if (localHabit && localHabit.sharing) {
+                  localHabit.sharing.readOnly = false;
+                  if (core.saveState) core.saveState();
+                  if (core.renderAll) core.renderAll();
+                }
+              }
+              return { success: true, docId: docId };
             });
           });
-        }).then(function() {
-          return { success: true, docId: docId };
         });
       },
 
