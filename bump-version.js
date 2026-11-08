@@ -168,6 +168,22 @@ async function main() {
   fs.writeFileSync(versionJsonPath, JSON.stringify({ version: newVersion }, null, 2) + '\n', 'utf8');
   console.log(` [✓] Updated web/version.json -> ${newVersion}`);
 
+  // 6. Update CHANGELOG.md
+  const changelogPath = path.join(rootDir, 'CHANGELOG.md');
+  if (fs.existsSync(changelogPath)) {
+    let changelog = fs.readFileSync(changelogPath, 'utf8');
+    const today = new Date().toISOString().split('T')[0];
+    const newHeader = `\n## [${newVersion}] - ${today}\n\n### Added\n- \n\n### Changed\n- \n`;
+    if (!changelog.includes(`## [${newVersion}]`)) {
+      changelog = changelog.replace(
+        /(# Changelog[\s\S]*?and this project adheres to \[Semantic Versioning\][^\n]*\.\n)/,
+        `$1${newHeader}`
+      );
+      fs.writeFileSync(changelogPath, changelog, 'utf8');
+      console.log(` [✓] Updated CHANGELOG.md with section header for v${newVersion}`);
+    }
+  }
+
   console.log(`\nSuccessfully bumped version to ${newVersion}!`);
 }
 
