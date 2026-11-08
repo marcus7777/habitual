@@ -1521,6 +1521,9 @@ window.HabitualCore = window.HabitualCore || {};
             : core.E2EE.encrypt(payload, passphrase);
 
           return encryptPromise.then(function(cipher) {
+            if (!cipher || !cipher.startsWith('ENC:')) {
+              throw new Error('Unencrypted cloud sync prohibited. Outbound payload must be AES-256-GCM encrypted.');
+            }
             self.lastSentCiphertext = cipher;
             const serverTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
               ? firebase.firestore.FieldValue.serverTimestamp()
@@ -1774,6 +1777,9 @@ window.HabitualCore = window.HabitualCore || {};
                   let updated = false;
 
                   // 1. Synchronize Metadata & Display Settings on Parent Habit
+                  const isReadOnlyViewer = targetHabit.sharing && targetHabit.sharing.readOnly === true;
+                  const displayOptionFields = ['showStreak', 'showCount', 'showDuration', 'hideHeatmap', 'subhabitDisplayMode', 'subhabitSortOrder', 'subhabitSortReverse'];
+
                   const metaFields = [
                     'name', 'type', 'description', 'category', 'dailyTarget', 'frequencyType',
                     'weeklyTarget', 'monthlyDay', 'monthlyTarget', 'customTarget', 'customInterval', 'customUnit',
@@ -1785,6 +1791,11 @@ window.HabitualCore = window.HabitualCore || {};
                   ];
 
                   metaFields.forEach(field => {
+                    const isDisplayOpt = displayOptionFields.includes(field);
+                    if (isReadOnlyViewer && isDisplayOpt && targetHabit._customDisplayOptionsSet) {
+                      // Viewer has customized local display options — preserve local preferences!
+                      return;
+                    }
                     if (remoteHabit[field] !== undefined && remoteHabit[field] !== targetHabit[field]) {
                       targetHabit[field] = remoteHabit[field];
                       updated = true;
@@ -1947,8 +1958,16 @@ window.HabitualCore = window.HabitualCore || {};
 
       uploadPerHabitBackup: function(habit, forceUpload = false) {
         if (!habit || !habit.sharing || !habit.sharing.enabled) return Promise.resolve(null);
+        if (habit.sharing.readOnly === true) {
+          // Read-only viewer: Local edits (display options, private viewer notes) are saved locally only and NOT uploaded
+          return Promise.resolve(null);
+        }
         const docId = String(habit.sharing.docId || habit.sharing.collection || '').trim();
-        const passphrase = String(habit.sharing.password || '').trim();
+        let passphrase = String(habit.sharing.password || '').trim();
+        if (!passphrase && core.generateRandomPassword) {
+          passphrase = core.generateRandomPassword(16);
+          habit.sharing.password = passphrase;
+        }
         if (!docId || !passphrase) return Promise.resolve(null);
 
         const self = this;
@@ -1975,6 +1994,9 @@ window.HabitualCore = window.HabitualCore || {};
         const uploadPromise = self.init().then(function() {
           return core.E2EE.encrypt(payload, passphrase);
         }).then(function(encryptedCipher) {
+          if (!encryptedCipher || !encryptedCipher.startsWith('ENC:')) {
+            throw new Error('Zero-bypass encryption error: Outbound shared habit payload must be AES-256-GCM encrypted.');
+          }
           cipher = encryptedCipher;
           if (core.CryptoKeys) {
             return core.CryptoKeys.getOrCreateUserKeyPair();
@@ -2045,6 +2067,10 @@ window.HabitualCore = window.HabitualCore || {};
         }).then(function(doc) {
           if (!doc || !doc.exists || !doc.data() || !doc.data().ciphertext) return null;
           const data = doc.data();
+
+          if (!data.ciphertext || !data.ciphertext.startsWith('ENC:')) {
+            return Promise.reject(new Error('Unencrypted cloud payload rejected. Zero-knowledge encryption required.'));
+          }
 
           if (data.signature && data.writerPublicKey && core.CryptoKeys) {
             const allowed = Array.isArray(data.allowedPublicKeys) ? data.allowedPublicKeys : [];

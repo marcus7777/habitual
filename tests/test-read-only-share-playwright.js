@@ -51,9 +51,10 @@ function createStaticServer() {
   });
 
   return new Promise((resolve) => {
-    server.listen(PORT, '127.0.0.1', () => {
-      console.log(`[Server] Local test web server running on http://127.0.0.1:${PORT}`);
-      resolve(server);
+    server.listen(0, '127.0.0.1', () => {
+      const activePort = server.address().port;
+      console.log(`[Server] Local test web server running on http://127.0.0.1:${activePort}`);
+      resolve({ server, port: activePort });
     });
   });
 }
@@ -65,7 +66,7 @@ async function runReadOnlySharePlaywrightTest() {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
   }
 
-  const server = await createStaticServer();
+  const { server, port } = await createStaticServer();
   let browser = null;
   let total = 0;
   let passed = 0;
@@ -92,14 +93,14 @@ async function runReadOnlySharePlaywrightTest() {
     const pwd = 'ro_test_pwd_123';
     const preNote = 'Recommended Routine: 3 sets of 10 reps every morning!';
 
-    const shareUrl = `http://127.0.0.1:${PORT}/index.html#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&note=${encodeURIComponent(preNote)}`;
+    const shareUrl = `http://127.0.0.1:${port}/index.html#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&note=${encodeURIComponent(preNote)}`;
 
     console.log(`📌 STEP 1: Opening Read-Only Share Link (${shareUrl})...`);
-    await page.goto(shareUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.checkURLHashForSharedHabit === 'function');
 
     // Mock Firestore backup download payload
-    await page.evaluate(({ col, preNote }) => {
+    await page.evaluate(({ col, preNote, shareUrl }) => {
       const core = window.HabitualCore;
       const today = core.getTodayKey();
 
@@ -115,14 +116,20 @@ async function runReadOnlySharePlaywrightTest() {
         return Promise.resolve(mockData);
       };
 
+      window.location.hash = shareUrl.substring(shareUrl.indexOf('#'));
       core.checkURLHashForSharedHabit();
-    }, { col, preNote });
+    }, { col, preNote, shareUrl });
 
     await page.waitForTimeout(300);
 
     // 1. Verify Import Modal opened with Read-Only Badge
     const modalVisible = await page.isVisible('#modal-import-shared-habit');
     assert(modalVisible, 'Join Shared Habit modal opens automatically');
+
+    await page.waitForFunction(() => {
+      const el = document.querySelector('#import-shared-habit-logs-info');
+      return el && el.textContent.includes('Read-Only');
+    }, { timeout: 3000 });
 
     const modalBadgeText = await page.textContent('#import-shared-habit-logs-info');
     assert(modalBadgeText.includes('Read-Only'), 'Read-Only Mode badge displayed in modal header');
