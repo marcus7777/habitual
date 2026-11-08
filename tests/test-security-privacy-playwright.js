@@ -94,8 +94,8 @@ async function runSecurityPrivacyPlaywrightTests() {
       return route.continue();
     });
 
-    console.log('📌 TEST 1: Zero-Knowledge Outbound Network Payload Audit');
-    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
+    console.log('▶ TEST 1: Zero-Knowledge Outbound Network Payload Audit');
+    await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.saveHabit === 'function');
 
     const secretHabitTitle = 'CONFIDENTIAL_HEALTH_RECORD_99';
@@ -136,7 +136,7 @@ async function runSecurityPrivacyPlaywrightTests() {
     assert(!leakedInNetwork, 'Outbound network calls contain ZERO plain-text titles, notes, or passphrases');
 
 
-    console.log('\n📌 TEST 2: Master Passphrase Cloud Network Isolation Audit');
+    console.log('\n▶ TEST 2: Master Passphrase Cloud Network Isolation Audit');
     const masterPassphrase = 'MASTER_PASSPHRASE_CONFIDENTIAL_123';
     await page.evaluate((mp) => {
       const core = window.HabitualCore;
@@ -153,7 +153,7 @@ async function runSecurityPrivacyPlaywrightTests() {
     assert(!masterPassLeaked, 'Master Passphrase is NEVER transmitted unencrypted over network calls');
 
 
-    console.log('\n📌 TEST 3: XSS Script Injection Defense Audit');
+    console.log('\n▶ TEST 3: XSS Script Injection Defense Audit');
     const xssPayload = '<script>window.__xss_compromised=true;</script><img src=x onerror="window.__xss_compromised=true">';
 
     await page.evaluate((xssStr) => {
@@ -176,7 +176,7 @@ async function runSecurityPrivacyPlaywrightTests() {
     assert(!isCompromised, 'XSS script injection vectors in habit names & notes CANNOT execute in DOM');
 
 
-    console.log('\n📌 TEST 4: AES-256-GCM AEAD Ciphertext Tamper Defense Audit');
+    console.log('\n▶ TEST 4: AES-256-GCM AEAD Ciphertext Tamper Defense Audit');
     const tamperResult = await page.evaluate(async (pwd) => {
       const core = window.HabitualCore;
       const encrypted = await core.E2EE.encrypt({ secret: 'integrity_test' }, pwd);
@@ -197,7 +197,7 @@ async function runSecurityPrivacyPlaywrightTests() {
     assert(tamperResult, 'AES-256-GCM AEAD integrity validation strictly rejects tampered ciphertext');
 
 
-    console.log('\n📌 TEST 5: ECDSA Signature Forgery Rejection Audit');
+    console.log('\n▶ TEST 5: ECDSA Signature Forgery Rejection Audit');
     const signatureForgeryResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const kpA = await core.CryptoKeys.generateKeyPair();
@@ -217,7 +217,7 @@ async function runSecurityPrivacyPlaywrightTests() {
     assert(signatureForgeryResult, 'ECDSA signature verification strictly rejects forged or mismatched keys');
 
 
-    console.log('\n📌 TEST 6: Unauthorized Shared Habit Deletion Protection Audit');
+    console.log('\n▶ TEST 6: Unauthorized Shared Habit Deletion Protection Audit');
     const deletionProtectionResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
 
@@ -266,7 +266,7 @@ async function runSecurityPrivacyPlaywrightTests() {
     assert(deletionProtectionResult, 'Unauthorized deletion attempt without owner key is blocked and reverted');
 
 
-    console.log('\n📌 TEST 7: Firestore Document Metadata Anonymization & Zero PII Audit');
+    console.log('\n▶ TEST 7: Firestore Document Metadata Anonymization & Zero PII Audit');
     const metadataAnonymizationResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const today = core.getTodayKey();

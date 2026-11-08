@@ -84,7 +84,7 @@ async function runTemplateSharePlaywrightTests() {
     page1.on('console', msg => console.log('PAGE LOG:', msg.text()));
     page1.on('pageerror', err => console.error('PAGE ERROR:', err));
 
-    console.log('📌 STEP 1: Setting up Habit with Custom Display Options & Distinct Sub-Habit Colors in Context 1...');
+    console.log('▶ STEP 1: Setting up Habit with Custom Display Options & Distinct Sub-Habit Colors in Context 1...');
     await page1.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
     await page1.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.generateJSURLTemplateLink === 'function');
 
@@ -167,7 +167,7 @@ async function runTemplateSharePlaywrightTests() {
     assert(templateData.minPayload.s[2].c === undefined, 'Sub-habit 3 default color is omitted from minified payload');
 
     // --- STEP 2: Open Template Link in User Context 2 (Simulating recipient scanning QR/NFC) ---
-    console.log('\n📌 STEP 2: Opening JSURL Template Link in User Context 2 (Recipient)...');
+    console.log('\n▶ STEP 2: Opening JSURL Template Link in User Context 2 (Recipient)...');
     const context2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page2 = await context2.newPage();
 
@@ -229,7 +229,7 @@ async function runTemplateSharePlaywrightTests() {
     assert(importedState.todayCount === 1, 'Auto-increment count (+1) logged for today on import');
 
     // --- STEP 3: Sub-Habit Auto-Increment Link Generation & Scanning ---
-    console.log('\n📌 STEP 3: Generating & Scanning Sub-Habit Auto-Increment Template Link...');
+    console.log('\n▶ STEP 3: Generating & Scanning Sub-Habit Auto-Increment Template Link...');
 
     const subhabitLink = await page1.evaluate(() => {
       const core = window.HabitualCore;

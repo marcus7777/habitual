@@ -51,8 +51,9 @@ function createStaticServer() {
   });
 
   return new Promise((resolve) => {
-    server.listen(PORT, '127.0.0.1', () => {
-      resolve(server);
+    server.listen(0, '127.0.0.1', () => {
+      const activePort = server.address().port;
+      resolve({ server, port: activePort });
     });
   });
 }
@@ -60,7 +61,7 @@ function createStaticServer() {
 async function runSharedDataIntegrityPlaywrightTests() {
   console.log('🚀 Starting Focused Shared Habit Data Integrity & Security Audit...\n');
 
-  const server = await createStaticServer();
+  const { server, port } = await createStaticServer();
   let browser = null;
   let total = 0;
   let passed = 0;
@@ -83,11 +84,11 @@ async function runSharedDataIntegrityPlaywrightTests() {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await context.newPage();
 
-    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.CryptoKeys === 'object');
 
 
-    console.log('📌 TEST 1: Tamper-Evident Payload Signature Verification');
+    console.log('▶ TEST 1: Tamper-Evident Payload Signature Verification');
     const tamperResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const ownerKp = await core.CryptoKeys.generateKeyPair();
@@ -114,7 +115,7 @@ async function runSharedDataIntegrityPlaywrightTests() {
     assert(tamperResult, 'Modifying encrypted ciphertext invalidates the ECDSA signature digest');
 
 
-    console.log('\n📌 TEST 2: Writer Authorization & Allowed Public Keys Enforcement');
+    console.log('\n▶ TEST 2: Writer Authorization & Allowed Public Keys Enforcement');
     const authResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const ownerKp = await core.CryptoKeys.generateKeyPair();
@@ -160,7 +161,7 @@ async function runSharedDataIntegrityPlaywrightTests() {
     assert(authResult, 'Shared document update from unauthorized public key is strictly rejected');
 
 
-    console.log('\n📌 TEST 3: Anti-Deletion Protection for Signed Shared Documents');
+    console.log('\n▶ TEST 3: Anti-Deletion Protection for Signed Shared Documents');
     const deleteResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const ownerKp = await core.CryptoKeys.generateKeyPair();
@@ -195,7 +196,7 @@ async function runSharedDataIntegrityPlaywrightTests() {
     assert(deleteResult, 'Attempted deletion of signed shared habit is detected and restored by security trigger');
 
 
-    console.log('\n📌 TEST 4: Anti-Downgrade & Unsigned Overwrite Rejection');
+    console.log('\n▶ TEST 4: Anti-Downgrade & Unsigned Overwrite Rejection');
     const downgradeResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const ownerKp = await core.CryptoKeys.generateKeyPair();
@@ -227,7 +228,7 @@ async function runSharedDataIntegrityPlaywrightTests() {
     assert(downgradeResult, 'Unsigned overwrite attempt on previously signed document is rejected');
 
 
-    console.log('\n📌 TEST 5: One-Time Invite Token Single Redemption Guarantee');
+    console.log('\n▶ TEST 5: One-Time Invite Token Single Redemption Guarantee');
     const inviteResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const docId = 'doc_invite_5';
@@ -267,7 +268,7 @@ async function runSharedDataIntegrityPlaywrightTests() {
     assert(inviteResult, 'Single-use invite token cannot be redeemed a second time');
 
 
-    console.log('\n📌 TEST 6: Sub-Habit Hierarchy & Log Integrity Preservation');
+    console.log('\n▶ TEST 6: Sub-Habit Hierarchy & Log Integrity Preservation');
     const treeResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const today = core.getTodayKey();

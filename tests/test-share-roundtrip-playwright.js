@@ -84,7 +84,7 @@ async function runShareRoundTripPlaywrightTests() {
     const page1 = await context1.newPage();
 
     // --- STEP 1: Create and Share a Habit in User Context 1 ---
-    console.log('📌 STEP 1: Creating & Sharing Habit in User Context 1...');
+    console.log('▶ STEP 1: Creating & Sharing Habit in User Context 1...');
     await page1.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
     await page1.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.shareHabitDirectly === 'function');
 
@@ -165,7 +165,7 @@ async function runShareRoundTripPlaywrightTests() {
 
 
     // --- STEP 2: Open Share URL in User Context 2 (Simulate Second User) ---
-    console.log('\n📌 STEP 2: Opening Share Link in User Context 2...');
+    console.log('\n▶ STEP 2: Opening Share Link in User Context 2...');
     const context2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page2 = await context2.newPage();
 
@@ -244,7 +244,7 @@ async function runShareRoundTripPlaywrightTests() {
 
 
     // --- STEP 3: Test Error Handling for Invalid Share Link in Context 3 ---
-    console.log('\n📌 STEP 3: Testing Error Handling for Invalid Share Link...');
+    console.log('\n▶ STEP 3: Testing Error Handling for Invalid Share Link...');
     const context3 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page3 = await context3.newPage();
 
@@ -267,7 +267,7 @@ async function runShareRoundTripPlaywrightTests() {
 
 
     // --- STEP 4: Opening Share Link for an Already Existing Habit in Context 2 ---
-    console.log('\n📌 STEP 4: Re-opening Share Link for Already Existing Habit in Context 2...');
+    console.log('\n▶ STEP 4: Re-opening Share Link for Already Existing Habit in Context 2...');
     await page2.goto(shareUrl, { waitUntil: 'domcontentloaded' });
     await page2.waitForTimeout(300);
 

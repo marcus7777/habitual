@@ -51,8 +51,9 @@ function createStaticServer() {
   });
 
   return new Promise((resolve) => {
-    server.listen(PORT, '127.0.0.1', () => {
-      resolve(server);
+    server.listen(0, '127.0.0.1', () => {
+      const activePort = server.address().port;
+      resolve({ server, port: activePort });
     });
   });
 }
@@ -60,7 +61,7 @@ function createStaticServer() {
 async function runPrivateDataSecurityPlaywrightTests() {
   console.log('🚀 Starting Focused Private Data Confidentiality & E2EE Security Audit...\n');
 
-  const server = await createStaticServer();
+  const { server, port } = await createStaticServer();
   let browser = null;
   let total = 0;
   let passed = 0;
@@ -83,11 +84,11 @@ async function runPrivateDataSecurityPlaywrightTests() {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await context.newPage();
 
-    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.E2EE === 'object');
 
 
-    console.log('📌 TEST 1: Zero-Knowledge E2EE Ciphertext Confidentiality Audit');
+    console.log('▶ TEST 1: Zero-Knowledge E2EE Ciphertext Confidentiality Audit');
     const zkResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const today = core.getTodayKey();
@@ -123,7 +124,7 @@ async function runPrivateDataSecurityPlaywrightTests() {
     assert(zkResult, 'Encrypted payloads start with ENC: and expose ZERO plaintext names, notes, or categories');
 
 
-    console.log('\n📌 TEST 2: PBKDF2 SHA-256 KDF & Random IV Ciphertext Uniqueness Audit');
+    console.log('\n▶ TEST 2: PBKDF2 SHA-256 KDF & Random IV Ciphertext Uniqueness Audit');
     const ivResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const payload = { habit: 'Same Data Test' };
@@ -148,7 +149,7 @@ async function runPrivateDataSecurityPlaywrightTests() {
     assert(ivResult, 'Random 12-byte IVs produce unique ciphertexts per encryption while maintaining perfect decryption fidelity');
 
 
-    console.log('\n📌 TEST 3: Private Viewer Notes Local Isolation Audit');
+    console.log('\n▶ TEST 3: Private Viewer Notes Local Isolation Audit');
     const notesResult = await page.evaluate(() => {
       const core = window.HabitualCore;
 
@@ -177,7 +178,7 @@ async function runPrivateDataSecurityPlaywrightTests() {
     assert(notesResult, 'Private viewer notes (`habit.viewerNote`) stay strictly local and are omitted from outbound cloud payloads');
 
 
-    console.log('\n📌 TEST 4: Geofence Location & Schedule Confidentiality Audit');
+    console.log('\n▶ TEST 4: Geofence Location & Schedule Confidentiality Audit');
     const geofenceResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const passphrase = 'geo_passphrase_123';
@@ -204,7 +205,7 @@ async function runPrivateDataSecurityPlaywrightTests() {
     assert(geofenceResult, 'Geofence location hashes and time rules are encrypted inside E2EE payloads');
 
 
-    console.log('\n📌 TEST 5: Encrypted Local Backup File Import & Wrong Passphrase Rejection');
+    console.log('\n▶ TEST 5: Encrypted Local Backup File Import & Wrong Passphrase Rejection');
     const backupResult = await page.evaluate(async () => {
       const core = window.HabitualCore;
       const passphrase = 'correct_backup_pass_123';

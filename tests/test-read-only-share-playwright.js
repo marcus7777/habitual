@@ -95,7 +95,7 @@ async function runReadOnlySharePlaywrightTest() {
 
     const shareUrl = `http://127.0.0.1:${port}/index.html#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&note=${encodeURIComponent(preNote)}`;
 
-    console.log(`📌 STEP 1: Opening Read-Only Share Link (${shareUrl})...`);
+    console.log(`▶ STEP 1: Opening Read-Only Share Link (${shareUrl})...`);
     await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.checkURLHashForSharedHabit === 'function');
 
@@ -146,7 +146,7 @@ async function runReadOnlySharePlaywrightTest() {
     assert(viewerNoteVal === preNote, `📝 Private Viewer Notes input is pre-populated with URL note ("${preNote}")`);
 
     // 4. Confirm Join Habit
-    console.log('\n📌 STEP 2: Joining Read-Only Shared Habit...');
+    console.log('\n▶ STEP 2: Joining Read-Only Shared Habit...');
     await page.click('#btn-confirm-import-shared');
     await page.waitForTimeout(300);
 
@@ -157,7 +157,7 @@ async function runReadOnlySharePlaywrightTest() {
     assert(mainCardNoteVal === preNote, 'Main page heatmap card retains pre-populated viewer note');
 
     // 5. Capture High-Resolution Screenshot
-    console.log('\n📌 STEP 3: Capturing Screenshot of End Result...');
+    console.log('\n▶ STEP 3: Capturing Screenshot of End Result...');
     const cardElement = await page.$('.heatmap-card');
     const screenshotPath = path.join(SCREENSHOT_DIR, 'read_only_shared_habit_preview.png');
 
