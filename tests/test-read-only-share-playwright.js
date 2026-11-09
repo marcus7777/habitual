@@ -93,7 +93,7 @@ async function runReadOnlySharePlaywrightTest() {
     const pwd = 'ro_test_pwd_123';
     const preNote = 'Recommended Routine: 3 sets of 10 reps every morning!';
 
-    const shareUrl = `http://127.0.0.1:${port}/index.html#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&note=${encodeURIComponent(preNote)}`;
+    const shareUrl = `http://127.0.0.1:${port}/index.html#share?col=${encodeURIComponent(col)}&pwd=${encodeURIComponent(pwd)}&ro=1&note=${encodeURIComponent(preNote)}`;
 
     console.log(`▶ STEP 1: Opening Read-Only Share Link (${shareUrl})...`);
     await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded' });

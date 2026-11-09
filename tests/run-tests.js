@@ -6615,6 +6615,59 @@ describe('Issue #26: 🔐 Secure Shared Habits via ECDSA Signatures & Invite Lin
     }
     assertEqual(reuseFailed, true, 'Redeeming used invite token a second time fails');
   });
+
+  test('Editor share links import with readOnly = false, while View share links (ro=1) import with readOnly = true', async () => {
+    HabitualCore.resetState();
+
+    const mockPayload = {
+      id: 'doc_shared_editor_1',
+      name: 'Shared Editor Goal',
+      type: 'positive',
+      dailyTarget: 1,
+      logs: {}
+    };
+
+    HabitualCore.SyncTargets.Firestore.downloadPerHabitBackup = function() {
+      return Promise.resolve(mockPayload);
+    };
+
+    // 1. Test Editor link (without ro=1)
+    window.location.hash = '#share?col=doc_shared_editor_1&pwd=pass_editor_123';
+    HabitualCore.checkURLHashForSharedHabit();
+    await new Promise(r => setTimeout(r, 100));
+
+    // Simulate clicking Join Habit confirm button
+    const btnConfirm = document.getElementById('btn-confirm-import-shared');
+    if (btnConfirm && btnConfirm.onclick) btnConfirm.onclick();
+
+    const editorHabit = HabitualCore.state.habits.find(h => h.id === 'doc_shared_editor_1');
+    assert(editorHabit, 'Editor habit added to state');
+    assertEqual(editorHabit.sharing.readOnly, false, 'Editor share link sets sharing.readOnly to false (Co-Editor access)');
+
+    // 2. Test Read-Only View link (with ro=1)
+    HabitualCore.resetState();
+    const mockViewPayload = {
+      id: 'doc_shared_view_1',
+      name: 'Shared View Goal',
+      type: 'positive',
+      dailyTarget: 1,
+      logs: {}
+    };
+
+    HabitualCore.SyncTargets.Firestore.downloadPerHabitBackup = function() {
+      return Promise.resolve(mockViewPayload);
+    };
+
+    window.location.hash = '#share?col=doc_shared_view_1&pwd=pass_view_123&ro=1';
+    HabitualCore.checkURLHashForSharedHabit();
+    await new Promise(r => setTimeout(r, 100));
+
+    if (btnConfirm && btnConfirm.onclick) btnConfirm.onclick();
+
+    const viewHabit = HabitualCore.state.habits.find(h => h.id === 'doc_shared_view_1');
+    assert(viewHabit, 'Read-only habit added to state');
+    assertEqual(viewHabit.sharing.readOnly, true, 'View share link (ro=1) sets sharing.readOnly to true (Read-Only access)');
+  });
 });
 
 // ============================================================================

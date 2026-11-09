@@ -153,9 +153,10 @@ async function runShareRoundTripPlaywrightTests() {
       const pwd = parentHabit.sharing ? parentHabit.sharing.password : '';
       const docKey = `share_${col}`;
       const docUploaded = (window.__pw_mockStore || mockStore).has(docKey);
-      const rawCipher = docUploaded ? (window.__pw_mockStore || mockStore).get(docKey).ciphertext : null;
+      const docData = docUploaded ? (window.__pw_mockStore || mockStore).get(docKey) : null;
+      const rawCipher = docData ? docData.ciphertext : null;
 
-      return { col, pwd, docUploaded, rawCipher, parentName: parentHabit.name };
+      return { col, pwd, docUploaded, docData, rawCipher, parentName: parentHabit.name };
     });
 
     assert(shareInfo.col && shareInfo.col.startsWith('shared_hb_'), 'Generated collection ID stored in habit sharing state');
@@ -175,10 +176,10 @@ async function runShareRoundTripPlaywrightTests() {
     await page2.waitForFunction(() => window.HabitualCore && typeof window.HabitualCore.checkURLHashForSharedHabit === 'function');
 
     // Transfer mock Firestore store into User Context 2 page
-    await page2.evaluate(({ col, rawCipher }) => {
+    await page2.evaluate(({ col, docData }) => {
       const core = window.HabitualCore;
       const mockStore = new Map();
-      mockStore.set(`share_${col}`, { ciphertext: rawCipher });
+      mockStore.set(`share_${col}`, docData);
 
       core.SyncTargets.Firestore.db = {
         collection: function(c) {
@@ -202,9 +203,12 @@ async function runShareRoundTripPlaywrightTests() {
 
       // Trigger Hash Check
       core.checkURLHashForSharedHabit();
-    }, { col: shareInfo.col, rawCipher: shareInfo.rawCipher });
+    }, { col: shareInfo.col, docData: shareInfo.docData });
 
-    await page2.waitForTimeout(300);
+    await page2.waitForFunction(() => {
+      const info = document.querySelector('#import-shared-habit-logs-info');
+      return info && info.textContent.includes('included in cloud history');
+    }, { timeout: 3000 });
 
     const modalVisible = await page2.isVisible('#modal-import-shared-habit');
     assert(modalVisible, 'Join Shared Habit modal opens automatically');
@@ -220,7 +224,7 @@ async function runShareRoundTripPlaywrightTests() {
 
     // Confirm Join
     await page2.click('#btn-confirm-import-shared');
-    await page2.waitForTimeout(100);
+    await page2.waitForTimeout(200);
 
     const isModalClosed = await page2.isHidden('#modal-import-shared-habit');
     assert(isModalClosed, 'Join Shared Habit modal closed on confirmation');
