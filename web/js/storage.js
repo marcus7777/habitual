@@ -2270,6 +2270,64 @@ window.HabitualCore = window.HabitualCore || {};
             return core.decodeHabitTemplate(tmplPayload);
           });
         });
+      },
+
+      subscribeToSharedHabitMessages: function(docId, onMessagesUpdatedCallback) {
+        if (!docId) return function() {};
+        const self = this;
+        const db = self.db || (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore());
+        if (!db) {
+          if (onMessagesUpdatedCallback) onMessagesUpdatedCallback([]);
+          return function() {};
+        }
+        const colRef = db.collection('habit_chats').doc(docId).collection('messages');
+        return colRef.onSnapshot(function(snapshot) {
+          if (!snapshot || !snapshot.docs) {
+            if (onMessagesUpdatedCallback) onMessagesUpdatedCallback([]);
+            return;
+          }
+          const docs = snapshot.docs.map(function(d) {
+            const data = d.data() || {};
+            data.msgId = d.id;
+            return data;
+          });
+          if (onMessagesUpdatedCallback) onMessagesUpdatedCallback(docs);
+        });
+      },
+
+      sendSharedHabitMessage: function(docId, text, senderName, sharedPassword) {
+        if (!docId || !text) return Promise.reject(new Error('docId and message text are required'));
+        const self = this;
+        const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+        const secretKey = sharedPassword || 'habitual_chat_key_' + docId;
+        const db = self.db || (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore());
+
+        if (!db) return Promise.reject(new Error('Firestore instance not available'));
+
+        return core.CryptoKeys.getOrCreateUserKeyPair().then(function(userKey) {
+          const payloadObj = {
+            text: text,
+            senderName: senderName || '',
+            senderPublicKey: userKey.publicKeyBase64,
+            timestamp: Date.now()
+          };
+
+          return core.CryptoKeys.encryptChatMessage(payloadObj, secretKey).then(function(ciphertext) {
+            const payloadToSign = `${docId}:${msgId}:${ciphertext}`;
+            return core.CryptoKeys.signPayload(userKey.privateKey, payloadToSign).then(function(sig) {
+              const docData = {
+                docId: docId,
+                msgId: msgId,
+                ciphertext: ciphertext,
+                writerPublicKey: userKey.publicKeyBase64,
+                signature: sig,
+                timestamp: Date.now()
+              };
+
+              return db.collection('habit_chats').doc(docId).collection('messages').doc(msgId).set(docData);
+            });
+          });
+        });
       }
     }
   };

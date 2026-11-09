@@ -11,6 +11,10 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if request.resource.data.docId != null;
     }
+    match /habit_chats/{docId}/messages/{msgId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.ciphertext != null && request.resource.data.writerPublicKey != null;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

@@ -233,6 +233,66 @@ window.HabitualCore = window.HabitualCore || {};
         console.warn('Signature verification failed with error:', err);
         return false;
       });
+    },
+
+    encryptChatMessage: function(payloadObj, secretKey) {
+      if (core.E2EE && typeof core.E2EE.encrypt === 'function') {
+        return core.E2EE.encrypt(payloadObj, secretKey);
+      }
+      const passphrase = secretKey || 'habitual_chat_default_key';
+      const enc = new TextEncoder();
+      const plaintext = enc.encode(typeof payloadObj === 'string' ? payloadObj : JSON.stringify(payloadObj));
+      return crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey'])
+        .then(function(baseKey) {
+          const salt = enc.encode('habitual_chat_salt');
+          return crypto.subtle.deriveKey(
+            { name: 'PBKDF2', salt: salt, iterations: 1, hash: 'SHA-256' },
+            baseKey,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+          );
+        }).then(function(key) {
+          const iv = crypto.getRandomValues(new Uint8Array(12));
+          return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext).then(function(encBuf) {
+            const encArr = new Uint8Array(encBuf);
+            const combined = new Uint8Array(iv.length + encArr.length);
+            combined.set(iv, 0);
+            combined.set(encArr, iv.length);
+            return 'ENC:' + arrayBufferToBase64(combined.buffer);
+          });
+        });
+    },
+
+    decryptChatMessage: function(ciphertext, secretKey) {
+      if (core.E2EE && typeof core.E2EE.decrypt === 'function') {
+        return core.E2EE.decrypt(ciphertext, secretKey);
+      }
+      if (!ciphertext || !ciphertext.startsWith('ENC:')) {
+        return Promise.reject(new Error('Invalid ciphertext format'));
+      }
+      const passphrase = secretKey || 'habitual_chat_default_key';
+      const enc = new TextEncoder();
+      const bytes = new Uint8Array(base64ToArrayBuffer(ciphertext.slice(4)));
+      const iv = bytes.slice(0, 12);
+      const data = bytes.slice(12);
+
+      return crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey'])
+        .then(function(baseKey) {
+          const salt = enc.encode('habitual_chat_salt');
+          return crypto.subtle.deriveKey(
+            { name: 'PBKDF2', salt: salt, iterations: 1, hash: 'SHA-256' },
+            baseKey,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+          );
+        }).then(function(key) {
+          return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, data);
+        }).then(function(decBuf) {
+          const dec = new TextDecoder();
+          return JSON.parse(dec.decode(decBuf));
+        });
     }
   };
 

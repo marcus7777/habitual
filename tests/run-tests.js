@@ -6293,6 +6293,32 @@ describe('Issue #26: 🔐 Secure Shared Habits via ECDSA Signatures & Invite Lin
     assertEqual(isTampered, false, 'verifySignature returns false for tampered payload');
   });
 
+  test('CryptoKeys.encryptChatMessage & decryptChatMessage roundtrip and optional sender name', async () => {
+    const secretKey = 'shared_secret_passphrase_123!';
+    const messagePayload = {
+      text: 'Hello from device A!',
+      senderName: 'Alice',
+      senderPublicKey: 'pub_key_a_123',
+      timestamp: 1700000000000
+    };
+
+    const ciphertext = await HabitualCore.CryptoKeys.encryptChatMessage(messagePayload, secretKey);
+    assert(typeof ciphertext === 'string' && ciphertext.length > 20, 'encryptChatMessage generates encrypted string');
+
+    const decrypted = await HabitualCore.CryptoKeys.decryptChatMessage(ciphertext, secretKey);
+    assertEqual(decrypted.text, 'Hello from device A!', 'Decrypts correct text message');
+    assertEqual(decrypted.senderName, 'Alice', 'Decrypts optional sender name');
+    assertEqual(decrypted.senderPublicKey, 'pub_key_a_123', 'Decrypts sender public key');
+
+    let failed = false;
+    try {
+      await HabitualCore.CryptoKeys.decryptChatMessage(ciphertext, 'wrong_key');
+    } catch (e) {
+      failed = true;
+    }
+    assert(failed, 'decryptChatMessage fails with wrong secret key');
+  });
+
   test('uploadPerHabitBackup signs payload and attaches writerPublicKey & ownerPublicKey', async () => {
     HabitualCore.resetState();
     let savedDocData = null;

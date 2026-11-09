@@ -203,6 +203,9 @@
             <button type="button" class="segmented-btn" id="tab-btn-hiding-options" data-tab="hiding">
               <span>🙈 Hiding Rules</span>
             </button>
+            <button type="button" class="segmented-btn hidden" id="tab-btn-chat-options" data-tab="chat">
+              <span>💬 Chat</span>
+            </button>
           </div>
 
           <!-- TAB 1: Parent Habit Options -->
@@ -238,6 +241,10 @@
                 <label class="checkbox-label">
                   <input type="checkbox" name="habit-hide-heatmap" id="habit-hide-heatmap">
                   <span>Mini View</span>
+                </label>
+                <label class="checkbox-label hidden" id="habit-enable-chat-option-group">
+                  <input type="checkbox" name="habit-enable-chat" id="habit-enable-chat">
+                  <span>Enable Encrypted Chat</span>
                 </label>
               </div>
             </div>
@@ -393,6 +400,43 @@
                       <option value="past_30_days">Past 30 Days</option>
                       <option value="all_time">All Time</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: Encrypted Chat -->
+          <div id="tab-content-chat-options" class="hidden">
+            <div class="chat-container">
+              <!-- Minimized Bar -->
+              <div id="chat-minimized-bar" class="chat-minimized-bar highlight-form-box hidden" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; margin-bottom: 12px; cursor: pointer;">
+                <div class="chat-minimized-info" style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-weight: 600;">💬 Encrypted Chat</span>
+                  <span id="chat-unread-badge" class="badge-unread font-mono hidden" style="background: var(--accent-blue, #58a6ff); color: #fff; padding: 2px 7px; border-radius: 10px; font-size: 0.75rem; font-weight: bold;">0</span>
+                </div>
+                <button type="button" id="btn-expand-chat" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.8rem;">▲ Expand</button>
+              </div>
+
+              <!-- Expandable Chat Body -->
+              <div id="chat-expandable-body" class="chat-expandable-body">
+                <div class="chat-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <div class="chat-header-title" style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600;">💬 Collaborator Chat</span>
+                    <span class="security-badge font-mono" style="font-size: 0.72rem; color: var(--accent-green, #3fb950); background: rgba(63, 185, 80, 0.12); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(63, 185, 80, 0.3);">🔒 E2E Encrypted</span>
+                  </div>
+                  <button type="button" id="btn-toggle-chat-minimize" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.8rem;">▼ Minimize</button>
+                </div>
+
+                <div id="chat-messages-container" class="chat-messages-container" style="background: var(--bg-card, #161b22); border: 1px solid var(--border-color, #30363d); border-radius: 8px; height: 220px; overflow-y: auto; padding: 12px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;">
+                  <div class="muted-text text-center padding-sm" style="color: var(--text-muted, #8b949e); font-size: 0.88rem; text-align: center; margin: auto;">No messages yet. Send a message to your collaborators!</div>
+                </div>
+
+                <div class="chat-composer highlight-form-box" style="padding: 10px;">
+                  <div class="chat-composer-row" style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="chat-sender-name-input" class="text-input chat-name-input" placeholder="Name (optional)" style="width: 130px; font-size: 0.85rem;">
+                    <input type="text" id="chat-message-input" class="text-input chat-msg-input" placeholder="Type an encrypted message..." style="flex: 1; font-size: 0.88rem;">
+                    <button type="button" id="btn-send-chat-message" class="btn btn-primary btn-sm" style="padding: 6px 14px; font-size: 0.85rem;">Send</button>
                   </div>
                 </div>
               </div>

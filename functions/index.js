@@ -218,3 +218,81 @@ exports.redeemInviteToken = functions.https.onCall(async (data, context) => {
 
   return { success: true, docId: docId };
 });
+
+exports.onHabitChatMessageWrite = functions.firestore.document('habit_chats/{docId}/messages/{msgId}').onWrite(async (change, context) => {
+  const { docId, msgId } = context.params;
+  const afterData = change.after.exists ? change.after.data() : null;
+
+  if (!afterData) return null;
+
+  const { ciphertext, writerPublicKey, signature } = afterData;
+
+  if (!ciphertext || !writerPublicKey || !signature) {
+    console.warn(`[Security Trigger] Reverting message missing required fields on chat doc ${docId}/${msgId}`);
+    return change.after.ref.delete();
+  }
+
+  const payloadString = `${docId}:${msgId}:${ciphertext}`;
+  const isValidSig = verifySignature(writerPublicKey, signature, payloadString);
+
+  if (!isValidSig) {
+    console.warn(`[Security Trigger] Reverting chat message with invalid signature on doc ${docId}/${msgId}`);
+    return change.after.ref.delete();
+  }
+
+  const shareSnap = await db.collection('share').doc(docId).get();
+  if (!shareSnap.exists) {
+    console.warn(`[Security Trigger] Reverting chat message for non-existent habit ${docId}`);
+    return change.after.ref.delete();
+  }
+
+  const shareData = shareSnap.data() || {};
+  const allowed = Array.isArray(shareData.allowedPublicKeys) ? shareData.allowedPublicKeys : [];
+  const owner = shareData.ownerPublicKey || shareData.writerPublicKey;
+  const isAllowed = allowed.includes(writerPublicKey) || owner === writerPublicKey;
+
+  if (!isAllowed) {
+    console.warn(`[Security Trigger] Reverting message from unauthorized writer key ${writerPublicKey} on habit chat ${docId}`);
+    return change.after.ref.delete();
+  }
+
+  return null;
+});
+
+exports.verifyAndWriteChatMessage = functions.https.onCall(async (data, context) => {
+  const { docId, msgId, ciphertext, writerPublicKey, signature } = data || {};
+
+  if (!docId || !msgId || !ciphertext || !writerPublicKey || !signature) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required fields.');
+  }
+
+  const payloadString = `${docId}:${msgId}:${ciphertext}`;
+  if (!verifySignature(writerPublicKey, signature, payloadString)) {
+    throw new functions.https.HttpsError('unauthenticated', 'Invalid ECDSA signature for chat message.');
+  }
+
+  const shareSnap = await db.collection('share').doc(docId).get();
+  if (!shareSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Shared habit document does not exist.');
+  }
+
+  const shareData = shareSnap.data() || {};
+  const allowed = Array.isArray(shareData.allowedPublicKeys) ? shareData.allowedPublicKeys : [];
+  const owner = shareData.ownerPublicKey || shareData.writerPublicKey;
+  const isAllowed = allowed.includes(writerPublicKey) || owner === writerPublicKey;
+
+  if (!isAllowed) {
+    throw new functions.https.HttpsError('permission-denied', 'Writer public key is not authorized for this shared habit chat.');
+  }
+
+  await db.collection('habit_chats').doc(docId).collection('messages').doc(msgId).set({
+    docId,
+    msgId,
+    ciphertext,
+    writerPublicKey,
+    signature,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true, docId, msgId };
+});
