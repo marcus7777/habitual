@@ -1,6 +1,6 @@
 /* Habitual Service Worker */
 
-const CACHE_NAME = 'habitual-v1.35.3';
+const CACHE_NAME = 'habitual-v1.35.7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

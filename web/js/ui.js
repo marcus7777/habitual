@@ -5702,63 +5702,195 @@ window.HabitualCore = window.HabitualCore || {};
     }).join('');
   };
 
+  core.hashFile = function(fileOrBlob) {
+    if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+      return fileOrBlob.arrayBuffer().then(function(buffer) {
+        return crypto.subtle.digest('SHA-256', buffer);
+      }).then(function(digest) {
+        const hashArray = Array.from(new Uint8Array(digest));
+        return hashArray.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+      }).catch(function(e) {
+        console.warn('Crypto subtle digest failed, falling back:', e);
+        return core.fallbackFileHash(fileOrBlob);
+      });
+    }
+    return Promise.resolve(core.fallbackFileHash(fileOrBlob));
+  };
+
+  core.fallbackFileHash = function(fileOrBlob) {
+    const name = fileOrBlob.name || 'file';
+    const size = fileOrBlob.size || 0;
+    let hash = 0;
+    const str = `${name}_${size}`;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return 'fb_' + Math.abs(hash).toString(16);
+  };
+
+  core.resizeImageIfNeeded = function(fileOrBlob, maxDimension = 1024) {
+    return new Promise(function(resolve) {
+      if (!fileOrBlob || !fileOrBlob.type || !fileOrBlob.type.startsWith('image/') || fileOrBlob.type === 'image/svg+xml') {
+        return resolve(fileOrBlob);
+      }
+      if (typeof window === 'undefined' || typeof Image === 'undefined' || typeof document === 'undefined') {
+        return resolve(fileOrBlob);
+      }
+
+      const img = new Image();
+      const url = URL.createObjectURL(fileOrBlob);
+      img.onload = function() {
+        URL.revokeObjectURL(url);
+        const width = img.naturalWidth || img.width;
+        const height = img.naturalHeight || img.height;
+
+        if (!width || !height || (width <= maxDimension && height <= maxDimension)) {
+          return resolve(fileOrBlob);
+        }
+
+        const scale = Math.min(maxDimension / width, maxDimension / height);
+        const targetWidth = Math.round(width * scale);
+        const targetHeight = Math.round(height * scale);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return resolve(fileOrBlob);
+        }
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        const mimeType = fileOrBlob.type || 'image/jpeg';
+        canvas.toBlob(function(blob) {
+          if (!blob) return resolve(fileOrBlob);
+          try {
+            blob.name = fileOrBlob.name;
+          } catch (e) {}
+          resolve(blob);
+        }, mimeType, 0.92);
+      };
+      img.onerror = function() {
+        URL.revokeObjectURL(url);
+        resolve(fileOrBlob);
+      };
+      img.src = url;
+    });
+  };
+
+  core.getUploadedMediaURL = function(hash) {
+    if (!hash) return null;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const mapStr = localStorage.getItem('habitual_uploaded_media_map');
+        if (mapStr) {
+          const map = JSON.parse(mapStr);
+          return map[hash] || null;
+        }
+      }
+    } catch (e) {}
+    return null;
+  };
+
+  core.setUploadedMediaURL = function(hash, url) {
+    if (!hash || !url) return;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const mapStr = localStorage.getItem('habitual_uploaded_media_map');
+        const map = mapStr ? JSON.parse(mapStr) : {};
+        map[hash] = url;
+        localStorage.setItem('habitual_uploaded_media_map', JSON.stringify(map));
+      }
+    } catch (e) {}
+  };
+
+  function insertSnippetIntoDescription(downloadURL, fileName, type) {
+    const descInput = document.getElementById('habit-description');
+    if (!descInput) return;
+
+    let snippet = '';
+    if (type === 'video') {
+      snippet = `\n<video src="${downloadURL}" controls preload="metadata"></video>\n`;
+    } else {
+      snippet = `\n![${fileName || 'image'}](${downloadURL})\n`;
+    }
+
+    const startPos = descInput.selectionStart || descInput.value.length;
+    const endPos = descInput.selectionEnd || descInput.value.length;
+    const val = descInput.value;
+    descInput.value = val.substring(0, startPos) + snippet + val.substring(endPos);
+    descInput.focus();
+    descInput.setSelectionRange(startPos + snippet.length, startPos + snippet.length);
+
+    descInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   core.uploadHabitMediaToFirebase = function(file, type) {
     if (!navigator.onLine) {
       if (core.showToast) core.showToast('❌ Cannot upload media while offline. Uploads require an online connection.', 'error');
-      return;
+      return Promise.reject(new Error('Offline'));
     }
-    if (!file) return;
+    if (!file) return Promise.reject(new Error('No file provided'));
 
-    if (core.showToast) core.showToast(`Uploading ${type === 'video' ? 'video' : 'image'} to Firebase Storage...`);
-
-    const ensureStorageLib = function() {
-      if (typeof firebase !== 'undefined' && firebase.storage) {
-        return Promise.resolve();
+    return core.hashFile(file).then(function(fileHash) {
+      // 1. Check local cache first
+      const cachedURL = core.getUploadedMediaURL(fileHash);
+      if (cachedURL) {
+        insertSnippetIntoDescription(cachedURL, file.name, type);
+        if (core.showToast) core.showToast('ℹ️ File already uploaded to storage. Using existing file.');
+        return Promise.resolve(cachedURL);
       }
-      return core.loadScript ? core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js') : Promise.reject(new Error('core.loadScript not available'));
-    };
 
-    ensureStorageLib().then(function() {
-      if (!firebase.apps.length) {
-        try { firebase.initializeApp({ projectId: "habitual-log", storageBucket: "habitual-log.firebasestorage.app" }); } catch(e) {}
-      }
-      const defaultBucket = (firebase.app().options && firebase.app().options.storageBucket)
-        ? undefined
-        : 'gs://habitual-log.firebasestorage.app';
-      const storageInstance = defaultBucket ? firebase.storage(defaultBucket) : firebase.storage();
-      const storageRef = storageInstance.ref();
-      const fileName = `habit-media/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
-      const fileRef = storageRef.child(fileName);
+      if (core.showToast) core.showToast(`Checking & uploading ${type === 'video' ? 'video' : 'image'}...`);
 
-      fileRef.put(file).then(function(snapshot) {
-        return snapshot.ref.getDownloadURL();
-      }).then(function(downloadURL) {
-        const descInput = document.getElementById('habit-description');
-        if (!descInput) return;
-
-        let snippet = '';
-        if (type === 'video') {
-          snippet = `\n<video src="${downloadURL}" controls preload="metadata"></video>\n`;
-        } else {
-          snippet = `\n![${file.name}](${downloadURL})\n`;
+      const ensureStorageLib = function() {
+        if (typeof firebase !== 'undefined' && firebase.storage) {
+          return Promise.resolve();
         }
+        return core.loadScript ? core.loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js') : Promise.reject(new Error('core.loadScript not available'));
+      };
 
-        const startPos = descInput.selectionStart || descInput.value.length;
-        const endPos = descInput.selectionEnd || descInput.value.length;
-        const val = descInput.value;
-        descInput.value = val.substring(0, startPos) + snippet + val.substring(endPos);
-        descInput.focus();
-        descInput.setSelectionRange(startPos + snippet.length, startPos + snippet.length);
+      return ensureStorageLib().then(function() {
+        if (!firebase.apps.length) {
+          try { firebase.initializeApp({ projectId: "habitual-log", storageBucket: "habitual-log.firebasestorage.app" }); } catch(e) {}
+        }
+        const defaultBucket = (firebase.app().options && firebase.app().options.storageBucket)
+          ? undefined
+          : 'gs://habitual-log.firebasestorage.app';
+        const storageInstance = defaultBucket ? firebase.storage(defaultBucket) : firebase.storage();
+        const storageRef = storageInstance.ref();
 
-        descInput.dispatchEvent(new Event('input', { bubbles: true }));
-        if (core.showToast) core.showToast('✅ Media uploaded successfully to Firebase Storage!');
+        const ext = (file.name && file.name.includes('.'))
+          ? file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
+          : (type === 'video' ? '.mp4' : '.jpg');
+        const fileName = `habit-media/${fileHash}${ext}`;
+        const fileRef = storageRef.child(fileName);
+
+        // 2. Test to see if already uploaded in Firebase Storage
+        return fileRef.getDownloadURL().then(function(downloadURL) {
+          core.setUploadedMediaURL(fileHash, downloadURL);
+          insertSnippetIntoDescription(downloadURL, file.name, type);
+          if (core.showToast) core.showToast('ℹ️ File already uploaded to storage. Using existing file.');
+          return downloadURL;
+        }).catch(function() {
+          // 3. Not in storage yet -> resize image if image, then upload
+          return core.resizeImageIfNeeded(file, 1024).then(function(blobToUpload) {
+            return fileRef.put(blobToUpload);
+          }).then(function(snapshot) {
+            return snapshot.ref.getDownloadURL();
+          }).then(function(downloadURL) {
+            core.setUploadedMediaURL(fileHash, downloadURL);
+            insertSnippetIntoDescription(downloadURL, file.name, type);
+            if (core.showToast) core.showToast('✅ Media uploaded successfully to Firebase Storage!');
+            return downloadURL;
+          });
+        });
       }).catch(function(err) {
         console.error('Firebase Storage upload error:', err);
         if (core.showToast) core.showToast('❌ Failed to upload media: ' + (err.message || err), 'error');
+        throw err;
       });
-    }).catch(function(err) {
-      console.error('Failed to load Firebase Storage SDK:', err);
-      if (core.showToast) core.showToast('❌ Failed to load storage libraries.', 'error');
     });
   };
 

@@ -6429,6 +6429,259 @@ describe('Issue #26: 🔐 Secure Shared Habits via ECDSA Signatures & Invite Lin
 });
 
 // ============================================================================
+// FEATURE 47: 📸 MEDIA UPLOAD HASHING, DUPLICATE DETECTION & IMAGE RESIZING
+// ============================================================================
+describe('Feature 47: 📸 Media Upload Hashing, Duplicate Detection & Image Resizing', () => {
+  test('core.hashFile uses Web Crypto API SHA-256 digest when available and fallbacks gracefully', async () => {
+    const mockFileWithBuffer = {
+      name: 'test_file.png',
+      size: 1024,
+      arrayBuffer: async () => new Uint8Array([1, 2, 3, 4, 5]).buffer
+    };
+
+    const originalCrypto = global.crypto;
+    global.crypto = {
+      subtle: {
+        digest: async (algo, buffer) => {
+          assertEqual(algo, 'SHA-256', 'hashFile calls crypto.subtle.digest with SHA-256');
+          return new Uint8Array([0xab, 0xcd, 0xef, 0x12, 0x34, 0x56, 0x78, 0x90]).buffer;
+        }
+      }
+    };
+
+    const sha256Hash = await HabitualCore.hashFile(mockFileWithBuffer);
+    assertEqual(sha256Hash, 'abcdef1234567890', 'hashFile returns hex encoded SHA-256 digest');
+
+    // Fallback test when crypto.subtle is undefined
+    delete global.crypto;
+    const fallbackHash = await HabitualCore.hashFile({ name: 'fallback.txt', size: 200 });
+    assert(fallbackHash.startsWith('fb_'), 'Fallback hash starts with fb_ prefix');
+
+    const file1 = { name: 'workout_photo.jpg', size: 102450 };
+    const hash1 = await HabitualCore.hashFile(file1);
+    const hash2 = await HabitualCore.hashFile(file1);
+    assertEqual(hash1, hash2, 'hashFile returns deterministic hash for identical input');
+
+    global.crypto = originalCrypto;
+  });
+
+  test('core.getUploadedMediaURL and core.setUploadedMediaURL cache media URLs', () => {
+    mockLocalStorage.removeItem('habitual_uploaded_media_map');
+    const testHash = 'sha256_mock_hash_12345';
+    const testUrl = 'https://firebasestorage.googleapis.com/v0/b/test/o/habit-media%2FtestHash.jpg';
+
+    assertEqual(HabitualCore.getUploadedMediaURL(testHash), null, 'getUploadedMediaURL returns null for unknown hash');
+    HabitualCore.setUploadedMediaURL(testHash, testUrl);
+    assertEqual(HabitualCore.getUploadedMediaURL(testHash), testUrl, 'getUploadedMediaURL returns cached URL after setUploadedMediaURL');
+  });
+
+  test('core.resizeImageIfNeeded resolves safely for non-image files', async () => {
+    const mockFile = { name: 'sample.png', type: 'image/png', size: 5000 };
+    const result = await HabitualCore.resizeImageIfNeeded(mockFile, 1024);
+    assertEqual(result, mockFile, 'resizeImageIfNeeded resolves with original file when image element is not present');
+
+    const videoFile = { name: 'workout.mp4', type: 'video/mp4', size: 500000 };
+    const videoResult = await HabitualCore.resizeImageIfNeeded(videoFile, 1024);
+    assertEqual(videoResult, videoFile, 'resizeImageIfNeeded resolves with original file for video/mp4');
+  });
+
+  test('core.resizeImageIfNeeded scales landscape image width to 1024 and maintains 4:3 aspect ratio', async () => {
+    const originalImage = global.Image;
+    const originalCreateElement = global.document.createElement;
+    const originalCreateObjectURL = global.URL.createObjectURL;
+    const originalRevokeObjectURL = global.URL.revokeObjectURL;
+
+    let drawnWidth = null;
+    let drawnHeight = null;
+    let canvasWidth = null;
+    let canvasHeight = null;
+
+    global.URL.createObjectURL = () => 'blob:mock-url';
+    global.URL.revokeObjectURL = () => {};
+
+    global.Image = function() {
+      this.naturalWidth = 2048;
+      this.naturalHeight = 1536;
+      setTimeout(() => { if (this.onload) this.onload(); }, 10);
+    };
+
+    global.document.createElement = function(tagName) {
+      if (tagName === 'canvas') {
+        return {
+          set width(w) { canvasWidth = w; },
+          get width() { return canvasWidth; },
+          set height(h) { canvasHeight = h; },
+          get height() { return canvasHeight; },
+          getContext: () => ({
+            drawImage: (img, dx, dy, dw, dh) => {
+              drawnWidth = dw;
+              drawnHeight = dh;
+            }
+          }),
+          toBlob: (cb, mime, q) => {
+            cb({ name: 'resized_landscape.jpg', type: mime, size: 25000 });
+          }
+        };
+      }
+      return originalCreateElement ? originalCreateElement(tagName) : {};
+    };
+
+    const mockLandscapeFile = { name: 'landscape_2048x1536.jpg', type: 'image/jpeg', size: 500000 };
+    await HabitualCore.resizeImageIfNeeded(mockLandscapeFile, 1024);
+
+    assertEqual(canvasWidth, 1024, 'Canvas width resized to 1024');
+    assertEqual(canvasHeight, 768, 'Canvas height resized to 768 (aspect ratio 2048:1536 preserved)');
+    assertEqual(drawnWidth, 1024, 'Image drawn with scaled width 1024');
+    assertEqual(drawnHeight, 768, 'Image drawn with scaled height 768');
+
+    global.Image = originalImage;
+    global.document.createElement = originalCreateElement;
+    global.URL.createObjectURL = originalCreateObjectURL;
+    global.URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  test('core.resizeImageIfNeeded scales portrait image height to 1024 and maintains 1:2 aspect ratio', async () => {
+    const originalImage = global.Image;
+    const originalCreateElement = global.document.createElement;
+    const originalCreateObjectURL = global.URL.createObjectURL;
+    const originalRevokeObjectURL = global.URL.revokeObjectURL;
+
+    let drawnWidth = null;
+    let drawnHeight = null;
+    let canvasWidth = null;
+    let canvasHeight = null;
+
+    global.URL.createObjectURL = () => 'blob:mock-url';
+    global.URL.revokeObjectURL = () => {};
+
+    global.Image = function() {
+      this.naturalWidth = 800;
+      this.naturalHeight = 1600;
+      setTimeout(() => { if (this.onload) this.onload(); }, 10);
+    };
+
+    global.document.createElement = function(tagName) {
+      if (tagName === 'canvas') {
+        return {
+          set width(w) { canvasWidth = w; },
+          get width() { return canvasWidth; },
+          set height(h) { canvasHeight = h; },
+          get height() { return canvasHeight; },
+          getContext: () => ({
+            drawImage: (img, dx, dy, dw, dh) => {
+              drawnWidth = dw;
+              drawnHeight = dh;
+            }
+          }),
+          toBlob: (cb, mime, q) => {
+            cb({ name: 'resized_portrait.jpg', type: mime, size: 25000 });
+          }
+        };
+      }
+      return originalCreateElement ? originalCreateElement(tagName) : {};
+    };
+
+    const mockPortraitFile = { name: 'portrait_800x1600.jpg', type: 'image/jpeg', size: 400000 };
+    await HabitualCore.resizeImageIfNeeded(mockPortraitFile, 1024);
+
+    assertEqual(canvasWidth, 512, 'Canvas width resized to 512');
+    assertEqual(canvasHeight, 1024, 'Canvas height resized to 1024 (aspect ratio 800:1600 preserved)');
+    assertEqual(drawnWidth, 512, 'Image drawn with scaled width 512');
+    assertEqual(drawnHeight, 1024, 'Image drawn with scaled height 1024');
+
+    global.Image = originalImage;
+    global.document.createElement = originalCreateElement;
+    global.URL.createObjectURL = originalCreateObjectURL;
+    global.URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  test('core.uploadHabitMediaToFirebase skips duplicate upload when file is already uploaded', async () => {
+    mockLocalStorage.removeItem('habitual_uploaded_media_map');
+    let putCalled = false;
+    let getDownloadUrlCalled = false;
+
+    // Mock firebase storage object
+    global.firebase = {
+      apps: ['app'],
+      app: () => ({ options: { storageBucket: 'gs://habitual-log.firebasestorage.app' } }),
+      storage: () => ({
+        ref: () => ({
+          child: (path) => ({
+            getDownloadURL: async () => {
+              getDownloadUrlCalled = true;
+              return 'https://firebasestorage.googleapis.com/existing_media.jpg';
+            },
+            put: async () => {
+              putCalled = true;
+              return { ref: { getDownloadURL: async () => 'https://firebasestorage.googleapis.com/new_media.jpg' } };
+            }
+          })
+        })
+      })
+    };
+
+    const file = { name: 'duplicate_test.jpg', type: 'image/jpeg', size: 1200 };
+    const url = await HabitualCore.uploadHabitMediaToFirebase(file, 'image');
+
+    assertEqual(url, 'https://firebasestorage.googleapis.com/existing_media.jpg', 'Returns existing download URL when object already exists');
+    assertEqual(getDownloadUrlCalled, true, 'getDownloadURL was called to test for existing file');
+    assertEqual(putCalled, false, 'put() was skipped because file already exists in Firebase Storage');
+
+    // Second test: cached locally
+    putCalled = false;
+    getDownloadUrlCalled = false;
+    const urlCached = await HabitualCore.uploadHabitMediaToFirebase(file, 'image');
+    assertEqual(urlCached, 'https://firebasestorage.googleapis.com/existing_media.jpg', 'Returns cached URL on second call');
+    assertEqual(getDownloadUrlCalled, false, 'getDownloadURL skipped due to local cache');
+  });
+
+  test('core.uploadHabitMediaToFirebase uploads new file and resizes when not present in storage', async () => {
+    mockLocalStorage.removeItem('habitual_uploaded_media_map');
+    let putCalled = false;
+
+    global.firebase = {
+      apps: ['app'],
+      app: () => ({ options: { storageBucket: 'gs://habitual-log.firebasestorage.app' } }),
+      storage: () => ({
+        ref: () => ({
+          child: (path) => ({
+            getDownloadURL: async () => {
+              const err = new Error('Object not found');
+              err.code = 'storage/object-not-found';
+              throw err;
+            },
+            put: async () => {
+              putCalled = true;
+              return { ref: { getDownloadURL: async () => 'https://firebasestorage.googleapis.com/uploaded_new_file.jpg' } };
+            }
+          })
+        })
+      })
+    };
+
+    const mockDescInput = {
+      value: '',
+      selectionStart: 0,
+      selectionEnd: 0,
+      focus: () => {},
+      setSelectionRange: () => {},
+      dispatchEvent: () => {}
+    };
+    const origGetElementById = global.document.getElementById;
+    global.document.getElementById = (id) => (id === 'habit-description' ? mockDescInput : (origGetElementById ? origGetElementById(id) : null));
+
+    const newFile = { name: 'brand_new_photo.jpg', type: 'image/jpeg', size: 900000 };
+    const resultUrl = await HabitualCore.uploadHabitMediaToFirebase(newFile, 'image');
+
+    assertEqual(resultUrl, 'https://firebasestorage.googleapis.com/uploaded_new_file.jpg', 'Uploads and returns new download URL');
+    assertEqual(putCalled, true, 'put() was called to upload new file to Firebase Storage');
+    assert(mockDescInput.value.includes('![brand_new_photo.jpg](https://firebasestorage.googleapis.com/uploaded_new_file.jpg)'), 'Markdown snippet inserted into description');
+
+    global.document.getElementById = origGetElementById;
+  });
+});
+
+// ============================================================================
 // FINAL REPORT
 // ============================================================================
 console.log(`\n========================================`);
