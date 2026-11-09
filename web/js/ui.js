@@ -4364,7 +4364,7 @@ window.HabitualCore = window.HabitualCore || {};
     return res;
   };
 
-  core.updateShareLinkAndQR = function(isReadOnly = false) {
+  core.updateShareLinkAndQR = function(isReadOnly = true) {
     const inputCol = document.getElementById('habit-share-collection');
     const inputPwd = document.getElementById('habit-share-password');
     const inputNote = document.getElementById('habit-share-initial-note');
@@ -4383,6 +4383,8 @@ window.HabitualCore = window.HabitualCore || {};
     let shareUrl = `${baseUrl}#share?col=${encodeURIComponent(docId)}&pwd=${encodeURIComponent(pwd)}`;
     if (isReadOnly) {
       shareUrl += `&ro=1`;
+    } else {
+      shareUrl += `&editor=1`;
     }
     if (note) {
       shareUrl += `&note=${encodeURIComponent(note)}`;
@@ -5379,6 +5381,9 @@ window.HabitualCore = window.HabitualCore || {};
         if (urlNote && !existingInState.viewerNote) {
           existingInState.viewerNote = urlNote;
         }
+        if (isReadOnly && existingInState.sharing) {
+          existingInState.sharing.readOnly = true;
+        }
         let targetHabit = existingInState;
         while (targetHabit && targetHabit.parentId) {
           const p = core.state.habits.find(h => h.id === targetHabit.parentId);
@@ -5626,7 +5631,7 @@ window.HabitualCore = window.HabitualCore || {};
           } else {
             existing.name = habitName;
             if (habitColor) existing.colorTheme = habitColor;
-            existing.sharing = { enabled: true, docId: col, collection: col, password: pwd, includeChildren: hasRemoteChildren };
+            existing.sharing = { enabled: true, docId: col, collection: col, password: pwd, readOnly: isReadOnly, includeChildren: hasRemoteChildren };
             if (payload.logs) {
               if (!existing.logs) existing.logs = {};
               Object.assign(existing.logs, payload.logs);
