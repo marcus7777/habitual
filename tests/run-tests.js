@@ -4028,6 +4028,169 @@ describe('Feature 30: 👥 Per-Habit Storage Overrides & Firestore Sharing', () 
     assertEqual(uploadedTarget.id, 'shared_parent_study', 'uploadPerHabitBackup was invoked on root shared parent habit');
   });
 
+  test('computeDataHash produces identical hash regardless of updatedAt timestamp when habit data is unchanged', () => {
+    const payload1 = { habitId: 'h_test_1', name: 'Exercise', dailyTarget: 1, updatedAt: 100000 };
+    const payload2 = { habitId: 'h_test_1', name: 'Exercise', dailyTarget: 1, updatedAt: 999999 };
+    const hash1 = HabitualCore.computeDataHash(payload1);
+    const hash2 = HabitualCore.computeDataHash(payload2);
+    assertEqual(hash1, hash2, 'Data hashes match despite different updatedAt timestamps');
+  });
+
+  test('startPerHabitLiveSync ignores snapshots without data changes and updates lastUploadedDataHash without toast', async () => {
+    const sharedHabit = {
+      id: 'shared_habit_no_change',
+      name: 'No Change Habit',
+      type: 'positive',
+      dailyTarget: 1,
+      sharing: { enabled: true, collection: 'shared_col_no_change', password: 'sec_pwd_no_change' },
+      logs: {}
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [sharedHabit]
+    });
+
+    let toastCalled = false;
+    const origToast = HabitualCore.showToast;
+
+    try {
+      HabitualCore.showToast = (msg, type, actionText, onActionClick) => {
+        if (msg && msg.includes('updated!')) toastCalled = true;
+        if (origToast) origToast(msg, type, actionText, onActionClick);
+      };
+
+      const remotePayload = HabitualCore.getPerHabitPayload(sharedHabit);
+      remotePayload.updatedAt = Date.now() + 5000;
+      const ciphertext = await HabitualCore.E2EE.encrypt(remotePayload, 'sec_pwd_no_change');
+
+      let snapshotCallback = null;
+      const mockDb = {
+        collection: function() {
+          return {
+            doc: function() {
+              return {
+                onSnapshot: function(cb) {
+                  snapshotCallback = cb;
+                  return function unsubscribe() {};
+                }
+              };
+            }
+          };
+        }
+      };
+
+      HabitualCore.SyncTargets.Firestore.db = mockDb;
+      HabitualCore.SyncTargets.Firestore.startPerHabitLiveSync(sharedHabit);
+
+      if (snapshotCallback) {
+        snapshotCallback({
+          exists: true,
+          data: () => ({ ciphertext: ciphertext, writerId: 'remote_writer_123' })
+        });
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+
+      assertEqual(toastCalled, false, 'No update toast shown when payload has no data changes');
+      assert(sharedHabit._lastUploadedDataHash, 'Habit _lastUploadedDataHash populated to prevent duplicate uploads');
+    } finally {
+      HabitualCore.showToast = origToast;
+      HabitualCore.SyncTargets.Firestore.stopPerHabitLiveSync('shared_habit_no_change');
+      HabitualCore.SyncTargets.Firestore.db = null;
+    }
+  });
+
+  test('startPerHabitLiveSync detects sub-habit removal and updates state when remote sub-habit is deleted', async () => {
+    const parentHabit = {
+      id: 'parent_shared_del',
+      name: 'Parent Shared',
+      type: 'positive',
+      dailyTarget: 1,
+      sharing: { enabled: true, collection: 'col_shared_del', password: 'sec_del_pwd', includeChildren: true },
+      logs: {}
+    };
+
+    const child1 = {
+      id: 'parent_shared_del_c1',
+      name: 'Child 1',
+      parentId: 'parent_shared_del',
+      logs: {}
+    };
+
+    const child2 = {
+      id: 'parent_shared_del_c2',
+      name: 'Child 2',
+      parentId: 'parent_shared_del',
+      logs: {}
+    };
+
+    HabitualCore.setState({
+      selectedHabitId: 'all',
+      selectedYear: 2026,
+      habits: [parentHabit, child1, child2]
+    });
+
+    const origToast = HabitualCore.showToast;
+
+    try {
+      HabitualCore.showToast = (msg, type, actionText, onActionClick) => {
+        if (origToast) origToast(msg, type, actionText, onActionClick);
+      };
+
+      const remotePayload = {
+        habitId: 'parent_shared_del',
+        name: 'Parent Shared',
+        type: 'positive',
+        dailyTarget: 1,
+        logs: {},
+        includeChildren: true,
+        children: [
+          { habitId: 'parent_shared_del_c1', parentId: 'parent_shared_del', name: 'Child 1', logs: {} }
+        ]
+      };
+
+      const ciphertext = await HabitualCore.E2EE.encrypt(remotePayload, 'sec_del_pwd');
+
+      let snapshotCallback = null;
+      const mockDb = {
+        collection: function() {
+          return {
+            doc: function() {
+              return {
+                onSnapshot: function(cb) {
+                  snapshotCallback = cb;
+                  return function unsubscribe() {};
+                }
+              };
+            }
+          };
+        }
+      };
+
+      HabitualCore.SyncTargets.Firestore.db = mockDb;
+      HabitualCore.SyncTargets.Firestore.startPerHabitLiveSync(parentHabit);
+
+      if (snapshotCallback) {
+        snapshotCallback({
+          exists: true,
+          data: () => ({ ciphertext: ciphertext, writerId: 'remote_writer_xyz' })
+        });
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+
+      const habitsAfter = HabitualCore.getState().habits;
+      const child2Exists = habitsAfter.some(h => h.id === 'parent_shared_del_c2');
+      assertEqual(child2Exists, false, 'Child 2 was removed from local state because it was deleted remotely');
+    } finally {
+      HabitualCore.showToast = origToast;
+      HabitualCore.SyncTargets.Firestore.stopPerHabitLiveSync('parent_shared_del');
+      HabitualCore.SyncTargets.Firestore.db = null;
+    }
+  });
+
   test('checkURLHashForSharedHabit supports both col and doc query parameters from hash or search URL', async () => {
     let modalOpened = false;
     let fetchedDocId = null;

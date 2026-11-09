@@ -1171,7 +1171,12 @@ window.HabitualCore = window.HabitualCore || {};
 
   core.computeDataHash = function(data) {
     if (data === null || data === undefined) return '';
-    const str = (typeof data === 'string') ? data : core.canonicalJson(data);
+    let hashData = data;
+    if (typeof data === 'object' && !Array.isArray(data)) {
+      hashData = Object.assign({}, data);
+      delete hashData.updatedAt;
+    }
+    const str = (typeof data === 'string') ? data : core.canonicalJson(hashData);
     let h1 = 0x811c9dc5;
     let h2 = 0x01000193;
     for (let i = 0; i < str.length; i++) {
@@ -1259,6 +1264,9 @@ window.HabitualCore = window.HabitualCore || {};
       hideTimeOfDay: habit.hideTimeOfDay,
       hideLocation: habit.hideLocation,
       hideDependency: habit.hideDependency,
+      subhabitDisplayMode: habit.subhabitDisplayMode,
+      subhabitSortOrder: habit.subhabitSortOrder,
+      subhabitSortReverse: habit.subhabitSortReverse,
       createdAt: habit.createdAt || todayStr,
       logs: habit.logs || {}
     };
@@ -1303,6 +1311,9 @@ window.HabitualCore = window.HabitualCore || {};
           hideTimeOfDay: child.hideTimeOfDay,
           hideLocation: child.hideLocation,
           hideDependency: child.hideDependency,
+          subhabitDisplayMode: child.subhabitDisplayMode,
+          subhabitSortOrder: child.subhabitSortOrder,
+          subhabitSortReverse: child.subhabitSortReverse,
           createdAt: child.createdAt || todayStr,
           logs: child.logs || {}
         }));
@@ -1796,9 +1807,18 @@ window.HabitualCore = window.HabitualCore || {};
                       // Viewer has customized local display options — preserve local preferences!
                       return;
                     }
-                    if (remoteHabit[field] !== undefined && remoteHabit[field] !== targetHabit[field]) {
-                      targetHabit[field] = remoteHabit[field];
-                      updated = true;
+                    if (remoteHabit[field] !== undefined) {
+                      const rVal = remoteHabit[field];
+                      const lVal = targetHabit[field];
+                      if (typeof rVal === 'boolean' || typeof lVal === 'boolean') {
+                        if (Boolean(rVal) !== Boolean(lVal)) {
+                          targetHabit[field] = rVal;
+                          updated = true;
+                        }
+                      } else if (rVal !== lVal) {
+                        targetHabit[field] = rVal;
+                        updated = true;
+                      }
                     }
                   });
 
@@ -1824,14 +1844,16 @@ window.HabitualCore = window.HabitualCore || {};
                       if (!rLog) return;
 
                       if (!lLog) {
-                        targetHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
-                        if (rLog.unverified) targetHabit.logs[dateKey].unverified = true;
-                        updated = true;
+                        if ((rLog.count || 0) > 0 || (rLog.note && rLog.note.trim() !== '') || rLog.unverified) {
+                          targetHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
+                          if (rLog.unverified) targetHabit.logs[dateKey].unverified = true;
+                          updated = true;
+                        }
                       } else {
                         const newCount = Math.max(lLog.count || 0, rLog.count || 0);
                         const newNote = (rLog.note && rLog.note.trim() !== '') ? rLog.note : (lLog.note || '');
                         const newUnverified = Boolean(lLog.unverified || rLog.unverified);
-                        if (lLog.count !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
+                        if ((lLog.count || 0) !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
                           targetHabit.logs[dateKey] = { count: newCount, note: newNote };
                           if (newUnverified) targetHabit.logs[dateKey].unverified = true;
                           updated = true;
@@ -1841,8 +1863,24 @@ window.HabitualCore = window.HabitualCore || {};
                   }
 
                   // 3. Synchronize Sub-Habits (Children) Metadata, Settings & Logs
-                  if (remoteHabit.children && Array.isArray(remoteHabit.children)) {
-                    remoteHabit.children.forEach(cData => {
+                  const remoteChildren = (remoteHabit.children && Array.isArray(remoteHabit.children)) ? remoteHabit.children : [];
+                  const hasChildrenPayload = remoteHabit.includeChildren === true || Array.isArray(remoteHabit.children);
+
+                  if (hasChildrenPayload) {
+                    // 3a. Remove local sub-habits that are no longer present in remote payload
+                    const existingLocalChildren = core.state.habits.filter(h => h.parentId === targetHabit.id);
+                    existingLocalChildren.forEach(localChild => {
+                      const isStillInRemote = remoteChildren.some(cData => (cData.habitId && cData.habitId === localChild.id) || (cData.name === localChild.name && cData.habitId === localChild.id));
+                      if (!isStillInRemote) {
+                        const descendantIds = core.getAllDescendantIds ? core.getAllDescendantIds(localChild.id) : [localChild.id];
+                        const removeSet = new Set(descendantIds);
+                        core.state.habits = core.state.habits.filter(h => !removeSet.has(h.id));
+                        updated = true;
+                      }
+                    });
+
+                    // 3b. Add or update remote sub-habits
+                    remoteChildren.forEach(cData => {
                       let childHabit = core.state.habits.find(h => h.id === cData.habitId || (h.parentId === targetHabit.id && h.name === cData.name));
                       if (!childHabit) {
                         childHabit = {
@@ -1870,6 +1908,9 @@ window.HabitualCore = window.HabitualCore || {};
                           isPaused: cData.isPaused,
                           parentId: targetHabit.id,
                           parentDependency: cData.parentDependency || 'none',
+                          subhabitDisplayMode: cData.subhabitDisplayMode,
+                          subhabitSortOrder: cData.subhabitSortOrder,
+                          subhabitSortReverse: cData.subhabitSortReverse,
                           createdAt: cData.createdAt || core.getTodayKey(),
                           logs: cData.logs || {}
                         };
@@ -1877,9 +1918,18 @@ window.HabitualCore = window.HabitualCore || {};
                         updated = true;
                       } else {
                         metaFields.forEach(field => {
-                          if (cData[field] !== undefined && cData[field] !== childHabit[field]) {
-                            childHabit[field] = cData[field];
-                            updated = true;
+                          if (cData[field] !== undefined) {
+                            const rVal = cData[field];
+                            const lVal = childHabit[field];
+                            if (typeof rVal === 'boolean' || typeof lVal === 'boolean') {
+                              if (Boolean(rVal) !== Boolean(lVal)) {
+                                childHabit[field] = rVal;
+                                updated = true;
+                              }
+                            } else if (rVal !== lVal) {
+                              childHabit[field] = rVal;
+                              updated = true;
+                            }
                           }
                         });
 
@@ -1896,14 +1946,16 @@ window.HabitualCore = window.HabitualCore || {};
                             if (!rLog) return;
 
                             if (!lLog) {
-                              childHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
-                              if (rLog.unverified) childHabit.logs[dateKey].unverified = true;
-                              updated = true;
+                              if ((rLog.count || 0) > 0 || (rLog.note && rLog.note.trim() !== '') || rLog.unverified) {
+                                childHabit.logs[dateKey] = { count: rLog.count || 0, note: rLog.note || '' };
+                                if (rLog.unverified) childHabit.logs[dateKey].unverified = true;
+                                updated = true;
+                              }
                             } else {
                               const newCount = Math.max(lLog.count || 0, rLog.count || 0);
                               const newNote = (rLog.note && rLog.note.trim() !== '') ? rLog.note : (lLog.note || '');
                               const newUnverified = Boolean(lLog.unverified || rLog.unverified);
-                              if (lLog.count !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
+                              if ((lLog.count || 0) !== newCount || (lLog.note || '') !== newNote || Boolean(lLog.unverified) !== newUnverified) {
                                 childHabit.logs[dateKey] = { count: newCount, note: newNote };
                                 if (newUnverified) childHabit.logs[dateKey].unverified = true;
                                 updated = true;
@@ -1921,6 +1973,9 @@ window.HabitualCore = window.HabitualCore || {};
                     core.saveState(true);
                     if (core.renderAll) core.renderAll();
                     if (core.showToast) core.showToast(`⚡ Shared habit "${targetHabit.name}" updated!`, 'info');
+                  } else {
+                    const calculatedHash = remoteHash || core.computeDataHash(core.getPerHabitPayload(targetHabit));
+                    if (calculatedHash) targetHabit._lastUploadedDataHash = calculatedHash;
                   }
                 }).catch(function(e) {
                   console.warn('Per-habit Firestore decrypt error:', e);

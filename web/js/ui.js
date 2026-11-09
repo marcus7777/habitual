@@ -3339,15 +3339,20 @@ window.HabitualCore = window.HabitualCore || {};
         return;
       }
 
-      if (habitToEdit && habitToEdit.sharing && habitToEdit.sharing.docId && core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.db) {
-        core.SyncTargets.Firestore.db.collection('share').doc(habitToEdit.sharing.docId).get().then(snap => {
-          let hasMultipleKeys = true;
+      const myKey = core.CLIENT_ID || '';
+      const db = (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.db) || (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore());
+
+      if (habitToEdit && habitToEdit.sharing && habitToEdit.sharing.docId && db) {
+        db.collection('share').doc(habitToEdit.sharing.docId).get().then(snap => {
+          let isAuthorized = false;
           if (snap && snap.exists) {
             const data = snap.data() || {};
             const allowed = Array.isArray(data.allowedPublicKeys) ? data.allowedPublicKeys : [];
-            hasMultipleKeys = allowed.length > 1;
+            const owner = data.ownerPublicKey || data.writerPublicKey;
+            const isUserAllowed = (allowed.length > 0) ? (allowed.includes(myKey) || owner === myKey) : true;
+            isAuthorized = allowed.length > 1 && isUserAllowed;
           }
-          if (chatTabBtn) chatTabBtn.classList.toggle('hidden', !hasMultipleKeys);
+          if (chatTabBtn) chatTabBtn.classList.toggle('hidden', !isAuthorized);
         }).catch(() => {
           if (chatTabBtn) chatTabBtn.classList.remove('hidden');
         });

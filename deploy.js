@@ -123,6 +123,7 @@ async function deploy() {
       { cmd: 'node tests/test-read-only-share-playwright.js', desc: 'Playwright: Read-Only Share & Pre-populated Note E2E Test' },
       { cmd: 'node tests/test-security-privacy-playwright.js', desc: 'Playwright: Security, Privacy & Compromise Audit Test' },
       { cmd: 'node tests/test-shared-data-integrity-playwright.js', desc: 'Playwright: Shared Habit Data Integrity & Cryptographic Security Audit' },
+      { cmd: 'node tests/test-shared-opening-no-updates-playwright.js', desc: 'Playwright: Shared Habit Opening No-Updates Verification Test' },
       { cmd: 'node tests/test-private-data-security-playwright.js', desc: 'Playwright: Private Data Confidentiality & Zero-Knowledge E2EE Audit' },
       { cmd: 'node tests/test-widgets-playwright.js', desc: 'Playwright: Standalone Widgets E2E Test' },
       { cmd: 'node tests/test-android-playwright.js', desc: 'Playwright: Android Mobile Browser E2E Test' },

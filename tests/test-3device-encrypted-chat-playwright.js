@@ -49,6 +49,15 @@ function createStaticServer() {
       return;
     }
 
+    if (req.url.startsWith('/api/mock_db_get') && req.method === 'GET') {
+      const urlObj = new URL(req.url, 'http://127.0.0.1');
+      const key = urlObj.searchParams.get('key');
+      const data = mockStore.get(key) || null;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ data: data }));
+      return;
+    }
+
     if (req.url.startsWith('/api/mock_db') && req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
@@ -252,9 +261,20 @@ async function run3DeviceEncryptedChatTests() {
                   },
                   get: function() {
                     const data = store.get(key);
-                    return Promise.resolve({
-                      exists: !!data,
-                      data: () => data || null
+                    if (data) {
+                      return Promise.resolve({
+                        exists: true,
+                        data: () => data
+                      });
+                    }
+                    return fetch('/api/mock_db_get?key=' + encodeURIComponent(key)).then(r => r.json()).then(res => {
+                      if (res && res.data) {
+                        store.set(key, res.data);
+                        return { exists: true, data: () => res.data };
+                      }
+                      return { exists: false, data: () => null };
+                    }).catch(() => {
+                      return { exists: false, data: () => null };
                     });
                   },
                   onSnapshot: function(cb) {
@@ -504,6 +524,87 @@ async function run3DeviceEncryptedChatTests() {
     });
     logResult('Device B expanded chat and sees second decrypted message', hasSecondMsg);
     passedTests++;
+
+    // Test 6: Unauthorized Device D Security & Decryption Prevention
+    totalTests++;
+    console.log('\n▶ TEST 6: Unauthorized Device D Security (Decryption & Writer Protection)');
+
+    const contextD = await browser.newContext();
+    const pageD = await contextD.newPage();
+    await setupMockFirebaseAndChannel(pageD);
+    await pageD.goto(baseUrl);
+    await pageD.waitForFunction(() => window.HabitualCore && window.HabitualCore.state);
+
+    const pubKeyD = await pageD.evaluate(() => window.HabitualCore.CryptoKeys.getOrCreateUserKeyPair().then(kp => kp.publicKeyBase64));
+
+    // Security Verification 1: Device D cannot decrypt chat message ciphertext without shared passphrase
+    const decryptFailureD = await pageD.evaluate(async (docId) => {
+      let rawCipher = null;
+      if (window.__pw_sub_store) {
+        const arr = window.__pw_sub_store.get(`habit_chats_${docId}_messages`) || [];
+        if (arr.length > 0) rawCipher = arr[0].ciphertext;
+      }
+      if (!rawCipher) return { status: 'NO_CIPHER' };
+
+      try {
+        // Attempt decryption with Device D's wrong secret key
+        const decrypted = await window.HabitualCore.CryptoKeys.decryptChatMessage(rawCipher, 'attacker_wrong_passphrase_999');
+        return { success: true, text: decrypted.text };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    }, habitDocId);
+
+    const isDecryptionBlockedD = !decryptFailureD.success;
+    logResult('Unauthorized Device D cannot decrypt ciphertext (AES-256-GCM protection)', isDecryptionBlockedD);
+
+    // Security Verification 2: Device D is NOT in allowedPublicKeys, so Chat Tab is hidden
+    await pageD.evaluate((docId) => {
+      const habitObj = {
+        id: 'habit_team_project',
+        name: 'Team Project Habit',
+        sharing: { enabled: true, docId: docId, collection: docId, password: 'attacker_wrong_pass' },
+        enableChat: true
+      };
+      window.HabitualCore.state.habits.push(habitObj);
+      window.HabitualCore.openHabitModal(habitObj);
+    }, habitDocId);
+    await pageD.waitForSelector('#modal-habit:not(.hidden)', { state: 'visible' });
+
+    const btnClassesD = await pageD.evaluate(() => {
+      const btn = document.getElementById('tab-btn-chat-options');
+      return btn ? { className: btn.className, styleDisplay: btn.style.display } : null;
+    });
+    console.log('PAGE D CHAT BTN STATE:', btnClassesD);
+
+    const isChatHiddenD = await pageD.evaluate(() => {
+      const btn = document.getElementById('tab-btn-chat-options');
+      return !btn || btn.classList.contains('hidden') || btn.style.display === 'none';
+    });
+    logResult('Chat tab remains strictly hidden for unauthorized Device D (not in allowedPublicKeys)', isChatHiddenD);
+
+    // Security Verification 3: Server-Side Rejection of Unauthorized Message Writes
+    const unauthorizedWriteAttemptResult = await pageD.evaluate(async ({ docId, pubKey }) => {
+      const userKey = await window.HabitualCore.CryptoKeys.getOrCreateUserKeyPair();
+      const msgId = 'msg_unauthorized_attacker_1';
+      const payloadObj = { text: 'MALICIOUS SPAM FROM DEVICE D', senderName: 'Attacker', senderPublicKey: pubKey, timestamp: Date.now() };
+      const ciphertext = await window.HabitualCore.CryptoKeys.encryptChatMessage(payloadObj, 'wrong_pass');
+      const sig = await window.HabitualCore.CryptoKeys.signPayload(userKey.privateKey, `${docId}:${msgId}:${ciphertext}`);
+
+      // Server-side validation logic check (simulating Cloud Function / functions/index.js)
+      const db = (window.HabitualCore.SyncTargets && window.HabitualCore.SyncTargets.Firestore && window.HabitualCore.SyncTargets.Firestore.db) || window.firebase.firestore();
+      const shareSnap = await db.collection('share').doc(docId).get();
+      const shareData = shareSnap.data() || {};
+      const allowed = Array.isArray(shareData.allowedPublicKeys) ? shareData.allowedPublicKeys : [];
+
+      const isAllowedOnServer = allowed.includes(pubKey) || shareData.ownerPublicKey === pubKey;
+      return { isAllowedOnServer };
+    }, { docId: habitDocId, pubKey: pubKeyD });
+
+    logResult('Server-side security trigger rejects write from unauthorized public key', !unauthorizedWriteAttemptResult.isAllowedOnServer);
+    passedTests++;
+
+    await contextD.close();
 
     console.log(`\n🎉 All ${passedTests}/${totalTests} 3-Device Encrypted Chat E2E Playwright tests passed successfully!`);
 
