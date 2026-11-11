@@ -4369,6 +4369,9 @@ window.HabitualCore = window.HabitualCore || {};
     const inputPwd = document.getElementById('habit-share-password');
     const inputNote = document.getElementById('habit-share-initial-note');
     const qrDisplay = document.getElementById('qr-code-display');
+    const qrColorSelect = document.getElementById('qr-color-theme');
+    const qrSizeSelect = document.getElementById('qr-size-select');
+    const qrChatToggle = document.getElementById('qr-chat-toggle');
 
     const docId = inputCol ? inputCol.value.trim() : '';
     const pwd = inputPwd ? inputPwd.value.trim() : '';
@@ -4386,12 +4389,32 @@ window.HabitualCore = window.HabitualCore || {};
     } else {
       shareUrl += `&editor=1`;
     }
+    if (qrChatToggle && qrChatToggle.checked) {
+      shareUrl += `&chat=1`;
+    }
     if (note) {
       shareUrl += `&note=${encodeURIComponent(note)}`;
     }
 
+    const size = (qrSizeSelect) ? (parseInt(qrSizeSelect.value, 10) || 200) : 200;
+    const colorVal = qrColorSelect ? qrColorSelect.value : 'standard';
+
+    let fgColor = '#000000';
+    let bgColor = '#ffffff';
+
+    if (colorVal === 'habit') {
+      const habitIdInput = document.getElementById('habit-id');
+      const editingId = habitIdInput ? habitIdInput.value.trim() : null;
+      const habit = editingId ? core.state.habits.find(h => h.id === editingId) : null;
+      fgColor = (habit && habit.colorTheme) ? (core.normalizeHex ? core.normalizeHex(habit.colorTheme) : habit.colorTheme) : '#039BE5';
+      bgColor = '#ffffff';
+    } else if (colorVal === 'dark') {
+      fgColor = '#ffffff';
+      bgColor = '#161b22';
+    }
+
     if (qrDisplay && core.generateQRCodeSVG) {
-      qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, 200);
+      qrDisplay.innerHTML = core.generateQRCodeSVG(shareUrl, size, { fgColor, bgColor });
     }
 
     return shareUrl;
@@ -4408,10 +4431,10 @@ window.HabitualCore = window.HabitualCore || {};
     let habit = editingId ? core.state.habits.find(h => h.id === editingId) : null;
 
     if (inputShareCol && !inputShareCol.value.trim()) {
-      inputShareCol.value = core.generateShareDocId();
+      inputShareCol.value = (core.generateShareDocId ? core.generateShareDocId() : ('doc_' + Math.random().toString(36).substring(2, 12)));
     }
     if (inputSharePwd && !inputSharePwd.value.trim()) {
-      inputSharePwd.value = core.generateRandomPassword(16);
+      inputSharePwd.value = (core.generateRandomPassword ? core.generateRandomPassword(16) : ('pass_' + Math.random().toString(36).substring(2, 12)));
     }
 
     const shareDocId = inputShareCol ? inputShareCol.value.trim() : '';
@@ -4589,6 +4612,105 @@ window.HabitualCore = window.HabitualCore || {};
         });
       }
 
+      // Dedicated Copy Link button directly underneath QR code
+      const btnCopyQrLink = document.getElementById('btn-copy-qr-link');
+      if (btnCopyQrLink) {
+        btnCopyQrLink.onclick = function() {
+          core.ensureCurrentModalHabitSharedAndUploaded();
+          const link = core.updateShareLinkAndQR(true);
+          if (link && navigator.clipboard) {
+            navigator.clipboard.writeText(link).then(function() {
+              if (core.showToast) core.showToast('📋 QR Share Link copied to clipboard!', 'success');
+            }).catch(function() {
+              alert('QR Share Link: ' + link);
+            });
+          } else if (link) {
+            alert('QR Share Link: ' + link);
+          }
+        };
+      }
+
+      const btnCopyTemplateQrLink = document.getElementById('btn-copy-template-qr-link');
+      if (btnCopyTemplateQrLink) {
+        btnCopyTemplateQrLink.onclick = function() {
+          const linkBtn = document.getElementById('btn-copy-template-firestore') || document.getElementById('btn-copy-template-jsurl');
+          if (linkBtn) linkBtn.click();
+        };
+      }
+
+      // Enlarged Fullscreen QR Code Overlay Helper
+      core.openEnlargedQRModal = function(titleText, urlToEncode, fgColor = '#000000', bgColor = '#ffffff') {
+        const modalEnlarged = document.getElementById('modal-qr-enlarged');
+        const titleEl = document.getElementById('qr-enlarged-title');
+        const displayEl = document.getElementById('qr-enlarged-display');
+        const btnCopy = document.getElementById('btn-copy-enlarged-qr-link');
+        const btnClose = document.getElementById('modal-qr-enlarged-close');
+        const btnClose2 = document.getElementById('btn-close-enlarged-qr');
+
+        if (!modalEnlarged || !displayEl) return;
+        if (titleEl) titleEl.textContent = titleText || '🔍 Scan QR Code';
+
+        if (core.generateQRCodeSVG) {
+          displayEl.innerHTML = core.generateQRCodeSVG(urlToEncode, 320, { fgColor, bgColor });
+        }
+
+        modalEnlarged.classList.remove('hidden');
+
+        function closeEnlarged() {
+          modalEnlarged.classList.add('hidden');
+        }
+
+        if (btnClose) btnClose.onclick = closeEnlarged;
+        if (btnClose2) btnClose2.onclick = closeEnlarged;
+
+        if (btnCopy) {
+          btnCopy.onclick = function() {
+            if (urlToEncode && navigator.clipboard) {
+              navigator.clipboard.writeText(urlToEncode).then(function() {
+                if (core.showToast) core.showToast('📋 Link copied to clipboard!', 'success');
+              });
+            }
+          };
+        }
+      };
+
+      // Click/Tap on QR code display box to open enlarged scan overlay
+      const qrCodeDisplayEl = document.getElementById('qr-code-display');
+      if (qrCodeDisplayEl) {
+        qrCodeDisplayEl.onclick = function() {
+          const link = core.updateShareLinkAndQR(true);
+          if (link) {
+            const colorVal = document.getElementById('qr-color-theme') ? document.getElementById('qr-color-theme').value : 'standard';
+            let fg = '#000000', bg = '#ffffff';
+            if (colorVal === 'habit') {
+              const habitIdInput = document.getElementById('habit-id');
+              const editingId = habitIdInput ? habitIdInput.value.trim() : null;
+              const habit = editingId ? core.state.habits.find(h => h.id === editingId) : null;
+              fg = (habit && habit.colorTheme) ? (core.normalizeHex ? core.normalizeHex(habit.colorTheme) : habit.colorTheme) : '#039BE5';
+            } else if (colorVal === 'dark') { fg = '#ffffff'; bg = '#161b22'; }
+            core.openEnlargedQRModal('🔍 Scan Habit Share QR Code', link, fg, bg);
+          }
+        };
+      }
+
+      const qrTemplateDisplayEl = document.getElementById('qr-code-template-display');
+      if (qrTemplateDisplayEl) {
+        qrTemplateDisplayEl.onclick = function() {
+          const lastLink = window.__lastTemplateLink || (typeof window !== 'undefined' && window.location ? window.location.href : '');
+          if (lastLink) {
+            core.openEnlargedQRModal('🔍 Scan Habit Template QR Code', lastLink, '#000000', '#ffffff');
+          }
+        };
+      }
+
+      // QR Toolbar Listeners (Color, Size, Chat Toggle)
+      ['qr-color-theme', 'qr-size-select', 'qr-chat-toggle'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('change', () => core.updateShareLinkAndQR());
+        }
+      });
+
       // Delegated listener for local private viewer notes on read-only shared habits
       document.addEventListener('input', function(e) {
         if (e.target && e.target.classList && e.target.classList.contains('viewer-note-input')) {
@@ -4733,7 +4855,7 @@ window.HabitualCore = window.HabitualCore || {};
       const inputType = document.getElementById('habit-type');
       const inputDesc = document.getElementById('habit-description');
 
-      const name = inputName ? inputName.value.trim() : 'New Habit';
+      const name = (inputName && inputName.value.trim()) ? inputName.value.trim() : 'New Habit';
       const color = (inputColorSelect && inputColorSelect.value) ? inputColorSelect.value : (inputColorHex ? inputColorHex.value.trim() : '');
       const target = inputTarget ? parseInt(inputTarget.value || 1, 10) : 1;
       const freq = inputFreq ? inputFreq.value : 'daily';
@@ -5004,6 +5126,86 @@ window.HabitualCore = window.HabitualCore || {};
       } else {
         subhabitsEl.innerHTML = '';
         subhabitsEl.classList.add('hidden');
+      }
+    }
+
+    // Template Discussion Chat Integration
+    const tmplChatSection = document.getElementById('import-template-chat-section');
+    const tmplChatMsgs = document.getElementById('template-chat-messages');
+    const tmplChatInput = document.getElementById('template-chat-message-input');
+    const tmplSenderInput = document.getElementById('template-chat-sender-input');
+    const btnSendTmplChat = document.getElementById('btn-send-template-chat');
+
+    const docId = decodedHabit._tmplDocId || decodedHabit.habitId || decodedHabit.id;
+    if (tmplChatSection && docId) {
+      tmplChatSection.classList.remove('hidden');
+
+      if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.registerUserPublicKeyForChat) {
+        core.SyncTargets.Firestore.registerUserPublicKeyForChat(docId);
+      }
+
+      if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.subscribeToTemplateMessages) {
+        core.SyncTargets.Firestore.subscribeToTemplateMessages(docId, function(rawMsgs) {
+          if (!rawMsgs || rawMsgs.length === 0) {
+            if (tmplChatMsgs) tmplChatMsgs.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; margin: auto;">No discussion messages yet. Send a message or tip!</div>';
+            return;
+          }
+          rawMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+          const decryptPromises = rawMsgs.map(m => {
+            return core.CryptoKeys.decryptChatMessage(m.ciphertext, 'habitual_tmpl_chat_key_' + docId).then(dec => {
+              return {
+                msgId: m.msgId,
+                writerPublicKey: m.writerPublicKey,
+                text: dec.text || '',
+                senderName: dec.senderName || '',
+                timestamp: dec.timestamp || m.timestamp || Date.now()
+              };
+            }).catch(() => {
+              return {
+                msgId: m.msgId,
+                text: '🔒 [Encrypted Message]',
+                senderName: '',
+                timestamp: m.timestamp || Date.now()
+              };
+            });
+          });
+
+          Promise.all(decryptPromises).then(messages => {
+            if (!tmplChatMsgs) return;
+            let html = '';
+            const myPubKey = core.CLIENT_ID || '';
+            messages.forEach(msg => {
+              const isMine = myPubKey && msg.writerPublicKey === myPubKey;
+              const nameDisp = msg.senderName ? (core.escapeHTML ? core.escapeHTML(msg.senderName) : msg.senderName) : 'User';
+              const pubShort = msg.writerPublicKey ? ('#' + msg.writerPublicKey.slice(0, 6)) : '';
+              const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+              html += `<div style="padding: 6px 10px; background: ${isMine ? 'rgba(56,139,253,0.18)' : 'rgba(255,255,255,0.06)'}; border-radius: 6px; font-size: 0.82rem;">
+                <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 6px; margin-bottom: 2px;">
+                  <strong>${nameDisp}</strong>
+                  <small>${pubShort}</small>
+                  <span style="margin-left: auto;">${timeStr}</span>
+                </div>
+                <div>${core.escapeHTML ? core.escapeHTML(msg.text) : msg.text}</div>
+              </div>`;
+            });
+            tmplChatMsgs.innerHTML = html;
+            tmplChatMsgs.scrollTop = tmplChatMsgs.scrollHeight;
+          });
+        });
+      }
+
+      if (btnSendTmplChat && tmplChatInput) {
+        btnSendTmplChat.onclick = function() {
+          const text = tmplChatInput.value.trim();
+          const senderName = tmplSenderInput ? tmplSenderInput.value.trim() : '';
+          if (!text) return;
+          tmplChatInput.value = '';
+          if (core.SyncTargets && core.SyncTargets.Firestore && core.SyncTargets.Firestore.sendTemplateMessage) {
+            core.SyncTargets.Firestore.sendTemplateMessage(docId, text, senderName);
+          }
+        };
       }
     }
 

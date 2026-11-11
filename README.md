@@ -65,8 +65,12 @@ Habitual is a long-term, privacy-first habit progression tracker featuring GitHu
 - **Granular Storage ($O(1)$ Writes)**: High-performance IndexedDB persistence with debounced coalescing. Switchable storage engines (`localStorage`, `IndexedDB`).
 - **Zero-Knowledge End-to-End Encryption (E2EE)**: Client-side AES-256-GCM encryption with PBKDF2 SHA-256 key derivation (100,000 iterations, 16-byte SHA-256 salt, 12-byte random IV) via Web Crypto API for Firebase Cloud Backup and local JSON backup downloads.
 - **Asymmetric Key Signatures (Zero-Login Public-Private Keys)**: Native W3C Web Crypto API **ECDSA P-256** digital signatures. Author keypairs stay strictly on-device; outbound writes to shared habits (`/share/{docId}`) are signed with private keys.
-- **Read-Only vs. Editor Invites**:
-  - *Read-Only View Link* (`#share?col=docId`): Allows viewers to view live updates without write permissions.
+- **Read-Only vs. Editor Invites & QR Code Sharing**:
+  - *Read-Only View Link* (`#share?col=docId&ro=1`): Opens shared habit in View-Only mode without check-in permissions.
+  - *Co-Editor Link* (`#share?col=docId&editor=1`): Grants co-editor access.
+  - *QR Code Customization & Copy Link*: Customizable QR code toolbar with size selection, color themes (Standard, Habit Color, Dark Contrast), enlarged full-screen scan view, and dedicated **📋 Copy Link** button directly underneath the QR code display box.
+  - *Public Key Registration for Chat*: Links with Chat enabled (`&chat=1`) automatically register the visitor's ECDSA `publicKeyBase64` into `allowedPublicKeys` in Firestore.
+  - *Template Discussion Chat Space*: Real-time encrypted discussion chat (`#modal-import-template`) for sharing tips and chatting around habit templates.
   - *Single-Use Editor Invite Link* (`#share-invite?col=docId&token=...`): Generates a unique single-use token to invite co-editors. Redeeming an invite token appends the recipient's public key to `allowedPublicKeys` and invalidates the token.
 - **Server-Side Enforcement**: Real-time Firebase Cloud Function trigger (`onShareDocumentWrite`) verifies signatures on Node.js using `crypto.verify()` and automatically reverts any unauthorized or unsigned overwrites/deletions.
 - **Automatic Upgrades**: Unsigned shared habits are automatically assigned keypairs, signed, and upgraded upon next load.

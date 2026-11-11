@@ -2,6 +2,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 
+const { FieldValue } = require('@google-cloud/firestore');
 admin.initializeApp();
 const db = admin.firestore();
 
@@ -117,7 +118,7 @@ exports.verifyAndWriteShare = functions.https.onCall(async (data, context) => {
       signature: signature,
       ownerPublicKey: existingOwner || ownerPublicKey || writerPublicKey,
       allowedPublicKeys: updatedAllowed,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
   } else {
     const initialOwner = ownerPublicKey || writerPublicKey;
@@ -128,7 +129,7 @@ exports.verifyAndWriteShare = functions.https.onCall(async (data, context) => {
       signature: signature,
       ownerPublicKey: initialOwner,
       allowedPublicKeys: [initialOwner],
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp()
     });
   }
 
@@ -165,7 +166,7 @@ exports.createInviteToken = functions.https.onCall(async (data, context) => {
     docId: docId,
     ownerPublicKey: ownerPublicKey,
     used: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
+    createdAt: FieldValue.serverTimestamp()
   });
 
   return { success: true, token: token, docId: docId };
@@ -207,11 +208,11 @@ exports.redeemInviteToken = functions.https.onCall(async (data, context) => {
   await db.runTransaction(async (transaction) => {
     transaction.update(shareRef, {
       allowedPublicKeys: updatedAllowed,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp()
     });
     transaction.update(inviteRef, {
       used: true,
-      usedAt: admin.firestore.FieldValue.serverTimestamp(),
+      usedAt: FieldValue.serverTimestamp(),
       usedBy: recipientPublicKey
     });
   });
@@ -291,7 +292,7 @@ exports.verifyAndWriteChatMessage = functions.https.onCall(async (data, context)
     ciphertext,
     writerPublicKey,
     signature,
-    timestamp: admin.firestore.FieldValue.serverTimestamp()
+    timestamp: FieldValue.serverTimestamp()
   });
 
   return { success: true, docId, msgId };
