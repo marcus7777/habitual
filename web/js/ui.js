@@ -2839,7 +2839,8 @@ window.HabitualCore = window.HabitualCore || {};
             senderName: dec.senderName || '',
             timestamp: dec.timestamp || m.timestamp || Date.now()
           };
-        }).catch(() => {
+        }).catch((err) => {
+          console.warn('💬 Chat decryption error:', err);
           return {
             msgId: m.msgId,
             writerPublicKey: m.writerPublicKey,
@@ -2851,7 +2852,6 @@ window.HabitualCore = window.HabitualCore || {};
       });
 
       Promise.all(decryptPromises).then(messages => {
-        console.log('💬 [subscribeToSharedHabitMessages]: decrypted count:', messages.length, messages);
         core._cachedDecryptedMessages[docId] = messages;
         renderMessagesToContainer(messages);
       });

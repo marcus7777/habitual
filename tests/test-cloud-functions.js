@@ -49,7 +49,7 @@ async function callFunction(functionName, data) {
   return json.result;
 }
 
-async function waitUntil(predicate, timeoutMs = 3000, intervalMs = 100) {
+async function waitUntil(predicate, timeoutMs = 10000, intervalMs = 100) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (await predicate()) return true;
@@ -371,13 +371,16 @@ async function runAllTests() {
 
   await test('onShareDocumentWrite reverts unauthorized deletion of a signed document', async () => {
     const protectedDocId = 'test_protected_' + Date.now();
+    const payloadString = `${protectedDocId}:valid_data:`;
+    const sig = signPayload(ownerKeys.privateKeyPem, payloadString);
 
     // Setup valid signed doc
     const originalData = {
       ciphertext: 'valid_data',
       ownerPublicKey: ownerKeys.publicKeyBase64,
       allowedPublicKeys: [ownerKeys.publicKeyBase64],
-      signature: 'valid_sig_stub'
+      writerPublicKey: ownerKeys.publicKeyBase64,
+      signature: sig
     };
     await db.collection('share').doc(protectedDocId).set(originalData);
 

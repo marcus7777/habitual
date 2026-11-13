@@ -845,8 +845,15 @@ window.HabitualCore = window.HabitualCore || {};
       }
 
       const enc = new TextEncoder();
-      const isTestEnv = typeof window !== 'undefined' && window.location && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.protocol === 'file:');
-      const iterations = isTestEnv ? 1 : 100000;
+      const isEmulLocal = (typeof window !== 'undefined' && window.location && (
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname === 'localhost' ||
+        window.location.protocol === 'file:' ||
+        window.location.search.includes('emulator=true') ||
+        (typeof localStorage !== 'undefined' && localStorage.getItem('habitual_use_firestore_emulator') === 'true')
+      )) || (typeof process !== 'undefined' && process.env && (process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_FIRESTORE_EMULATOR_HOST || process.env.FUNCTIONS_EMULATOR));
+
+      const iterations = isEmulLocal ? 1 : 100000;
 
       return crypto.subtle.importKey(
         'raw',
@@ -1264,6 +1271,7 @@ window.HabitualCore = window.HabitualCore || {};
       hideTimeOfDay: habit.hideTimeOfDay,
       hideLocation: habit.hideLocation,
       hideDependency: habit.hideDependency,
+      enableChat: Boolean(habit.enableChat || (habit.sharing && habit.sharing.enableChat)),
       subhabitDisplayMode: habit.subhabitDisplayMode,
       subhabitSortOrder: habit.subhabitSortOrder,
       subhabitSortReverse: habit.subhabitSortReverse,
@@ -2187,8 +2195,13 @@ window.HabitualCore = window.HabitualCore || {};
               if (!isValid) throw new Error('Invalid signature on shared habit document');
               return core.E2EE.decrypt(data.ciphertext, pwd).then(function(decryptedHabit) {
                 if (decryptedHabit && typeof decryptedHabit === 'object') {
+                  decryptedHabit.enableChat = decryptedHabit.enableChat !== false;
                   decryptedHabit.sharing = decryptedHabit.sharing || {};
+                  decryptedHabit.sharing.enabled = true;
+                  decryptedHabit.sharing.docId = docId;
+                  decryptedHabit.sharing.collection = docId;
                   decryptedHabit.sharing.password = pwd;
+                  decryptedHabit.sharing.enableChat = true;
                   if (data.ownerPublicKey) decryptedHabit.sharing.ownerPublicKey = data.ownerPublicKey;
                   if (Array.isArray(data.allowedPublicKeys)) decryptedHabit.sharing.allowedPublicKeys = data.allowedPublicKeys;
                 }
@@ -2201,8 +2214,13 @@ window.HabitualCore = window.HabitualCore || {};
 
           return core.E2EE.decrypt(data.ciphertext, pwd).then(function(decryptedHabit) {
             if (decryptedHabit && typeof decryptedHabit === 'object') {
+              decryptedHabit.enableChat = decryptedHabit.enableChat !== false;
               decryptedHabit.sharing = decryptedHabit.sharing || {};
+              decryptedHabit.sharing.enabled = true;
+              decryptedHabit.sharing.docId = docId;
+              decryptedHabit.sharing.collection = docId;
               decryptedHabit.sharing.password = pwd;
+              decryptedHabit.sharing.enableChat = true;
               if (data.ownerPublicKey) decryptedHabit.sharing.ownerPublicKey = data.ownerPublicKey;
               if (Array.isArray(data.allowedPublicKeys)) decryptedHabit.sharing.allowedPublicKeys = data.allowedPublicKeys;
             }

@@ -302,7 +302,6 @@ window.HabitualCore = window.HabitualCore || {};
 
       return fallbackDecrypt(ciphertext, passphrase);
     }
-    }
   };
 
   core.CryptoKeys = CryptoKeys;

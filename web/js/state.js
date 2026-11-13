@@ -186,11 +186,16 @@ window.HabitualCore = window.HabitualCore || {};
     return chain.reverse();
   };
 
-  core.getAllDescendantIds = function(habitId) {
+  core.getAllDescendantIds = function(habitId, visitedSet = new Set()) {
+    if (!habitId || visitedSet.has(habitId) || visitedSet.size > 50) return [];
+    visitedSet.add(habitId);
     const ids = [habitId];
-    const children = core.state.habits.filter(h => h.parentId === habitId);
+    if (!core.state || !Array.isArray(core.state.habits)) return ids;
+    const children = core.state.habits.filter(h => h.parentId === habitId && h.id !== habitId);
     children.forEach(c => {
-      ids.push(...core.getAllDescendantIds(c.id));
+      if (!visitedSet.has(c.id)) {
+        ids.push(...core.getAllDescendantIds(c.id, visitedSet));
+      }
     });
     return ids;
   };
