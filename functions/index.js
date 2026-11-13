@@ -16,10 +16,24 @@ function verifySignature(publicKeyBase64, signatureBase64, dataString) {
   if (!publicKeyBase64 || !signatureBase64 || !dataString) return false;
   try {
     const pem = spkiBase64ToPem(publicKeyBase64);
-    const verifier = crypto.createVerify('SHA256');
-    verifier.update(typeof dataString === 'string' ? dataString : JSON.stringify(dataString));
-    verifier.end();
-    return verifier.verify(pem, Buffer.from(signatureBase64, 'base64'));
+    const sigBuffer = Buffer.from(signatureBase64, 'base64');
+    const dataBuf = typeof dataString === 'string' ? dataString : JSON.stringify(dataString);
+
+    // 1. Try IEEE P1363 format (WebCrypto API default for browser keys)
+    try {
+      const verifier1363 = crypto.createVerify('SHA256');
+      verifier1363.update(dataBuf);
+      verifier1363.end();
+      if (verifier1363.verify({ key: pem, dsaEncoding: 'ieee-p1363' }, sigBuffer)) {
+        return true;
+      }
+    } catch (e1) {}
+
+    // 2. Fallback to ASN.1 DER format (Node / OpenSSL default)
+    const verifierDer = crypto.createVerify('SHA256');
+    verifierDer.update(dataBuf);
+    verifierDer.end();
+    return verifierDer.verify(pem, sigBuffer);
   } catch (err) {
     console.error('Server signature verification error:', err);
     return false;

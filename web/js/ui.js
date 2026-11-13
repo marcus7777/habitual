@@ -2738,9 +2738,13 @@ window.HabitualCore = window.HabitualCore || {};
   core._chatUnsubscribe = null;
   core._chatUnreadCount = 0;
   core._isChatMinimized = false;
+  core._cachedDecryptedMessages = core._cachedDecryptedMessages || {};
 
   core.initActiveModalChat = function() {
-    const currentHabit = core._currentEditingHabit;
+    const currentHabit = core._currentEditingHabit ||
+      (core.state && Array.isArray(core.state.habits) && core.state.habits.find(h => h.id === core.state.selectedHabitId && h.sharing && h.sharing.enabled)) ||
+      (core.state && Array.isArray(core.state.habits) && core.state.habits.find(h => h.sharing && h.sharing.enabled && h.sharing.enableChat));
+
     if (!currentHabit || !currentHabit.sharing) return;
 
     const docId = currentHabit.sharing.docId || currentHabit.sharing.collection;
@@ -2751,9 +2755,65 @@ window.HabitualCore = window.HabitualCore || {};
       core._chatUnsubscribe = null;
     }
 
-    const container = document.getElementById('chat-messages-container');
-    if (container) {
-      container.innerHTML = '<div class="muted-text text-center padding-sm" style="color: var(--text-muted); font-size: 0.88rem; margin: auto;">Decrypting chat history...</div>';
+    const renderMessagesToContainer = (messages) => {
+      const container = document.getElementById('chat-messages-container');
+      if (!container) return;
+
+      if (!messages || messages.length === 0) {
+        container.innerHTML = '<div class="muted-text text-center padding-sm" style="color: var(--text-muted); font-size: 0.88rem; margin: auto;">No messages yet. Send a message to your collaborators!</div>';
+        return;
+      }
+
+      if (core._isChatMinimized) {
+        core._chatUnreadCount++;
+        const badge = document.getElementById('chat-unread-badge');
+        if (badge) {
+          badge.textContent = String(core._chatUnreadCount);
+          badge.classList.remove('hidden');
+        }
+      } else {
+        core._chatUnreadCount = 0;
+        const badge = document.getElementById('chat-unread-badge');
+        if (badge) {
+          badge.textContent = '0';
+          badge.classList.add('hidden');
+        }
+      }
+
+      let html = '';
+      const myPubKey = core.CLIENT_ID || '';
+
+      messages.forEach(msg => {
+        const isMine = myPubKey && msg.writerPublicKey === myPubKey;
+        const bubbleClass = isMine ? 'chat-bubble-mine' : 'chat-bubble-their';
+        const pubShort = msg.writerPublicKey ? ('#' + msg.writerPublicKey.slice(0, 8) + '…') : '#anon';
+        const nameDisp = msg.senderName ? (core.escapeHTML ? core.escapeHTML(msg.senderName) + ' ' : msg.senderName + ' ') : '';
+        const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        html += `
+          <div class="${bubbleClass}">
+            <div class="chat-meta">
+              <span>${nameDisp}</span>
+              <span class="chat-pubkey-pill">${pubShort}</span>
+              <span style="margin-left: auto; opacity: 0.7;">${timeStr}</span>
+            </div>
+            <div class="chat-text">${core.escapeHTML ? core.escapeHTML(msg.text) : msg.text}</div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+      container.scrollTop = container.scrollHeight;
+    };
+
+    // Immediately render cached messages if available to prevent disappearance on DOM refresh
+    if (core._cachedDecryptedMessages[docId]) {
+      renderMessagesToContainer(core._cachedDecryptedMessages[docId]);
+    } else {
+      const container = document.getElementById('chat-messages-container');
+      if (container) {
+        container.innerHTML = '<div class="muted-text text-center padding-sm" style="color: var(--text-muted); font-size: 0.88rem; margin: auto;">Decrypting chat history...</div>';
+      }
     }
 
     if (!core.SyncTargets || !core.SyncTargets.Firestore || typeof core.SyncTargets.Firestore.subscribeToSharedHabitMessages !== 'function') {
@@ -2762,9 +2822,8 @@ window.HabitualCore = window.HabitualCore || {};
 
     core._chatUnsubscribe = core.SyncTargets.Firestore.subscribeToSharedHabitMessages(docId, function(rawMsgs) {
       if (!rawMsgs || rawMsgs.length === 0) {
-        if (container) {
-          container.innerHTML = '<div class="muted-text text-center padding-sm" style="color: var(--text-muted); font-size: 0.88rem; margin: auto;">No messages yet. Send a message to your collaborators!</div>';
-        }
+        core._cachedDecryptedMessages[docId] = [];
+        renderMessagesToContainer([]);
         return;
       }
 
@@ -2792,48 +2851,9 @@ window.HabitualCore = window.HabitualCore || {};
       });
 
       Promise.all(decryptPromises).then(messages => {
-        if (!container) return;
-
-        if (core._isChatMinimized) {
-          core._chatUnreadCount++;
-          const badge = document.getElementById('chat-unread-badge');
-          if (badge) {
-            badge.textContent = String(core._chatUnreadCount);
-            badge.classList.remove('hidden');
-          }
-        } else {
-          core._chatUnreadCount = 0;
-          const badge = document.getElementById('chat-unread-badge');
-          if (badge) {
-            badge.textContent = '0';
-            badge.classList.add('hidden');
-          }
-        }
-
-        let html = '';
-        const myPubKey = core.CLIENT_ID || '';
-
-        messages.forEach(msg => {
-          const isMine = myPubKey && msg.writerPublicKey === myPubKey;
-          const bubbleClass = isMine ? 'chat-bubble-mine' : 'chat-bubble-their';
-          const pubShort = msg.writerPublicKey ? ('#' + msg.writerPublicKey.slice(0, 8) + '…') : '#anon';
-          const nameDisp = msg.senderName ? (core.escapeHTML ? core.escapeHTML(msg.senderName) + ' ' : msg.senderName + ' ') : '';
-          const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-          html += `
-            <div class="${bubbleClass}">
-              <div class="chat-meta">
-                <span>${nameDisp}</span>
-                <span class="chat-pubkey-pill">${pubShort}</span>
-                <span style="margin-left: auto; opacity: 0.7;">${timeStr}</span>
-              </div>
-              <div class="chat-text">${core.escapeHTML ? core.escapeHTML(msg.text) : msg.text}</div>
-            </div>
-          `;
-        });
-
-        container.innerHTML = html;
-        container.scrollTop = container.scrollHeight;
+        console.log('💬 [subscribeToSharedHabitMessages]: decrypted count:', messages.length, messages);
+        core._cachedDecryptedMessages[docId] = messages;
+        renderMessagesToContainer(messages);
       });
     });
   };
@@ -2848,18 +2868,25 @@ window.HabitualCore = window.HabitualCore || {};
     const bodyExpandable = document.getElementById('chat-expandable-body');
 
     const handleSendMessage = () => {
-      if (!inputMsg) return;
-      const text = inputMsg.value.trim();
-      const senderName = inputName ? inputName.value.trim() : '';
+      const curInputMsg = document.getElementById('chat-message-input') || inputMsg;
+      const curInputName = document.getElementById('chat-sender-name-input') || inputName;
+      if (!curInputMsg) return;
+      const text = curInputMsg.value.trim();
+      const senderName = curInputName ? curInputName.value.trim() : '';
       if (!text) return;
 
-      const habit = core._currentEditingHabit;
+      const habit = core._currentEditingHabit ||
+        (core.state && Array.isArray(core.state.habits) && core.state.habits.find(h => h.id === core.state.selectedHabitId && h.sharing && h.sharing.enabled)) ||
+        (core.state && Array.isArray(core.state.habits) && core.state.habits.find(h => h.sharing && h.sharing.enabled && h.sharing.enableChat));
+
       if (!habit || !habit.sharing) return;
 
       const docId = habit.sharing.docId || habit.sharing.collection;
       const pwd = habit.sharing.password || '';
 
-      inputMsg.value = '';
+      console.log('💬 [handleSendMessage]: text:', text, 'docId:', docId, 'pwd:', pwd);
+
+      curInputMsg.value = '';
 
       if (core.SyncTargets && core.SyncTargets.Firestore && typeof core.SyncTargets.Firestore.sendSharedHabitMessage === 'function') {
         core.SyncTargets.Firestore.sendSharedHabitMessage(docId, text, senderName, pwd).catch(err => {
@@ -3545,11 +3572,14 @@ window.HabitualCore = window.HabitualCore || {};
     const invalidIds = new Set();
     if (excludeId) core.getAllDescendantIds(excludeId).forEach(id => invalidIds.add(id));
 
+    const visitedSet = new Set();
     function appendHabitOptions(parentId = null, depth = 0) {
+      if (depth > 20) return;
       const habitsList = (core.state && core.state.habits) ? core.state.habits : [];
       const children = habitsList.filter(h => (h.parentId || null) === parentId);
       children.forEach(h => {
-        if (invalidIds.has(h.id)) return;
+        if (invalidIds.has(h.id) || visitedSet.has(h.id)) return;
+        visitedSet.add(h.id);
         const indent = '&nbsp;&nbsp;'.repeat(depth) + (depth > 0 ? '↳ ' : '');
         const isSelected = h.id === currentParentId;
         const pausedSuffix = h.isPaused ? ' (Paused)' : '';
@@ -5247,10 +5277,13 @@ window.HabitualCore = window.HabitualCore || {};
 
     let optionsHtml = `<option value="${habitToEdit.id}">Entire Habit (${core.escapeHTML(habitToEdit.name)})</option>`;
 
+    const visitedSet = new Set();
     function collectSubhabits(parentId, depth = 1) {
-      if (!core.state || !Array.isArray(core.state.habits)) return;
+      if (depth > 20 || !core.state || !Array.isArray(core.state.habits)) return;
       const children = core.state.habits.filter(h => h.parentId === parentId);
       children.forEach(child => {
+        if (visitedSet.has(child.id)) return;
+        visitedSet.add(child.id);
         const indent = '↳ '.repeat(depth);
         optionsHtml += `<option value="${child.id}">${indent}${core.escapeHTML(child.name)}</option>`;
         collectSubhabits(child.id, depth + 1);
@@ -5276,7 +5309,9 @@ window.HabitualCore = window.HabitualCore || {};
     if (!habitId) return;
 
     let targetHabit = (core.state && Array.isArray(core.state.habits)) ? core.state.habits.find(h => h.id === habitId) : null;
-    while (targetHabit && targetHabit.parentId) {
+    const visitedAncestors = new Set();
+    while (targetHabit && targetHabit.parentId && !visitedAncestors.has(targetHabit.id)) {
+      visitedAncestors.add(targetHabit.id);
       const parent = core.state.habits.find(h => h.id === targetHabit.parentId);
       if (!parent) break;
       targetHabit = parent;

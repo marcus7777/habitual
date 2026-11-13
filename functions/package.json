@@ -3,7 +3,7 @@
   "description": "Firebase Cloud Functions for Habitual habit sharing signature verification",
   "scripts": {
     "serve": "firebase serve --only functions",
-    "emulators": "JAVA_HOME=/home/marcus/Documents/android-studio/jbr PATH=/home/marcus/Documents/android-studio/jbr/bin:$PATH firebase emulators:start --only functions,firestore",
+    "emulators": "JAVA_HOME=/home/marcus/Documents/android-studio/jbr PATH=/home/marcus/Documents/android-studio/jbr/bin:$PATH firebase emulators:start --only functions,firestore,hosting",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "test": "JAVA_HOME=/home/marcus/Documents/android-studio/jbr PATH=/home/marcus/Documents/android-studio/jbr/bin:$PATH firebase emulators:exec --only functions,firestore \"node ../tests/test-cloud-functions.js\"",

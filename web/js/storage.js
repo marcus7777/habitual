@@ -1400,14 +1400,38 @@ window.HabitualCore = window.HabitualCore || {};
         if (!db) return;
         try {
           const urlParams = (typeof window !== 'undefined' && window.location && window.location.search) ? new URLSearchParams(window.location.search) : null;
-          const useEmul = (urlParams && urlParams.get('emulator') === 'true') ||
-            (typeof localStorage !== 'undefined' && localStorage.getItem('habitual_use_firestore_emulator') === 'true');
+
+          if (urlParams) {
+            if (urlParams.get('emulator') === 'true') {
+              if (typeof localStorage !== 'undefined') localStorage.setItem('habitual_use_firestore_emulator', 'true');
+            } else if (urlParams.get('emulator') === 'false') {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem('habitual_use_firestore_emulator');
+                localStorage.removeItem('habitual_emulator_host');
+                localStorage.removeItem('habitual_emulator_port');
+              }
+            }
+            if (urlParams.get('emulatorHost') && typeof localStorage !== 'undefined') {
+              localStorage.setItem('habitual_emulator_host', urlParams.get('emulatorHost'));
+            }
+            if (urlParams.get('emulatorPort') && typeof localStorage !== 'undefined') {
+              localStorage.setItem('habitual_emulator_port', urlParams.get('emulatorPort'));
+            }
+          }
+
+          const useEmul = (typeof localStorage !== 'undefined' && localStorage.getItem('habitual_use_firestore_emulator') === 'true') ||
+            (urlParams && urlParams.get('emulator') === 'true');
+
           if (useEmul && typeof db.useEmulator === 'function' && !db._emulatorConnected) {
-            const host = (urlParams && urlParams.get('emulatorHost')) || 'localhost';
-            const port = parseInt((urlParams && urlParams.get('emulatorPort')) || '8080', 10);
+            const defaultHost = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : 'localhost';
+            const host = (typeof localStorage !== 'undefined' && localStorage.getItem('habitual_emulator_host')) ||
+              (urlParams && urlParams.get('emulatorHost')) || defaultHost;
+            const port = parseInt((typeof localStorage !== 'undefined' && localStorage.getItem('habitual_emulator_port')) ||
+              (urlParams && urlParams.get('emulatorPort')) || '8080', 10);
+
             db.useEmulator(host, port);
             db._emulatorConnected = true;
-            console.log(`🔥 Connected to Firestore Emulator at ${host}:${port}`);
+            console.log(`🔥 Connected to Firestore Emulator at ${host}:${port} (Persistent)`);
           }
         } catch (e) {
           // Ignore error if emulator already connected or unsupported
@@ -2094,8 +2118,12 @@ window.HabitualCore = window.HabitualCore || {};
           return core.CryptoKeys.signPayload(userKey.privateKey, payloadString).then(function(signature) {
             return self.db.collection('share').doc(docId).get().then(function(snap) {
               const existingData = (snap && snap.exists) ? snap.data() : null;
-              let ownerKey = (existingData && existingData.ownerPublicKey) ? existingData.ownerPublicKey : userKey.publicKeyBase64;
-              let allowed = (existingData && Array.isArray(existingData.allowedPublicKeys)) ? existingData.allowedPublicKeys : [];
+              let ownerKey = (existingData && existingData.ownerPublicKey) ? existingData.ownerPublicKey : (habit.sharing.ownerPublicKey || userKey.publicKeyBase64);
+              let allowed = (existingData && Array.isArray(existingData.allowedPublicKeys)) ? existingData.allowedPublicKeys : (Array.isArray(habit.sharing.allowedPublicKeys) ? habit.sharing.allowedPublicKeys : []);
+
+              if (ownerKey && !allowed.includes(ownerKey)) allowed.push(ownerKey);
+              if (userKey.publicKeyBase64 && !allowed.includes(userKey.publicKeyBase64)) allowed.push(userKey.publicKeyBase64);
+              if (habit.sharing.ownerPublicKey && !allowed.includes(habit.sharing.ownerPublicKey)) allowed.push(habit.sharing.ownerPublicKey);
 
               if (allowed.length > 0 && !allowed.includes(userKey.publicKeyBase64) && ownerKey !== userKey.publicKeyBase64) {
                 const errMsg = '❌ Cannot update shared habit: Your device key is not an authorized editor.';
@@ -2117,6 +2145,8 @@ window.HabitualCore = window.HabitualCore || {};
                 ownerPublicKey: ownerKey,
                 allowedPublicKeys: updatedAllowed
               }, { merge: true }).then(function() {
+                habit.sharing.ownerPublicKey = ownerKey;
+                habit.sharing.allowedPublicKeys = updatedAllowed;
                 habit._lastUploadedDataHash = dataHash;
               });
             });
@@ -2155,13 +2185,29 @@ window.HabitualCore = window.HabitualCore || {};
             const payloadStr = docId + ':' + data.ciphertext + ':' + (data.hashOfdata || '');
             return core.CryptoKeys.verifySignature(data.writerPublicKey, data.signature, payloadStr).then(function(isValid) {
               if (!isValid) throw new Error('Invalid signature on shared habit document');
-              return core.E2EE.decrypt(data.ciphertext, pwd);
+              return core.E2EE.decrypt(data.ciphertext, pwd).then(function(decryptedHabit) {
+                if (decryptedHabit && typeof decryptedHabit === 'object') {
+                  decryptedHabit.sharing = decryptedHabit.sharing || {};
+                  decryptedHabit.sharing.password = pwd;
+                  if (data.ownerPublicKey) decryptedHabit.sharing.ownerPublicKey = data.ownerPublicKey;
+                  if (Array.isArray(data.allowedPublicKeys)) decryptedHabit.sharing.allowedPublicKeys = data.allowedPublicKeys;
+                }
+                return decryptedHabit;
+              });
             });
           } else if (data.ownerPublicKey || data.signature) {
             return Promise.reject(new Error('Unsigned update rejected on signed shared document'));
           }
 
-          return core.E2EE.decrypt(data.ciphertext, pwd);
+          return core.E2EE.decrypt(data.ciphertext, pwd).then(function(decryptedHabit) {
+            if (decryptedHabit && typeof decryptedHabit === 'object') {
+              decryptedHabit.sharing = decryptedHabit.sharing || {};
+              decryptedHabit.sharing.password = pwd;
+              if (data.ownerPublicKey) decryptedHabit.sharing.ownerPublicKey = data.ownerPublicKey;
+              if (Array.isArray(data.allowedPublicKeys)) decryptedHabit.sharing.allowedPublicKeys = data.allowedPublicKeys;
+            }
+            return decryptedHabit;
+          });
         }).catch(function(err) {
           console.warn('Error downloading per-habit backup:', err);
 
@@ -2359,24 +2405,41 @@ window.HabitualCore = window.HabitualCore || {};
       subscribeToSharedHabitMessages: function(docId, onMessagesUpdatedCallback) {
         if (!docId) return function() {};
         const self = this;
-        const db = self.db || (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore());
-        if (!db) {
-          if (onMessagesUpdatedCallback) onMessagesUpdatedCallback([]);
-          return function() {};
-        }
-        const colRef = db.collection('habit_chats').doc(docId).collection('messages');
-        return colRef.onSnapshot(function(snapshot) {
-          if (!snapshot || !snapshot.docs) {
-            if (onMessagesUpdatedCallback) onMessagesUpdatedCallback([]);
+        let activeSub = null;
+        let isCancelled = false;
+
+        const connectSub = function() {
+          if (isCancelled) return;
+          const db = self.db || (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore());
+          if (!db) {
+            self.init().then(function() {
+              if (!isCancelled) connectSub();
+            }).catch(function() {
+              if (onMessagesUpdatedCallback) onMessagesUpdatedCallback([]);
+            });
             return;
           }
-          const docs = snapshot.docs.map(function(d) {
-            const data = d.data() || {};
-            data.msgId = d.id;
-            return data;
+          const colRef = db.collection('habit_chats').doc(docId).collection('messages');
+          activeSub = colRef.onSnapshot(function(snapshot) {
+            if (!snapshot || !snapshot.docs) {
+              if (onMessagesUpdatedCallback) onMessagesUpdatedCallback([]);
+              return;
+            }
+            const docs = snapshot.docs.map(function(d) {
+              const data = d.data() || {};
+              data.msgId = d.id;
+              return data;
+            });
+            if (onMessagesUpdatedCallback) onMessagesUpdatedCallback(docs);
           });
-          if (onMessagesUpdatedCallback) onMessagesUpdatedCallback(docs);
-        });
+        };
+
+        connectSub();
+
+        return function unsubscribe() {
+          isCancelled = true;
+          if (typeof activeSub === 'function') activeSub();
+        };
       },
 
       sendSharedHabitMessage: function(docId, text, senderName, sharedPassword) {
@@ -2407,7 +2470,39 @@ window.HabitualCore = window.HabitualCore || {};
                 signature: sig,
                 timestamp: Date.now()
               };
-              return db.collection('habit_chats').doc(docId).collection('messages').doc(msgId).set(docData);
+
+              const useEmul = (typeof window !== 'undefined' && window.location && (window.location.search.includes('emulator=true') || (typeof localStorage !== 'undefined' && localStorage.getItem('habitual_use_firestore_emulator') === 'true')));
+              const emulHost = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '127.0.0.1';
+              const funcUrl = useEmul
+                ? `http://${emulHost}:5001/habitual-log/us-central1/verifyAndWriteChatMessage`
+                : 'https://us-central1-habitual-log.cloudfunctions.net/verifyAndWriteChatMessage';
+
+              return fetch(funcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  data: {
+                    docId: docId,
+                    msgId: msgId,
+                    ciphertext: ciphertext,
+                    writerPublicKey: userKey.publicKeyBase64,
+                    signature: sig
+                  }
+                })
+              }).then(function(res) {
+                return res.json();
+              }).then(function(json) {
+                if (json.result && json.result.success) {
+                  return json.result;
+                }
+                if (json.error) {
+                  console.warn('verifyAndWriteChatMessage Cloud Function error:', json.error);
+                }
+                return db.collection('habit_chats').doc(docId).collection('messages').doc(msgId).set(docData);
+              }).catch(function(err) {
+                console.warn('verifyAndWriteChatMessage network fallback:', err);
+                return db.collection('habit_chats').doc(docId).collection('messages').doc(msgId).set(docData);
+              });
             });
           });
         });
