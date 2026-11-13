@@ -22,7 +22,7 @@ Habitual is engineered with a strict **local-first, privacy-first** philosophy:
 
 The primary dashboard provides a fluid, GitHub-style 7x52 heatmap activity grid for all your active habits.
 
-![Main Overview Heatmaps](tests/screenshots/manual/01_main_habits_heatmap_overview.png)
+![Main Overview Heatmaps](/home/marcus/habitual/tests/screenshots/manual/01_main_habits_heatmap_overview.png)
 
 #### Key Interface Elements:
 1. **GitHub-Style 7x52 Heatmap Grid:** Displays 365 days of activity. Cell transparency and color intensity dynamically scale based on your completion ratio (`count / dailyTarget`).
@@ -36,7 +36,7 @@ The primary dashboard provides a fluid, GitHub-style 7x52 heatmap activity grid 
 
 Habitual supports multi-level hierarchical habit trees (parent habits with nested sub-habits).
 
-![Concertina Sub-Habit Accordion](tests/screenshots/manual/02_subhabit_accordion_expanded.png)
+![Concertina Sub-Habit Accordion](/home/marcus/habitual/tests/screenshots/manual/02_subhabit_accordion_expanded.png)
 
 #### Accordion Workflows:
 - **Collapsing / Expanding Sub-Habits:** Click the concertina button (`▼ 2 sub-habits`) on any parent habit card to expand or collapse nested sub-habits underneath.
@@ -48,7 +48,7 @@ Habitual supports multi-level hierarchical habit trees (parent habits with neste
 
 Clicking any habit title navigates to a dedicated single-habit page (`#/habit/:id`).
 
-![Single Habit Focus Page View](tests/screenshots/manual/03_single_habit_page_view.png)
+![Single Habit Focus Page View](/home/marcus/habitual/tests/screenshots/manual/03_single_habit_page_view.png)
 
 #### Features:
 - **Full-Width Heatmap:** Enlarged view showing complete historical check-in squares.
@@ -63,7 +63,7 @@ Opening the Habit Options modal (clicking ⚙️ on any habit) reveals four tabs
 
 ### 3.1 Tab 1: Parent Options & Theme Picker
 
-![Habit Options Modal Parent Tab](tests/screenshots/manual/04_edit_habit_modal_parent_tab.png)
+![Habit Options Modal Parent Tab](/home/marcus/habitual/tests/screenshots/manual/04_edit_habit_modal_parent_tab.png)
 
 - **Positive vs Negative (Quit) Habits:** Positive habits build daily routines (e.g. Reading, Exercise). Negative Quit habits automatically calculate clean days and track slip-ups.
 - **Color Themes:** Choose from preset Google Calendar palette colors or enter any custom 6-digit **HEX color picker** code. Habitual automatically generates 4 gradient alpha levels for your heatmap squares.
@@ -72,7 +72,7 @@ Opening the Habit Options modal (clicking ⚙️ on any habit) reveals four tabs
 
 ### 3.2 Tab 2: Sub-Habit Auto-Sorting
 
-![Sub-Habit Auto-Sort Tab](tests/screenshots/manual/05_edit_habit_modal_subhabit_tab.png)
+![Sub-Habit Auto-Sort Tab](/home/marcus/habitual/tests/screenshots/manual/05_edit_habit_modal_subhabit_tab.png)
 
 #### Sorting & Display Modes:
 - **Alphabetical Sorting:** Automatically sorts sub-habits A–Z or Z–A.
@@ -84,7 +84,7 @@ Opening the Habit Options modal (clicking ⚙️ on any habit) reveals four tabs
 
 ### 3.3 Tab 3: Circumstantial Hiding Rules
 
-![Circumstantial Hiding Rules Tab](tests/screenshots/manual/06_edit_habit_modal_hiding_rules.png)
+![Circumstantial Hiding Rules Tab](/home/marcus/habitual/tests/screenshots/manual/06_edit_habit_modal_hiding_rules.png)
 
 #### Hiding Rules Engine:
 - **Time-of-Day Rules:** Hide habits before or after specific hours (e.g. hide "Evening Reflection" until 6:00 PM).
@@ -95,7 +95,7 @@ Opening the Habit Options modal (clicking ⚙️ on any habit) reveals four tabs
 
 ### 3.4 Tab 4: Encrypted Collaborator Chat Space
 
-![Encrypted Chat Space Tab](tests/screenshots/manual/07_edit_habit_modal_chat_tab.png)
+![Encrypted Chat Space Tab](/home/marcus/habitual/tests/screenshots/manual/07_edit_habit_modal_chat_tab.png)
 
 - **Zero-Knowledge Chat:** All messages typed into the collaborator chat space are encrypted client-side using AES-256-GCM before transmission.
 - **Signature Verification:** Every message is cryptographically signed with your device's WebCrypto ECDSA private key. Unsigned or unauthorized messages are automatically rejected.
@@ -106,7 +106,7 @@ Opening the Habit Options modal (clicking ⚙️ on any habit) reveals four tabs
 
 Clicking the **Advanced Settings Accordion** (`▼ Advanced Settings`) expands specialized data tools.
 
-![Advanced Settings Accordion](tests/screenshots/manual/08_edit_habit_modal_advanced_accordion.png)
+![Advanced Settings Accordion](/home/marcus/habitual/tests/screenshots/manual/08_edit_habit_modal_advanced_accordion.png)
 
 #### Accordion Tools:
 - **Past History Backfilling:** Automatically populate past check-in history over 30, 60, 90, or 365 days so you don't start from a blank canvas.
@@ -122,7 +122,7 @@ Clicking the **Advanced Settings Accordion** (`▼ Advanced Settings`) expands s
 
 Clicking any day square on a heatmap opens the Activity Log modal.
 
-![Quick Check-In Activity Log Modal](tests/screenshots/manual/09_quick_log_modal.png)
+![Quick Check-In Activity Log Modal](/home/marcus/habitual/tests/screenshots/manual/09_quick_log_modal.png)
 
 #### Features:
 - **Date Navigation:** Shift check-in dates backward or forward with arrow buttons (`◄` / `►`).
@@ -138,7 +138,7 @@ Clicking any day square on a heatmap opens the Activity Log modal.
 
 Clicking **Page Settings** opens the global default preferences dialog.
 
-![All Page Default Preferences Modal](tests/screenshots/manual/10_all_preferences_modal.png)
+![All Page Default Preferences Modal](/home/marcus/habitual/tests/screenshots/manual/10_all_preferences_modal.png)
 
 - **Default Habit Preferences:** Set default goal types, target frequencies, and color themes that automatically apply to all newly created habits.
 - **Global Sorting:** Configure main dashboard habit list sorting (Manual, Alphabetical, Streak-based).
@@ -151,7 +151,7 @@ Clicking **Page Settings** opens the global default preferences dialog.
 
 Opening a shared habit link or scanning a QR code opens the Import Shared Habit modal.
 
-![Import Shared Habit Modal](tests/screenshots/manual/11_import_shared_habit_modal.png)
+![Import Shared Habit Modal](/home/marcus/habitual/tests/screenshots/manual/11_import_shared_habit_modal.png)
 
 - **Live Preview:** View the shared habit title, sub-habits, and check-in history before importing.
 - **Permissions:** Shared habit creators can issue read-only (`ro=1`) or collaborative editor invite tokens (`createInviteToken` / `redeemInviteToken`).
@@ -160,7 +160,7 @@ Opening a shared habit link or scanning a QR code opens the Import Shared Habit 
 
 ### 6.2 Template Import & Discussion Space
 
-![Template Import Modal](tests/screenshots/manual/12_template_import_modal.png)
+![Template Import Modal](/home/marcus/habitual/tests/screenshots/manual/12_template_import_modal.png)
 
 - **Routine Templates:** Import pre-configured multi-step habit templates (e.g. "30-Day Health Transformation", "Morning Routine").
 - **Template Discussion:** Embedded chat section for discussing routine tips with template creators.
@@ -173,7 +173,7 @@ Opening a shared habit link or scanning a QR code opens the Import Shared Habit 
 
 A focused daily task execution page.
 
-![Standalone Todo Page](tests/screenshots/manual/13_todo_page_view.png)
+![Standalone Todo Page](/home/marcus/habitual/tests/screenshots/manual/13_todo_page_view.png)
 
 - **Countdown Timer:** Displays remaining hours and minutes until midnight.
 - **Daily Checklist:** Shows all pending check-ins for today with one-tap completion checkboxes.
@@ -184,7 +184,7 @@ A focused daily task execution page.
 
 Manage multi-device synchronization, master passphrases, and backups.
 
-![Standalone Sync & Backup Page](tests/screenshots/manual/14_sync_and_backup_page.png)
+![Standalone Sync & Backup Page](/home/marcus/habitual/tests/screenshots/manual/14_sync_and_backup_page.png)
 
 - **Multi-Device E2EE Sync:** Pair devices using a 6-character Sync Code or Master Passphrase.
 - **AudioSync GGWave Transfer:** Acoustic data transfer over sound waves between nearby mobile devices.
@@ -198,9 +198,9 @@ Habitual includes embeddable, lightweight widget pages:
 
 | Widget | URL | Description | Screenshot |
 | :--- | :--- | :--- | :--- |
-| **Add Widget** | `/widgets/add.html` | Compact form for quick habit creation in sidebars or webviews. | ![Add Widget](tests/screenshots/manual/15_widget_add_page.png) |
-| **Heatmaps Widget** | `/widgets/heatmaps.html` | Embedded progress heatmaps for home screens and dashboards. | ![Heatmaps Widget](tests/screenshots/manual/16_widget_heatmaps_page.png) |
-| **Settings Widget** | `/widgets/settings.html` | Compact settings management for widget display options. | ![Settings Widget](tests/screenshots/manual/17_widget_settings_page.png) |
+| **Add Widget** | `/widgets/add.html` | Compact form for quick habit creation in sidebars or webviews. | ![Add Widget](/home/marcus/habitual/tests/screenshots/manual/15_widget_add_page.png) |
+| **Heatmaps Widget** | `/widgets/heatmaps.html` | Embedded progress heatmaps for home screens and dashboards. | ![Heatmaps Widget](/home/marcus/habitual/tests/screenshots/manual/16_widget_heatmaps_page.png) |
+| **Settings Widget** | `/widgets/settings.html` | Compact settings management for widget display options. | ![Settings Widget](/home/marcus/habitual/tests/screenshots/manual/17_widget_settings_page.png) |
 
 ---
 

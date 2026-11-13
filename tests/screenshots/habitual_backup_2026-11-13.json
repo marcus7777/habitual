@@ -1,0 +1,61 @@
+{
+  "version": 2,
+  "updatedAt": 1794608218928,
+  "habits": [
+    {
+      "id": "dailyReading187",
+      "updatedAt": 1794608218928,
+      "name": "Daily Reading 187",
+      "colorTheme": "#616161",
+      "hideTimeOfDay": {
+        "enabled": false,
+        "mode": "before",
+        "startTime": "09:00",
+        "endTime": "18:00"
+      },
+      "hideLocation": {
+        "enabled": false,
+        "mode": "at",
+        "geohashes": []
+      },
+      "hideDependency": {
+        "enabled": false,
+        "targetId": "parent",
+        "criterion": "habit_completed",
+        "requiredCount": 1,
+        "timeframe": "today"
+      },
+      "targetDays": [
+        1
+      ],
+      "monthlyDay": "1",
+      "colorWholeWeek": true,
+      "colorWholeMonth": true,
+      "createdAt": "2026-11-13",
+      "logs": {
+        "2026-11-13": {
+          "count": 2,
+          "note": "Completed test entry via Playwright"
+        }
+      }
+    }
+  ],
+  "deletedHabitIds": [],
+  "updateLog": [],
+  "remoteHashHistory": [],
+  "selectedHabitId": "dailyReading187",
+  "selectedYear": 2026,
+  "showQuickLogOnStartup": false,
+  "dayBoundaryMode": "midnight",
+  "latitude": 51.5074,
+  "longitude": -0.1278,
+  "locationName": "Default (London)",
+  "allPreferences": {
+    "sortOrder": "manual",
+    "sortReverse": false,
+    "showStreak": false,
+    "showCount": true,
+    "showDuration": false,
+    "description": ""
+  }
+}
